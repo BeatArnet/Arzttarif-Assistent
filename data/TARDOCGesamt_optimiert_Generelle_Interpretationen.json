@@ -1,0 +1,142 @@
+[
+    {
+        "GI_Nr":1,
+        "Bezeichnung":"Grundsatz",
+        "Interpretation":"Alle erbrachten Leistungen müssen wirksam, zweckmässig und wirtschaftlich sein."
+    },
+    {
+        "GI_Nr":2,
+        "Bezeichnung":"Ärztliche Leistung (AL)",
+        "Interpretation":"In der *ärztlichen Leistung* sind die ärztlichen Personalkosten (Löhne, Sozialleistungen, Lohnnebenleistungen, Fortbildungskosten) einkalkuliert."
+    },
+    {
+        "GI_Nr":3,
+        "Bezeichnung":"Nichtärztliche Leistungserbringung",
+        "Interpretation":"**Grundsatz:**  _x000D_\nSämtliche Leistungen durch nichtärztliches Personal sind integraler Bestandteil der Komponente *Infrastruktur und\/oder Personalleistung* (IPL) und mit dieser abgegolten. Leistungen durch nichtärztliches Personal unmittelbar im Anschluss an eine Konsultation oder an andere ärztliche Grundleistungen dürfen nicht zu einer zeitlichen Verlängerung dieser Leistungen führen._x000D_\n_x000D_\nAusgenommen von diesem Grundsatz sind explizit tarifierte Leistungen für nichtärztliches Personal."
+    },
+    {
+        "GI_Nr":4,
+        "Bezeichnung":"Infrastruktur und\/oder Personalleistung (IPL)",
+        "Interpretation":"In der *Infrastruktur und\/oder Personalleistung (IPL)* sind folgende Kostenelemente einkalkuliert:_x000D_\n_x000D_\n**Personalkosten (nichtärztliches Personal):**_x000D_\n- Löhne_x000D_\n- Sozialleistungen_x000D_\n- Lohnnebenkosten_x000D_\n- Fortbildungskosten_x000D_\n_x000D_\n**Sachkosten:**_x000D_\n- Verbrauchsmaterial (Einzelstücke und Material-Sets) bis CHF 3.--_x000D_\n- Kosten für wiederverwendbares Instrumentarium und Material_x000D_\n- Kosten für Betriebsmittel und -material_x000D_\n- Kosten für Büromaterial_x000D_\n- Sachversicherungen_x000D_\n- Haftpflichtversicherungen_x000D_\n- Reparaturen_x000D_\n- usw._x000D_\n_x000D_\n**Umlagen:**_x000D_\n- Verwaltung_x000D_\n- Ökonomie_x000D_\n- Hausdienst_x000D_\n- Technischer Dienst_x000D_\n- Energie_x000D_\n- Fahrzeugkosten_x000D_\n- Kommunikation_x000D_\n_x000D_\n**Anlagenutzungskosten:**_x000D_\n- Abschreibungen_x000D_\n- Kapitalverzinsungen_x000D_\n- Mietkosten und Leasingkosten_x000D_\n_x000D_\nKalkulationsbasis der *IPL* ist die der Tarifposition hinterlegte Sparte. Die hinterlegte Sparte muss nicht zwingend mit dem effektiven Ort der Leistungserbringung übereinstimmen._x000D_\n"
+    },
+    {
+        "GI_Nr":5,
+        "Bezeichnung":"Indirekt-tarifwirksame Tätigkeiten",
+        "Interpretation":"Der Tarif berücksichtigt auch *indirekt-tarifwirksame Tätigkeiten*. Diese Leistungen sind bereits in den spezifischen Leistungspositionen miteinberechnet und darüber entschädigt:_x000D_\n_x000D_\n- Abzug für persönliche Inkonvenienzen wie WC_x000D_\n- Telefonate mit Ämtern_x000D_\n- gesetzliche Pausen_x000D_\n- Wegzeiten innerhalb der Praxis\/Station_x000D_\n- Zeiten für Praxismanagement\/Personalführung_x000D_\n- Rapporte_x000D_\n- Teambesprechungen_x000D_\n- Qualitätskontrollen (z. B. Geräte, Prozesse, Patientenzufriedenheitsumfragen, diverse Messungen)_x000D_\n- medizinische Statistiken für Bund\/Kantone_x000D_\n- Verzögerungen\/Inkonvenienzen, in denen die Sparte nicht für die Leistungserbringung genutzt werden können_x000D_\n- perioperatives Management (Teambesprechungen, Terminabsprachen usw.)"
+    },
+    {
+        "GI_Nr":6,
+        "Bezeichnung":"Leistungstypen",
+        "Interpretation":"**Hauptleistungen**  _x000D_\n*Hauptleistungen* bilden einen in sich abgeschlossenen Leistungsinhalt ab, welcher für sich alleine stehen kann._x000D_\n_x000D_\n**Zuschlagsleistungen «+»**  _x000D_\n*Zuschlagsleistungen* sind zwingend einer bestimmten Hauptleistung zugeordnet und können nur mit der entsprechenden Hauptleistung erfasst werden._x000D_\n_x000D_\n**Freie Zuschlagsleistung «(+)»**  _x000D_\n*Freie Zuschlagsleistungen* müssen der entsprechenden *Hauptleistung* zugeordnet werden. _x000D_\n_x000D_\n**Referenzleistung**  _x000D_\nBei *Referenzleistungen* muss zwingend eine *Hauptleistung* als Referenz erfasst werden._x000D_\n_x000D_\nAlle *Leistungstypen* können sowohl Handlungs- wie auch Zeitleistungen sein."
+    },
+    {
+        "GI_Nr":7,
+        "Bezeichnung":"Definition von Handlungs- und Zeitleistungen",
+        "Interpretation":"**Handlungsleistung**  _x000D_\nBei der *Handlungsleistung* hinterlegten Zeit handelt es sich um eine pauschale Zeitbetrachtung. Bei dieser Systematik ist der tatsächlich benötigte Zeitaufwand zur Erbringung der Leistung für die Erfassung somit nicht relevant._x000D_\n_x000D_\n**Zeitleistung**  _x000D_\nBei der *Zeitleistung* wird der tatsächlich benötigte Zeitaufwand zur Erbringung der Leistung erfasst. Diese Zeittarifpositionen charakterisieren sich durch eine Angabe *pro x Min.* in der Bezeichnung."
+    },
+    {
+        "GI_Nr":8,
+        "Bezeichnung":"Bewertung von Handlungs- und Zeitleistung",
+        "Interpretation":"**Minutage**  _x000D_\nBezeichnet die Zeit in Minuten für das Ausführen der ärztlichen Leistung (Parameter: Leistung im engeren Sinn, LieS) und die Beanspruchung der Infrastruktur und des nichtärztlichen Personals (Parameter: Raumbelegungszeit, RBZ)._x000D_\n_x000D_\nLeistung im engeren Sinn (LieS) und Raumbelegungszeit (RBZ) müssen bei einer Tarifposition nicht zwingend beide vorhanden sein oder nicht zwingend gleich lang sein._x000D_\n_x000D_\n**Bewertung**  _x000D_\nSowohl Handlungs- wie auch Zeitleistungen werden absolut bewertet, d.h. mit einer Minutage, Minutenkostensätzen und somit mit Taxpunkten. Die Minutenkostensätze sind in der gleichen Sparte sowohl für die Handlungs- wie auch die Zeitleistung identisch._x000D_\n_x000D_\n**Prozentleistungen**  _x000D_\nProzentleistungen erhöhen oder vermindern die Taxpunkte einer Handlungs- oder einer Zeitleistung auf der AL und\/oder IPL um den angegeben Prozentwert. Eine Prozentleistung muss zwingend den Leistungstyp *Referenzleistung* aufweisen."
+    },
+    {
+        "GI_Nr":9,
+        "Bezeichnung":"Abbildung eines medizinischen Leistungssettings",
+        "Interpretation":"Ein *medizinisches Leistungssetting* kann wie folgt abgebildet sein:_x000D_\n_x000D_\n- nur Handlungsleistung(en)_x000D_\n- nur Zeitleistung(en)_x000D_\n- Kombination einer Handlungsleistung als Hauptleistung und einer Zeitleistung als Zuschlagsleistung_x000D_\n- Kombination einer Handlungsleistung als Hauptleistung und Handlungsleistung(en) als Zuschlagsleistung(en)_x000D_\n_x000D_\nDie Abbildung eines *medizinischen Leistungssettings* besteht mindestens aus einer Hauptleistung."
+    },
+    {
+        "GI_Nr":10,
+        "Bezeichnung":"Kombination von Handlungs- und Zeitleistungen",
+        "Interpretation":"**Kombination von mehreren Zeitleistungen:**  _x000D_\nDie summierte Anzahl Minuten der erfassten Zeittarifpositionen darf den effektiv benötigten Zeitaufwand zur Erbringung dieser Zeitleistungen um maximal den angebrochenen Anteil der letzten Zeiteinheit der erfassten Zeittarifpositionen überschreiten. Der Absatz in der Generellen Interpretation [GI-19] *angebrochene Zeiteinheiten und Masseinheiten gelten als ganze Einheiten* ist somit auf die Summe anzuwenden und nicht auf die einzelnen, eigenständigen Zeittarifpositionen._x000D_\n_x000D_\n**Kombination von Zeit- und Handlungsleistungen:**  _x000D_\nDer effektiv benötigte Zeitaufwand zur Erbringung von Handlungsleistungen darf nicht doppelt mittels Zeittarifpositionen erfasst werden. Es handelt sich hierbei um eine unzulässige Doppelerfassung._x000D_\n_x000D_\nDer benötigte Zeitaufwand zur Erbringung von Zeitleistungen darf erfasst werden, unbesehen, ob der effektiv benötigte Zeitaufwand zur Erbringung von Handlungsleistungen die hinterlegte Durchschnittszeit der entsprechenden Handlungstarifpositionen unter- oder überschreitet."
+    },
+    {
+        "GI_Nr":11,
+        "Bezeichnung":"Vor- und Nachbereitung",
+        "Interpretation":"Die Tarifposition darf nur erfasst werden, wenn die Leistung angefallen ist._x000D_\n_x000D_\nDie *Vor- und Nachbereitungszeit* kann für die entsprechende Sparte 1 Mal pro Sitzung in Rechnung gestellt werden. Es muss ein Bezug zur entsprechenden Leistung hergestellt werden können._x000D_\n_x000D_\nWerden mehrere Leistungen erbracht, die in derselben Sparten tarifiert sind, darf die *Vor- und Nachbereitungszeit* nur 1 Mal pro Sitzung in Rechnung gestellt werden. Werden mehrere Leistungen erbracht, die in unterschiedlichen Sparten tarifiert sind, darf die *Vor- und Nachbereitung* 1 Mal pro entsprechender Sparte in Rechnung gestellt werden."
+    },
+    {
+        "GI_Nr":12,
+        "Bezeichnung":"Leistungsdokumentation",
+        "Interpretation":"Jede Leistung ist in geeigneter Form (Schrift, Ausdruck, Tonträger, Bildträger) zu dokumentieren._x000D_\n_x000D_\nDie *Leistungsdokumentation* ist in der Leistungsposition enthalten und kann nicht zusätzlich abgerechnet werden._x000D_\n_x000D_\nDie *Leistungsdokumentation* ist dem Versicherer (UVG, IVG, MVG) resp. dem Vertrauensarzt des Versicherers (KVG) auf Verlangen zuzustellen. Dabei gelten die Bestimmungen des Datenschutzes. Die erstmalige Zustellung dieser Dokumente auf Verlangen des Versicherers erfolgt kostenlos."
+    },
+    {
+        "GI_Nr":13,
+        "Bezeichnung":"Bericht",
+        "Interpretation":"Der *Bericht* ist eine schriftliche Mitteilung zuhanden des Patienten oder an Dritte. Dritte sind andere Ärzte, Therapeuten, Pflegende, Angehörige und Versicherer._x000D_\n_x000D_\nDer *Bericht* beinhaltet Befunde, Diagnosen, Therapien, Prognosen über den Heilungsverlauf und weitere den Patienten betreffende Massnahmen._x000D_\n_x000D_\nDie Übernahme der Leistungsdokumentation [GI-12] in den *Bericht* kann nicht zusätzlich über die Berichtspositionen abgerechnet werden. _x000D_\n_x000D_\n**Kopien und Zustellung**  _x000D_\nDie Vergütung eines Berichtes beinhaltet auch das erstmalige Anfertigen allfälliger Kopien desselben, unabhängig von der Anzahl der erstellten Exemplare sowie die Zustellung dieser Kopien auf Verlangen des Versicherers. Für den nochmaligen Versand von Kopien bereits bestehender medizinischer Dokumente sowie für Kopien von Fremdakten auf Verlangen des Versicherers siehe (AA.15.0090) resp. (EA.00.0210)._x000D_\n_x000D_\n**Datenschutz**  _x000D_\nDer Bericht ist dem Versicherer (UVG, IVG, MVG) bzw. dem Vertrauensarzt des Versicherers (KVG) auf Verlangen zuzustellen. Dabei gelten die Bestimmungen des Datenschutzes."
+    },
+    {
+        "GI_Nr":14,
+        "Bezeichnung":"Wechselzeiten",
+        "Interpretation":"**Definition**  _x000D_\nBei gewissen Leistungen fällt eine *Wechselzeit* an. Die *Wechselzeit* definiert den durchschnittlichen Zeitaufwand (Raumbelegung), um den Raum wieder in seinen (neutralen) Ausgangszustand zu versetzen, nachdem der Patient den Raum verlassen hat. _x000D_\n_x000D_\nDer TARDOC unterschiedet zwei Arten von Wechselzeiten:  _x000D_\n1. Separat tarifierte Wechselzeiten_x000D_\n2. Integrierte Wechselzeiten_x000D_\n_x000D_\n**Separat tarifierte Wechselzeiten**  _x000D_\nDie separat tarifierten *Wechselzeiten* des Kapitels [AR] dürfen nur abgerechnet werden, wenn die Leistung angefallen ist._x000D_\n_x000D_\nSeparat tarifierte *Wechselzeiten* sind mit spezifischen Hauptleistungen einer Sparte kumulierbar. Werden mehrere Leistungen erbracht, die in derselben Sparten tarifiert sind, darf die *Wechselzeit* max. 1 Mal pro Sitzung in Rechnung gestellt werden. Werden mehrere Leistungen erbracht, die in unterschiedlichen Sparten tarifiert sind und zwei unterschiedliche Räume beanspruchen, darf die *Wechselzeit* 1 Mal pro entsprechender Sparte in Rechnung gestellt werden. Diese Regelung gilt unabhängig davon, ob in derselben Sitzung Leistungspositionen in Rechnung gestellt werden, welche über eine integrierte *Wechselzeit* verfügen. Kumulationseinschränkungen auf Ebene Tarifposition übersteuern diese Regelung. _x000D_\n_x000D_\n**Integrierte Wechselzeiten**  _x000D_\nBei einigen Leistungspositionen ist die *Wechselzeit* bereits integriert. Die Minutage der hinterlegten *Wechselzeit* ist auf der jeweiligen Leistungsposition als Parameter «WZ» ausgewiesen._x000D_\n"
+    },
+    {
+        "GI_Nr":15,
+        "Bezeichnung":"Anwendungs- und Abrechnungsregeln",
+        "Interpretation":"**Kumulationsregeln**_x000D_\nKumulationsregeln gelten grundsätzlich pro Sitzung. _x000D_\n_x000D_\nSofern nicht ausdrücklich eine Einschränkung besteht, sind Hauptleistungen miteinander kumulierbar._x000D_\n_x000D_\nSofern nicht ausdrücklich anders erwähnt, gelten die Kumulationsregeln einer Hauptleistung auch für die Zuschlagsleistungen, die dieser Hauptleistung zugeordnet sind._x000D_\n_x000D_\n**Mengenlimitationen**_x000D_\nMengenlimitationen gelten grundsätzlich pro Sitzung. Mengenlimitationen pro Zeiteinheit (z.B. 90, 120, 180 oder 260 Tage) gelten pro Leistungserbringer im ambulanten Setting. _x000D_\n_x000D_\nDie *Mengenlimitationen* gelten rollierend. Das heisst z.B. bei *max. 2 x pro 30 Tage*,  dass eine bestimmte Tarifposition während dieses Zeitraums von 30 Tagen nur *2 x* abgerechnet werden kann. Zeiträume beziehen sich auf die Anzahl aufeinanderfolgender Tage der angegebenen Einheit und gelten über das Ende des Kalenderjahres hinaus."
+    },
+    {
+        "GI_Nr":16,
+        "Bezeichnung":"Systematisches Vorgehen bei der Regelanwendung",
+        "Interpretation":"Für Regeln oder Interpretationen gelten folgende Hierarchiestufen:_x000D_\n_x000D_\n1. (Oberste) Hierarchiestufe: Regeln und\/oder Interpretationen auf Ebene Generelle Interpretationen (GI) zum Tarif (z.B. [GI-01])_x000D_\n2. Hierarchiestufe: Regeln und\/oder Interpretationen auf Ebene Kapitel (z.B. [AA])_x000D_\n3. Hierarchiestufe: Regeln und\/oder Interpretationen auf Ebene Unterkapitel (z.B. [AA.00])_x000D_\n4. (Unterste) Hierarchiestufe: Regeln und\/oder Interpretationen auf Ebene Tarifposition (z.B. (AA.25.0010)) und Regeln auf Ebene Leistungsgruppe_x000D_\n_x000D_\nBei Regeln mit gleichem Betreff auf mehreren Ebenen gilt die Regel der untersten der betroffenen Hierarchiestufen."
+    },
+    {
+        "GI_Nr":17,
+        "Bezeichnung":"Seitenangabe",
+        "Interpretation":"Wenn in der Leistungsbezeichnung *pro Seite* erwähnt ist, muss die behandelte Seite explizit dokumentiert werden. Bei beidseitigen Eingriffen ist die Leistungsposition zwei Mal zu erfassen und jeweils die Seite anzugeben. Handelt es sich um eine Zeitleistung, ist pro Seite die jeweilige benötigte Zeit anzugeben."
+    },
+    {
+        "GI_Nr":18,
+        "Bezeichnung":"Beidseitige Leistungen",
+        "Interpretation":"Leistungen, die nur für beidseitige Durchführung tarifiert sind, können auch dann voll abgerechnet werden, wenn sie aus anatomischen\/funktionellen Gründen des Patienten nur einseitig durchgeführt werden können."
+    },
+    {
+        "GI_Nr":19,
+        "Bezeichnung":"Zeiteinheiten und Masseinheiten",
+        "Interpretation":"Angebrochene *Zeiteinheiten und Masseinheiten* gelten als ganze Einheiten._x000D_\n_x000D_\nWeitere Einheiten können erst verrechnet werden, wenn die vorhergehende Einheiten vollständig abgeschlossen ist._x000D_\n_x000D_\n**Es gelten folgende Zeiteinheiten:**_x000D_\n- Woche = 7 aufeinanderfolgende Tage_x000D_\n- Monat = 30 aufeinanderfolgende Tage_x000D_\n- Jahr = 360 aufeinanderfolgende Tage_x000D_\n_x000D_\nDer Begriff *Tag* versteht sich immer als Kalendertag."
+    },
+    {
+        "GI_Nr":20,
+        "Bezeichnung":"Feiertage",
+        "Interpretation":"Die gesetzlichen, ortsüblichen *Feiertage* gelten als Sonntage."
+    },
+    {
+        "GI_Nr":21,
+        "Bezeichnung":"Sparten",
+        "Interpretation":"**Definition *Sparte***_x000D_\nDie Sparte ist eine räumlich oder technisch definierte Versorgungseinheit der Leistungserbringer, in welcher ein bestimmtes Bündel von Leistungen erbracht wird. Jede Sparte ist durch eine besondere Infrastruktur (Raum, feste und mobile Apparate und Geräte) sowie durch eine bestimmte Dotation von nichtärztlichem Personal charakterisiert (siehe dazu die Ausführungen in der [GI-04])._x000D_\n_x000D_\nDie Sparten des TARDOC sind in zwei Kategorien eingeteilt:_x000D_\n- Anerkennungssparten_x000D_\n- restliche Sparten_x000D_\n_x000D_\n*Anerkennungssparten*_x000D_\nGemäss Spartenkonzept muss für die sogenannten Anerkennungssparten eine Anerkennung gemäss Mindestanforderungen eingeholt werden. Die Anerkennung der Sparten durch das zuständige Gremium der OAAT AG ist Voraussetzung zur Abrechnung der Leistungen aus dieser Sparte. Die Definition einer Sparte als Anerkennungssparte gründet in erster Linie auf Anforderungen betreffend Behandlungs- und Prozessqualität. _x000D_\n_x000D_\nDie Anerkennungskriterien sowie das Anerkennungsverfahren sind im Spartenkonzept beschrieben._x000D_\n"
+    },
+    {
+        "GI_Nr":22,
+        "Bezeichnung":"Telemedizin",
+        "Interpretation":"**Definition Telemedizin:**   _x000D_\nBei einer telemedizinischen ärztlichen Konsultation erfolgt die Interaktion zwischen Leistungserbringer und Patienten oder Angehörigen\/Betreuenden von Kindern bzw. nicht gesprächsfähigen Patienten in räumlicher Distanz der Kommunikationspartner. D.h. die Kommunikationspartner stehen sich nicht direkt und persönlich gegenüber, sondern kommunizieren über ein elektronisches Medium._x000D_\n_x000D_\nBei der *zeitgleichen telemedizinischen Konsultation* besteht der direkte und zeitlich ununterbrochene Kontakt zwischen den Kommunikationspartnern (Beispielsweise Telefon, Videounterhaltung).  _x000D_\n_x000D_\nBei der *zeitversetzten telemedizinischen Konsultation* erfolgt die Kommunikation der Partner in zeitlich unterbrochenen Informationseinheiten (Beispielsweise SMS, E-Mail, Sprachnotizen)._x000D_\n_x000D_\nNicht als telemedizinische Konsultation gelten automatisch generierte Meldungen, unaufgefordertes Zustellen von Nachrichten, ohne intellektuelle Leistungen des Leistungserbringers erstellte Nachrichten, Terminerinnerungen, Aufforderungen zur Kontrolluntersuchung._x000D_\n_x000D_\nDie telemedizinische Leistung muss durch den Arzt selbst erbracht werden. Eine Delegierung an nichtärztliches Personal ist mit Ausnahme von (EA.05.0070), (EA.05.0080) und (EA.05.0090) nicht statthaft."
+    },
+    {
+        "GI_Nr":23,
+        "Bezeichnung":"Selten ambulant durchgeführte Leistungen",
+        "Interpretation":"Leistungen, die selten durchgeführt werden und für die keine entsprechende Leistungsposition besteht, werden über die entsprechenden *seltenen Leistungen* [LG-551] erfasst._x000D_\n_x000D_\nEs dürfen nur die in der medizinischen Interpretation der entsprechenden Tarifposition aufgeführten Leistungen erfasst werden. Die Leistungserbringer sind verpflichtet, die entsprechende Leistung auf dem Rechnungsformular im Bemerkungsfeld der entsprechenden Tarifposition (gemäss den Standards des <a href=\"https:\/\/www.forum-datenaustausch.ch\/de\/\" target=\"_blank\">Forum Datenaustausch<\/a>) anzugeben._x000D_\n_x000D_\nDie zu erfassende Dauer der Leistung entspricht der effektiv beanspruchten Zeit der Leistungserbringung, von der ärztlichen Vor- bis zur ärztlichen Nachbereitung des Patienten."
+    },
+    {
+        "GI_Nr":24,
+        "Bezeichnung":"Zugänge",
+        "Interpretation":"Um eine Intervention oder einen Eingriff im menschlichen Körper durchführen zu können, ist in der Regel zuerst ein *Zugang* erforderlich. Dieser *Zugang* kann durch einen Schnitt oder einen Stich durch die Haut (also blutig) oder durch eine Körperöffnung (unblutig) erfolgen. _x000D_\n_x000D_\nDie *Zugänge* werden je nach Verwendungsgebiet in drei Kategorien gegliedert:_x000D_\n1. Gefässzugang (Punktionen, Zugänge, Injektionen)_x000D_\n2. Zugang zu einem Operationsfeld (Bsp. Thorakotomie, Laparotomie)_x000D_\n3. Eröffnung eines Gewebes mittels Schnitt (als Teil der Operation) oder Zugang zu einer Körperhöhle (Bsp. Insemination, Epipharyngoskopie, Endoskopien) ohne Schnitt. Der Zugang ist jeweils tarifarisch inkludiert._x000D_\n_x000D_\n**Abbildung im Tarif:**_x000D_\n1. *Gefässzugang (Punktionen, Zugänge, Injektionen) durch den Arzt:* siehe Position (AA.00.0010) resp. (AA.00.0020); *Punktionen durch den Arzt:* siehe Position (AA.20.0030); *Punktionen, Zugänge, Injektionen durch nichtärztliches Personal:* siehe Kapitel [AK]; *Ausnahmen:* Leistungen, die nicht im Sprechzimmer stattfinden, sondern beispielsweise im Operationssaal oder in der Intensivtherapiestation (IPS), und die nicht unter die Kategorie 3 fallen, sind separat tarifiert._x000D_\n2. Zugang zu einem Operationsfeld (Bsp. Thorakotomie, Laparotomie): Wo Mehrfachleistungen durch den gleichen Zugang erbracht werden können, wird der Zugang separat tarifiert._x000D_\n3. Eröffnung eines Gewebes mittels Schnitt (als Teil der Operation) oder Zugang zu einer Körperhöhle (Bsp. Insemination, Epipharyngoskopie, Endoskopien) ohne Schnitt._x000D_\n_x000D_\nZugänge, die spezifisch einer Leistung zugeordnet werden können und gleichzeitig eine Voraussetzung zur Erbringung dieser Leistung darstellen, sind integraler Bestandteil dieser Leistungen. Der Zugang ist deshalb tarifarisch inkludiert._x000D_\n_x000D_\nJegliche Kombination der Zugänge der verschiedenen Kategorien ist möglich."
+    },
+    {
+        "GI_Nr":25,
+        "Bezeichnung":"Medikamente, diagnostisch\/therapeutisch\/anästhesiologisch",
+        "Interpretation":"Die Erfassung der *Medikamente* erfolgt nach folgenden Grundsätzen:_x000D_\n_x000D_\n- In therapeutischer Absicht applizierte Medikamente jeder Art und Darreichungsform sind separat zu erfassen._x000D_\n- Im Rahmen besonderer diagnostischer Leistungen eingesetzte Medikamente (Kontrastmittel, Radiopharmaka, Pharmaka für endokrine\/metabolische Tests, zur Stressinduktion usw.) sind separat zu erfassen._x000D_\n- Übrige, für diagnostische Leistungen eingesetzte Medikamente bzw. pharmazeutische Hilfsmittel (Augentropfen, Ohrentropfen und Nasentropfen, Oberflächenanästhetika, Gleitmittel, Desinficientia usw.) sind Teil der Infrastruktur und\/oder Personalleistung (IPL)._x000D_\n_x000D_\nIm Rahmen der anästhesiologischen Leistungen verwendete Pharmaka (inhalative\/parenterale\/orale\/rectale Anästhesika\/Hypnotika\/Sedativa) sind nicht Teil der Infrastruktur und\/oder Personalleistung (IPL)._x000D_\n_x000D_\nDie Artikel sind mit Preisangabe und Abgabedatum einzeln aufzuführen."
+    },
+    {
+        "GI_Nr":26,
+        "Bezeichnung":"Verbrauchsmaterialien, Implantate, Osteosynthesematerial, wiederverwendbares Instrumentarium",
+        "Interpretation":"**Definition *Verbrauchsmaterial, Implantate, Osteosynthesematerial***  _x000D_\nEinzelne oder miteinander verbundene Instrumente, Geräte, Vorrichtungen, Materialien und Stoffe, die folgende Bedingungen kumulativ erfüllen:_x000D_\n- Bestimmungsgemässe Anwendung zu diagnostischen \/ therapeutischen Zwecken oder zur Gewährleistung der Patientensicherheit_x000D_\n- Hauptwirkung im oder am Menschen wird nicht durch pharmakologische, immunologische oder metabolische Mittel erreicht (keine Arzneimittel)_x000D_\n- Einmalige Verwendung, Anwendung oder Anbringung während der Sitzung. _x000D_\n_x000D_\nNicht unter diese Vergütungsregelung fällt das wiederverwendbare Instrumentarium (inkl. Fixateur externe) und die Kosten für die (interne und externe) Wiederaufbereitung. Diese Kosten sind Teil der Infrastruktur- und Personalleistung (IPL)._x000D_\n_x000D_\nVerbrauchsmaterial und Implantate\/Osteosynthesematerial (Einzelstücke und Material-Sets) sind erstattungsfähig, sofern der Einstandspreis 3 Franken übersteigt.  Der Einstandspreis ist definiert in den Allgemeinen Definitionen [AD-07]. _x000D_\n_x000D_\nMaterial-Sets sind grundsätzlich vollständig verrechenbar. Vom Leistungserbringer zusammengestellte Material-Sets sind nicht erstattungsfähig, wenn sämtliche Einzelbestandteile je einen Einstandspreis von unter 3 Franken aufweisen. _x000D_\n_x000D_\n**Erfassung auf der Rechnung**  _x000D_\nDie Artikel sind mit Datum, Sitzungsnummer, Stückzahl, Stückpreis und Betrag einzeln auf der Rechnung aufzuführen. Die Artikel sind entsprechend der Hersteller-\/Händlerbezeichnung zu benennen. Bei Material-Sets ist zwingend eine nachvollziehbare, präzise und allgemein verständliche Bezeichnung zu wählen._x000D_\n"
+    },
+    {
+        "GI_Nr":27,
+        "Bezeichnung":"Versäumte Sitzungen",
+        "Interpretation":"*Versäumte Sitzungen* gehen nicht zu Lasten der Sozialversicherungen."
+    },
+    {
+        "GI_Nr":28,
+        "Bezeichnung":"Analogieverrechnung",
+        "Interpretation":"Die Verwendung von sog. Analogietarifpositionen ist nicht statthaft. Gewisse, nicht in separaten Tarifpositionen abgebildete Leistungen sind in Tarifpositionen zu *seltenen Leistungen* zusammengefasst. Wenn die Leistung in der medizinischen Interpretation der entsprechenden Tarifposition explizit erwähnt ist, kann sie über die entsprechende Tarifposition der Leistungsgruppe [LG-551] verrechnet werden."
+    }
+]

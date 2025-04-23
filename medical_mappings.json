@@ -1,0 +1,60 @@
+{
+  "entfernung_warze": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": 5},
+      {"code": "MK.05.0070", "beschreibung": "Entfernung oberflächlicher Hautveränderung", "menge": 1}
+    ],
+    "varianten": ["warze", "hautveränderung", "hautläsion", "fibrom"],
+    "körperregionen": ["oberkörper", "stamm", "rücken", "brust", "bauch", "arm", "bein", "kopf", "gesicht"],
+    "methoden": ["scharfer löffel", "kürettage", "exzision", "entfernung"]
+  },
+  "hausärztliche_konsultation": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": "DAUER_IN_MIN / 5"}
+    ],
+    "varianten": ["konsultation", "beratung", "untersuchung", "gespräch"],
+    "zusatz": ["hausarzt", "hausärztlich", "allgemeinmedizin"]
+  },
+  "kiefergelenk_luxation": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": 2},
+      {"code": "MK.10.0150", "beschreibung": "Reposition Kiefergelenk", "menge": 1}
+    ],
+    "varianten": ["luxation", "ausrenkung", "reposition"],
+    "körperregionen": ["kiefergelenk", "kiefer", "unterkiefer"],
+    "methoden": ["geschlossene reposition", "reposition"]
+  },
+  "leberbiopsie": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": 3},
+      {"code": "MK.15.0220", "beschreibung": "Leberbiopsie perkutan", "menge": 1}
+    ],
+    "varianten": ["leberbiopsie", "biopsie leber", "leberprobe"],
+    "körperregionen": ["leber", "oberbauch"],
+    "methoden": ["perkutan", "durch die haut", "nadel"]
+  },
+  "blinddarmentfernung": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": 2},
+      {"code": "MK.20.0310", "beschreibung": "Appendektomie", "menge": 1}
+    ],
+    "varianten": ["blinddarmentfernung", "appendektomie", "blinddarm-op"],
+    "körperregionen": ["blinddarm", "appendix", "unterbauch"],
+    "methoden": ["operation", "entfernung", "laparoskopisch", "offen"]
+  },
+  "hallux_valgus": {
+    "tarifziffern": [
+      {"code": "AA.00.0010", "beschreibung": "Konsultation, erste 5 Min.", "menge": 1},
+      {"code": "AA.00.0020", "beschreibung": "Konsultation, jede weiteren 5 Min.", "menge": 2},
+      {"code": "MK.25.0410", "beschreibung": "Hallux valgus Korrektur", "menge": 1}
+    ],
+    "varianten": ["hallux valgus", "ballenzeh", "großzehenfehlstellung"],
+    "körperregionen": ["fuß", "großzehe", "zeh"],
+    "methoden": ["korrektur", "operation", "osteotomie"]
+  }
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TARDOC / Pauschalen Rechner Prototyp</title>
+    <style>
+        :root{
+        --primary:#005EB8;        /* Blau der FMH */
+        --primary-light:#E6F0FA;
+        --accent:#00856F;         /* dezent grün    */
+        --danger:#C0002B;         /* roter Hinweis  */
+        }
+        body         { background: var(--primary-light); }
+        button       { background: var(--primary); color:#fff; border:none; }
+        button:hover { filter:brightness(1.1); }
+        #output      { background:#fff; border-color:var(--primary-light); }
+        #output.success p { color: var(--accent); }
+        #output.error   p { color: var(--danger);  }
+        #output th      { background: var(--primary-light); }
+
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        textarea, input[type="text"] {
+             width: 90%; max-width: 600px; margin-bottom: 15px; padding: 8px; box-sizing: border-box;
+        }
+        button { padding: 10px 15px; cursor: pointer; margin-top: 10px; }
+        #output { margin-top: 20px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; white-space: pre-wrap; }
+        .disclaimer { font-size: 0.8em; color: #666; margin-top: 30px; }
+        #output.error p { color: red; font-weight: bold; }
+        #output.success p { color: green; }
+        #output h2, #output h3 { margin-top: 1em; margin-bottom: 0.5em; }
+        #output h3 { border-top: 1px dashed #ccc; padding-top: 0.8em; }
+        #output hr { border: none; border-top: 1px solid #eee; margin: 1em 0; }
+        #output table { border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 15px; }
+        #output th, #output td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top;}
+        #output th { background-color: #f2f2f2; }
+        #output details { margin-top: 5px; font-size: 0.9em; }
+        #output details summary { cursor: pointer; font-style: italic; color: #555; }
+        #output ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
+        #output li { margin-bottom: 3px; }
+    </style>
+</head>
+<body>
+
+    <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
+    <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
+
+    <label for="userInput">Leistungsbeschreibung / LKN:</label>
+    <textarea id="userInput" rows="4" placeholder="z.B. Hausärztliche Konsultation von 18 Minuten bei 42-jähriger Patientin, Entfernung Warze am Stamm..."></textarea>
+
+    <label for="icdInput">Zusätzliche ICD-Codes (kommagetrennt, optional):</label>
+    <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
+    <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
+    <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
+
+
+    <!-- Button ruft jetzt getBillingAnalysis auf -->
+    <button onclick="getBillingAnalysis()">Abrechnung prüfen</button>
+
+    <div id="output">
+        Hier erscheinen die Ergebnisse...
+    </div>
+
+    <div class="disclaimer">
+        <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr. Dieser Prototyp dient nur zu Demonstrationszwecken. Für offizielle und verbindliche Informationen konsultieren Sie bitte das TARDOC Online-Portal (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a>).
+    </div>
+
+    <!-- Hier wird das JavaScript eingebunden -->
+    <script src="calculator.js"></script>
+
+</body>
+</html>
