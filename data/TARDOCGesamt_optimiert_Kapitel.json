@@ -1,0 +1,982 @@
+[
+    {
+        "Kapitel_Nr":"A",
+        "Bezeichnung":"Grundleistungen: Ärztlich, nichtärztlich"
+    },
+    {
+        "Kapitel_Nr":"AA",
+        "Bezeichnung":"Ärztliche allgemeine Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AA.00",
+        "Bezeichnung":"Ärztliche allgemeine Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AA.05",
+        "Bezeichnung":"Ärztliche Organuntersuchungen"
+    },
+    {
+        "Kapitel_Nr":"AA.10",
+        "Bezeichnung":"Ärztliche telemedizinische Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AA.15",
+        "Bezeichnung":"Ärztliche Leistungen in Abwesenheit des Patienten"
+    },
+    {
+        "Kapitel_Nr":"AA.20",
+        "Bezeichnung":"Ärztliche spezielle Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AA.25",
+        "Bezeichnung":"Ärztliche Berichtserstellung und Gutachten"
+    },
+    {
+        "Kapitel_Nr":"AA.30",
+        "Bezeichnung":"Inkonvenienzen in der freien Praxis"
+    },
+    {
+        "Kapitel_Nr":"AG",
+        "Bezeichnung":"Injektionsbehandlungen, nicht unter Bildgebung"
+    },
+    {
+        "Kapitel_Nr":"AG.00",
+        "Bezeichnung":"Injektionsbehandlungen, nicht unter Bildgebung"
+    },
+    {
+        "Kapitel_Nr":"AK",
+        "Bezeichnung":"Nichtärztliche Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AK.00",
+        "Bezeichnung":"Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"AK.05",
+        "Bezeichnung":"Chronic Care Management"
+    },
+    {
+        "Kapitel_Nr":"AM",
+        "Bezeichnung":"Ärztliche und nichtärztliche Überwachung"
+    },
+    {
+        "Kapitel_Nr":"AM.00",
+        "Bezeichnung":"Nichtspezialisierte Überwachung"
+    },
+    {
+        "Kapitel_Nr":"AM.05",
+        "Bezeichnung":"Spezialisierte Überwachung vor \/ nach Infusionen"
+    },
+    {
+        "Kapitel_Nr":"AM.10",
+        "Bezeichnung":"Spezialisierte Überwachung vor \/ nach Eingriffen in Regional- oder Allgemeinanästhesie"
+    },
+    {
+        "Kapitel_Nr":"AM.15",
+        "Bezeichnung":"Spezialisierte Überwachung nach Interventionen mit Sedation und \/ oder Lokalanästhesie"
+    },
+    {
+        "Kapitel_Nr":"AM.20",
+        "Bezeichnung":"Ärztliche Leistung im Rahmen der spezialisierten, nichtärztlichen Überwachung"
+    },
+    {
+        "Kapitel_Nr":"AP",
+        "Bezeichnung":"Verbände"
+    },
+    {
+        "Kapitel_Nr":"AP.00",
+        "Bezeichnung":"Taping"
+    },
+    {
+        "Kapitel_Nr":"AP.05",
+        "Bezeichnung":"Härtende Verbände"
+    },
+    {
+        "Kapitel_Nr":"AP.10",
+        "Bezeichnung":"Spezialverbände"
+    },
+    {
+        "Kapitel_Nr":"AR",
+        "Bezeichnung":"Wechselzeiten"
+    },
+    {
+        "Kapitel_Nr":"AR.00",
+        "Bezeichnung":"Allgemeine Wechselzeiten"
+    },
+    {
+        "Kapitel_Nr":"AR.05",
+        "Bezeichnung":"Wechselzeiten der Bildgebung, Nuklearmedizin und Radiotherapie"
+    },
+    {
+        "Kapitel_Nr":"C",
+        "Bezeichnung":"Hausärztliche Grundversorgung"
+    },
+    {
+        "Kapitel_Nr":"CA",
+        "Bezeichnung":"Hausarztmedizin"
+    },
+    {
+        "Kapitel_Nr":"CA.00",
+        "Bezeichnung":"Hausärztliche Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"CA.05",
+        "Bezeichnung":"Hausärztliche telemedizinische Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"CA.10",
+        "Bezeichnung":"Hausärztliche Leistungen in Abwesenheit des Patienten"
+    },
+    {
+        "Kapitel_Nr":"CA.15",
+        "Bezeichnung":"Palliative Care"
+    },
+    {
+        "Kapitel_Nr":"CG",
+        "Bezeichnung":"Kinder- und Jugendmedizin, Neonatologie"
+    },
+    {
+        "Kapitel_Nr":"CG.00",
+        "Bezeichnung":"Untersuchungen"
+    },
+    {
+        "Kapitel_Nr":"CG.05",
+        "Bezeichnung":"Neonatologie"
+    },
+    {
+        "Kapitel_Nr":"CG.10",
+        "Bezeichnung":"Pädiatrische Extraleistungen"
+    },
+    {
+        "Kapitel_Nr":"CG.15",
+        "Bezeichnung":"Kinderzuschläge"
+    },
+    {
+        "Kapitel_Nr":"E",
+        "Bezeichnung":"Psychiatrie"
+    },
+    {
+        "Kapitel_Nr":"EA",
+        "Bezeichnung":"Psychiatrie"
+    },
+    {
+        "Kapitel_Nr":"EA.00",
+        "Bezeichnung":"Diagnostik und Therapie durch den Facharzt"
+    },
+    {
+        "Kapitel_Nr":"EA.05",
+        "Bezeichnung":"Ambulante Leistungen durch Nichtärztliche Fachpersonen in der Psychiatrie im Spital und Einrichtungen, die der ambulanten Krankenpflege durch Ärzte und Ärztinnen dienen (Art. 35 Abs. 2 Bst n KVG)"
+    },
+    {
+        "Kapitel_Nr":"EA.10",
+        "Bezeichnung":"Interventionelle Therapien"
+    },
+    {
+        "Kapitel_Nr":"G",
+        "Bezeichnung":"Bildgebung"
+    },
+    {
+        "Kapitel_Nr":"GA",
+        "Bezeichnung":"Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"GA.00",
+        "Bezeichnung":"Strahlenschutz"
+    },
+    {
+        "Kapitel_Nr":"GA.05",
+        "Bezeichnung":"RIS-PACS und Fusion von Bilddaten"
+    },
+    {
+        "Kapitel_Nr":"GG",
+        "Bezeichnung":"Röntgen"
+    },
+    {
+        "Kapitel_Nr":"GG.00",
+        "Bezeichnung":"Organe"
+    },
+    {
+        "Kapitel_Nr":"GG.05",
+        "Bezeichnung":"Mammografie"
+    },
+    {
+        "Kapitel_Nr":"GG.10",
+        "Bezeichnung":"Durchleuchtung"
+    },
+    {
+        "Kapitel_Nr":"GG.15",
+        "Bezeichnung":"Durchleuchtungsgesteuerte Interventionen"
+    },
+    {
+        "Kapitel_Nr":"GG.20",
+        "Bezeichnung":"Spezielle Verfahren"
+    },
+    {
+        "Kapitel_Nr":"GG.25",
+        "Bezeichnung":"Seltene Leistungen Röntgen"
+    },
+    {
+        "Kapitel_Nr":"GG.30",
+        "Bezeichnung":"Befundung und Bericht"
+    },
+    {
+        "Kapitel_Nr":"GK",
+        "Bezeichnung":"Sonografie"
+    },
+    {
+        "Kapitel_Nr":"GK.00",
+        "Bezeichnung":"Schädel und Hals"
+    },
+    {
+        "Kapitel_Nr":"GK.05",
+        "Bezeichnung":"Abdomen"
+    },
+    {
+        "Kapitel_Nr":"GK.10",
+        "Bezeichnung":"Schwangerschaft und Gynäkologie"
+    },
+    {
+        "Kapitel_Nr":"GK.15",
+        "Bezeichnung":"Herz"
+    },
+    {
+        "Kapitel_Nr":"GK.20",
+        "Bezeichnung":"Bewegungsapparat und Weichteile"
+    },
+    {
+        "Kapitel_Nr":"GK.25",
+        "Bezeichnung":"Gefässe mit Dopplersystemen"
+    },
+    {
+        "Kapitel_Nr":"GK.30",
+        "Bezeichnung":"Fokussierte Sonografie"
+    },
+    {
+        "Kapitel_Nr":"GK.35",
+        "Bezeichnung":"Sonografisch gezielte Interventionen"
+    },
+    {
+        "Kapitel_Nr":"GK.40",
+        "Bezeichnung":"Intraoperative Sonografie"
+    },
+    {
+        "Kapitel_Nr":"GK.45",
+        "Bezeichnung":"Besondere Sonografie-Darstellungen"
+    },
+    {
+        "Kapitel_Nr":"GK.50",
+        "Bezeichnung":"Befundung und Bericht"
+    },
+    {
+        "Kapitel_Nr":"GM",
+        "Bezeichnung":"Computertomografie (CT)"
+    },
+    {
+        "Kapitel_Nr":"GM.00",
+        "Bezeichnung":"Organe"
+    },
+    {
+        "Kapitel_Nr":"GM.05",
+        "Bezeichnung":"Interventionen"
+    },
+    {
+        "Kapitel_Nr":"GM.10",
+        "Bezeichnung":"Zusätzlicher Aufwand"
+    },
+    {
+        "Kapitel_Nr":"GM.15",
+        "Bezeichnung":"Befundung und Bericht"
+    },
+    {
+        "Kapitel_Nr":"GP",
+        "Bezeichnung":"Magnetresonanztomografie (MR)"
+    },
+    {
+        "Kapitel_Nr":"GP.00",
+        "Bezeichnung":"Organe"
+    },
+    {
+        "Kapitel_Nr":"GP.05",
+        "Bezeichnung":"Interventionen"
+    },
+    {
+        "Kapitel_Nr":"GP.10",
+        "Bezeichnung":"Zusätzlicher Aufwand"
+    },
+    {
+        "Kapitel_Nr":"GP.15",
+        "Bezeichnung":"Befundung und Bericht"
+    },
+    {
+        "Kapitel_Nr":"J \/ K",
+        "Bezeichnung":"Fachspezifische Versorgung"
+    },
+    {
+        "Kapitel_Nr":"JA",
+        "Bezeichnung":"Altersmedizin"
+    },
+    {
+        "Kapitel_Nr":"JA.00",
+        "Bezeichnung":"Altersmedizin"
+    },
+    {
+        "Kapitel_Nr":"JC",
+        "Bezeichnung":"Arbeitsmedizin"
+    },
+    {
+        "Kapitel_Nr":"JC.00",
+        "Bezeichnung":"Arbeitsmedizin"
+    },
+    {
+        "Kapitel_Nr":"JE",
+        "Bezeichnung":"Endokrinologie, Diabetologie"
+    },
+    {
+        "Kapitel_Nr":"JE.00",
+        "Bezeichnung":"Endokrinologie, Diabetologie"
+    },
+    {
+        "Kapitel_Nr":"JG",
+        "Bezeichnung":"Hyperbarmedizin"
+    },
+    {
+        "Kapitel_Nr":"JG.00",
+        "Bezeichnung":"Hyperbarmedizin"
+    },
+    {
+        "Kapitel_Nr":"JK",
+        "Bezeichnung":"Infektiologie"
+    },
+    {
+        "Kapitel_Nr":"JK.00",
+        "Bezeichnung":"Infektiologie"
+    },
+    {
+        "Kapitel_Nr":"JM",
+        "Bezeichnung":"Klinische Pathologie"
+    },
+    {
+        "Kapitel_Nr":"JM.00",
+        "Bezeichnung":"Autopsie: Ärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.05",
+        "Bezeichnung":"Autopsie: Nichtärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.10",
+        "Bezeichnung":"Histopathologie: Ärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.15",
+        "Bezeichnung":"Histopathologie: Nichtärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.20",
+        "Bezeichnung":"Zytopathologie: Ärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.25",
+        "Bezeichnung":"Zytopathologie: Nichtärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.30",
+        "Bezeichnung":"Molekularpathologie: Ärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JM.35",
+        "Bezeichnung":"Molekularpathologie: Nichtärztliche Leistung"
+    },
+    {
+        "Kapitel_Nr":"JP",
+        "Bezeichnung":"Klinische Pharmakologie, Toxikologie"
+    },
+    {
+        "Kapitel_Nr":"JP.00",
+        "Bezeichnung":"Klinische Pharmakologie, Toxikologie"
+    },
+    {
+        "Kapitel_Nr":"JR",
+        "Bezeichnung":"Komplementärmedizin"
+    },
+    {
+        "Kapitel_Nr":"JR.00",
+        "Bezeichnung":"Komplementärmedizin"
+    },
+    {
+        "Kapitel_Nr":"JT",
+        "Bezeichnung":"Medizinische Genetik"
+    },
+    {
+        "Kapitel_Nr":"JT.00",
+        "Bezeichnung":"Medizinische Genetik"
+    },
+    {
+        "Kapitel_Nr":"JV",
+        "Bezeichnung":"Medizinische Onkologie, Hämatologie"
+    },
+    {
+        "Kapitel_Nr":"JV.00",
+        "Bezeichnung":"Grundleistungen"
+    },
+    {
+        "Kapitel_Nr":"JV.05",
+        "Bezeichnung":"Medizinische Onkologie"
+    },
+    {
+        "Kapitel_Nr":"JV.10",
+        "Bezeichnung":"Hämatologie"
+    },
+    {
+        "Kapitel_Nr":"JX",
+        "Bezeichnung":"Nuklearmedizin"
+    },
+    {
+        "Kapitel_Nr":"JX.05",
+        "Bezeichnung":"Kit-Markierung, Bereitstellung Radiopharmaka und Dosisberechnung"
+    },
+    {
+        "Kapitel_Nr":"JX.10",
+        "Bezeichnung":"Medizinisch\/technisch bedingte Überwachung in strahlengeschützter Infrastruktur"
+    },
+    {
+        "Kapitel_Nr":"JX.25",
+        "Bezeichnung":"Aktivitätsmessung, Funktions-Test"
+    },
+    {
+        "Kapitel_Nr":"JX.30",
+        "Bezeichnung":"Nuklearmedizinische Therapie\/Therapievorbereitung oder Prozeduren im zeitweiligen Kontrollbereich"
+    },
+    {
+        "Kapitel_Nr":"JZ",
+        "Bezeichnung":"Psychosomatische, Psychosoziale Medizin"
+    },
+    {
+        "Kapitel_Nr":"JZ.00",
+        "Bezeichnung":"Psychosomatische, Psychosoziale Medizin"
+    },
+    {
+        "Kapitel_Nr":"KD",
+        "Bezeichnung":"Reproduktionsmedizin, Gynäkologische Endokrinologie"
+    },
+    {
+        "Kapitel_Nr":"KD.00",
+        "Bezeichnung":"Beratung"
+    },
+    {
+        "Kapitel_Nr":"KD.05",
+        "Bezeichnung":"Assistierte Fortpflanzung"
+    },
+    {
+        "Kapitel_Nr":"KF",
+        "Bezeichnung":"Rheumatologie, Physikalische Medizin \/ Rehabilitation, Schmerztherapie"
+    },
+    {
+        "Kapitel_Nr":"KF.00",
+        "Bezeichnung":"Behandlung"
+    },
+    {
+        "Kapitel_Nr":"KF.05",
+        "Bezeichnung":"Untersuchung"
+    },
+    {
+        "Kapitel_Nr":"KF.10",
+        "Bezeichnung":"Interventionelle Schmerzdiagnostik und -therapie"
+    },
+    {
+        "Kapitel_Nr":"KH",
+        "Bezeichnung":"Schlafdiagnostik"
+    },
+    {
+        "Kapitel_Nr":"KH.00",
+        "Bezeichnung":"Schlafdiagnostik"
+    },
+    {
+        "Kapitel_Nr":"KK",
+        "Bezeichnung":"Schwangerschaft, Geburtshilfe"
+    },
+    {
+        "Kapitel_Nr":"KK.00",
+        "Bezeichnung":"Beratung"
+    },
+    {
+        "Kapitel_Nr":"KK.05",
+        "Bezeichnung":"Schwangerschaftsuntersuchungen, vorgeburtliche Untersuchungen, Geburtsnachkontrolle"
+    },
+    {
+        "Kapitel_Nr":"KK.25",
+        "Bezeichnung":"Seltene Leistungen"
+    },
+    {
+        "Kapitel_Nr":"KM",
+        "Bezeichnung":"Sportmedizin"
+    },
+    {
+        "Kapitel_Nr":"KM.00",
+        "Bezeichnung":"Sportmedizin"
+    },
+    {
+        "Kapitel_Nr":"KP",
+        "Bezeichnung":"Tropenmedizin"
+    },
+    {
+        "Kapitel_Nr":"KP.00",
+        "Bezeichnung":"Tropenmedizin"
+    },
+    {
+        "Kapitel_Nr":"M",
+        "Bezeichnung":"Organe - Ganzkörper"
+    },
+    {
+        "Kapitel_Nr":"MA",
+        "Bezeichnung":"Angiologische apparative Untersuchung"
+    },
+    {
+        "Kapitel_Nr":"MA.00",
+        "Bezeichnung":"Angiologische apparative Untersuchung"
+    },
+    {
+        "Kapitel_Nr":"MG",
+        "Bezeichnung":"Gefässe: Chirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"MG.05",
+        "Bezeichnung":"Venen"
+    },
+    {
+        "Kapitel_Nr":"MK",
+        "Bezeichnung":"Haut, Weichteile"
+    },
+    {
+        "Kapitel_Nr":"MK.00",
+        "Bezeichnung":"Dermatologische Diagnostik"
+    },
+    {
+        "Kapitel_Nr":"MK.05",
+        "Bezeichnung":"Dermatologische Therapie"
+    },
+    {
+        "Kapitel_Nr":"MK.10",
+        "Bezeichnung":"Allergologie und Immunologie"
+    },
+    {
+        "Kapitel_Nr":"MK.20",
+        "Bezeichnung":"Plastische Chirurgie und Dermatochirurgie"
+    },
+    {
+        "Kapitel_Nr":"MK.25",
+        "Bezeichnung":"Exzisionen und Deckungen"
+    },
+    {
+        "Kapitel_Nr":"MP",
+        "Bezeichnung":"Nervensystem (Neurologie)"
+    },
+    {
+        "Kapitel_Nr":"MP.00",
+        "Bezeichnung":"Klinische Untersuchung"
+    },
+    {
+        "Kapitel_Nr":"MP.05",
+        "Bezeichnung":"Elektroneuromyografie (ENMG)"
+    },
+    {
+        "Kapitel_Nr":"MP.10",
+        "Bezeichnung":"Elektroenzephalografie (EEG)"
+    },
+    {
+        "Kapitel_Nr":"MP.15",
+        "Bezeichnung":"Evozierte Potenziale, Monitoring"
+    },
+    {
+        "Kapitel_Nr":"MP.20",
+        "Bezeichnung":"Neurosonografie"
+    },
+    {
+        "Kapitel_Nr":"MP.25",
+        "Bezeichnung":"Befundung und Bericht"
+    },
+    {
+        "Kapitel_Nr":"MR",
+        "Bezeichnung":"Chirurgie zentrales Nervensystem und Wirbelsäule"
+    },
+    {
+        "Kapitel_Nr":"MR.00",
+        "Bezeichnung":"Chirurgische Eingriffe am zentralen Nervensystem und an der Wirbelsäule"
+    },
+    {
+        "Kapitel_Nr":"MR.05",
+        "Bezeichnung":"MR-gesteuerte Ultraschalltherapie"
+    },
+    {
+        "Kapitel_Nr":"P",
+        "Bezeichnung":"Bewegungsapparat"
+    },
+    {
+        "Kapitel_Nr":"PG",
+        "Bezeichnung":"Hand, Handgelenk"
+    },
+    {
+        "Kapitel_Nr":"PG.00",
+        "Bezeichnung":"Haut und subkutane Gewebe, Lappenplastiken (Hand und Unterarm)"
+    },
+    {
+        "Kapitel_Nr":"R",
+        "Bezeichnung":"Kopf-, Halsbereich"
+    },
+    {
+        "Kapitel_Nr":"RA",
+        "Bezeichnung":"Gesichtsschädel"
+    },
+    {
+        "Kapitel_Nr":"RA.00",
+        "Bezeichnung":"Untersuchung und Planung im Gesichtsschädel"
+    },
+    {
+        "Kapitel_Nr":"RC",
+        "Bezeichnung":"Auge"
+    },
+    {
+        "Kapitel_Nr":"RC.00",
+        "Bezeichnung":"Visus, Refraktion, Brille"
+    },
+    {
+        "Kapitel_Nr":"RC.05",
+        "Bezeichnung":"Augendruck"
+    },
+    {
+        "Kapitel_Nr":"RC.10",
+        "Bezeichnung":"Perimetrie"
+    },
+    {
+        "Kapitel_Nr":"RC.15",
+        "Bezeichnung":"Orthoptik, Neuroophthalmologie"
+    },
+    {
+        "Kapitel_Nr":"RC.20",
+        "Bezeichnung":"Farbsinn"
+    },
+    {
+        "Kapitel_Nr":"RC.25",
+        "Bezeichnung":"Tränendrüse, Tränenwege"
+    },
+    {
+        "Kapitel_Nr":"RC.30",
+        "Bezeichnung":"Konjunktiva"
+    },
+    {
+        "Kapitel_Nr":"RC.35",
+        "Bezeichnung":"Ophthalmofotografische, ophthalmoangiologische, ophthalmoelektrische Untersuchungen"
+    },
+    {
+        "Kapitel_Nr":"RC.40",
+        "Bezeichnung":"Diagnostik: Diverse"
+    },
+    {
+        "Kapitel_Nr":"RC.45",
+        "Bezeichnung":"Therapie: Diverse"
+    },
+    {
+        "Kapitel_Nr":"RC.50",
+        "Bezeichnung":"Augenlid"
+    },
+    {
+        "Kapitel_Nr":"RC.55",
+        "Bezeichnung":"Kornea, Sklera"
+    },
+    {
+        "Kapitel_Nr":"RC.60",
+        "Bezeichnung":"Iris"
+    },
+    {
+        "Kapitel_Nr":"RC.65",
+        "Bezeichnung":"Linse"
+    },
+    {
+        "Kapitel_Nr":"RC.70",
+        "Bezeichnung":"Retina"
+    },
+    {
+        "Kapitel_Nr":"RC.85",
+        "Bezeichnung":"Transplantatentnahme (Augenbulbus, Kornea)"
+    },
+    {
+        "Kapitel_Nr":"RC.90",
+        "Bezeichnung":"Seltene Leistungen"
+    },
+    {
+        "Kapitel_Nr":"RE",
+        "Bezeichnung":"Phoniatrie"
+    },
+    {
+        "Kapitel_Nr":"RE.00",
+        "Bezeichnung":"Phoniatrie"
+    },
+    {
+        "Kapitel_Nr":"RG",
+        "Bezeichnung":"Hals, Nasen, Ohren"
+    },
+    {
+        "Kapitel_Nr":"RG.00",
+        "Bezeichnung":"ORL-Status"
+    },
+    {
+        "Kapitel_Nr":"RG.05",
+        "Bezeichnung":"Diagnostik: Ohr, Gleichgewichtsorgan"
+    },
+    {
+        "Kapitel_Nr":"RG.10",
+        "Bezeichnung":"Diagnostik: Oberer Aerodigestivtrakt"
+    },
+    {
+        "Kapitel_Nr":"RG.15",
+        "Bezeichnung":"Ohr"
+    },
+    {
+        "Kapitel_Nr":"RG.20",
+        "Bezeichnung":"Nase"
+    },
+    {
+        "Kapitel_Nr":"RG.25",
+        "Bezeichnung":"Nasennebenhöhlen"
+    },
+    {
+        "Kapitel_Nr":"RG.35",
+        "Bezeichnung":"Speicheldrüsen"
+    },
+    {
+        "Kapitel_Nr":"RG.50",
+        "Bezeichnung":"Larynx"
+    },
+    {
+        "Kapitel_Nr":"RG.55",
+        "Bezeichnung":"Trachea"
+    },
+    {
+        "Kapitel_Nr":"T",
+        "Bezeichnung":"Brustbereich"
+    },
+    {
+        "Kapitel_Nr":"TA",
+        "Bezeichnung":"Mamma"
+    },
+    {
+        "Kapitel_Nr":"TA.00",
+        "Bezeichnung":"Nicht bildgebende Diagnostik der Mammae"
+    },
+    {
+        "Kapitel_Nr":"TA.10",
+        "Bezeichnung":"Plastisch-Rekonstruktive Chirurgie der Mamma"
+    },
+    {
+        "Kapitel_Nr":"TG",
+        "Bezeichnung":"Lunge, Atemwege"
+    },
+    {
+        "Kapitel_Nr":"TG.00",
+        "Bezeichnung":"Instruktion und Therapie"
+    },
+    {
+        "Kapitel_Nr":"TG.05",
+        "Bezeichnung":"Lungenfunktion"
+    },
+    {
+        "Kapitel_Nr":"TG.10",
+        "Bezeichnung":"Bronchoskopie"
+    },
+    {
+        "Kapitel_Nr":"TG.15",
+        "Bezeichnung":"Pleura-, Lungen- und Schleimhautdiagnostik"
+    },
+    {
+        "Kapitel_Nr":"TK",
+        "Bezeichnung":"Herz und Gefässe: Diagnostik und nichtchirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"TK.00",
+        "Bezeichnung":"Elektrokardiografie"
+    },
+    {
+        "Kapitel_Nr":"TK.05",
+        "Bezeichnung":"Echokardiografie"
+    },
+    {
+        "Kapitel_Nr":"TK.30",
+        "Bezeichnung":"Schrittmacher, Implantierbarer Kardioverter-Defibrillator (ICD), CRT-Systeme, Ereignisrekorder"
+    },
+    {
+        "Kapitel_Nr":"TK.40",
+        "Bezeichnung":"VAD Leistungen durch den Kardiotechniker"
+    },
+    {
+        "Kapitel_Nr":"TM",
+        "Bezeichnung":"Thoraxorgane: Chirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"TM.00",
+        "Bezeichnung":"Thoraxorgane: Chirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"V",
+        "Bezeichnung":"Bauch-, Beckenbereich"
+    },
+    {
+        "Kapitel_Nr":"VA",
+        "Bezeichnung":"Gastrointestinaltrakt: Diagnostik und nichtchirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"VA.00",
+        "Bezeichnung":"Gastroskopie"
+    },
+    {
+        "Kapitel_Nr":"VA.10",
+        "Bezeichnung":"Endoskopie unterer Intestinaltrakt"
+    },
+    {
+        "Kapitel_Nr":"VA.15",
+        "Bezeichnung":"Gastrointestinale Funktionsdiagnostik"
+    },
+    {
+        "Kapitel_Nr":"VA.20",
+        "Bezeichnung":"Enteroskopie"
+    },
+    {
+        "Kapitel_Nr":"VA.25",
+        "Bezeichnung":"Endosonographie"
+    },
+    {
+        "Kapitel_Nr":"VA.30",
+        "Bezeichnung":"Facharzttätigkeiten ohne Endoskopie"
+    },
+    {
+        "Kapitel_Nr":"VC",
+        "Bezeichnung":"Gastrointestinaltrakt: Chirurgische Therapie"
+    },
+    {
+        "Kapitel_Nr":"VC.25",
+        "Bezeichnung":"Dickdarm"
+    },
+    {
+        "Kapitel_Nr":"VC.35",
+        "Bezeichnung":"Anus, Perineum"
+    },
+    {
+        "Kapitel_Nr":"VC.40",
+        "Bezeichnung":"Hämorrhoiden"
+    },
+    {
+        "Kapitel_Nr":"VC.50",
+        "Bezeichnung":"Seltene Leistungen"
+    },
+    {
+        "Kapitel_Nr":"VE",
+        "Bezeichnung":"Männliche Genitalorgane, Nieren, Harnwege"
+    },
+    {
+        "Kapitel_Nr":"VE.05",
+        "Bezeichnung":"Endoskopie"
+    },
+    {
+        "Kapitel_Nr":"VE.10",
+        "Bezeichnung":"Nieren"
+    },
+    {
+        "Kapitel_Nr":"VE.15",
+        "Bezeichnung":"Harnblase, Blasenhals"
+    },
+    {
+        "Kapitel_Nr":"VE.35",
+        "Bezeichnung":"Funktionelle Diagnostik"
+    },
+    {
+        "Kapitel_Nr":"VE.40",
+        "Bezeichnung":"Vor- und Nachbereitung"
+    },
+    {
+        "Kapitel_Nr":"VE.45",
+        "Bezeichnung":"Befundung"
+    },
+    {
+        "Kapitel_Nr":"VG",
+        "Bezeichnung":"Weibliche Genitalorgane"
+    },
+    {
+        "Kapitel_Nr":"VG.00",
+        "Bezeichnung":"Untersuchung, Behandlung und Beratung"
+    },
+    {
+        "Kapitel_Nr":"VG.05",
+        "Bezeichnung":"Portio, Cervix, Diaphragma\/Pessar\/Intrauterinpessar (IUD)"
+    },
+    {
+        "Kapitel_Nr":"VG.10",
+        "Bezeichnung":"Äusseres Genitale, Vagina, Laser"
+    },
+    {
+        "Kapitel_Nr":"VG.15",
+        "Bezeichnung":"Curettage, Abort"
+    },
+    {
+        "Kapitel_Nr":"VK",
+        "Bezeichnung":"Nephrologie"
+    },
+    {
+        "Kapitel_Nr":"VK.00",
+        "Bezeichnung":"Nephrologie"
+    },
+    {
+        "Kapitel_Nr":"W",
+        "Bezeichnung":"Anästhesie, operative Grundleistungen, Notfall, Intensivbetreuung"
+    },
+    {
+        "Kapitel_Nr":"WA",
+        "Bezeichnung":"Anästhesie"
+    },
+    {
+        "Kapitel_Nr":"WA.00",
+        "Bezeichnung":"Anästhesiologische Evaluation"
+    },
+    {
+        "Kapitel_Nr":"WA.05",
+        "Bezeichnung":"Ein- und Ausleitung"
+    },
+    {
+        "Kapitel_Nr":"WA.10",
+        "Bezeichnung":"Anästhesiezeit"
+    },
+    {
+        "Kapitel_Nr":"WA.15",
+        "Bezeichnung":"Postoperative Betreuung"
+    },
+    {
+        "Kapitel_Nr":"WA.20",
+        "Bezeichnung":"Standby bei Steisslage\/Mehrlingen, Peridualanästhesie (PDA), PCA-\/Schmerzkatheter-Überwachung"
+    },
+    {
+        "Kapitel_Nr":"WA.25",
+        "Bezeichnung":"Reanimation"
+    },
+    {
+        "Kapitel_Nr":"WF",
+        "Bezeichnung":"Ärztliche Unterstützung"
+    },
+    {
+        "Kapitel_Nr":"WF.00",
+        "Bezeichnung":"Ärztliche Unterstützung allgemein"
+    },
+    {
+        "Kapitel_Nr":"WG",
+        "Bezeichnung":"Notfallstation im Spital"
+    },
+    {
+        "Kapitel_Nr":"WG.00",
+        "Bezeichnung":"Behandlung, Betreuung und Überwachung"
+    },
+    {
+        "Kapitel_Nr":"WK",
+        "Bezeichnung":"Intensivbetreuung und Intermediate Care"
+    },
+    {
+        "Kapitel_Nr":"WK.00",
+        "Bezeichnung":"Intensivbetreuung und Intermediate Care"
+    }
+]

@@ -1,0 +1,52 @@
+[
+    {
+        "AD_Nr":1,
+        "Bezeichnung":"Leistungserbringer im ambulanten Setting",
+        "Interpretation":"Ein *Leistungserbringer im ambulanten Setting* definiert sich als:_x000D_\n_x000D_\nArzt oder Ärztin gemäss Art. 35 Abs 2 lit a KVG _x000D_\n_x000D_\noder _x000D_\nEinrichtung, die der ambulanten Krankenpflege durch Ärzte oder Ärztinnen dient gemäss Art. 35 Abs. 2 lit n KVG und über lediglich einen Fachbereich verfügt. _x000D_\n_x000D_\noder _x000D_\nFachbereich (gemäss Reglement Fachbereiche inkl. Liste der Fachbereiche) innerhalb eines Spitals gemäss Art. 35 Abs. 2 lit h KVG oder einer Einrichtung die der ambulanten Krankenpflege durch Ärzte oder Ärztinnen dient gemäss Art. 35 Abs. 2 lit n KVG). "
+    },
+    {
+        "AD_Nr":2,
+        "Bezeichnung":"Sitzung",
+        "Interpretation":"Eine Sitzung ist definiert als das physische oder fernmündliche Zusammentreffen eines Patienten mit einem Leistungserbringer im ambulanten Setting (Kapitel 2 Leistungserbringer im ambulanten Setting). Im Rahmen dessen wird eine Leistung durch einen Leistungserbringer im ambulanten Setting zu Gunsten eines Patienten durchgeführt, die der Diagnose oder Behandlung dient (Art. 25 Abs. 1 KVG). _x000D_\n_x000D_\nGutachten, Akten- und Bildkonsilien und Tumorboards\/ärztliche Expertenboards\/interdisziplinäre Boards werden auch ohne physisches Zusammentreffen des Patienten mit dem Leistungserbringer im ambulanten Setting als Sitzung geführt._x000D_\n"
+    },
+    {
+        "AD_Nr":3,
+        "Bezeichnung":"Patientenkontakt",
+        "Interpretation":"Ein Patientenkontakt wird gebildet aus der Sitzung sowie dessen zugeordneten Leistungen (Pathologie-, Analyseleistungen, Leistungen in Abwesenheit, Erfassung von Berichten). Falls der Sitzung keine Leistungen zugeordnet werden, ist die Sitzung dem Patientenkontakt gleichgesetzt."
+    },
+    {
+        "AD_Nr":4,
+        "Bezeichnung":"Ambulante Behandlung",
+        "Interpretation":"Die ambulante Behandlung ist in den Anwendungsmodalitäten des Tarifstrukturvertrag über die Tarifstrukturen des ambulanten ärztlichen Einzelleistungstarifs (TARDOC) und des ambulanten ärztlichen Patientenpauschaltarifs (Ambulante Pauschalen) (Anhang B) geregelt. "
+    },
+    {
+        "AD_Nr":5,
+        "Bezeichnung":"Qualitative Dignität",
+        "Interpretation":"Die *qualitative Dignität* bezeichnet die ärztliche fachliche Qualifikation und regelt die Berechtigung zur Anwendung von Tarifpositionen._x000D_\n_x000D_\nDie massgebende Datenbank für dignitätsrelevante Weiterbildungstitel ist das <a href=\"https:\/\/www.medregom.admin.ch\/\" target=\"_blank\">MedReg<\/a>. _x000D_\n_x000D_\nDer Arzt ist berechtigt alle Tarifpositionen abzurechnen, für welche er mindestens über eine der geforderten qualitativen Dignitäten verfügt (vorbehaltlich einer gültigen Spartenanerkennung)._x000D_\n_x000D_\n**Zusätzlich abrechenbar sind:**_x000D_\n- Tarifpositionen mit der qualitativen Dignität *9999 - Alle*_x000D_\n- Tarifpositionen, für die ein Besitzstand beantragt und gewährt wurde (**Wichtig**: Der Besitzstand wird für 3 Jahre gewährt. Mit dem Nachweis einer fachspezifischen Fortbildung kann der Besitzstand um weitere 3 Jahre verlängert werden.)"
+    },
+    {
+        "AD_Nr":6,
+        "Bezeichnung":"Altersangaben",
+        "Interpretation":"*Altersangaben* sind jeweils auf der entsprechenden Tarifpositionen ersichtlich._x000D_\n_x000D_\n| Angabe                       | Beschreibung                                                                                      | Beispiel                                                                                            |_x000D_\n|:-----------------------------|:--------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------|_x000D_\n| Vom **x.** bis **y.** Monat  | ab vollendetem **x-1.** bis und mit dem vollendeten **y.** Lebensmonat.                           | vom 5. bis 6. Monat mit Geburtstag am 30. Mai 2024: vom 30. September bis und mit 29. November 2024 |_x000D_\n| Im **x.** Monat              | vom **x-1.** bis **x.** Monat.                               \t\t                           | im 6. Monat mit Geburtstag am 30. Mai 2024: vom 30. Oktober bis und mit 29. November 2024           |_x000D_\n| Unter **x** Jahren           | vor Vollendung des **x.** Lebensjahres, d.h. bis zum Datum des **x.** Geburtstags -1 Tag.  \t   | unter 4 Jahren mit Geburtstag am 30. Mai 2024: bis und mit 29. Mai 2028                             |_x000D_\n| Bis **x** Jahre              | bis und mit dem vollendeten **x.** Lebensjahr, d.h. bis und mit dem Datum des **x.** Geburtstags. | bis 4 Jahren mit Geburtstag am 30. Mai 2024: bis und mit 30. Mai 2028                               |_x000D_\n| Ab **x** bis **y** Jahre     | ab **x.** Geburtstag bis und mit dem Tag vor dem **y.** Geburtstag.                               | ab 10 bis 12 Jahren mit Geburtstag am 30. Mai 2024: 30. Mai 2034 bis und mit 29. Mai 2036           |_x000D_\n| Im **x.** Jahr               | vom **x-1.** Geburtstag bis zum vollendeten **x.** Lebensjahr.      \t\t                   | im 7. Jahr mit Geburtstag am 30. Mai 2024: Vom 30. Mai 2030 bis und mit 29. Mai 2031                |_x000D_\n| Älter als **x** Jahre        | nach Vollendung des **x.** Lebensjahres.  \t\t\t\t\t\t           | älter als 5 Jahre mit Geburtstag am 30. Mai 2024: Ab dem 30. Mai 2029                               |_x000D_\n_x000D_\nFür die Vorsorgeuntersuchungen gelten spezielle Toleranzen."
+    },
+    {
+        "AD_Nr":7,
+        "Bezeichnung":"Einstandspreis",
+        "Interpretation":"Der Einstandspreis versteht sich als Kaufpreis gemäss Lieferantenrechnung inkl. Mehrwertsteuer (MWST), zuzüglich Bezugskosten (Verpackung, Porto, Transportversicherung, Zoll) und abzüglich Rabatte und Rückvergütungen. Einstandspreise können als mengengewichtete Einstandspreise der einzelnen Beschaffungsvorgänge verrechnet werden (gleitende Durchschnittspreise\/historische Einstandspreise). Die verrechneten Preise müssen belegbar sein. Die entsprechenden Dokumente sind den Kostenträgern auf Anfrage offenzulegen._x000D_\n_x000D_\nEs darf kein Zuschlag auf den Einstandspreis erhoben werden. Die mittelbaren Beschaffungskosten (Bedarfsplanung, Bestellung, Warenannahme usw.) sowie Lagerkosten sind als Infrastruktur- und Personalleistung (IPL) bereits berücksichtigt. Diese Regelung gilt unabhängig davon, ob die Logistik vom Leistungserbringer oder einem externen Dienstleister erbracht wird._x000D_\n"
+    },
+    {
+        "AD_Nr":8,
+        "Bezeichnung":"Rundungsregeln",
+        "Interpretation":"Für Rundungen gelten grundsätzlich die Modalitäten des <a href=\"https:\/\/www.forum-datenaustausch.ch\/de\/\" target=\"_blank\">Forum Datenaustausch<\/a>: _x000D_\n_x000D_\nPro Tarifposition werden Frankenbeträge kaufmännisch auf zwei Nachkommastellen gerundet. Für den Tarif gilt dies pro Position auf Stufe AL (Ärztliche Leistung) und IPL (Infrastruktur- und\/oder Personalleistungen)._x000D_\n_x000D_\nDer fällige Gesamt-Rechnungsbetrag wird kaufmännisch auf CHF 0.05 gerundet."
+    },
+    {
+        "AD_Nr":9,
+        "Bezeichnung":"Gender Disclaimer",
+        "Interpretation":"Die in den Tarifen gewählte männliche Form bezieht sich immer zugleich auf weibliche, männliche und diverse Personen. Auf eine Mehrfachbezeichnung wird in der Regel zugunsten einer besseren Lesbarkeit verzichtet."
+    },
+    {
+        "AD_Nr":10,
+        "Bezeichnung":"Massgebende Sprachversion",
+        "Interpretation":"Im Falle von Widersprüchen zwischen den Sprachversionen der Tarife gilt die deutsche Version."
+    }
+]
