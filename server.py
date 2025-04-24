@@ -50,10 +50,13 @@ COLL_NAME  = "tardoc"
 
 SYSTEM_ROLE = "Du bist ein Schweizer TARDOC‑Abrechnungs‑Assistent."
 SCHEMA_JSON = (
-    '{\n  "identified_leistungen": [],'    # JSON‑Schema als kompaktes Literal
-    '\n  "extracted_info": {"dauer_minuten":0,"menge":0,'
-    '"alter":0,"geschlecht":"unbekannt"},'
-    '\n  "begruendung_llm": ""\n}'
+    '{\n  "identified_leistungen": [\n'
+    '    {"lkn":"KF.05.0050","menge":1},\n'
+    '    {"lkn":"KF.05.0040","menge":2}\n'
+    '  ],\n'
+    '  "extracted_info": {"dauer_minuten":0,"menge":0,"alter":0,"geschlecht":"unbekannt"},\n'
+    '  "begruendung_llm": ""\n'
+    '}'
 )
 
 # ── Initialisierung ───────────────────────────────────────────────────────
@@ -93,8 +96,7 @@ def load_data() -> None:
             leistungskatalog_data = json.load(f)
         print(f"✓ Leistungskatalog {len(leistungskatalog_data)} Einträge geladen")
     except FileNotFoundError:
-        print("⚠️  Leistungskatalog fehlt – Beschreibungs‑Lookups deaktiviert")
-        leistungskatalog_data = []
+        raise RuntimeError("tblLeistungskatalog.json fehlt – ohne Katalog kann nichts berechnet werden.")
 
     if regelpruefer:
         regel_json = DATA_DIR / "strukturierte_regeln_komplett.json"
@@ -291,9 +293,21 @@ def call_llm(prompt: str) -> Dict[str, Any]:
         raise ValueError(f"Unerwartetes Format der LLM-Antwort: {e}\nAntwort-Rohdaten: {data}")
     # Parse JSON
     try:
-        return json.loads(content)
+        data_obj = json.loads(content)
+
+        # ––– Minimal-Schema-Validierung –––
+        if not isinstance(data_obj.get("identified_leistungen"), list):
+            raise ValueError("LLM-Antwort verletzt Schema: 'identified_leistungen' muss Liste sein")
+        for el in data_obj["identified_leistungen"]:
+            if not isinstance(el, dict) or "lkn" not in el:
+                raise ValueError(f"Schemafehler in identified_leistungen-Element: {el}")
+            if "menge" in el and not isinstance(el["menge"], int):
+                raise ValueError(f"'menge' muss int sein: {el}")
+
+        return data_obj
     except json.JSONDecodeError as e:
         raise ValueError(f"Fehler beim Parsen der LLM-Antwort als JSON: {e}\nAntwort: {content}")
+
 
 # ── Regelprüfung (Wrapper) ───────────────────────────────────────────────
 
@@ -435,189 +449,184 @@ def calculate_einzelleistung(
 
 # ── Flask‑API / Analyse‑Endpunkt ──────────────────────────────────────────
 @app.route("/api/analyze-billing", methods=["POST"])
+
+# ── Flask-API / Analyse-Endpunkt ─────────────────────────────────────────
+@app.route("/api/analyze-billing", methods=["POST"])
 def analyze_billing():
+    # 0. Eingaben prüfen ---------------------------------------------------
     if not request.is_json:
         return jsonify({"error": "JSON erwartet"}), 400
 
-    text = (request.json.get("inputText") or "").strip()
-    icds = request.json.get("icd", [])
+    text  = (request.json.get("inputText") or "").strip()
+    icds  = request.json.get("icd",  [])
+    gtins = request.json.get("gtin", [])
     if not text:
         return jsonify({"error": "inputText fehlt"}), 400
 
-    # Kontext für semantische Suche und LLM-Aufruf
-    ctx = semantic_context(text)
+    # 1. LLM-Aufruf (+ semantische Fallbacks) ------------------------------
     try:
+        ctx = semantic_context(text)
         llm = call_llm(make_prompt(text, ctx))
+        if not llm.get("identified_leistungen"):
+            ctx = semantic_context(text, k=80, cap=int(MAX_PROMPT * 0.75))
+            llm = call_llm(make_prompt(text, ctx))
+    except OpenAIRateLimitError:                       # type: ignore
+        return jsonify({"error": "OpenAI-Quota überschritten"}), 429
     except Exception as e:
-        # Handle OpenAI rate-limiting if exception class is available
-        if OpenAIRateLimitError is not None and isinstance(e, OpenAIRateLimitError):
-            return jsonify({"error": "OpenAI-API-Kontingent überschritten. Bitte prüfen Sie Plan und Abrechnungsdetails."}), 429
-        app.logger.error("Fehler beim LLM-Aufruf: %s", e)
-        return jsonify({"error": f"Fehler beim LLM-Aufruf: {e}"}), 500
-    # Kontextdaten für Pauschalen- und Regelprüfung speichern
-    billing_context["icds"] = icds or []
-    extracted = llm.get("extracted_info", {}) or {}
-    # Alter und Geschlecht aus LLM-Extraktion (falls vorhanden)
-    try:
-        billing_context["alter"] = int(extracted.get("alter", 0) or 0)
-    except Exception:
-        billing_context["alter"] = 0
-    billing_context["geschlecht"] = extracted.get("geschlecht") or None
-    # Medikamenten-GTINs aus Anfrage (optional)
-    billing_context["gtins"] = request.json.get("gtin", []) or []
+        return jsonify({"error": f"LLM-Fehler: {e}"}), 500
 
-    # Fallback: größerer Kontext, falls keine LKN erkannt
-    # Fallback: größerer Kontext, falls keine LKN erkannt
-    if not llm.get("identified_leistungen"):
-        ctx_big = semantic_context(text, k=80, cap=int(MAX_PROMPT * 0.75))
-        try:
-            llm = call_llm(make_prompt(text, ctx_big))
-        except Exception as e:
-            # Handle OpenAI rate-limiting in fallback if exception class is available
-            if OpenAIRateLimitError is not None and isinstance(e, OpenAIRateLimitError):
-                return jsonify({"error": "OpenAI-API-Kontingent überschritten. Bitte prüfen Sie Plan und Abrechnungsdetails."}), 429
-            app.logger.error("Fehler beim LLM-Aufruf (Fallback): %s", e)
-            return jsonify({"error": f"Fehler beim LLM-Aufruf (Fallback): {e}"}), 500
-    # Semantische Fallback-Kandidaten, wenn LLM weiterhin keine LKN liefert
-    if not llm.get("identified_leistungen"):
-        # Top-10 Kandidaten aus semantischer Suche
-        docs_fb = semantic_context(text, k=10, cap=int(MAX_PROMPT * 0.25))
-        codes = []
-        for line in docs_fb.split("\n"):
-            parts = line.split("–", 1)
-            if parts and parts[0].strip():
-                codes.append(parts[0].strip())
-        # Ersetze identifizierte Leistungen durch Fallback-Codes
-        llm["identified_leistungen"] = codes
-        llm["begruendung_llm"] = f"Semantische Fallback-Kandidaten: {', '.join(codes)}"
+    if not llm.get("identified_leistungen"):           # rein semantisch
+        fb = semantic_context(text, k=10, cap=int(MAX_PROMPT * 0.25))
+        llm["identified_leistungen"] = [ln.split("–", 1)[0].strip()
+                                        for ln in fb.split("\n") if ln.strip()]
 
-    # Extrahierte Infos (z.B. Dauer in Minuten)
-    extracted = llm.get("extracted_info", {}) or {}
-    duration = int(extracted.get("dauer_minuten", 0) or 0)
-    # Default Menge: Dauer (Minuten) oder 1
-    menge_req = duration if duration > 0 else 1
-    results: list[dict] = []
-    # Fallback für zeitabhängige Konsultation: nur wenn Text nach Konsultation klingt (deaktiviert)
-    text_low = text.lower()
-    # if duration > 0 and "konsult" in text_low:
-    if False:  # Konsultations-Logik deaktiviert
-        # Kandidaten für Basisleistungen (erste 5 Min. Konsultation)
-        basis_cands = [e for e in tardoc_tarifpositionen_data
-                       if e.get("Zeit_LieS") == 5.0
-                          and "erste" in e.get("Bezeichnung", "").lower()
-                          and "konsultation" in e.get("Bezeichnung", "").lower()]
-        basis = None
-        # Wähle spezifisch nach Textinhalt
-        if "hausarzt" in text_low:
-            basis = next((e for e in basis_cands if "hausärzt" in e.get("Bezeichnung", "").lower()), None)
-        elif "telemedizin" in text_low:
-            basis = next((e for e in basis_cands if "telemedizin" in e.get("Bezeichnung", "").lower()), None)
-        # Fallback allgemein
-        if not basis:
-            basis = next((e for e in basis_cands if "ärztliche" in e.get("Bezeichnung", "").lower()), None)
-        # Zuschlagsleistung: jede weitere 1 Min.
+    # 2. Kontext für Regel­prüfung speichern ------------------------------
+    ext = llm.get("extracted_info", {}) or {}
+    billing_context.update({
+        "icds": icds, "gtins": gtins,
+        "alter": int(ext.get("alter", 0) or 0),
+        "geschlecht": ext.get("geschlecht")
+    })
+
+    # 3. Konsultations-Logik (Dauer → Basis + Add-on) -----------------------
+    duration   = int(ext.get("dauer_minuten", 0) or 0)
+    text_low   = text.lower()
+    identified = llm.get("identified_leistungen") or []
+
+    def _set_qty(lkn: str, qty: int) -> None:
+        for el in identified:
+            if el["lkn"] == lkn:
+                el["menge"] = qty          # überschreibt statt addiert
+                return
+        identified.append({"lkn": lkn, "menge": qty})
+
+    # ── Hilfs-Routine: Menge festsetzen (überschreibt statt aufsummieren) ──
+    def _set_qty(lkn: str, qty: int) -> None:
+        for el in identified:
+            if el["lkn"] == lkn:
+                el["menge"] = qty
+                return
+        identified.append({"lkn": lkn, "menge": qty})
+
+    if duration and "konsult" in text_low:
+        # Basis (erste 5 Min.) ermitteln
+        basis_cands = [
+            e for e in tardoc_tarifpositionen_data
+            if e.get("Kapitel") == "CA.00" and e.get("Zeit_LieS") == 5
+        ]
+        basis = next((e for e in basis_cands if "hausärzt" in e["Bezeichnung"].lower()), None) \
+                or (basis_cands[0] if basis_cands else None)
+
+        # Add-on (jede weitere 1 Min.) im selben Kapitel
         addon = None
         if basis:
-            addon = next((e for e in tardoc_tarifpositionen_data
-                           if e.get("Typ") == "Z"
-                              and e.get("Parent", "").startswith(basis.get("LKN", ""))), None)
-        # Basisleistung abrechnen
+            kap = basis["Kapitel"]
+            addon = next(
+                (e for e in tardoc_tarifpositionen_data
+                 if e["LKN"] != basis["LKN"]
+                    and e.get("Kapitel") == kap
+                    and e.get("Zeit_LieS") == 1
+                    and ((e.get("Parent") or "").startswith(basis["LKN"])
+                         or e.get("Typ") == "Z")),
+                None
+            )
+
+        # Von der Gesamtdauer 1-Min-Leistungen anderer Art abziehen (z.B. Eingriffe)
+        occupied = sum(
+            el["menge"] for el in identified
+            if el["lkn"] not in (basis["LKN"],)   # Basis bleibt unberührt
+               and next(
+                   (t for t in tardoc_tarifpositionen_data if t["LKN"] == el["lkn"]),
+                   {}
+               ).get("Zeit_LieS") == 1
+        )
+        consult_minutes = max(0, duration - occupied)
+        extra = max(0, min(consult_minutes - 5, 15)) if addon else 0
+
+        # Mengen festsetzen
         if basis:
-            res1 = calculate_einzelleistung(basis.get("LKN"), 1, icds)
-            results.append({"typ": "Einzelleistung", "lkn": basis.get("LKN"), "menge": 1, **res1})
-        # Zuschlagsleistung abrechnen (dauer - Basiszeit, max. 15)
-        extra = 0
-        if addon and basis:
-            raw_extra = max(0, duration - (basis.get("Zeit_LieS", 0)))
-            # Maximal 15 weitere Einheiten zulässig
-            extra = min(raw_extra, 15)
-            if extra > 0:
-                base_lkn = basis.get("LKN")
-                # Surcharge with context of basis LKN
-                res2 = calculate_einzelleistung(
-                    addon.get("LKN"), extra, icds,
-                    begleit_lkns=[base_lkn] if base_lkn else None
-                )
-                # Wenn ursprünglich mehr Einheiten erfasst wurden, fügen wir Hinweis hinzu
-                if raw_extra > extra:
-                    res2.setdefault("fehler", []).append(
-                        f"Maximale Zusatzmenge von {extra} überschritten (Angefragt: {raw_extra})"
-                    )
-                results.append({"typ": "Einzelleistung", "lkn": addon.get("LKN"), "menge": extra, **res2})
-        # LLM-Analysierte Kodes anzeigen
-        identified = []
-        if basis:
-            identified.append({"lkn": basis.get("LKN"), "menge": 1})
-        if addon and extra > 0:
-            identified.append({"lkn": addon.get("LKN"), "menge": extra})
-        llm["identified_leistungen"] = identified
-        return jsonify({"llm_ergebnis": llm, "leistungen": results})
-    # Sonstige Leistungen: LLM-basierte Identifikation
-    identified = llm.get("identified_leistungen") or []
-    # Ergänze LKN aus Begründung, falls vergessen
-    codes_from_text = re.findall(r'\b[A-Z]{2}\.d{2}\.d{4}\b', llm.get("begruendung_llm", ""))
-    # Korrekte Extraktion der LKNs aus Begründung (Behebung fehlerhafter Pattern)
-    codes_from_text = re.findall('[A-Z]{2}[.][0-9]{2}[.][0-9]{4}', llm.get("begruendung_llm", ""))
-    for code in codes_from_text:
-        if not any((isinstance(i, dict) and i.get("lkn") == code) or (isinstance(i, str) and i == code) for i in identified):
-            # Verwende extrahierte Menge oder Standardmenge
-            qty = extracted.get("menge") if isinstance(extracted.get("menge"), int) and extracted.get("menge") > 0 else 1
-            identified.append({"lkn": code, "menge": qty})
-    # Durchlaufe identifizierte Leistungen
-    for item in identified:
-        # LKN extrahieren
-        if isinstance(item, str):
-            lkn = item
+            _set_qty(basis["LKN"], 1)
+        if addon and extra:
+            _set_qty(addon["LKN"], extra)
+
+
+    # 4. Codes aus LLM-Begründung nachtragen --------------------------------
+    for code in re.findall(r'[A-Z]{2}[.][0-9]{2}[.][0-9]{4}',
+                           llm.get("begruendung_llm", "")):
+         _set_qty(code, ext.get("menge") or 1)
+
+    # 5. Konsultations-Familien konfliktfrei machen ------------------------
+    def resolve_families(items: list[dict]) -> list[dict]:
+        buckets: dict[str, list[dict]] = {}
+        for el in items:
+            info = next((t for t in tardoc_tarifpositionen_data
+                         if t["LKN"] == el["lkn"]), {})
+            kap  = info.get("Kapitel") or el["lkn"][:5]
+            buckets.setdefault(kap, []).append(el | {"_info": info})
+        if len(buckets) <= 1:
+            return items
+
+        hausarzt = [f for f in buckets.values()
+                    if any("hausärzt" in d["_info"].get("Bezeichnung", "").lower() for d in f)]
+        keep = hausarzt[0] if hausarzt else min(
+            buckets.values(),
+            key=lambda f: next((d["_info"].get("AL_(normiert)", 1e9)
+                                for d in f if d["_info"].get("Zeit_LieS") == 5), 1e9))
+        keep_kap = keep[0]["_info"]["Kapitel"]
+        return [dict(e) for k, fam in buckets.items() if k == keep_kap for e in fam]
+
+    identified = resolve_families(identified)
+    llm["identified_leistungen"] = identified  # zurückschreiben
+
+    # 6. Berechnen (Einzelleistungf / Pauschale) ----------------------------
+    #   → Basis zuerst, damit Begleit_LKNs beim Zuschlag schon vorhanden sind
+    def _sort_key(el: dict) -> int:
+        info = next((t for t in tardoc_tarifpositionen_data if t["LKN"] == el["lkn"]), {})
+        return 0 if info.get("Zeit_LieS") == 5 else 1   # Basis=0, Add-on=1, Rest=1
+
+    results: list[dict] = []
+
+    for el in sorted(identified, key=_sort_key):
+        lkn   = el["lkn"]
+        menge = int(el.get("menge", 1))
+
+        # alle anderen Codes dieses Falls  (für Kumulationsregeln)
+        other_lkns = [i["lkn"] for i in identified if i["lkn"] != lkn]
+
+        info  = next((t for t in tardoc_tarifpositionen_data if t["LKN"] == lkn), {})
+        parent_raw  = info.get("Parent") or ""
+        parent_code = parent_raw.split()[0] if parent_raw else None
+        begleit = ([parent_code] if parent_code else []) + other_lkns   # ★ NEU
+
+        cat = next((c for c in leistungskatalog_data if c["LKN"] == lkn), {})
+        if cat.get("Typ") in ("P", "PZ"):
+            data = calculate_pauschale(lkn, menge, icds, identified) \
+                or calculate_einzelleistung(lkn, menge, icds,
+                                                begleit_lkns=begleit)
         else:
-            lkn = item.get("lkn")
-        # Menge aus LLM oder global
-        if isinstance(item, dict) and item.get("menge") is not None:
-            try:
-                item_menge = int(item.get("menge"))
-            except Exception:
-                item_menge = menge_req
-        else:
-            item_menge = menge_req
-        # Typ aus Katalog bestimmen
-        cat = next((e for e in leistungskatalog_data if e.get("LKN") == lkn), {})
-        typ_code = cat.get("Typ")
-        if typ_code in ("P", "PZ"):
-            pausch = calculate_pauschale(lkn, item_menge, icds, identified)
-            if pausch:
-                entry = {"typ": "Pauschale", "lkn": lkn, "menge": item_menge, **pausch}
-            else:
-                entry = {"typ": "Einzelleistung", "lkn": lkn, "menge": item_menge, **calculate_einzelleistung(lkn, item_menge, icds)}
-        else:
-            entry = {"typ": "Einzelleistung", "lkn": lkn, "menge": item_menge, **calculate_einzelleistung(lkn, item_menge, icds)}
-        results.append(entry)
-    # Priorisieren: Umfassende rheumatologische Untersuchung (KF.05.0050)
-    if any(item.get("lkn") == "KF.05.0050" for item in results):
-        # Hauptleistung extrahieren
-        primary = next(item for item in results if item.get("lkn") == "KF.05.0050")
-        # Vorschläge für regelkonforme Zusatzleistungen
-        additional_codes = ["KF.05.0040", "KF.00.0030", "GK.30.0030", "GK.25.0170"]
-        suggestions = []
-        for code in additional_codes:
-            svc = calculate_einzelleistung(code, 1, icds)
-            if svc.get("abrechnungsfaehig"):
-                # Beschreibung aus Tarifdaten
-                desc = next((e.get("Bezeichnung") for e in tardoc_tarifpositionen_data if e.get("LKN") == code), "")
-                suggestions.append({
-                    "lkn": code,
-                    "beschreibung": desc,
-                    "al": svc.get("al"),
-                    "ipl": svc.get("ipl"),
-                    "sum_taxpunkte": svc.get("sum_taxpunkte"),
-                    "abrechnungsfaehig": True,
-                    "fehler": []
-                })
-        return jsonify({
-            "llm_ergebnis": llm,
-            "primary_service": primary,
-            "message": "Möchten Sie weitere Leistungen hinzufügen?",
-            "additional_services": suggestions
+            data = calculate_einzelleistung(lkn, menge, icds,
+                                            begleit_lkns=begleit)
+
+        results.append({
+            "typ": "Pauschale" if "pauschale" in data else "Einzelleistung",
+            "lkn": lkn,
+            "menge": menge,
+            **data
         })
-    # Standard-Antwort: alle ermittelten Leistungen
+
+    # 7. Deduplizieren -----------------------------------------------------
+    uniq: dict[tuple, dict] = {}
+    for r in results:
+        k = (r["lkn"], r["typ"])
+        if k in uniq:
+            uniq[k]["menge"] += r["menge"]
+            uniq[k]["sum_taxpunkte"] += r["sum_taxpunkte"]
+            uniq[k]["fehler"].extend(r.get("fehler", []))
+            uniq[k]["abrechnungsfaehig"] &= r["abrechnungsfaehig"]
+        else:
+            uniq[k] = r
+    results = list(uniq.values())
+
     return jsonify({"llm_ergebnis": llm, "leistungen": results})
 
 # ── Static‑Routes & Start ────────────────────────────────────────────────
