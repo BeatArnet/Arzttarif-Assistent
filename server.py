@@ -493,12 +493,108 @@ def analyze_billing():
     text_low   = text.lower()
     identified = llm.get("identified_leistungen") or []
 
-    def _set_qty(lkn: str, qty: int) -> None:
-        for el in identified:
-            if el["lkn"] == lkn:
-                el["menge"] = qty          # überschreibt statt addiert
-                return
-        identified.append({"lkn": lkn, "menge": qty})
+    def remove_incompatible_leistungen(
+        identified: list[dict],
+        regelwerk_dict: dict[str, list[dict]],
+        tarifdaten: list[dict]
+    ) -> list[dict]:
+        """Entfernt nicht kumulierbare Leistungen unter Bevorzugung der höherwertigen (nach AL + IPL)"""
+
+        # Bewertung nach AL + IPL (mit Fehlerresistenz)
+        score_map = {}
+        for e in tarifdaten:
+            al = e.get("AL_(normiert)")
+            ipl = e.get("IPL_(normiert)")
+            if isinstance(al, (int, float)) and isinstance(ipl, (int, float)):
+                score_map[e["LKN"]] = al + ipl
+            else:
+                score_map[e["LKN"]] = 0.0
+
+        # Leistungen sortieren nach Score (höher zuerst)
+        sortiert = sorted(identified, key=lambda x: -score_map.get(x["lkn"], 0))
+
+        behalten = []
+        verboten = set()
+
+        for leistung in sortiert:
+            lkn = leistung["lkn"]
+            if lkn in verboten:
+                continue
+
+            inkompatibel_mit = set()
+            for regel in regelwerk_dict.get(lkn, []):
+                if regel.get("Typ") == "Nicht kumulierbar mit":
+                    inkompatibel_mit.update(regel.get("LKNs", []))
+
+            if inkompatibel_mit & {e["lkn"] for e in behalten}:
+                continue
+
+            behalten.append(leistung)
+            verboten.update(inkompatibel_mit)
+
+        return behalten
+
+    def ergänze_konsultation(
+        identified: list[dict],
+        dauer_minuten: int,
+        tarifdaten: list[dict]
+    ) -> None:
+        """Ergänzt bei Bedarf eine Konsultationsleistung (Basis + Zuschlag) anhand der TARDOC-Daten"""
+
+        if dauer_minuten < 5:
+            return  # keine Konsultation notwendig
+
+        vorhandene_lkns = {e["lkn"] for e in identified}
+
+        # Gibt es schon eine Konsultation (5-Minuten-Leistung)?
+        already_present = any(
+            e.get("Zeit_LieS") == 5
+            and "konsultation" in e.get("Bezeichnung", "").lower()
+            and e["LKN"] in vorhandene_lkns
+            for e in tarifdaten
+        )
+        if already_present:
+            return  # bereits vorhanden → nichts ergänzen
+
+        # Suche Basisleistung mit 5 Min. + "konsultation"
+        basis = next(
+            (e for e in tarifdaten
+            if e.get("Zeit_LieS") == 5
+            and e.get("Typ") == "H"
+            and "konsultation" in e.get("Bezeichnung", "").lower()),
+            None
+        )
+        if not basis:
+            return  # keine passende Basis gefunden
+
+        kap = basis.get("Kapitel")
+        # Suche passenden Zuschlag (1 Min. + Typ Z im selben Kapitel)
+        addon = next(
+            (e for e in tarifdaten
+            if e.get("Kapitel") == kap
+            and e.get("Zeit_LieS") == 1
+            and e.get("Typ") == "Z"),
+            None
+        )
+
+        # Ergänzen:
+        identified.append({"lkn": basis["LKN"], "menge": 1})
+        if addon and dauer_minuten > 5:
+            extra = min(dauer_minuten - 5, 30)  # Sicherheitslimit
+            identified.append({"lkn": addon["LKN"], "menge": extra})
+
+    # 4. Nicht kumulierbare entfernen & höherwertige bevorzugen
+    identified = remove_incompatible_leistungen(
+        identified,
+        regelwerk_dict=regelwerk_dict,
+        tarifdaten=tardoc_tarifpositionen_data
+    )
+
+    ergänze_konsultation(
+        identified,
+        dauer_minuten=ext.get("dauer_minuten", 0),
+        tarifdaten=tardoc_tarifpositionen_data
+    )
 
     # ── Hilfs-Routine: Menge festsetzen (überschreibt statt aufsummieren) ──
     def _set_qty(lkn: str, qty: int) -> None:
@@ -508,14 +604,22 @@ def analyze_billing():
                 return
         identified.append({"lkn": lkn, "menge": qty})
 
-    if duration and "konsult" in text_low:
-        # Basis (erste 5 Min.) ermitteln
-        basis_cands = [
-            e for e in tardoc_tarifpositionen_data
-            if e.get("Kapitel") == "CA.00" and e.get("Zeit_LieS") == 5
-        ]
-        basis = next((e for e in basis_cands if "hausärzt" in e["Bezeichnung"].lower()), None) \
-                or (basis_cands[0] if basis_cands else None)
+        if duration:
+            # ── Sprachbasierte Basiswahl (CA.00 vs AA.00) ────────────────
+            text_tokens = text_low.replace("ä", "a").split()
+
+            def _pick_basis(kapitel_code: str):
+                return next(
+                    (e for e in tardoc_tarifpositionen_data
+                    if e.get("Kapitel") == kapitel_code
+                        and e.get("Zeit_LieS") == 5),
+                    None
+                )
+
+            if any(tok.startswith("hausarzt") or tok.startswith("hausarztlich") for tok in text_tokens):
+                basis = _pick_basis("CA.00")
+            else:
+                basis = _pick_basis("AA.00")
 
         # Add-on (jede weitere 1 Min.) im selben Kapitel
         addon = None
@@ -523,11 +627,11 @@ def analyze_billing():
             kap = basis["Kapitel"]
             addon = next(
                 (e for e in tardoc_tarifpositionen_data
-                 if e["LKN"] != basis["LKN"]
+                if e["LKN"] != basis["LKN"]
                     and e.get("Kapitel") == kap
                     and e.get("Zeit_LieS") == 1
                     and ((e.get("Parent") or "").startswith(basis["LKN"])
-                         or e.get("Typ") == "Z")),
+                        or e.get("Typ") == "Z")),
                 None
             )
 
@@ -535,10 +639,10 @@ def analyze_billing():
         occupied = sum(
             el["menge"] for el in identified
             if el["lkn"] not in (basis["LKN"],)   # Basis bleibt unberührt
-               and next(
-                   (t for t in tardoc_tarifpositionen_data if t["LKN"] == el["lkn"]),
-                   {}
-               ).get("Zeit_LieS") == 1
+            and next(
+                (t for t in tardoc_tarifpositionen_data if t["LKN"] == el["lkn"]),
+                {}
+            ).get("Zeit_LieS") == 1
         )
         consult_minutes = max(0, duration - occupied)
         extra = max(0, min(consult_minutes - 5, 15)) if addon else 0
@@ -552,15 +656,15 @@ def analyze_billing():
 
     # 4. Codes aus LLM-Begründung nachtragen --------------------------------
     for code in re.findall(r'[A-Z]{2}[.][0-9]{2}[.][0-9]{4}',
-                           llm.get("begruendung_llm", "")):
-         _set_qty(code, ext.get("menge") or 1)
+                        llm.get("begruendung_llm", "")):
+        _set_qty(code, ext.get("menge") or 1)
 
     # 5. Konsultations-Familien konfliktfrei machen ------------------------
     def resolve_families(items: list[dict]) -> list[dict]:
         buckets: dict[str, list[dict]] = {}
         for el in items:
             info = next((t for t in tardoc_tarifpositionen_data
-                         if t["LKN"] == el["lkn"]), {})
+                        if t["LKN"] == el["lkn"]), {})
             kap  = info.get("Kapitel") or el["lkn"][:5]
             buckets.setdefault(kap, []).append(el | {"_info": info})
         if len(buckets) <= 1:
