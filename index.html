@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!D<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -39,10 +39,19 @@
         #output details summary { cursor: pointer; font-style: italic; color: #555; }
         #output ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
         #output li { margin-bottom: 3px; }
+        /* Styling für Lade-Indikator */
+        #spinner {
+            display: none; /* Standardmäßig ausgeblendet */
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #eee;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
-
     <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
     <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
 
@@ -51,23 +60,23 @@
 
     <label for="icdInput">Zusätzliche ICD-Codes (kommagetrennt, optional):</label>
     <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
-    <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
-    <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
 
+    <!-- GTIN entfernt -->
 
-    <!-- Button ruft jetzt getBillingAnalysis auf -->
-    <button onclick="getBillingAnalysis()">Abrechnung prüfen</button>
+    <button id="analyzeButton" onclick="getBillingAnalysis()">Abrechnung prüfen</button>
+    <button onclick="clearDataCache()" style="margin-left: 10px; background-color: #aaa;">Daten-Cache löschen</button>
+
+    <!-- Lade-Indikator -->
+    <div id="spinner">Prüfung läuft, bitte warten...</div>
 
     <div id="output">
         Hier erscheinen die Ergebnisse...
     </div>
 
     <div class="disclaimer">
-        <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr. Dieser Prototyp dient nur zu Demonstrationszwecken. Für offizielle und verbindliche Informationen konsultieren Sie bitte das TARDOC Online-Portal (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a>).
+       <!-- ... (Disclaimer) ... -->
     </div>
 
-    <!-- Hier wird das JavaScript eingebunden -->
     <script src="calculator.js"></script>
-
 </body>
 </html>
