@@ -214,13 +214,12 @@ def analyze_billing():
     except Exception as e: import traceback; print(f"Unerwarteter FEHLER: {e}\n{traceback.format_exc()}"); return jsonify({"error": "Serverfehler beim LLM-Aufruf"}), 500
 
     # 3. Initiale Mengenberechnung & Regelprüfung vorbereiten
-    regel_ergebnisse_liste = []
+    regel_ergebnisse_liste = []  # Behält die Ergebnisse für JEDE LKN
     extracted_info = llm_response_json.get("extracted_info", {})
     alter_llm = extracted_info.get("alter")
     geschlecht_llm = extracted_info.get("geschlecht")
-    dauer_llm = extracted_info.get("dauer_minuten")
-    menge_llm = extracted_info.get("menge")
     identified_leistungen_llm = llm_response_json.get("identified_leistungen", [])
+    rule_checked_leistungen = [] # Liste der LKNs, die Regeln bestehen (als Dict mit finaler Menge)
 
     if not identified_leistungen_llm: # Wenn nach Filterung nichts übrig bleibt
          regel_ergebnisse_liste.append({
@@ -230,24 +229,27 @@ def analyze_billing():
          })
     else:
         # --- Regelprüfung für jede LKN mit Menge vom LLM ---
-        for leistung in identified_leistungen_llm: # Nutze gefilterte Liste
+        for leistung in identified_leistungen_llm:
             lkn = leistung.get("lkn")
-            # *** NEU: Hole initiale Menge direkt aus LLM-Ergebnis ***
-            menge_initial = leistung.get("menge", 1) # Nimm Menge vom LLM, Default 1
-            # Stelle sicher, dass es eine Zahl ist
-            try:
-                menge_initial = int(menge_initial)
-                if menge_initial < 0: menge_initial = 1 # Keine negativen Mengen
-            except (ValueError, TypeError):
-                print(f"WARNUNG: Ungültige Menge '{leistung.get('menge')}' vom LLM für {lkn}, verwende 1.")
-                menge_initial = 1
+            if not lkn or lkn.lower() == "unknown":
+                 # Füge Fehler für ungültige LKN hinzu
+                 regel_ergebnisse_liste.append({
+                     "lkn": lkn or "unknown",
+                     "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Ungültige LKN vom LLM."]},
+                     "finale_menge": 0
+                 })
+                 continue
 
-            print(f"Prüfe LKN {lkn} mit initialer Menge vom LLM: {menge_initial}")
+            menge_initial = leistung.get("menge", 1)
+            try: menge_initial = int(menge_initial); assert menge_initial >= 0
+            except: menge_initial = 1
 
             regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
+            
             if not regelpruefer or not regelwerk_dict:
                 regel_ergebnis = {"abrechnungsfaehig": True, "fehler": ["Regelprüfung nicht verfügbar."]}
             else:
+                # *** DEFINITION VON ABRECHNUNGSFALL HIER EINFÜGEN ***
                 abrechnungsfall = {
                     "LKN": lkn,
                     "Menge": menge_initial, # Verwende initiale Menge vom LLM
@@ -255,29 +257,52 @@ def analyze_billing():
                     "ICD": icd_input,
                     "Geschlecht": geschlecht_llm,
                     "Alter": alter_llm,
-                    "Pauschalen": []
+                    "Pauschalen": [] # Ggf. anpassen, falls Pauschalen übergeben werden
                 }
-                # print(f"Starte Regelprüfung für Fall: {abrechnungsfall}") # Optionales Logging
+                # *** ENDE DEFINITION ***
+                print(f"Starte Regelprüfung für Fall: {abrechnungsfall}")
                 regel_ergebnis = regelpruefer.pruefe_abrechnungsfaehigkeit(abrechnungsfall, regelwerk_dict)
-                # print(f"Ergebnis Regelprüfung für {lkn}: {regel_ergebnis}") # Optionales Logging
+                print(f"Ergebnis Regelprüfung für {lkn}: {regel_ergebnis}")
 
-            # Menge anpassen (wie zuvor)
+            # *** Mengenanpassungslogik HIER implementieren ***
             angepasste_menge = menge_initial
             if not regel_ergebnis.get("abrechnungsfaehig", False):
-                # ... (Logik zur Mengen-Anpassung basierend auf Regelprüfung wie zuvor) ...
-                # Wichtig: Die Anpassung basiert jetzt auf 'menge_initial'
-                pass # Füge die Anpassungslogik hier wieder ein
+                # *** Mengenanpassungslogik HIER ***
+                fehler_liste = regel_ergebnis.get("fehler", [])
+                fehler_ohne_menge = [f for f in fehler_liste if "Mengenbeschränkung überschritten" not in f]
+                mengen_fehler = [f for f in fehler_liste if "Mengenbeschränkung überschritten" in f]
+                if not fehler_ohne_menge and mengen_fehler:
+                    max_menge_match = None
+                    match = re.search(r'max\. (\d+)', mengen_fehler[0])
+                    if match: max_menge_match = int(match.group(1))
+                    if max_menge_match is not None and menge_initial > max_menge_match:
+                        angepasste_menge = max_menge_match
+                        print(f"Menge angepasst von {menge_initial} auf {angepasste_menge} für {lkn}.")
+                        regel_ergebnis["fehler"] = [f"Menge auf {angepasste_menge} reduziert (ursprünglich: {menge_initial})"]
+                        regel_ergebnis["abrechnungsfaehig"] = True
+                    else:
+                        angepasste_menge = 0
+                        print(f"Mengenfehler für {lkn}, aber Anpassung nicht möglich/nötig.")
+                else:
+                    angepasste_menge = 0
+                    print(f"LKN {lkn} nicht abrechnungsfähig wegen anderer Regeln.")
+                # *** ENDE Mengenanpassungslogik ***
 
             regel_ergebnisse_liste.append({
                 "lkn": lkn,
                 "regelpruefung": regel_ergebnis,
-                "finale_menge": angepasste_menge # Die Menge nach der Regelprüfung
+                "finale_menge": angepasste_menge
             })
+            # Füge zur Liste der regelkonformen hinzu, WENN abrechnungsfähig (NACH Anpassung)
+            if regel_ergebnis.get("abrechnungsfaehig"):
+                # Füge das *ursprüngliche* Leistungsobjekt hinzu, aber mit der finalen Menge
+                rule_checked_leistungen.append({**leistung, "menge": angepasste_menge})
 
-    # --- Kombiniertes Ergebnis an Frontend senden ---
-    final_response = {
-        "llm_ergebnis": llm_response_json, # Enthält jetzt Menge pro LKN
-        "regel_ergebnisse": regel_ergebnisse_liste
+        # --- Kombiniertes Ergebnis an Frontend senden ---
+        final_response = {
+            "llm_ergebnis": llm_response_json, # Enthält jetzt Menge pro LKN
+            "regel_ergebnisse": regel_ergebnisse_liste,
+            "finale_mengen": regel_ergebnisse_liste, # Enthält finale Mengen für alle LKN
     }
     return jsonify(final_response)
 

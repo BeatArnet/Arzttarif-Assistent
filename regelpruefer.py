@@ -123,3 +123,104 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
         else:
             continue
     return {"abrechnungsfaehig": allowed, "fehler": errors}
+
+# --- Funktion zur Prüfung von Pauschalenbedingungen ---
+def check_pauschale_conditions(
+    pauschale_code: str,
+    context: dict, # Enthält ICD, GTIN, LKN (Liste aller regelkonformen LKNs im Fall)
+    pauschale_bedingungen_data: list[dict],
+    tabellen_data: list[dict]
+) -> dict:
+    """
+    Prüft die Bedingungen für eine gegebene Pauschale.
+
+    Args:
+        pauschale_code: Der Code der zu prüfenden Pauschale.
+        context: Dictionary mit Kontextinformationen (ICD, GTIN, LKN als Listen).
+        pauschale_bedingungen_data: Liste aller Bedingungsobjekte aus tblPauschaleBedingungen.
+        tabellen_data: Liste aller Einträge aus tblTabellen.
+
+    Returns:
+        Dict mit Schlüsseln:
+          - allMet (bool): True, wenn alle Bedingungen erfüllt sind.
+          - html (str): (Optional) HTML-String zur Darstellung der Prüfung (wie im JS).
+                         Hier vereinfacht als Liste von Fehlern/Erfolgen.
+          - errors (list): Liste der nicht erfüllten Bedingungen (Strings).
+    """
+    errors: list[str] = []
+    condition_details: list[str] = [] # Für detailliertes Logging/HTML
+    all_met = True
+
+    # Finde alle Bedingungen für diese Pauschale
+    conditions = [cond for cond in pauschale_bedingungen_data if cond.get("Pauschale") == pauschale_code]
+
+    if not conditions:
+        print(f"Info: Keine spezifischen Bedingungen für Pauschale {pauschale_code} gefunden.")
+        return {"allMet": True, "html": "Keine Bedingungen gefunden.", "errors": []}
+
+    print(f"Info: Prüfe {len(conditions)} Bedingungen für Pauschale {pauschale_code}...")
+
+    # Kontext extrahieren (sicherstellen, dass es Listen sind)
+    provided_icds = context.get("ICD", [])
+    provided_gtins = context.get("GTIN", [])
+    provided_lkns = context.get("LKN", [])
+    if isinstance(provided_icds, str): provided_icds = [provided_icds]
+    if isinstance(provided_gtins, str): provided_gtins = [provided_gtins]
+    if isinstance(provided_lkns, str): provided_lkns = [provided_lkns]
+
+    # Iteriere durch jede Bedingung
+    for i, cond in enumerate(conditions):
+        bedingungstyp = cond.get("Bedingungstyp", "").upper()
+        werte_str = cond.get("Werte", "")
+        werte_list = [w.strip() for w in str(werte_str).split(',') if w.strip()] # Aufteilen und leere entfernen
+        tabelle_ref = cond.get("Tabelle") # Für Typ "IN TABELLE"
+
+        condition_met = False
+        bedingung_text = f"Typ: {bedingungstyp}, Wert/Ref: '{werte_str or tabelle_ref or '-'}'"
+
+        if not werte_list and not tabelle_ref:
+            print(f"WARNUNG: Bedingung {i+1} für {pauschale_code} hat keine Werte oder Tabelle.")
+            condition_met = True # Im Zweifel als erfüllt annehmen? Oder False? Hier: True
+        elif bedingungstyp == "ICD":
+            condition_met = any(req_icd.upper() in (p_icd.upper() for p_icd in provided_icds) for req_icd in werte_list)
+        elif bedingungstyp == "GTIN":
+             condition_met = any(req_gtin in provided_gtins for req_gtin in werte_list)
+        elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
+             condition_met = any(req_lkn.upper() in (p_lkn.upper() for p_lkn in provided_lkns) for req_lkn in werte_list)
+        elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
+             # Suche Codes aus tblTabellen basierend auf der Referenz-Tabelle
+             codes_in_tabelle = [
+                 e.get("Code") for e in tabellen_data
+                 if e.get("Tabelle") == tabelle_ref and e.get("Tabelle_Typ") == "service_catalog" and e.get("Code")
+             ]
+             condition_met = any(code.upper() in (p_lkn.upper() for p_lkn in provided_lkns) for code in codes_in_tabelle)
+             bedingung_text += f" (Tabelle: {tabelle_ref})" # Füge Tabellenname hinzu
+        elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE":
+             codes_in_tabelle = [
+                 e.get("Code") for e in tabellen_data
+                 if e.get("Tabelle") == tabelle_ref and e.get("Tabelle_Typ") == "icd" and e.get("Code")
+             ]
+             condition_met = any(code.upper() in (p_icd.upper() for p_icd in provided_icds) for code in codes_in_tabelle)
+             bedingung_text += f" (Tabelle: {tabelle_ref})"
+        elif bedingungstyp == "MEDIKAMENTE IN LISTE":
+             # Annahme: Werte sind GTINs
+             condition_met = any(req_gtin in provided_gtins for req_gtin in werte_list)
+        else:
+            print(f"WARNUNG: Unbekannter Pauschalen-Bedingungstyp '{bedingungstyp}' für {pauschale_code}. Wird als erfüllt angenommen.")
+            condition_met = True
+
+        status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
+        condition_details.append(f" - {bedingung_text}: {status_text}")
+
+        if not condition_met:
+            all_met = False
+            errors.append(f"Bedingung nicht erfüllt: {bedingung_text}")
+
+    # Erstelle einfachen HTML-String für Details (optional)
+    html_details = "<ul>" + "".join([f"<li>{detail}</li>" for detail in condition_details]) + "</ul>"
+
+    return {
+        "allMet": all_met,
+        "html": html_details, # Optional, für Frontend-Anzeige
+        "errors": errors      # Liste der Fehlertexte
+    }

@@ -1,82 +1,153 @@
-<!D<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TARDOC / Pauschalen Rechner Prototyp</title>
+    <!-- Favicon Links (optional aber empfohlen) -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="alternate icon" href="favicon.ico" type="image/x-icon">
     <style>
-        :root{
-        --primary:#005EB8;        /* Blau der FMH */
-        --primary-light:#E6F0FA;
-        --accent:#00856F;         /* dezent grün    */
-        --danger:#C0002B;         /* roter Hinweis  */
+        /* Basis-Styling (kann angepasst werden) */
+        :root {
+            --primary: #005EB8; /* Blau der FMH */
+            --primary-light: #E6F0FA;
+            --accent: #00856F; /* dezent grün */
+            --danger: #C0002B; /* roter Hinweis */
         }
-        body         { background: var(--primary-light); }
-        button       { background: var(--primary); color:#fff; border:none; }
-        button:hover { filter:brightness(1.1); }
-        #output      { background:#fff; border-color:var(--primary-light); }
-        #output.success p { color: var(--accent); }
-        #output.error   p { color: var(--danger);  }
-        #output th      { background: var(--primary-light); }
-
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        textarea, input[type="text"] {
-             width: 90%; max-width: 600px; margin-bottom: 15px; padding: 8px; box-sizing: border-box;
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background: var(--primary-light);
         }
-        button { padding: 10px 15px; cursor: pointer; margin-top: 10px; }
-        #output { margin-top: 20px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; white-space: pre-wrap; }
-        .disclaimer { font-size: 0.8em; color: #666; margin-top: 30px; }
-        #output.error p { color: red; font-weight: bold; }
-        #output.success p { color: green; }
-        #output h2, #output h3 { margin-top: 1em; margin-bottom: 0.5em; }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea, input[type="text"], select {
+            width: 90%;
+            max-width: 618px; /* Angepasst für Konsistenz */
+            margin-bottom: 15px;
+            padding: 8px;
+            box-sizing: border-box; /* Wichtig für konsistente Breite */
+            border: 1px solid #ccc; /* Standard-Rahmen */
+        }
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-top: 10px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 4px; /* Leichte Abrundung */
+        }
+        button:hover {
+            filter: brightness(1.1);
+        }
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #output {
+            margin-top: 20px;
+            border: 1px solid var(--primary-light);
+            padding: 15px;
+            background-color: #fff;
+            white-space: pre-wrap; /* Zeilenumbrüche erhalten */
+            border-radius: 4px;
+        }
+        .disclaimer {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 30px;
+        }
+        /* Klassen für die Ausgabe-Formatierung */
+        #output.error { border-color: var(--danger); }
+        #output.error p:first-child, #output .error { color: var(--danger); font-weight: bold; }
+        #output.success p:first-child, #output .success { color: var(--accent); font-weight: bold; }
+        #output h2, #output h3, #output h4 { margin-top: 1em; margin-bottom: 0.5em; color: var(--primary); }
         #output h3 { border-top: 1px dashed #ccc; padding-top: 0.8em; }
+        #output h4 { font-size: 1.1em; margin-bottom: 0.3em; }
         #output hr { border: none; border-top: 1px solid #eee; margin: 1em 0; }
-        #output table { border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 15px; }
+        #output table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 15px; }
         #output th, #output td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top;}
-        #output th { background-color: #f2f2f2; }
-        #output details { margin-top: 5px; font-size: 0.9em; }
+        #output th { background-color: var(--primary-light); }
+        #output details { margin-top: 5px; font-size: 0.9em; border: 1px solid #eee; padding: 5px; border-radius: 3px; background: #fdfdfd;}
         #output details summary { cursor: pointer; font-style: italic; color: #555; }
         #output ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
         #output li { margin-bottom: 3px; }
         /* Styling für Lade-Indikator */
         #spinner {
             display: none; /* Standardmäßig ausgeblendet */
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #eee;
-            border: 1px solid #ccc;
-            text-align: center;
-            font-style: italic;
+            margin-top: 15px; padding: 10px;
+            background-color: #eee; border: 1px solid #ccc;
+            text-align: center; font-style: italic; border-radius: 4px;
         }
     </style>
 </head>
 <body>
+
     <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
     <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
 
+    <!-- *** NEUES DROPDOWN *** -->
+    <label for="beispielSelect">Beispiele auswählen:</label>
+    <select id="beispielSelect" onchange="beispielEinfuegen()">
+        <option value="">-- Gesprächsaufhänger wählen --</option>
+        <option value="Hausärztliche Konsultation von 17 Minuten">Hausärztliche Konsultation 17 Min.</option>
+        <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
+        <option value="Aufklärung des Patienten und Leberbiopsie durch die Haut">Aufklärung + Leberbiopsie (Haut)</option>
+        <option value="Blinddarmentfernung als alleinige Leistung">Blinddarmentfernung (alleinig)</option>
+        <option value="Korrektur eines Hallux valgus rechts">Korrektur Hallux valgus rechts</option>
+        <option value="Konsultation 10 Minuten und Entfernung einer gestielten Warze am Stamm">Konsultation 10 Min + Warzenentfernung Stamm</option>
+        <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
+        <!-- Füge hier bei Bedarf weitere Beispiele hinzu -->
+        <option value="Bronchoskopie mit Lavage">Bronchoskopie mit Lavage</option>
+        <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
+    </select>
+    <!-- *** ENDE NEUES DROPDOWN *** -->
+
     <label for="userInput">Leistungsbeschreibung / LKN:</label>
-    <textarea id="userInput" rows="4" placeholder="z.B. Hausärztliche Konsultation von 18 Minuten bei 42-jähriger Patientin, Entfernung Warze am Stamm..."></textarea>
+    <textarea id="userInput" rows="4" placeholder="z.B. Hausärztliche Konsultation von 17 Minuten, Blinddarmentfernung als alleinige Leistung, C06.CE.0010..."></textarea>
 
     <label for="icdInput">Zusätzliche ICD-Codes (kommagetrennt, optional):</label>
     <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
-
-    <!-- GTIN entfernt -->
+    <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
+    <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
 
     <button id="analyzeButton" onclick="getBillingAnalysis()">Abrechnung prüfen</button>
     <button onclick="clearDataCache()" style="margin-left: 10px; background-color: #aaa;">Daten-Cache löschen</button>
 
-    <!-- Lade-Indikator -->
     <div id="spinner">Prüfung läuft, bitte warten...</div>
-
-    <div id="output">
-        Hier erscheinen die Ergebnisse...
-    </div>
-
+    <div id="output">Hier erscheinen die Ergebnisse...</div>
     <div class="disclaimer">
-       <!-- ... (Disclaimer) ... -->
+        <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr. Dieser Prototyp dient nur zu Demonstrationszwecken. Für offizielle und verbindliche Informationen konsultieren Sie bitte das TARDOC Online-Portal (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a>).
     </div>
 
+    <!-- JavaScript Einbindung -->
     <script src="calculator.js"></script>
+
+    <!-- Kleines Script für Dropdown-Funktionalität -->
+    <script>
+        function beispielEinfuegen() {
+            const selectElement = document.getElementById('beispielSelect');
+            // WICHTIG: Hole den *Wert* der ausgewählten Option, nicht den angezeigten Text
+            const selectedValue = selectElement.options[selectElement.selectedIndex].value;
+            const targetTextarea = document.getElementById('userInput');
+
+            // Nur einfügen, wenn ein echter Wert ausgewählt wurde (nicht der Platzhalter)
+            if (selectedValue && targetTextarea) {
+                targetTextarea.value = selectedValue;
+                // Optional: Fokus auf Textarea setzen
+                // targetTextarea.focus();
+                // Optional: Ausgabe löschen, wenn Beispiel gewählt wird
+                // const outputDiv = document.getElementById('output');
+                // if (outputDiv) outputDiv.innerHTML = "Neues Beispiel ausgewählt...";
+            }
+        }
+    </script>
+
 </body>
 </html>
