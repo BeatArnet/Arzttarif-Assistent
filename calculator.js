@@ -1,6 +1,5 @@
-// calculator.js - Vollständige Version (26.04.2025)
-// Arbeitet mit Backend, das Mengen berechnet und Regeln prüft.
-// Frontend zeigt Ergebnisse an und holt Pauschalen/TARDOC-Details lokal.
+// calculator.js - Vollständige Version (27.04.2025)
+// Arbeitet mit zweistufigem Backend. Holt lokale Details zur Anzeige.
 
 // ─── 0 · Globale Datencontainer ─────────────────────────────────────────────
 let data_leistungskatalog = [];
@@ -17,17 +16,19 @@ const DATA_PATHS = {
     pauschalen: 'data/tblPauschalen.json',
     pauschaleBedingungen: 'data/tblPauschaleBedingungen.json',
     tardocGesamt: 'data/TARDOCGesamt_optimiert_Tarifpositionen.json', // ANPASSEN!
-    tabellen: 'data/tblTabellen.json'
+    tabellen: 'data/tblTabellen.json' // Korrigiert basierend auf deiner Liste
 };
 const CACHE_KEY = 'tardocRechnerDataCache';
 const CACHE_VERSION = '1.1'; // Version erhöht für Cache-Reset
 
 // ─── 1 · Utility‑Funktionen ────────────────────────────────────────────────
 function $(id) {
+    // Gibt das DOM-Element mit der gegebenen ID zurück
     return document.getElementById(id);
 }
 
 function escapeHtml(s) {
+    // Konvertiert spezielle HTML-Zeichen in ihre Entity-Äquivalente
     if (s === null || s === undefined) return "";
     // Korrekte Ersetzung mit numerischen Entities für Anführungszeichen
     return String(s).replace(/[&<>"']/g, c => ({
@@ -35,15 +36,16 @@ function escapeHtml(s) {
         "<": "<",
         ">": ">",
         "\"": "&quot;",
-        "'": "'"  
+        "'": "'" 
     }[c]));
 }
 
-// Findet Beschreibung im lokal geladenen Katalog
+// Findet Beschreibung im lokal geladenen Katalog (Fallback)
 function beschreibungZuLKN(lkn) {
-    if (!data_leistungskatalog || typeof lkn !== 'string') return "";
+    if (!data_leistungskatalog || typeof lkn !== 'string') return "N/A";
     const hit = data_leistungskatalog.find(e => e.LKN?.toUpperCase() === lkn.toUpperCase());
-    return hit ? hit.Beschreibung || "Beschreibung nicht gefunden" : "Beschreibung nicht gefunden";
+    // Gib Beschreibung zurück oder LKN selbst, wenn keine Beschreibung gefunden
+    return hit ? hit.Beschreibung || lkn : lkn;
 }
 
 function displayOutput(html, type = "info") {
@@ -52,7 +54,6 @@ function displayOutput(html, type = "info") {
     out.innerHTML = html;
     out.className = type;
 }
-
 // --- Spinner-Funktionen ---
 function showSpinner() {
     const spinner = $('spinner');
@@ -72,10 +73,14 @@ function hideSpinner() {
 async function fetchJSON(path) {
     try {
         const r = await fetch(path);
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        if (!r.ok) {
+            let errorText = r.statusText;
+            try { const errorJson = await r.json(); errorText = errorJson.error || errorJson.message || r.statusText; } catch (e) { /* Ignore */ }
+            throw new Error(`HTTP ${r.status}: ${errorText} beim Laden von ${path}`);
+        }
         return await r.json();
     } catch (e) {
-        console.warn(`Fehler beim Laden von ${path}:`, e);
+        console.warn(`Fehler beim Laden oder Parsen von ${path}:`, e);
         return []; // Leeres Array bei Fehler
     }
 }
@@ -84,80 +89,89 @@ async function loadData() {
     console.log("Prüfe Daten-Cache...");
     const cachedData = localStorage.getItem(CACHE_KEY);
     let dataValid = false;
+    let loadedDataArray = [];
 
     if (cachedData) {
         try {
             const parsed = JSON.parse(cachedData);
-            if (parsed.version === CACHE_VERSION && parsed.data) {
-                [
-                    data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
-                    data_pauschaleBedingungen, data_tardocGesamt, data_tabellen
-                ] = parsed.data;
+            if (parsed.version === CACHE_VERSION && parsed.data && Array.isArray(parsed.data) && parsed.data.length === Object.keys(DATA_PATHS).length) {
+                loadedDataArray = parsed.data;
                 dataValid = true;
                 console.log("Daten aus localStorage-Cache geladen.");
-            } else {
-                console.log("Cache-Version veraltet oder Daten ungültig.");
-                localStorage.removeItem(CACHE_KEY);
-            }
-        } catch (e) {
-            console.warn("Fehler beim Parsen des Caches:", e);
-            localStorage.removeItem(CACHE_KEY);
-        }
+            } else { console.log("Cache-Version veraltet oder Daten ungültig."); localStorage.removeItem(CACHE_KEY); }
+        } catch (e) { console.warn("Fehler beim Parsen des Caches:", e); localStorage.removeItem(CACHE_KEY); }
     }
 
     if (!dataValid) {
         console.log("Lade Frontend-Daten vom Server...");
         displayOutput("<p>Lade Tarifdaten...</p>", "info");
         try {
-            const results = await Promise.all([
+            loadedDataArray = await Promise.all([
                 fetchJSON(DATA_PATHS.leistungskatalog), fetchJSON(DATA_PATHS.pauschaleLP),
                 fetchJSON(DATA_PATHS.pauschalen), fetchJSON(DATA_PATHS.pauschaleBedingungen),
                 fetchJSON(DATA_PATHS.tardocGesamt), fetchJSON(DATA_PATHS.tabellen)
             ]);
 
-            if (results.some(res => res === undefined)) {
-                 throw new Error("Einige Daten konnten nicht geladen werden.");
-            }
+            if (loadedDataArray.some(data => data === undefined)) { throw new Error("Einige Daten konnten nicht korrekt vom Server geholt werden."); }
 
-            [
-                data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
-                data_pauschaleBedingungen, data_tardocGesamt, data_tabellen
-            ] = results;
-
-            const cachePayload = { version: CACHE_VERSION, data: results };
-            try {
-                 localStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload));
-                 console.log("Daten im localStorage-Cache gespeichert.");
-            } catch (e) { console.warn("Fehler beim Speichern im localStorage:", e); }
+            const cachePayload = { version: CACHE_VERSION, data: loadedDataArray };
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload)); console.log("Daten im Cache gespeichert."); }
+            catch (e) { console.warn("Fehler beim Speichern im Cache:", e); }
 
             console.log("Frontend-Daten vom Server geladen.");
-            displayOutput("<p>Daten geladen. Bereit zur Prüfung.</p>", "success");
-            setTimeout(() => { if ($("output") && $("output").className === 'success') displayOutput(""); }, 2000);
-
+            if (!$("output")?.classList.contains("error")) {
+                displayOutput("<p>Daten geladen. Bereit zur Prüfung.</p>", "success");
+                setTimeout(() => { if ($("output") && $("output").className === 'success') displayOutput(""); }, 2000);
+            }
         } catch (error) {
              console.error("Schwerwiegender Fehler beim Laden der Frontend-Daten:", error);
-             displayOutput(`<p>Fehler beim Laden der notwendigen Frontend-Daten: ${escapeHtml(error.message)}. Die Anwendung funktioniert möglicherweise nicht korrekt.</p>`, "error");
+             displayOutput(`<p class="error">Fehler beim Laden der notwendigen Frontend-Daten: ${escapeHtml(error.message)}. Bitte Seite neu laden oder Cache löschen.</p>`, "error");
+             data_leistungskatalog = []; data_pauschaleLeistungsposition = []; data_pauschalen = [];
+             data_pauschaleBedingungen = []; data_tardocGesamt = []; data_tabellen = [];
              return;
         }
     }
 
-    // Finale Prüfung, ob kritische Daten vorhanden sind
-    if (!data_leistungskatalog || data_leistungskatalog.length === 0) console.error("Leistungskatalog ist leer!");
-    if (!data_tardocGesamt || data_tardocGesamt.length === 0) console.warn("TARDOC-Daten sind leer!");
-    if (!data_pauschalen || data_pauschalen.length === 0) console.warn("Pauschalen-Daten sind leer!");
+    // Weise die geladenen/gecachten Daten den globalen Variablen zu
+    if (loadedDataArray && loadedDataArray.length === Object.keys(DATA_PATHS).length) {
+        [ data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
+          data_pauschaleBedingungen, data_tardocGesamt, data_tabellen ] = loadedDataArray;
+    } else {
+         console.error("Fehler bei der Zuweisung der geladenen Daten.");
+         displayOutput(`<p class="error">Interner Fehler beim Verarbeiten der geladenen Daten.</p>`, "error");
+         return;
+    }
+
+    // Finale Prüfung auf kritische Daten
+    let missingDataErrors = [];
+    if (!data_leistungskatalog || data_leistungskatalog.length === 0) missingDataErrors.push("Leistungskatalog");
+    if (!data_tardocGesamt || data_tardocGesamt.length === 0) missingDataErrors.push("TARDOC-Daten");
+    if (!data_pauschalen || data_pauschalen.length === 0) missingDataErrors.push("Pauschalen");
+    if (!data_pauschaleLeistungsposition || data_pauschaleLeistungsposition.length === 0) missingDataErrors.push("Pauschalen-Zuordnungen");
+    if (!data_pauschaleBedingungen || data_pauschaleBedingungen.length === 0) missingDataErrors.push("Pauschalen-Bedingungen");
+
+    if (missingDataErrors.length > 0) {
+         const errorMsg = `Folgende kritische Daten konnten nicht geladen werden oder sind leer: ${missingDataErrors.join(', ')}. Die Anwendung ist nicht voll funktionsfähig.`;
+         console.error(errorMsg);
+         if (!$("output")?.classList.contains("error")) {
+            displayOutput(`<p class="error">${escapeHtml(errorMsg)}</p>`, "error");
+         }
+    } else { console.log("Alle kritischen Daten scheinen vorhanden zu sein."); }
 }
 
 function clearDataCache() {
     localStorage.removeItem(CACHE_KEY);
     console.log("Daten-Cache gelöscht.");
-    // Setze globale Variablen zurück, um Neuladen zu erzwingen
     data_leistungskatalog = []; data_pauschaleLeistungsposition = []; data_pauschalen = [];
     data_pauschaleBedingungen = []; data_tardocGesamt = []; data_tabellen = [];
     displayOutput("<p>Cache gelöscht. Lade Daten neu...</p>", "info");
     loadData().then(() => {
          if ($("output") && $("output").className === 'success') {
-              setTimeout(() => { if ($("output").className === 'success') displayOutput(""); }, 1500);
+              setTimeout(() => { if ($("output") && $("output").className === 'success') displayOutput(""); }, 1500);
          }
+    }).catch(error => {
+        console.error("Fehler beim Neuladen der Daten nach Cache-Löschung:", error);
+        displayOutput(`<p class="error">Fehler beim Neuladen der Daten: ${escapeHtml(error.message)}</p>`, "error");
     });
 }
 
@@ -172,15 +186,11 @@ async function getBillingAnalysis() {
 
     let backendResponse = null;
     let rawResponseText = "";
-    let htmlOutput = ""; // Haupt-HTML-String
+    let htmlOutput = "";
 
     const outputDiv = $("output");
     if (!outputDiv) { console.error("Output element not found!"); return; }
-
-    if (!userInput) {
-        displayOutput("<p>Bitte Leistungsbeschreibung eingeben.</p>", "error");
-        return;
-    }
+    if (!userInput) { displayOutput("<p>Bitte Leistungsbeschreibung eingeben.</p>", "error"); return; }
 
     showSpinner();
     displayOutput("<p>Prüfe Abrechnung …</p>", "info");
@@ -198,43 +208,18 @@ async function getBillingAnalysis() {
 
         if (!res.ok) {
             let errorMsg = `${res.status} ${res.statusText}`;
-            try {
-                 const errJson = JSON.parse(rawResponseText);
-                 errorMsg = `${res.status}: ${errJson.error || 'Unbekannter Fehler'} ${errJson.details ? '- ' + errJson.details : ''}`;
-            } catch(e) { /* Ignore */ }
+            try { const errJson = JSON.parse(rawResponseText); errorMsg = `${res.status}: ${errJson.error || 'Unbekannter Fehler'} ${errJson.details ? '- ' + errJson.details : ''}`; } catch(e) { /* Ignore */ }
             throw new Error(errorMsg);
         }
-
-        try {
-            backendResponse = JSON.parse(rawResponseText);
-        } catch (e) {
-            console.error("Fehler beim Parsen der Backend-JSON-Antwort:", e);
-            console.error("Raw Response:", rawResponseText);
-            throw new Error(`Ungültiges JSON vom Server empfangen: ${e.message}`);
-        }
+        try { backendResponse = JSON.parse(rawResponseText); }
+        catch (e) { throw new Error(`Ungültiges JSON vom Server empfangen: ${e.message}`); }
 
         console.log("[getBillingAnalysis] Backend-Antwort geparst:", backendResponse);
 
         // Strukturprüfung
         console.log("[getBillingAnalysis] Prüfe Backend-Antwortstruktur...");
-        let structureOk = true;
-        let errorReason = "Unbekannter Strukturfehler";
-        if (!backendResponse) { structureOk = false; errorReason = "BackendResponse ist null."; }
-        else {
-            if (!backendResponse.llm_ergebnis) { structureOk = false; errorReason = "'llm_ergebnis' fehlt."; }
-            if (!backendResponse.regel_ergebnisse) { structureOk = false; errorReason = "'regel_ergebnisse' fehlt."; }
-            else if (!Array.isArray(backendResponse.regel_ergebnisse)) { structureOk = false; errorReason = "'regel_ergebnisse' ist kein Array."; }
-            else if (backendResponse.regel_ergebnisse.length > 0) {
-                 const firstResult = backendResponse.regel_ergebnisse[0];
-                 // Prüfe auf 'regelpruefung' UND 'finale_menge'
-                 if (!firstResult || firstResult.regelpruefung === undefined || firstResult.finale_menge === undefined) {
-                      structureOk = false; errorReason = "Struktur innerhalb von 'regel_ergebnisse' ist unerwartet.";
-                 }
-            }
-        }
-        if (!structureOk) {
-             console.error("Fehlergrund:", errorReason); console.error("Empfangenes Objekt:", backendResponse);
-             throw new Error(`Unerwartete Datenstruktur vom Server erhalten (${errorReason})`);
+        if (!backendResponse || !backendResponse.llm_ergebnis_stufe1 || !backendResponse.abrechnung || !backendResponse.abrechnung.type) {
+             throw new Error("Unerwartete Hauptstruktur vom Server erhalten.");
         }
         console.log("[getBillingAnalysis] Backend-Antwortstruktur ist OK.");
 
@@ -250,18 +235,19 @@ async function getBillingAnalysis() {
     // --- Ergebnisse verarbeiten und anzeigen ---
     try {
         console.log("[getBillingAnalysis] Starte Ergebnisverarbeitung.");
-        const llmResult = backendResponse.llm_ergebnis;
-        const ruleResultsList = backendResponse.regel_ergebnisse; // Liste der Ergebnisse
-        const identifiedLeistungen = llmResult.identified_leistungen || [];
-        const extractedInfo = llmResult.extracted_info || {};
+        const llmResultStufe1 = backendResponse.llm_ergebnis_stufe1;
+        const abrechnung = backendResponse.abrechnung; // Das finale Abrechnungsergebnis
+        const identifiedLeistungen = llmResultStufe1.identified_leistungen || [];
+        const extractedInfo = llmResultStufe1.extracted_info || {};
+        // Regelprüfungsergebnisse nur zur optionalen Anzeige bei Fehlern
+        const ruleResultsDetailsList = backendResponse.regel_ergebnisse_details || [];
 
         htmlOutput = `<h2>Ergebnisse für «${escapeHtml(userInput)}»</h2>`;
 
-        // 1. LLM Ergebnis anzeigen
-        console.log("[getBillingAnalysis] Zeige LLM-Ergebnis an.");
-        htmlOutput += `<h3>LLM-Analyse</h3>`;
+        // 1. LLM Stufe 1 Ergebnis anzeigen
+        htmlOutput += `<h3>LLM-Analyse (Stufe 1: LKN-Identifikation)</h3>`;
         if (identifiedLeistungen.length > 0) {
-            const lknStrings = identifiedLeistungen.map(l => `${l.lkn} (${l.typ || '?'})`).join(', ');
+            const lknStrings = identifiedLeistungen.map(l => `${l.lkn} (${l.typ || '?'}, Menge:${l.menge ?? 'N/A'})`).join(', ');
             htmlOutput += `<p><b>Identifizierte LKN(s):</b> ${lknStrings}</p>`;
             htmlOutput += `<ul>`;
             identifiedLeistungen.forEach(l => {
@@ -276,157 +262,61 @@ async function getBillingAnalysis() {
         if (extractedInfo.alter !== null && extractedInfo.alter !== 0) extractedDetails.push(`Alter: ${extractedInfo.alter}`);
         if (extractedInfo.geschlecht !== null && extractedInfo.geschlecht !== 'null' && extractedInfo.geschlecht !== 'unbekannt') extractedDetails.push(`Geschlecht: ${extractedInfo.geschlecht}`);
         if (extractedDetails.length > 0) { htmlOutput += `<p><b>Extrahierte Details:</b> ${extractedDetails.join(', ')}</p>`; }
-        htmlOutput += `<p><b>Begründung LLM:</b> ${escapeHtml(llmResult.begruendung_llm || 'N/A')}</p>`;
+        htmlOutput += `<p><b>Begründung LLM (Stufe 1):</b> ${escapeHtml(llmResultStufe1.begruendung_llm || 'N/A')}</p>`;
         htmlOutput += `<hr>`;
 
-        // 2. Regelprüfung Ergebnis anzeigen
-        console.log("[getBillingAnalysis] Zeige Regelprüfungsergebnisse an.");
-        htmlOutput += `<h3>Regelprüfung (pro LKN)</h3>`;
-        let allRulesOk = true;
-        if (!ruleResultsList || !Array.isArray(ruleResultsList)) { htmlOutput += `<p class="error">Fehler: Regelprüfungsergebnisse vom Backend fehlen oder haben falsches Format.</p>`; allRulesOk = false; }
-        else if (ruleResultsList.length === 0 && identifiedLeistungen.length > 0) { htmlOutput += `<p class="error">Fehler: Keine Regelprüfungsergebnisse vom Backend erhalten, obwohl LKNs identifiziert wurden.</p>`; allRulesOk = false; }
-        else if (ruleResultsList.length === 0 && identifiedLeistungen.length === 0) { htmlOutput += `<p>Keine LKNs zur Prüfung vorhanden.</p>`; allRulesOk = false; }
-        else {
-            ruleResultsList.forEach((resultItem, index) => {
-                const lkn = resultItem.lkn || `Unbekannt (Index ${index})`;
-                if (!resultItem.regelpruefung) {
-                    console.error(`Fehler: 'regelpruefung' fehlt für LKN ${lkn} in Backend-Antwort! Index: ${index}`, resultItem);
-                    htmlOutput += `<h4>Prüfung für LKN: ${lkn}</h4>`;
-                    htmlOutput += `<p class="error"><b>Fehler: Regelprüfungsergebnis fehlt!</b></p>`;
-                    allRulesOk = false; return;
-                }
-                const regelPruefung = resultItem.regelpruefung;
-                htmlOutput += `<h4>Prüfung für LKN: ${lkn}</h4>`;
-                if (regelPruefung.abrechnungsfaehig) {
-                    htmlOutput += `<p class="success"><b>Regelkonform abrechnungsfähig</b></p>`;
-                    if (regelPruefung.fehler && regelPruefung.fehler.length > 0) {
-                         htmlOutput += `<p><b>Hinweise:</b></p><ul>`;
-                         regelPruefung.fehler.forEach(hinweis => { htmlOutput += `<li>${escapeHtml(hinweis)}</li>`; });
-                         htmlOutput += `</ul>`;
-                    }
-                } else {
-                    allRulesOk = false;
-                    htmlOutput += `<p class="error"><b>Nicht regelkonform abrechnungsfähig</b></p>`;
-                    if (regelPruefung.fehler && regelPruefung.fehler.length > 0) {
-                         htmlOutput += `<p><b>Verletzte Regeln:</b></p><ul>`;
-                         regelPruefung.fehler.forEach(fehler => { htmlOutput += `<li>${escapeHtml(fehler)}</li>`; });
-                         htmlOutput += `</ul>`;
-                    } else { htmlOutput += `<p><i>Keine spezifischen Regelverletzungen angegeben.</i></p>`; }
-                }
-            });
-        }
-        htmlOutput += `<hr>`;
-
-        // 3. Finale Abrechnung anzeigen (nur wenn ALLE Regeln OK waren)
-        if (!allRulesOk) {
-             console.log("[getBillingAnalysis] Regeln nicht OK, Abbruch vor finaler Abrechnung.");
-             htmlOutput += `<p class="error"><b>Finale Abrechnung nicht möglich, da Regelverletzungen vorliegen oder Daten fehlen.</b></p>`;
-             displayOutput(htmlOutput, "info");
-             hideSpinner();
-             return;
-        }
-
-        console.log("[getBillingAnalysis] Starte finale Abrechnungslogik.");
+        // 2. Finale Abrechnung anzeigen
+        console.log("[getBillingAnalysis] Zeige finale Abrechnung an.");
         htmlOutput += `<h3>Finale Abrechnung</h3>`;
-        let abrechnungsDetailHtml = "";
-        let hasApplicableResult = false;
-        let pauschaleProcessed = false; // Wird in Pauschalenprüfung gesetzt
+        let abrechnungsDetailHtml = ""; // HTML für die Tabelle/Details
 
-        // --- a) Pauschalen-Prüfung ---
-        const hatPauschalenTyp = identifiedLeistungen.some(l => l.typ === 'P' || l.typ === 'PZ');
-        if (hatPauschalenTyp) {
-            console.log("[getBillingAnalysis] Prüfe Pauschalen...");
-            htmlOutput += `<p><i>Prüfe mögliche Pauschalen...</i></p>`;
-            const pauschaleResult = findAndProcessBestPauschale(identifiedLeistungen, icdInput, gtinInput);
-            console.log("[getBillingAnalysis] Ergebnis Pauschalenprüfung:", pauschaleResult);
-            if (pauschaleResult && pauschaleResult.html !== undefined) {
-                 abrechnungsDetailHtml += pauschaleResult.html;
-                 if (pauschaleResult.applicable) { hasApplicableResult = true; pauschaleProcessed = true; }
-                 else { htmlOutput += `<p><i>Pauschale nicht anwendbar, prüfe TARDOC...</i></p>`; }
-            } else { console.error("[getBillingAnalysis] Ungültiges Ergebnis von findAndProcessBestPauschale!"); abrechnungsDetailHtml += `<p class="error">Interner Fehler bei der Pauschalenprüfung.</p>`; }
-        } else { console.log("[getBillingAnalysis] Keine Pauschalen-Typen identifiziert."); htmlOutput += `<p><i>Keine Pauschale identifiziert, prüfe TARDOC...</i></p>`; }
+        switch (abrechnung.type) {
+            case "Pauschale":
+                console.log("[getBillingAnalysis] Abrechnungstyp: Pauschale", abrechnung.details);
+                htmlOutput += `<p class="success"><b>Abrechnung als Pauschale empfohlen.</b></p>`;
+                if (abrechnung.details) {
+                     abrechnungsDetailHtml = displayPauschale(abrechnung.details, abrechnung.bedingungs_pruef_html);
+                } else { abrechnungsDetailHtml = "<p class='error'>Fehler: Pauschalendetails fehlen.</p>"; }
+                break;
 
-        // --- b) TARDOC-Verarbeitung ---
-        if (!pauschaleProcessed) {
-            console.log("[getBillingAnalysis] Starte TARDOC-Verarbeitung für finale Tabelle...");
-            htmlOutput += `<h4>TARDOC-Positionen</h4>`;
-            let gesamtTP = 0;
-            let tardocTableBody = "";
-            let tardocProcessedCount = 0;
+            case "TARDOC":
+                console.log("[getBillingAnalysis] Abrechnungstyp: TARDOC", abrechnung.leistungen);
+                htmlOutput += `<p class="success"><b>Abrechnung als TARDOC-Einzelleistung(en) empfohlen.</b></p>`;
+                if (abrechnung.leistungen && abrechnung.leistungen.length > 0) {
+                     abrechnungsDetailHtml = displayTardocTable(abrechnung.leistungen);
+                } else { abrechnungsDetailHtml = "<p><i>Keine TARDOC-Positionen zur Abrechnung übermittelt.</i></p>"; }
+                break;
 
-            // Iteriere über die Ergebnisse der Regelprüfung
-            for (const resultItem of ruleResultsList) {
-                 const lkn = resultItem.lkn;
-                 const regelPruefung = resultItem.regelpruefung;
-                 const finaleMenge = resultItem.finale_menge; // Korrekter Key vom Backend
+            case "Error":
+                console.error("[getBillingAnalysis] Abrechnungstyp: Error", abrechnung.message);
+                htmlOutput += `<p class="error"><b>Abrechnung nicht möglich oder Fehler aufgetreten.</b></p>`;
+                abrechnungsDetailHtml = `<p><i>Grund: ${escapeHtml(abrechnung.message || 'Unbekannter Fehler')}</i></p>`;
+                // Optional: Zeige Regelprüfungsdetails bei Fehler an
+                 if (ruleResultsDetailsList && ruleResultsDetailsList.length > 0) {
+                     abrechnungsDetailHtml += `<details style="margin-top:1em;"><summary>Details zur Regelprüfung (evtl. relevant)</summary>`;
+                     ruleResultsDetailsList.forEach((resultItem) => {
+                         const lkn = resultItem.lkn || 'Unbekannt';
+                         abrechnungsDetailHtml += `<h5>LKN: ${lkn} (Finale Menge: ${resultItem.finale_menge})</h5>`;
+                         if (resultItem.regelpruefung && resultItem.regelpruefung.fehler && resultItem.regelpruefung.fehler.length > 0) {
+                              abrechnungsDetailHtml += `<ul>`;
+                              resultItem.regelpruefung.fehler.forEach(fehler => { abrechnungsDetailHtml += `<li class="error">${escapeHtml(fehler)}</li>`; }); // Fehler hervorheben
+                              abrechnungsDetailHtml += `</ul>`;
+                         } else if (resultItem.regelpruefung && resultItem.regelpruefung.abrechnungsfaehig === false) {
+                              abrechnungsDetailHtml += `<p><i>Keine spezifischen Fehler gefunden, aber nicht abrechnungsfähig.</i></p>`;
+                         } else {
+                              abrechnungsDetailHtml += `<p><i>Regelprüfung OK oder nicht durchgeführt.</i></p>`;
+                         }
+                     });
+                     abrechnungsDetailHtml += `</details>`;
+                 }
+                break;
 
-                 console.log(`[getBillingAnalysis] Prüfe TARDOC für LKN: ${lkn}, Menge: ${finaleMenge}, Regel OK: ${regelPruefung?.abrechnungsfaehig}`);
-
-                 if (lkn && regelPruefung && regelPruefung.abrechnungsfaehig && finaleMenge > 0) {
-                      const leistungInfo = identifiedLeistungen.find(l => l.lkn === lkn);
-                      const typ = leistungInfo ? leistungInfo.typ : null;
-
-                      // Nur TARDOC-Typen (E/EZ) verarbeiten
-                      if (typ === 'E' || typ === 'EZ') {
-                           tardocProcessedCount++;
-                           console.log(`[getBillingAnalysis] Rufe processTardoc für ${lkn} (Menge: ${finaleMenge}) auf...`);
-                           const tardocResult = processTardoc(lkn, icdInput, finaleMenge); // Nutze finale Menge
-                           console.log(`[getBillingAnalysis] Ergebnis processTardoc für ${lkn}:`, tardocResult);
-
-                           if (tardocResult.applicable && tardocResult.data) {
-                                hasApplicableResult = true;
-                                // --- !!! SCHLÜSSELNAMEN PRÜFEN / ANPASSEN !!! ---
-                                const TARDOC_LKN_KEY = 'LKN'; // ANPASSEN!
-                                const AL_KEY = 'AL_(normiert)'; // ANPASSEN!
-                                const IPL_KEY = 'IPL_(normiert)'; // ANPASSEN!
-                                const DESC_KEY_1 = 'Bezeichnung'; // ANPASSEN!
-                                const RULES_KEY_1 = 'Regeln_bezogen_auf_die_Tarifmechanik'; // ANPASSEN!
-                                // --- !!! ENDE ANPASSUNG !!! ---
-
-                                const name = tardocResult.data[DESC_KEY_1] || beschreibungZuLKN(lkn) || 'N/A';
-                                const al = parseFloat(tardocResult.data[AL_KEY]) || 0;
-                                const ipl = parseFloat(tardocResult.data[IPL_KEY]) || 0;
-                                const anzahl = tardocResult.anzahl; // = finaleMenge
-                                const total_tp = (al + ipl) * anzahl;
-                                const regeln = tardocResult.data[RULES_KEY_1] || '';
-                                gesamtTP += total_tp;
-
-                                tardocTableBody += `<tr>
-                                    <td>${escapeHtml(lkn)}</td><td>${escapeHtml(name)}</td>
-                                    <td>${al.toFixed(2)}</td><td>${ipl.toFixed(2)}</td>
-                                    <td>${anzahl}</td><td>${total_tp.toFixed(2)}</td>
-                                    <td>${regeln ? `<details><summary>Details</summary><p>${escapeHtml(regeln)}</p></details>` : ''}</td>
-                                </tr>`;
-                           } else {
-                                console.error(`[getBillingAnalysis] processTardoc fehlgeschlagen für ${lkn}.`);
-                                abrechnungsDetailHtml += `<p class="error">Fehler bei TARDOC-Details für ${escapeHtml(lkn)}.</p>` + (tardocResult.html || ''); // Füge Fehler-HTML hinzu
-                           }
-                      } // Ende if Typ E/EZ
-                 } // Ende if Regelprüfung OK und Menge > 0
-            } // Ende for Schleife
-
-            // Baue Tabelle
-            if (tardocTableBody) {
-                 console.log("[getBillingAnalysis] Baue TARDOC-Tabelle.");
-                 abrechnungsDetailHtml += `<table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
-                     <thead><tr><th>LKN</th><th>Leistung</th><th>AL</th><th>IPL</th><th>Anzahl</th><th>Total TP</th><th>Regeln</th></tr></thead>
-                     <tbody>${tardocTableBody}</tbody>
-                     <tfoot><tr><th colspan="5" style="text-align:right;">Gesamt TARDOC TP:</th><th colspan="2">${gesamtTP.toFixed(2)}</th></tr></tfoot>
-                 </table>`;
-            } else if (!hasApplicableResult && identifiedLeistungen.filter(l => l.typ === 'E' || l.typ === 'EZ').length > 0) {
-                 abrechnungsDetailHtml += `<p><i>Keine TARDOC-Positionen abrechenbar.</i></p>`;
-            } else if (!hasApplicableResult && !pauschaleProcessed) { // Nur anzeigen, wenn nicht schon Pauschale verarbeitet wurde
-                 abrechnungsDetailHtml += `<p><i>Keine TARDOC-Positionen zur Abrechnung gefunden.</i></p>`;
-            }
-        } // Ende if (!pauschaleProcessed)
-
-        // --- Abschlussmeldung ---
-        if (!hasApplicableResult && identifiedLeistungen.length > 0 && allRulesOk) {
-             htmlOutput += "<p><b>Keine anwendbare Abrechnung gefunden oder Fehler bei der Detailverarbeitung.</b></p>";
-         }
+            default:
+                console.error("[getBillingAnalysis] Unbekannter Abrechnungstyp:", abrechnung.type);
+                htmlOutput += `<p class="error"><b>Unbekannter Abrechnungstyp vom Server.</b></p>`;
+        }
 
         htmlOutput += abrechnungsDetailHtml;
-        console.log("[getBillingAnalysis] Versuche finale Ausgabe...");
         displayOutput(htmlOutput, "info");
         console.log("[getBillingAnalysis] Frontend-Verarbeitung abgeschlossen.");
 
@@ -439,245 +329,136 @@ async function getBillingAnalysis() {
 } // Ende getBillingAnalysis
 
 
-// ─── 4 · Hilfsfunktionen für Pauschalen/TARDOC ────
-// ─── Funktion zur Pauschalenfindung und -prüfung (MIT KAPITEL-PRIORISIERUNG) ────
-function findAndProcessBestPauschale(identifiedLeistungen, providedICDs = [], providedGTINs = []) {
-    let htmlResult = "";
-    let applicable = false;
-    let reason = "Keine passende und anwendbare Pauschale gefunden.";
-    let selectedPauschaleCode = null;
-    let bestPauschaleData = null;
+// ─── 4 · Hilfsfunktionen zur ANZEIGE von Pauschalen/TARDOC ────
 
-    console.log("[findAndProcessBestPauschale] Starte Funktion.");
-
-    if (!data_pauschaleLeistungsposition || !data_pauschalen || !data_pauschaleBedingungen) {
-        console.error("[findAndProcessBestPauschale] Pauschalendaten nicht geladen!");
-        return { applicable: false, html: "<p class='error'>Pauschalendaten nicht geladen.</p>", reason: "Daten nicht geladen", selectedPauschaleCode };
+function displayPauschale(pauschaleDetails, bedingungsHtml = "") {
+    // --- !!! ANPASSEN: Korrekten Schlüssel für Pauschale in Pauschalen-Daten !!! ---
+    const PAUSCHALE_KEY = 'Pauschale';
+    const PAUSCHALE_TEXT_KEY = 'Pauschale_Text';
+    const PAUSCHALE_TP_KEY = 'Taxpunkte';
+    // --- !!! ENDE ANPASSUNG !!! ---
+    if (!pauschaleDetails) return "<p class='error'>Pauschalendetails fehlen.</p>";
+    let html = `<h4>Abrechnung als Pauschale</h4>`;
+    html += `
+        <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
+            <thead><tr><th>Pauschale Code</th><th>Beschreibung</th><th>Taxpunkte</th></tr></thead>
+            <tbody><tr>
+                <td>${escapeHtml(pauschaleDetails[PAUSCHALE_KEY] || 'N/A')}</td>
+                <td>${escapeHtml(pauschaleDetails[PAUSCHALE_TEXT_KEY] || 'N/A')}</td>
+                <td>${escapeHtml(pauschaleDetails[PAUSCHALE_TP_KEY] || 'N/A')}</td>
+            </tr></tbody>
+        </table>`;
+    if (bedingungsHtml) {
+         html += `<details><summary>Details Pauschalen-Bedingungsprüfung</summary>${bedingungsHtml}</details>`; // Bedingungs-HTML vom Backend
     }
-    console.log(`[findAndProcessBestPauschale] Daten verfügbar: pauschaleLP=${data_pauschaleLeistungsposition.length}, pauschalen=${data_pauschalen.length}, bedingungen=${data_pauschaleBedingungen.length}`);
-
-    const identifiedLKNs = identifiedLeistungen.map(l => l.lkn);
-    // Finde die LKNs, die die Pauschalenprüfung ausgelöst haben (Typ P/PZ)
-    const pauschalTriggerLeistungen = identifiedLeistungen.filter(l => l.typ === 'P' || l.typ === 'PZ');
-    const pauschalTriggerLKNs = pauschalTriggerLeistungen.map(l => l.lkn);
-    console.log("[findAndProcessBestPauschale] Identifizierte LKNs:", identifiedLKNs);
-    console.log("[findAndProcessBestPauschale] Pauschal-Trigger-LKNs:", pauschalTriggerLKNs);
-
-    // --- Schritt 2a.1: Mögliche Pauschalen identifizieren ---
-    let possiblePauschalenRefs = [];
-    const LKN_KEY_IN_PAUSCHALE_LP = 'Leistungsposition'; // ANPASSEN!
-    identifiedLKNs.forEach(lkn => {
-        const refs = data_pauschaleLeistungsposition.filter(item =>
-            item && item[LKN_KEY_IN_PAUSCHALE_LP] && item[LKN_KEY_IN_PAUSCHALE_LP].toUpperCase() === lkn.toUpperCase()
-        );
-        if (refs.length > 0) { possiblePauschalenRefs.push(...refs); }
-    });
-
-    const PAUSCHALE_KEY_IN_PAUSCHALE_LP = 'Pauschale'; // ANPASSEN!
-    let possiblePauschalenCodes = new Set(possiblePauschalenRefs.map(ref => ref[PAUSCHALE_KEY_IN_PAUSCHALE_LP]));
-
-    const PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'; // ANPASSEN!
-    pauschalTriggerLKNs.forEach(lkn => {
-         if (data_pauschalen.some(p => p[PAUSCHALE_KEY_IN_PAUSCHALEN] === lkn)) { possiblePauschalenCodes.add(lkn); }
-    });
-
-    if (possiblePauschalenCodes.size === 0) {
-        reason = `Keine gültigen Pauschalen-Codes für LKNs (${identifiedLKNs.join(', ')}) gefunden.`;
-        htmlResult = `<p><i>${escapeHtml(reason)}</i></p>`;
-        console.log("[findAndProcessBestPauschale]", reason);
-        return { applicable: false, html: htmlResult, reason: reason, selectedPauschaleCode };
-    }
-
-    const possibleCodesArray = Array.from(possiblePauschalenCodes);
-    console.log("[findAndProcessBestPauschale] Finale mögliche Pauschalen-Codes:", possibleCodesArray);
-    htmlResult += `<p>Mögliche Pauschalen-Codes: ${possibleCodesArray.map(escapeHtml).join(', ')}</p>`;
-
-    // --- Schritt 2a.2: Passende Pauschale auswählen (MIT NEUER PRIORISIERUNG) ---
-    let potentialPauschalenDetails = data_pauschalen.filter(p => p[PAUSCHALE_KEY_IN_PAUSCHALEN] && possibleCodesArray.includes(p[PAUSCHALE_KEY_IN_PAUSCHALEN]));
-
-    if (potentialPauschalenDetails.length === 0) {
-         reason = `Keine Details in tblPauschalen zu möglichen Pauschalen (${possibleCodesArray.join(', ')}) gefunden.`;
-         htmlResult += `<p><i>${escapeHtml(reason)}</i></p>`;
-         console.log("[findAndProcessBestPauschale]", reason);
-         return { applicable: false, html: htmlResult, reason: reason, selectedPauschaleCode };
-    }
-    console.log("[findAndProcessBestPauschale] Details zu potenziellen Pauschalen:", potentialPauschalenDetails);
-
-    // --- NEUE Priorisierungslogik ---
-    bestPauschaleData = null;
-
-    // 1. Bestimme Hauptkapitel (aus erster P/PZ-LKN)
-    let hauptKapitel = null;
-    if (pauschalTriggerLeistungen.length > 0) {
-         // Extrahiere Kapitel (z.B. "C04" aus "C04.GC.0020")
-         const match = pauschalTriggerLeistungen[0].lkn.match(/^([A-Z]+\d{2})\./);
-         if (match) {
-              hauptKapitel = match[1]; // z.B. "C04"
-              console.log("[Priorisierung] Hauptkapitel bestimmt:", hauptKapitel);
-         } else {
-              console.warn("[Priorisierung] Konnte Hauptkapitel aus Trigger-LKN nicht extrahieren:", pauschalTriggerLeistungen[0].lkn);
-         }
-    } else {
-         // Sollte nicht passieren, wenn hatPauschalenTyp true war, aber als Fallback
-         console.warn("[Priorisierung] Keine P/PZ Trigger-LKN gefunden, um Hauptkapitel zu bestimmen.");
-         // Fallback: Versuche Kapitel aus erster identifizierter LKN zu nehmen? Oder null lassen.
-         if(identifiedLeistungen.length > 0) {
-            const match = identifiedLeistungen[0].lkn.match(/^([A-Z]+\d{2})\./);
-            if (match) hauptKapitel = match[1];
-         }
-    }
-
-    // 2. Suche Pauschalen im Hauptkapitel
-    let kapitelPauschalen = [];
-    if (hauptKapitel) {
-        kapitelPauschalen = potentialPauschalenDetails.filter(p =>
-            p[PAUSCHALE_KEY_IN_PAUSCHALEN]?.startsWith(hauptKapitel + ".") // z.B. "C04."
-        );
-        console.log(`[Priorisierung] Pauschalen im Kapitel ${hauptKapitel}:`, kapitelPauschalen);
-    }
-
-    // 3. Wähle beste Pauschale aus
-    if (kapitelPauschalen.length > 0) {
-        // a) Treffer im Hauptkapitel gefunden -> Wähle hieraus die beste
-        console.log("[Priorisierung] Wähle beste Pauschale aus Hauptkapitel.");
-        // TODO: Hier Komplexität A-G implementieren, falls nötig
-        kapitelPauschalen.sort((a, b) => (a.Taxpunkte || Infinity) - (b.Taxpunkte || Infinity));
-        bestPauschaleData = kapitelPauschalen[0];
-        htmlResult += `<p><i>Pauschale ${escapeHtml(bestPauschaleData[PAUSCHALE_KEY_IN_PAUSCHALEN])} aus Hauptkapitel gewählt (niedrigste TP im Kapitel).</i></p>`;
-    } else {
-        // b) Keine Treffer im Hauptkapitel -> Fallback
-        console.log("[Priorisierung] Keine Pauschale im Hauptkapitel gefunden. Wähle günstigste aller möglichen.");
-        // TODO: Hier ggf. C90/C99 Logik einbauen, falls gewünscht
-        potentialPauschalenDetails.sort((a, b) => (a.Taxpunkte || Infinity) - (b.Taxpunkte || Infinity));
-        bestPauschaleData = potentialPauschalenDetails[0];
-        htmlResult += `<p><i>Fallback: Pauschale ${escapeHtml(bestPauschaleData[PAUSCHALE_KEY_IN_PAUSCHALEN])} gewählt (niedrigste TP aller möglichen).</i></p>`;
-    }
-    // --- Ende NEUE Priorisierungslogik ---
-
-    if (!bestPauschaleData) {
-         // Sollte nicht passieren, wenn potentialPauschalenDetails > 0 war
-         console.error("[Priorisierung] FEHLER: bestPauschaleData wurde nicht gesetzt!");
-         reason = "Interner Fehler bei Pauschalenauswahl (keine Auswahl).";
-         htmlResult += `<p class="error">${escapeHtml(reason)}</p>`;
-         return { applicable: false, html: htmlResult, reason: reason, selectedPauschaleCode };
-    }
-
-    selectedPauschaleCode = bestPauschaleData[PAUSCHALE_KEY_IN_PAUSCHALEN];
-    console.log("[findAndProcessBestPauschale] Finale Auswahl vor Bedingungsprüfung:", selectedPauschaleCode);
-
-    // --- Schritt 2a.3: Bedingungen prüfen ---
-    htmlResult += `<ul><li>Prüfe Bedingungen für Pauschale: ${escapeHtml(selectedPauschaleCode)} (${escapeHtml(bestPauschaleData.Pauschale_Text || 'N/A')}) - TP: ${escapeHtml(bestPauschaleData.Taxpunkte || 'N/A')}</li>`;
-    const conditionsResult = checkPauschaleConditions(selectedPauschaleCode, providedICDs, providedGTINs);
-    htmlResult += conditionsResult.html;
-    htmlResult += `</ul>`;
-
-    // --- Schritt 2a.4: Pauschale abrechnen ---
-    if (conditionsResult.allMet) {
-        console.log(`[findAndProcessBestPauschale] Bedingungen für ${selectedPauschaleCode} erfüllt.`);
-        applicable = true; reason = "";
-        let abrechnungHtml = `<h4>Abrechnung als Pauschale</h4>`;
-        abrechnungHtml += `
-            <table border="1" style="border-collapse: collapse; width: 100%;">
-                <thead><tr><th>Pauschale Code</th><th>Beschreibung</th><th>Taxpunkte</th></tr></thead>
-                <tbody><tr>
-                    <td>${escapeHtml(bestPauschaleData[PAUSCHALE_KEY_IN_PAUSCHALEN])}</td>
-                    <td>${escapeHtml(bestPauschaleData.Pauschale_Text || 'N/A')}</td>
-                    <td>${escapeHtml(bestPauschaleData.Taxpunkte || 'N/A')}</td>
-                </tr></tbody>
-            </table>`;
-        htmlResult = abrechnungHtml + `<details><summary>Prüfdetails Pauschale</summary>${htmlResult}</details>`;
-    } else {
-         reason = `Bedingungen für Pauschale ${selectedPauschaleCode} nicht erfüllt.`;
-         console.log("[findAndProcessBestPauschale]", reason);
-         htmlResult = `<p><i>${escapeHtml(reason)}</i></p>` + `<details><summary>Prüfdetails Pauschale (nicht anwendbar)</summary>${htmlResult}</details>`;
-         applicable = false;
-    }
-
-    console.log("[findAndProcessBestPauschale] Funktion beendet. Applicable:", applicable);
-    return { applicable, html: htmlResult, reason, reason, selectedPauschaleCode: applicable ? selectedPauschaleCode : null };
+    return html;
 }
 
-function checkPauschaleConditions(pauschaleCode, providedICDs, providedGTINs) {
-    if (!data_pauschaleBedingungen) return { allMet: false, html: "<p class='error'>Pauschalen-Bedingungsdaten nicht geladen.</p>" };
-    const conditions = data_pauschaleBedingungen.filter(cond => cond.Pauschale === pauschaleCode);
-    let allConditionsMet = true; let conditionDetailsHtml = "";
-    if (conditions.length > 0) {
-        conditionDetailsHtml += `<ul style="margin-left: 20px; font-size: 0.9em;"><li>Bedingungen:</li><ul>`;
-        for (const cond of conditions) {
-            let conditionMet = checkSingleCondition(cond, providedICDs, providedGTINs);
-            const statusClass = conditionMet ? 'success' : 'error'; const statusText = conditionMet ? 'Erfüllt' : 'Nicht erfüllt';
-            conditionDetailsHtml += `<li>Typ: ${escapeHtml(cond.Bedingungstyp)}, Wert/Ref: ${escapeHtml(cond.Werte || '-')} -> <span class="${statusClass}">${statusText}</span></li>`;
-            if (!conditionMet) { allConditionsMet = false; }
-        } conditionDetailsHtml += `</ul></ul>`;
-    } else { conditionDetailsHtml += `<p style="margin-left: 20px; font-size: 0.9em;"><i>Keine spezifischen Bedingungen gefunden.</i></p>`; allConditionsMet = true; }
-    return { allMet: allConditionsMet, html: conditionDetailsHtml };
-}
+// Zeigt die Tabelle für die abzurechnenden TARDOC-Leistungen an
+function displayTardocTable(tardocLeistungen) {
+    // tardocLeistungen ist eine Liste von Objekten wie:
+    // { lkn: "CA.00.0010", menge: 1, typ: "E", beschreibung: "..." }
 
-function checkSingleCondition(condition, providedICDs, providedGTINs) {
-    const requiredValue = condition.Werte;
-    if (requiredValue === null || requiredValue === undefined || requiredValue === '') return true;
-    const conditionTypeUpper = (condition.Bedingungstyp || '').toUpperCase();
-    try {
-        switch (conditionTypeUpper) {
-            case 'ICD': const requiredICDs = String(requiredValue).split(',').map(s => s.trim().toUpperCase()).filter(s => s); return requiredICDs.some(reqICD => providedICDs.includes(reqICD));
-            case 'GTIN': const requiredGTINs = String(requiredValue).split(',').map(s => s.trim()).filter(s => s); return requiredGTINs.some(reqGTIN => providedGTINs.includes(reqGTIN));
-            case 'LKN': console.warn(`LKN-Bedingung (${requiredValue}) wird derzeit nicht geprüft.`); return true;
-            default: console.warn(`Unbekannter Bedingungstyp: ${condition.Bedingungstyp}`); return true;
+    if (!tardocLeistungen || tardocLeistungen.length === 0) {
+        return "<p><i>Keine TARDOC-Positionen zur Abrechnung.</i></p>";
+    }
+
+    let tardocTableBody = "";
+    let gesamtTP = 0;
+
+    // Iteriere über die vom Backend übermittelten abzurechnenden Leistungen
+    for (const leistung of tardocLeistungen) {
+        const lkn = leistung.lkn;
+        const anzahl = leistung.menge; // Menge kommt jetzt vom Backend
+
+        // Hole AL/IPL/Regeln aus den lokalen TARDOC-Daten
+        const tardocDetails = processTardocLookup(lkn); // Nutze Lookup-Funktion
+
+        if (!tardocDetails.applicable) { // Füge Fehlerzeile hinzu, wenn Lookup fehlschlägt
+             tardocTableBody += `<tr><td colspan="7" class="error">Fehler: Details für LKN ${escapeHtml(lkn)} nicht gefunden!</td></tr>`;
+             continue; // Nächste Leistung
         }
-    } catch (e) { console.error("Fehler in checkSingleCondition:", e, "Bedingung:", condition); return false; }
-}
 
-function processTardoc(lkn, providedICDs = [], anzahl = 1) {
-    let htmlResult = ""; let applicable = false; let tardocData = null;
+        // --- !!! SCHLÜSSELNAMEN PRÜFEN / ANPASSEN !!! ---
+        // Stelle sicher, dass diese Keys mit denen in processTardocLookup übereinstimmen
+        // und mit deiner JSON-Datei!
+        const name = leistung.beschreibung || tardocDetails.leistungsname || 'N/A';
+        const al = tardocDetails.al;
+        const ipl = tardocDetails.ipl;
+        const regeln = tardocDetails.regeln;
+        // --- !!! ENDE ANPASSUNG !!! ---
+
+        const total_tp = (al + ipl) * anzahl;
+        gesamtTP += total_tp;
+
+        // Baue die Tabellenzeile (<tr>)
+        tardocTableBody += `
+            <tr>
+                <td>${escapeHtml(lkn)}</td>
+                <td>${escapeHtml(name)}</td>
+                <td>${al.toFixed(2)}</td>
+                <td>${ipl.toFixed(2)}</td>
+                <td>${anzahl}</td>
+                <td>${total_tp.toFixed(2)}</td>
+                <td>${regeln ? `<details><summary>Details</summary><p>${escapeHtml(regeln)}</p></details>` : ''}</td>
+            </tr>`;
+    } // Ende for Schleife
+
+    // Baue die vollständige Tabelle mit Kopf- und Fußzeile
+    let html = `<h4>TARDOC-Positionen</h4>`;
+    html += `
+        <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
+            <thead>
+                <tr>
+                    <th>LKN</th>
+                    <th>Leistung</th>
+                    <th>AL</th>
+                    <th>IPL</th>
+                    <th>Anzahl</th>
+                    <th>Total TP</th>
+                    <th>Regeln</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tardocTableBody}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="5" style="text-align:right;">Gesamt TARDOC TP:</th>
+                    <th colspan="2">${gesamtTP.toFixed(2)}</th>
+                </tr>
+            </tfoot>
+        </table>`;
+    return html;
+} // Ende displayTardocTable
+
+function processTardocLookup(lkn) {
+    let result = { applicable: false, data: null, al: 0, ipl: 0, leistungsname: 'N/A', regeln: '' };
     // --- !!! WICHTIG: Schlüsselnamen anpassen !!! ---
     const TARDOC_LKN_KEY = 'LKN'; // ANPASSEN!
     const AL_KEY = 'AL_(normiert)'; // ANPASSEN!
     const IPL_KEY = 'IPL_(normiert)'; // ANPASSEN!
     const DESC_KEY_1 = 'Bezeichnung'; // ANPASSEN!
-    const DESC_KEY_2 = 'Beschreibung'; // ANPASSEN!
     const RULES_KEY_1 = 'Regeln_bezogen_auf_die_Tarifmechanik'; // ANPASSEN!
-    const ZEIT_LIES_KEY = 'Zeit_LieS'; // ANPASSEN!
     // --- !!! ENDE ANPASSUNG !!! ---
 
-    if (!data_tardocGesamt || data_tardocGesamt.length === 0) { htmlResult = `<p class="error">TARDOC-Daten nicht geladen.</p>`; return { html: htmlResult, applicable: false, data: null, anzahl: anzahl }; }
-
+    if (!data_tardocGesamt || data_tardocGesamt.length === 0) { console.error(`TARDOC-Daten nicht geladen für LKN ${lkn}.`); return result; }
     const tardocPosition = data_tardocGesamt.find(item => item && item[TARDOC_LKN_KEY] && String(item[TARDOC_LKN_KEY]).toUpperCase() === lkn.toUpperCase());
+    if (!tardocPosition) { console.error(`LKN ${lkn} nicht in lokalen TARDOC-Daten gefunden.`); return result; }
 
-    if (!tardocPosition) {
-        console.error(`LKN ${lkn} nicht in lokalen TARDOC-Daten (Schlüssel: ${TARDOC_LKN_KEY}) gefunden.`);
-        if (data_tardocGesamt.length > 0) console.log("Verfügbare Schlüssel im ersten TARDOC-Eintrag:", Object.keys(data_tardocGesamt[0]));
-        htmlResult = `<p class="error">LKN ${escapeHtml(lkn)} nicht in lokalen TARDOC-Daten gefunden.</p>`;
-        return { html: htmlResult, applicable: false, data: null, anzahl: anzahl };
-    }
-
-    applicable = true; tardocData = tardocPosition;
-    const al = parseFloat(tardocPosition[AL_KEY]) || 0;
-    const ipl = parseFloat(tardocPosition[IPL_KEY]) || 0;
-    const leistungsname = tardocPosition[DESC_KEY_1] || tardocPosition[DESC_KEY_2] || 'N/A';
-    const regeln = tardocPosition[RULES_KEY_1] || '';
-    const summe_tp = al + ipl; const total_tp = summe_tp * anzahl;
-
-    let positionHtml = `
-        <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
-            <thead><tr><th>LKN</th><th>Leistung</th><th>AL</th><th>IPL</th><th>Anzahl</th><th>Total TP</th></tr></thead>
-            <tbody><tr>
-                <td>${escapeHtml(lkn)}</td><td>${escapeHtml(leistungsname)}</td>
-                <td>${al.toFixed(2)}</td><td>${ipl.toFixed(2)}</td>
-                <td>${anzahl}</td><td>${total_tp.toFixed(2)}</td>
-            </tr></tbody>
-        </table>`;
-
-    if (regeln) { positionHtml += `<details><summary>Hinweise zu Regeln & Limitationen (aus TARDOC)</summary><p>${escapeHtml(regeln)}</p></details>`; }
-
-    return { html: positionHtml, applicable: true, data: tardocData, anzahl: anzahl };
+    result.applicable = true; result.data = tardocPosition;
+    result.al = parseFloat(tardocPosition[AL_KEY]) || 0;
+    result.ipl = parseFloat(tardocPosition[IPL_KEY]) || 0;
+    result.leistungsname = tardocPosition[DESC_KEY_1] || 'N/A';
+    result.regeln = tardocPosition[RULES_KEY_1] || '';
+    return result;
 }
-
 
 // ─── 5 · Enter-Taste als Default für Return (Trigger) ─────────────────────
 document.addEventListener("DOMContentLoaded", function() {
     const uiField = $("userInput");
     const icdField = $("icdInput");
-    const gtinField = $("gtinInput"); // Wieder hinzugefügt, falls im HTML vorhanden
+    const gtinField = $("gtinInput");
 
     function handleEnter(e) {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -688,7 +469,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (uiField) uiField.addEventListener("keydown", handleEnter);
     if (icdField) icdField.addEventListener("keydown", handleEnter);
-    if (gtinField) gtinField.addEventListener("keydown", handleEnter); // Event Listener hinzugefügt
+    if (gtinField) gtinField.addEventListener("keydown", handleEnter);
 });
 
 // Mache die Hauptfunktionen global verfügbar
