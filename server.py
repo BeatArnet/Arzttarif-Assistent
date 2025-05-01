@@ -1,4 +1,4 @@
-# server.py - Zweistufiger LLM-Ansatz mit Backend-Regelprüfung
+# server.py - Zweistufiger LLM-Ansatz mit Backend-Regelprüfung (Korrigierte Prompts)
 
 import os
 import re
@@ -7,23 +7,20 @@ from pathlib import Path
 from flask import Flask, jsonify, send_from_directory, request, abort
 import requests
 from dotenv import load_dotenv
+import regelpruefer_pauschale
 
 # Importiere Regelprüfer und Pauschalen-Bedingungsprüfer
 try:
     import regelpruefer
-    # Annahme: regelpruefer.py enthält jetzt auch check_pauschale_conditions
     if not hasattr(regelpruefer, 'check_pauschale_conditions'):
-        print("WARNUNG: Funktion 'check_pauschale_conditions' nicht in regelpruefer.py gefunden. Bedingungsprüfung übersprungen.")
-        # Dummy-Funktion, falls check_pauschale_conditions fehlt
+        print("WARNUNG: Funktion 'check_pauschale_conditions' nicht in regelpruefer.py gefunden.")
         def check_pauschale_conditions(pauschale_code, context, pauschale_bedingungen_data, tabellen_data):
             print(f"WARNUNG: Bedingungsprüfung für {pauschale_code} übersprungen.")
-            return {"allMet": True, "html": "Bedingungsprüfung nicht implementiert", "errors": []} # Annahme: Immer OK
+            return {"allMet": True, "html": "Bedingungsprüfung nicht implementiert", "errors": []}
         regelpruefer.check_pauschale_conditions = check_pauschale_conditions # type: ignore
-
     print("✓ Regelprüfer Modul geladen.")
 except ImportError:
     print("FEHLER: regelpruefer.py nicht gefunden.")
-    # Dummy-Funktionen, falls regelpruefer.py fehlt
     def lade_regelwerk(datei_pfad): return {}
     def pruefe_abrechnungsfaehigkeit(fall, werk): return {"abrechnungsfaehig": False, "fehler": ["Regelprüfer nicht geladen."]}
     def check_pauschale_conditions(pauschale_code, context, pauschale_bedingungen_data, tabellen_data): return {"allMet": False, "html": "Regelprüfer nicht geladen", "errors": ["Regelprüfer nicht geladen"]}
@@ -32,7 +29,7 @@ except ImportError:
 # --- Konfiguration ---
 load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-pro-latest")
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
 DATA_DIR = Path("data")
 LEISTUNGSKATALOG_PATH = DATA_DIR / "tblLeistungskatalog.json"
 REGELWERK_PATH = DATA_DIR / "strukturierte_regeln_komplett.json"
@@ -40,17 +37,17 @@ TARDOC_PATH = DATA_DIR / "TARDOCGesamt_optimiert_Tarifpositionen.json"
 PAUSCHALE_LP_PATH = DATA_DIR / "tblPauschaleLeistungsposition.json"
 PAUSCHALEN_PATH = DATA_DIR / "tblPauschalen.json"
 PAUSCHALE_BED_PATH = DATA_DIR / "tblPauschaleBedingungen.json"
-TABELLEN_PATH = DATA_DIR / "tblTabellen.json" # Korrigiert
+TABELLEN_PATH = DATA_DIR / "tblTabellen.json"
 
 # --- Initialisierung ---
 app = Flask(__name__, static_folder='.', static_url_path='')
 leistungskatalog_data: list[dict] = []
-leistungskatalog_dict: dict[str, dict] = {} # Für schnellen Typ-Lookup
+leistungskatalog_dict: dict[str, dict] = {}
 regelwerk_dict: dict[str, dict] = {}
-tardoc_data_dict: dict[str, dict] = {} # TARDOC-Daten als Dict für schnellen Lookup
+tardoc_data_dict: dict[str, dict] = {}
 pauschale_lp_data: list[dict] = []
 pauschalen_data: list[dict] = []
-pauschalen_dict: dict[str, dict] = {} # Für schnellen Detail-Lookup
+pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 
@@ -59,71 +56,53 @@ def load_data():
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
 
-    # Leere Listen/Dicts vor dem Laden
-    leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_data_dict.clear()
-    pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); tabellen_data.clear()
-
-
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
         "PauschaleLP": (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None),
         "Pauschalen": (PAUSCHALEN_PATH, pauschalen_data, 'Pauschale', pauschalen_dict),
         "PauschaleBedingungen": (PAUSCHALE_BED_PATH, pauschale_bedingungen_data, None, None),
-        "TARDOC": (TARDOC_PATH, [], 'LKN', tardoc_data_dict), # Wird direkt ins Dict geladen
+        "TARDOC": (TARDOC_PATH, [], 'LKN', tardoc_data_dict),
         "Tabellen": (TABELLEN_PATH, tabellen_data, None, None)
     }
-
     print("--- Lade Daten ---")
+    leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_data_dict.clear()
+    pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); tabellen_data.clear()
     for name, (path, target_list, key_field, target_dict) in files_to_load.items():
         try:
             if path.is_file():
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if target_dict is not None and key_field is not None:
-                         # Lade ins Dict
-                         # --- !!! ANPASSEN: Korrekten Schlüssel für LKN/Pauschale verwenden !!! ---
-                         CURRENT_KEY = key_field # Annahme: Key ist direkt der Feldname
-                         # --- !!! ENDE ANPASSUNG !!! ---
+                         CURRENT_KEY = key_field
                          for item in data:
-                              # Stelle sicher, dass item ein Dict ist und den Schlüssel hat
-                              if isinstance(item, dict) and CURRENT_KEY in item:
-                                   target_dict[item[CURRENT_KEY]] = item
-                              elif isinstance(item, dict):
-                                   print(f"WARNUNG: Eintrag in {name} ohne Schlüssel '{CURRENT_KEY}': {item}")
-                              else:
-                                   print(f"WARNUNG: Ungültiger Eintrag in {name}: {item}")
-
-                         # Wenn auch in Liste speichern (z.B. Pauschalen)
-                         if target_list is not None:
-                              target_list.extend(data)
+                              if isinstance(item, dict) and CURRENT_KEY in item: target_dict[item[CURRENT_KEY]] = item
+                              elif isinstance(item, dict): print(f"WARNUNG: Eintrag in {name} ohne Schlüssel '{CURRENT_KEY}': {item}")
+                              else: print(f"WARNUNG: Ungültiger Eintrag in {name}: {item}")
+                         if target_list is not None: target_list.extend(data)
                          print(f"✓ {name}-Daten '{path}' geladen ({len(target_dict)} Einträge im Dict).")
-
                     elif target_list is not None:
-                         # Lade in Liste
                          target_list.extend(data)
                          print(f"✓ {name}-Daten '{path}' geladen ({len(target_list)} Einträge).")
-                    else:
-                         print(f"WARNUNG: Kein Ziel für {name}-Daten '{path}' definiert.")
-
+                    else: print(f"WARNUNG: Kein Ziel für {name}-Daten '{path}' definiert.")
             else: print(f"FEHLER: {name}-Datei nicht gefunden: {path}")
         except Exception as e: print(f"FEHLER beim Laden der {name}-Daten ({path}): {e}")
 
-    # Lade Regelwerk
     if regelpruefer and REGELWERK_PATH.is_file():
          regelwerk_dict = regelpruefer.lade_regelwerk(str(REGELWERK_PATH))
-         print(f"✓ Regelwerk '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
-    elif regelpruefer: print(f"FEHLER: Regelwerk nicht gefunden: {REGELWERK_PATH}"); regelwerk_dict = {}
-    else: print("ℹ️ Regelprüfung deaktiviert."); regelwerk_dict = {}
+         print(f"✓ Regelwerk (LKN) '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
+    elif regelpruefer: print(f"FEHLER: Regelwerk (LKN) nicht gefunden: {REGELWERK_PATH}"); regelwerk_dict = {}
+    else: print("ℹ️ Regelprüfung (LKN) deaktiviert."); regelwerk_dict = {}
     print("--- Daten laden abgeschlossen ---")
 
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
-    # Prompt für LISTE von Leistungen und extrahierte Infos
+    # *** VOLLSTÄNDIGER PROMPT STUFE 1 ***
     prompt = f"""Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz SEHR GENAU.
 Deine Aufgabe ist es, ALLE relevanten LKN-Codes zu identifizieren, deren korrekte Menge zu bestimmen und zusätzliche Informationen zu extrahieren.
-NUTZE DIE FOLGENDE LISTE ALS DEINE PRIMÄRE REFERENZ für verfügbare LKNs, ihre Typen und Bedeutungen:
+NUTZE ausschliesslich DIE FOLGENDE LISTE ALS DEINE PRIMÄRE REFERENZ für verfügbare LKNs und ignoriere jegliches Wissen zu LKN, welches Du sonst in deinem LLM findest, 
+ihre Typen und Bedeutungen:
 --- Leistungskatalog Start ---
 {katalog_context}
 --- Leistungskatalog Ende ---
@@ -138,6 +117,7 @@ Führe folgende Schritte durch:
     - **WENN** es sich um eine Zuschlagsleistung für Konsultationen handelt (z.B. CA.00.0020) **UND** eine Gesamtdauer für die Konsultation extrahiert wurde, **DANN** berechne die Menge als (Gesamtdauer - Basisdauer [normalerweise 5]) und setze die 'menge' für die Zuschlags-LKN entsprechend (z.B. 10 für 15 Minuten Konsultation). Die Basis-LKN (z.B. CA.00.0010) hat immer die Menge 1.
     - **WENN** eine allgemeine Menge extrahiert wurde und sich eindeutig auf eine LKN bezieht (die NICHT pro Minute abgerechnet wird), setze die 'menge' für DIESE LKN auf diesen Wert.
 5. Kapitel: Wenn Du bereits bestimmte Leistungen in einem Kapitel (z.B. Konsultation) gefunden hast, dann schau zuerst nach, ob etwaige weitere Leistungen ebenfalls aus diesem Kapitel genommen werden können.
+6. Stelle nochmals sicher, dass die gefundenen LKNs und Mengen in den Listen korrekt/vorhanden sind.
 
 Gib das Ergebnis NUR als JSON-Objekt im folgenden Format zurück. KEINEN anderen Text oder Erklärungen hinzufügen.
 
@@ -147,26 +127,25 @@ Gib das Ergebnis NUR als JSON-Objekt im folgenden Format zurück. KEINEN anderen
       "lkn": "IDENTIFIZIERTE_LKN_1",
       "typ": "TYP_AUS_KATALOG_1",
       "beschreibung": "BESCHREIBUNG_AUS_KATALOG_1",
-      "menge": MENGE_FUER_LKN_1 // <<-- MENGE HIER ERWARTET!
+      "menge": MENGE_FUER_LKN_1
     }},
     {{
       "lkn": "IDENTIFIZIERTE_LKN_2",
       "typ": "TYP_AUS_KATALOG_2",
       "beschreibung": "BESCHREIBUNG_AUS_KATALOG_2",
-      "menge": MENGE_FUER_LKN_2 // <<-- MENGE HIER ERWARTET!
+      "menge": MENGE_FUER_LKN_2
     }}
-    // ... weitere LKNs falls gefunden ...
   ],
   "extracted_info": {{
     "dauer_minuten": DAUER_IN_MINUTEN_ODER_NULL,
-    "menge_allgemein": ALLGEMEINE_MENGE_ODER_NULL, // Umbenannt
+    "menge_allgemein": ALLGEMEINE_MENGE_ODER_NULL,
     "alter": ALTER_ODER_NULL,
     "geschlecht": "GESCHLECHT_STRING_ODER_NULL"
   }},
-  "begruendung_llm": "<Ganz kurze Begründung, warum diese spezifischen LKN(s) mit diesen Mengen gewählt wurden>"
+  "begruendung_llm": "<Begründung, warum diese spezifischen LKN(s) mit diesen Mengen gewählt wurden>"
 }}
 
-Wenn absolut keine passende LKN aus dem Katalog gefunden wird, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
+Wenn absolut keine passende LKN aus dem Katalog gefunden wird, die dem Format 'XX.##.####' entspricht, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
 
 Behandlungstext: "{user_input}"
 
@@ -177,7 +156,7 @@ JSON-Antwort:"""
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "response_mime_type": "application/json",
-            "temperature": 0.2,
+            "temperature": 0.1,
             "maxOutputTokens": 1024
          }
     }
@@ -207,7 +186,7 @@ JSON-Antwort:"""
         if not all(k in llm_response_json for k in ["identified_leistungen", "extracted_info", "begruendung_llm"]): raise ValueError("Hauptschlüssel fehlen.")
         if not isinstance(llm_response_json["identified_leistungen"], list): raise ValueError("'identified_leistungen' keine Liste.")
         if not isinstance(llm_response_json["extracted_info"], dict): raise ValueError("'extracted_info' kein Dict.")
-        expected_extracted = ["dauer_minuten", "menge_allgemein", "alter", "geschlecht"]
+        expected_extracted = ["dauer_minuten", "menge_allgemein", "alter", "geschlecht"];
         if not all(k in llm_response_json["extracted_info"] for k in expected_extracted): raise ValueError(f"Schlüssel in 'extracted_info' fehlen.")
         expected_leistung = ["lkn", "typ", "beschreibung", "menge"]
         for i, item in enumerate(llm_response_json["identified_leistungen"]):
@@ -225,6 +204,7 @@ JSON-Antwort:"""
 # --- LLM Stufe 2: Pauschalen-Ranking ---
 def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
+    # *** VOLLSTÄNDIGER PROMPT STUFE 2 ***
     prompt = f"""Basierend auf dem folgenden Behandlungstext, welche der unten aufgeführten Pauschalen passt inhaltlich am besten?
 Berücksichtige die Beschreibung der Pauschale ('Pauschale_Text').
 Gib eine priorisierte Liste der Pauschalen-Codes zurück, beginnend mit der besten Übereinstimmung.
@@ -253,25 +233,111 @@ Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
         ranked_codes = [code.strip() for code in ranked_text.split(',') if code.strip()]
         print(f"LLM Stufe 2 Gerankte Codes: {ranked_codes}")
         return ranked_codes
-    except (KeyError, IndexError, TypeError) as e:
-        print(f"FEHLER beim Extrahieren des Rankings aus LLM Stufe 2 Antwort: {e}")
-        return []
+    except (KeyError, IndexError, TypeError) as e: print(f"FEHLER beim Extrahieren des Rankings: {e}"); return []
     except Exception as e: print(f"Unerwarteter FEHLER im LLM Stufe 2: {e}"); raise e
 
 
-# --- API Endpunkt ---
+# --- Ausgelagerte Pauschalen-Ermittlung ---
+def determine_applicable_pauschale(user_input: str, rule_checked_leistungen: list[dict], context: dict) -> dict:
+    # ... (Implementierung von determine_applicable_pauschale wie zuvor) ...
+    # Stellt sicher, dass diese Funktion call_gemini_stage2_ranking und regelpruefer.check_pauschale_conditions aufruft
+    print("INFO: Starte Pauschalenermittlung...")
+    final_result = {"type": "Error", "message": "Initialer Pauschalenfehler."}
+    potential_pauschale_codes = set()
+    LKN_KEY_IN_PAUSCHALE_LP = 'Leistungsposition' # ANPASSEN!
+    PAUSCHALE_KEY_IN_PAUSCHALE_LP = 'Pauschale' # ANPASSEN!
+    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale' # ANPASSEN!
+    rule_checked_lkns = [l['lkn'] for l in rule_checked_leistungen]
+    for item in pauschale_lp_data:
+        if item.get(LKN_KEY_IN_PAUSCHALE_LP) in rule_checked_lkns:
+             if item.get(PAUSCHALE_KEY_IN_PAUSCHALE_LP): potential_pauschale_codes.add(item[PAUSCHALE_KEY_IN_PAUSCHALE_LP])
+    for l in rule_checked_leistungen:
+        if l.get("typ") in ['P', 'PZ'] and l.get("lkn") in pauschalen_dict: potential_pauschale_codes.add(l["lkn"])
+    if not potential_pauschale_codes: return {"type": "Error", "message": "Pauschale notwendig, aber keine potenziellen Pauschalen gefunden."}
+    potential_details = [pauschalen_dict[code] for code in potential_pauschale_codes if code in pauschalen_dict]
+    if not potential_details: return {"type": "Error", "message": "Pauschalen-Codes gefunden, aber keine Details in tblPauschalen."}
+    pauschalen_context_text = "\n".join([f"Code: {p[PAUSCHALE_KEY_IN_PAUSCHALEN]}, Text: {p.get('Pauschale_Text', 'N/A')}" for p in potential_details])
+    ranked_pauschale_codes = []
+    try: ranked_pauschale_codes = call_gemini_stage2_ranking(user_input, pauschalen_context_text)
+    except Exception as e: print(f"FEHLER bei LLM Stufe 2: {e}"); ranked_pauschale_codes = list(potential_pauschale_codes)
+    if not ranked_pauschale_codes:
+         return {"type": "Error", "message": "Kein Pauschalen-Ranking erhalten."}
+    else:
+         # --- Wähle die ERSTE Pauschale aus der gerankten Liste ---
+         # Wir gehen davon aus, dass das LLM die inhaltlich passendste zuerst nennt.
+         best_ranked_code = ranked_pauschale_codes[0]
+
+         if best_ranked_code not in pauschalen_dict:
+              # Fallback, falls der beste Code ungültig ist -> nimm nächsten gültigen
+              for code in ranked_pauschale_codes[1:]:
+                   if code in pauschalen_dict:
+                        best_ranked_code = code
+                        break
+              else: # Wenn keine der gerankten Pauschalen gültig ist
+                   return {"type": "Error", "message": "Keine der vom LLM gerankten Pauschalen ist gültig."}
+
+         print(f"INFO: Beste Pauschale gemäß LLM-Ranking ausgewählt: {best_ranked_code}")
+         best_pauschale_details = pauschalen_dict[best_ranked_code]
+
+         # --- Bedingungen prüfen (nur für Informationszwecke im Frontend) ---
+         bedingungs_pruef_html_result = "Bedingungsprüfung nicht durchgeführt oder fehlgeschlagen."
+         condition_errors = []
+         if regelpruefer and hasattr(regelpruefer, 'check_pauschale_conditions'):
+              print(f"Prüfe Bedingungen für ausgewählte Pauschale: {best_ranked_code}")
+              bedingungs_context = {**context, "LKN": rule_checked_lkns}
+              try:
+                   condition_result = regelpruefer.check_pauschale_conditions(
+                       best_ranked_code, bedingungs_context, pauschale_bedingungen_data, tabellen_data
+                   )
+                   bedingungs_pruef_html_result = condition_result.get("html", "Fehler bei HTML-Generierung der Bedingungsprüfung.")
+                   condition_errors = condition_result.get("errors", []) # Hole die Fehlerliste
+                   if not condition_result.get("allMet"):
+                        print(f"WARNUNG: Bedingungen für Pauschale {best_ranked_code} sind NICHT erfüllt (Fehler: {condition_errors}). Wird trotzdem ausgewählt.")
+                   else:
+                        print(f"Info: Bedingungen für Pauschale {best_ranked_code} erfüllt.")
+              except Exception as e_cond:
+                   print(f"FEHLER bei Aufruf von check_pauschale_conditions: {e_cond}")
+                   bedingungs_pruef_html_result = f"<p class='error'>Fehler bei Bedingungsprüfung: {e_cond}</p>"
+                   condition_errors = [f"Fehler bei Bedingungsprüfung: {e_cond}"]
+
+
+         # --- Finale Pauschalen-Antwort (immer diese Pauschale, egal ob Bedingungen erfüllt) ---
+         final_result = {
+             "type": "Pauschale",
+             "details": best_pauschale_details,
+             "bedingungs_pruef_html": bedingungs_pruef_html_result,
+             # Optional: Füge die Fehlerliste hinzu, damit das Frontend sie anzeigen kann
+             "bedingungs_fehler": condition_errors
+         }
+         # found_applicable_pauschale wird nicht mehr benötigt, da wir immer die erste nehmen
+
+    return final_result
+
+
+# --- Ausgelagerte TARDOC-Vorbereitung ---
+def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
+    # ... (Implementierung wie zuvor) ...
+    print("INFO: TARDOC-Abrechnung wird vorbereitet...")
+    tardoc_leistungen_final = []
+    for res in regel_ergebnisse_liste:
+        lkn_info = leistungskatalog_dict.get(res.get("lkn"))
+        if lkn_info and lkn_info.get("Typ") in ['E', 'EZ'] and \
+           res.get("regelpruefung", {}).get("abrechnungsfaehig") and \
+           res.get("finale_menge", 0) > 0:
+            tardoc_leistungen_final.append({"lkn": res["lkn"], "menge": res["finale_menge"], "typ": lkn_info.get("Typ"), "beschreibung": lkn_info.get("Beschreibung", "")})
+    if not tardoc_leistungen_final: return {"type": "Error", "message": "Keine abrechenbaren TARDOC-Leistungen gefunden."}
+    else: return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
+
+
+# --- API Endpunkt (Hauptlogik) ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
     print("\n--- Request an /api/analyze-billing erhalten ---")
     # 1. Eingaben holen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
-    data = request.get_json()
-    user_input = data.get('inputText')
-    icd_input = data.get('icd', [])
-    gtin_input = data.get('gtin', [])
+    data = request.get_json(); user_input = data.get('inputText'); icd_input = data.get('icd', []); gtin_input = data.get('gtin', [])
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
-    print(f"Empfangener inputText: {user_input}")
-    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}")
+    print(f"Empfangener inputText: {user_input}"); print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}")
 
     # 2. LLM Stufe 1: LKNs identifizieren
     llm_stage1_result = None
@@ -281,13 +347,39 @@ def analyze_billing():
         llm_stage1_result = call_gemini_stage1(user_input, katalog_context)
     except Exception as e: return jsonify({"error": f"LLM Stufe 1 Fehler: {e}"}), 500
 
+    # *** Validierung der vom LLM identifizierten LKNs ***
+    validated_leistungen_llm = []
+    identified_leistungen_raw = llm_stage1_result.get("identified_leistungen", [])
+    if not identified_leistungen_raw:
+         print("WARNUNG: LLM Stufe 1 hat keine Leistungen identifiziert.")
+         # Setze leere Liste für Regelprüfung, führt zu Fehler im nächsten Schritt
+         identified_leistungen_llm = []
+    else:
+        for leistung in identified_leistungen_raw:
+            lkn = leistung.get("lkn")
+            # Prüfe, ob LKN existiert und im lokalen Katalog vorhanden ist
+            if lkn and isinstance(lkn, str) and lkn.upper() in leistungskatalog_dict:
+                # Optional: Hole Typ und Beschreibung aus lokalen Daten neu, um sicherzugehen
+                local_data = leistungskatalog_dict[lkn.upper()]
+                leistung["typ"] = local_data.get("Typ", leistung.get("typ")) # Überschreibe LLM-Typ mit lokalem Typ
+                leistung["beschreibung"] = local_data.get("Beschreibung", leistung.get("beschreibung"))
+                validated_leistungen_llm.append(leistung)
+            else:
+                print(f"WARNUNG: Vom LLM identifizierte LKN '{lkn}' ist ungültig oder nicht im Katalog gefunden. Wird ignoriert.")
+
+        # Verwende die validierte Liste für die weitere Verarbeitung
+        identified_leistungen_llm = validated_leistungen_llm
+        # Aktualisiere das Ergebnisobjekt für Transparenz (optional)
+        llm_stage1_result["identified_leistungen"] = identified_leistungen_llm
+
+    # *** ENDE Validierung ***
+
     # 3. Regelprüfung für identifizierte LKNs
     regel_ergebnisse_liste = []
     identified_leistungen_llm = llm_stage1_result.get("identified_leistungen", [])
     extracted_info = llm_stage1_result.get("extracted_info", {})
-    alter_llm = extracted_info.get("alter")
-    geschlecht_llm = extracted_info.get("geschlecht")
-    rule_checked_leistungen = [] # Liste der LKNs, die Regeln bestehen
+    alter_llm = extracted_info.get("alter"); geschlecht_llm = extracted_info.get("geschlecht")
+    rule_checked_leistungen = []
 
     if not identified_leistungen_llm:
          regel_ergebnisse_liste.append({"lkn": None, "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine gültige LKN vom LLM identifiziert."]}, "finale_menge": 0})
@@ -295,8 +387,7 @@ def analyze_billing():
         for leistung in identified_leistungen_llm:
             lkn = leistung.get("lkn")
             if not lkn or lkn.lower() == "unknown":
-                 regel_ergebnisse_liste.append({"lkn": lkn or "unknown", "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Ungültige LKN vom LLM."]}, "finale_menge": 0})
-                 continue
+                 regel_ergebnisse_liste.append({"lkn": lkn or "unknown", "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Ungültige LKN vom LLM."]}, "finale_menge": 0}); continue
 
             menge_initial = leistung.get("menge", 1)
             try: menge_initial = int(menge_initial); assert menge_initial >= 0
@@ -305,106 +396,55 @@ def analyze_billing():
             print(f"Prüfe LKN {lkn} mit initialer Menge vom LLM: {menge_initial}")
             regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
             if regelpruefer and regelwerk_dict:
-                abrechnungsfall = {
-                    "LKN": lkn, "Menge": menge_initial,
-                    "Begleit_LKNs": [item.get("lkn") for item in identified_leistungen_llm if item.get("lkn") and item.get("lkn") != lkn],
-                    "ICD": icd_input, "Geschlecht": geschlecht_llm, "Alter": alter_llm, "Pauschalen": [], "GTIN": gtin_input # GTIN hinzugefügt
-                }
+                abrechnungsfall = { "LKN": lkn, "Menge": menge_initial, "Begleit_LKNs": [i.get("lkn") for i in identified_leistungen_llm if i.get("lkn") and i.get("lkn") != lkn], "ICD": icd_input, "Geschlecht": geschlecht_llm, "Alter": alter_llm, "Pauschalen": [], "GTIN": gtin_input }
                 regel_ergebnis = regelpruefer.pruefe_abrechnungsfaehigkeit(abrechnungsfall, regelwerk_dict)
 
             angepasste_menge = menge_initial
             if not regel_ergebnis.get("abrechnungsfaehig", False):
-                fehler_liste = regel_ergebnis.get("fehler", [])
-                fehler_ohne_menge = [f for f in fehler_liste if "Mengenbeschränkung überschritten" not in f]
-                mengen_fehler = [f for f in fehler_liste if "Mengenbeschränkung überschritten" in f]
+                fehler_liste = regel_ergebnis.get("fehler", []); fehler_ohne_menge = [f for f in fehler_liste if "Mengenbeschränkung" not in f]; mengen_fehler = [f for f in fehler_liste if "Mengenbeschränkung" in f]
                 if not fehler_ohne_menge and mengen_fehler:
                     max_menge_match = None; match = re.search(r'max\. (\d+)', mengen_fehler[0])
                     if match: max_menge_match = int(match.group(1))
                     if max_menge_match is not None and menge_initial > max_menge_match:
-                         angepasste_menge = max_menge_match
-                         print(f"Menge angepasst von {menge_initial} auf {angepasste_menge} für {lkn}.")
-                         regel_ergebnis["fehler"] = [f"Menge auf {angepasste_menge} reduziert (ursprünglich: {menge_initial})"]
-                         regel_ergebnis["abrechnungsfaehig"] = True
-                    else: angepasste_menge = 0; print(f"Mengenfehler für {lkn}, Anpassung nicht möglich/nötig.")
-                else: angepasste_menge = 0; print(f"LKN {lkn} nicht abrechnungsfähig wegen anderer Regeln.")
+                         angepasste_menge = max_menge_match; print(f"Menge angepasst: {lkn} von {menge_initial} auf {angepasste_menge}."); regel_ergebnis["fehler"] = [f"Menge auf {angepasste_menge} reduziert (urspr.: {menge_initial})"]; regel_ergebnis["abrechnungsfaehig"] = True
+                    else: angepasste_menge = 0; print(f"Mengenfehler {lkn}, Anpassung nicht möglich.")
+                else: angepasste_menge = 0; print(f"LKN {lkn} nicht abrechnungsfähig (andere Regeln).")
 
             regel_ergebnisse_liste.append({"lkn": lkn, "regelpruefung": regel_ergebnis, "finale_menge": angepasste_menge})
-            if regel_ergebnis.get("abrechnungsfaehig"):
-                 rule_checked_leistungen.append({**leistung, "menge": angepasste_menge})
+            if regel_ergebnis.get("abrechnungsfaehig"): rule_checked_leistungen.append({**leistung, "menge": angepasste_menge})
 
     # 4. Entscheidung Pauschale vs. TARDOC
     final_result = {}
     hatPauschalenTypRegelkonform = any(l.get("typ") in ['P', 'PZ'] for l in rule_checked_leistungen)
 
     if hatPauschalenTypRegelkonform:
-        print("INFO: Regelkonforme P/PZ LKN gefunden. Pauschalenabrechnung wird geprüft...")
-        potential_pauschale_codes = set()
-        # --- !!! ANPASSEN: Schlüsselnamen !!! ---
-        LKN_KEY_IN_PAUSCHALE_LP = 'Leistungsposition'
-        PAUSCHALE_KEY_IN_PAUSCHALE_LP = 'Pauschale'
-        PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
-        # --- !!! ENDE ANPASSUNG !!! ---
-        rule_checked_lkns = [l['lkn'] for l in rule_checked_leistungen]
-        for item in pauschale_lp_data:
-            if item.get(LKN_KEY_IN_PAUSCHALE_LP) in rule_checked_lkns:
-                 if item.get(PAUSCHALE_KEY_IN_PAUSCHALE_LP): potential_pauschale_codes.add(item[PAUSCHALE_KEY_IN_PAUSCHALE_LP])
-        for l in rule_checked_leistungen:
-            if l.get("typ") in ['P', 'PZ'] and l.get("lkn") in pauschalen_dict: potential_pauschale_codes.add(l["lkn"])
-
-        if not potential_pauschale_codes: final_result = {"type": "Error", "message": "Pauschale notwendig, aber keine potenziellen Pauschalen gefunden."}
-        else:
-            potential_details = [pauschalen_dict[code] for code in potential_pauschale_codes if code in pauschalen_dict]
-            if not potential_details: final_result = {"type": "Error", "message": "Pauschalen-Codes gefunden, aber keine Details in tblPauschalen."}
-            else:
-                 pauschalen_context_text = "\n".join([f"Code: {p[PAUSCHALE_KEY_IN_PAUSCHALEN]}, Text: {p.get('Pauschale_Text', 'N/A')}" for p in potential_details])
-                 ranked_pauschale_codes = []
-                 try: ranked_pauschale_codes = call_gemini_stage2_ranking(user_input, pauschalen_context_text)
-                 except Exception as e: print(f"FEHLER bei LLM Stufe 2: {e}"); ranked_pauschale_codes = list(potential_pauschale_codes)
-
-                 if not ranked_pauschale_codes: final_result = {"type": "Error", "message": "LLM Stufe 2 lieferte kein Pauschalen-Ranking."}
-                 else:
-                      found_applicable_pauschale = False; bedingungs_pruef_html_result = "Keine anwendbare Pauschale geprüft."
-                      for pauschale_code in ranked_pauschale_codes:
-                           if pauschale_code not in pauschalen_dict: continue
-                           print(f"Prüfe Bedingungen für gerankte Pauschale: {pauschale_code}")
-                           bedingungs_context = {"ICD": icd_input, "GTIN": gtin_input, "LKN": rule_checked_lkns, "Alter": alter_llm, "Geschlecht": geschlecht_llm}
-                           if regelpruefer and hasattr(regelpruefer, 'check_pauschale_conditions'):
-                                condition_result = regelpruefer.check_pauschale_conditions(pauschale_code, bedingungs_context, pauschale_bedingungen_data, tabellen_data)
-                                bedingungs_pruef_html_result = condition_result.get("html", "Fehler bei Bedingungsprüfung.")
-                                if condition_result.get("allMet"):
-                                     print(f"Pauschale {pauschale_code} erfüllt Bedingungen."); final_result = {"type": "Pauschale", "details": pauschalen_dict[pauschale_code], "bedingungs_pruef_html": bedingungs_pruef_html_result}; found_applicable_pauschale = True; break
-                           else: bedingungs_pruef_html_result = "Regelprüfer für Pauschalenbedingungen nicht verfügbar."; break # Nicht weiter prüfen
-
-                      if not found_applicable_pauschale: final_result = {"type": "Error", "message": "Pauschale notwendig, aber keine erfüllt Bedingungen."}
+        pauschale_context = {"ICD": icd_input, "GTIN": gtin_input, "Alter": alter_llm, "Geschlecht": geschlecht_llm}
+        # Rufe ausgelagerte Pauschalenfunktion auf
+        final_result = determine_applicable_pauschale(user_input, rule_checked_leistungen, pauschale_context)
     else:
-        # --- TARDOC-Logik ---
-        print("INFO: TARDOC-Abrechnung wird vorbereitet...")
-        tardoc_leistungen_final = []
-        for res in regel_ergebnisse_liste:
-            lkn_info = leistungskatalog_dict.get(res["lkn"])
-            if lkn_info and lkn_info.get("Typ") in ['E', 'EZ'] and res["regelpruefung"]["abrechnungsfaehig"] and res["finale_menge"] > 0:
-                tardoc_leistungen_final.append({"lkn": res["lkn"], "menge": res["finale_menge"], "typ": lkn_info.get("Typ"), "beschreibung": lkn_info.get("Beschreibung", "")})
-        if not tardoc_leistungen_final: final_result = {"type": "Error", "message": "Keine abrechenbaren TARDOC-Leistungen gefunden."}
-        else: final_result = { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
+        # Rufe ausgelagerte TARDOC-Funktion auf
+        final_result = prepare_tardoc_abrechnung(regel_ergebnisse_liste)
 
     # 5. Kombiniertes Ergebnis an Frontend senden
     final_response = {
         "llm_ergebnis_stufe1": llm_stage1_result,
-        "regel_ergebnisse_details": regel_ergebnisse_liste, # Sende ALLE Regelergebnisse
-        "abrechnung": final_result
+        "regel_ergebnisse_details": regel_ergebnisse_liste, # Sende ALLE Regelergebnisse zur Anzeige
+        "abrechnung": final_result # Das finale Ergebnis (Pauschale, TARDOC oder Error)
     }
+    print(f"DEBUG: Finale Antwort an Frontend:\n{json.dumps(final_response, indent=2)}")
     return jsonify(final_response)
+
 
 # --- Static‑Routes & Start ---
 @app.route("/")
 def index(): return send_from_directory(".", "index.html")
 @app.route("/<path:filename>")
 def serve_static(filename):
-    if filename in {'server.py', '.env', 'regelpruefer.py'} or filename.startswith('.'): abort(404)
+    if filename in {'server.py', '.env', 'regelpruefer.py', 'regelpruefer_pauschale.py'} or filename.startswith('.'): abort(404) # Füge neue Datei hinzu
     if filename.startswith('data/') or filename == 'calculator.js': return send_from_directory('.', filename)
     abort(404)
 
 if __name__ == "__main__":
-    load_data()
-    print(f"🚀 Server läuft → http://127.0.0.1:8000 (Regelprüfer: {'Aktiv' if regelpruefer else 'Inaktiv'})")
+    load_data() # Lade Daten beim Start
+    print(f"🚀 Server läuft → http://127.0.0.1:8000 (Regelprüfer LKN: {'Aktiv' if regelpruefer else 'Inaktiv'}, Pauschale: {'Aktiv' if regelpruefer_pauschale else 'Inaktiv'})")
     app.run(host="127.0.0.1", port=8000, debug=True)
