@@ -1,4 +1,4 @@
-// calculator.js - Vollständige Version (30.04.2025)
+// calculator.js - Vollständige Version (27.04.2025)
 // Arbeitet mit zweistufigem Backend. Holt lokale Details zur Anzeige.
 
 // ─── 0 · Globale Datencontainer ─────────────────────────────────────────────
@@ -8,8 +8,6 @@ let data_pauschalen = [];
 let data_pauschaleBedingungen = [];
 let data_tardocGesamt = [];
 let data_tabellen = [];
-let mouseSpinnerElement = null;
-let isProcessing = false; // Flag, ob gerade verarbeitet wird
 
 // Pfade zu den lokalen JSON-Daten
 const DATA_PATHS = {
@@ -20,8 +18,7 @@ const DATA_PATHS = {
     tardocGesamt: 'data/TARDOCGesamt_optimiert_Tarifpositionen.json', // ANPASSEN!
     tabellen: 'data/tblTabellen.json' // Korrigiert
 };
-const CACHE_KEY = 'tardocRechnerDataCache';
-const CACHE_VERSION = '1.1'; // Version erhöht für Cache-Reset
+// Kein Caching mehr
 
 // ─── 1 · Utility‑Funktionen ────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
@@ -29,7 +26,7 @@ function $(id) { return document.getElementById(id); }
 function escapeHtml(s) {
     if (s === null || s === undefined) return "";
     // Korrekte Ersetzung mit numerischen Entities für Anführungszeichen
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&#34;", "'": "&#39;" }[c]));
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&", "<": "<", ">": ">", "\"": "&quot;", "'": "'" }[c]));
 }
 
 function beschreibungZuLKN(lkn) {
@@ -45,70 +42,19 @@ function displayOutput(html, type = "info") {
     out.className = type;
 }
 
-function showSpinner(htmlContent = "Prüfung läuft, bitte warten...") { // Standardtext hinzugefügt
-    const spinner = $('spinner');
-    const button = $('analyzeButton');
-    if (spinner) {
-        spinner.innerHTML = htmlContent; // Zeige übergebenen HTML-Inhalt
-        spinner.style.display = 'block';
-    }
+function showSpinner(htmlContent = "Prüfung läuft, bitte warten...") {
+    const spinner = $('spinner'); const button = $('analyzeButton');
+    if (spinner) { spinner.innerHTML = htmlContent; spinner.style.display = 'block'; }
     if (button) button.disabled = true;
 }
 
 function hideSpinner() {
-    const spinner = $('spinner');
-    const button = $('analyzeButton');
-    if (spinner) {
-        spinner.innerHTML = ""; // Inhalt leeren
-        spinner.style.display = 'none';
-    }
+    const spinner = $('spinner'); const button = $('analyzeButton');
+    if (spinner) { spinner.innerHTML = ""; spinner.style.display = 'none'; }
     if (button) button.disabled = false;
 }
 
-// Funktion zum Aktualisieren der Spinner-Position
-const updateSpinnerPosition = (event) => {
-    if (mouseSpinnerElement && isProcessing) {
-        // Kleiner Offset, damit der Spinner nicht direkt unter dem Cursor ist
-        const offsetX = 15;
-        const offsetY = 10;
-        mouseSpinnerElement.style.left = `${event.clientX + offsetX}px`;
-        mouseSpinnerElement.style.top = `${event.clientY + offsetY}px`;
-    }
-};
-
-// Funktion zum Starten des Maus-Spinners
-function showMouseSpinner() {
-    if (!mouseSpinnerElement) {
-        mouseSpinnerElement = $('mouseSpinner'); // Hole das Element einmal
-    }
-    if (mouseSpinnerElement) {
-        isProcessing = true;
-        mouseSpinnerElement.style.display = 'block';
-        // Füge den Event Listener hinzu, wenn Verarbeitung startet
-        document.addEventListener('mousemove', updateSpinnerPosition);
-        console.log("Mouse Spinner aktiviert.");
-    }
-    // Deaktiviere den Button
-    const button = $('analyzeButton');
-    if (button) button.disabled = true;
-}
-
-// Funktion zum Stoppen des Maus-Spinners
-function hideMouseSpinner() {
-    if (mouseSpinnerElement) {
-        isProcessing = false;
-        mouseSpinnerElement.style.display = 'none';
-        // Entferne den Event Listener, wenn Verarbeitung endet
-        document.removeEventListener('mousemove', updateSpinnerPosition);
-        console.log("Mouse Spinner deaktiviert.");
-    }
-     // Aktiviere den Button
-    const button = $('analyzeButton');
-    if (button) button.disabled = false;
-}
-// --- Ende Maus-Spinner Funktionen ---
-
-// ─── 2 · Daten laden mit Caching ───────────────────────────────────────────
+// ─── 2 · Daten laden (vereinfacht ohne Caching) ───────────────────────────
 async function fetchJSON(path) {
     try {
         const r = await fetch(path);
@@ -125,59 +71,29 @@ async function fetchJSON(path) {
 }
 
 async function loadData() {
-    console.log("Prüfe Daten-Cache...");
-    const cachedData = localStorage.getItem(CACHE_KEY);
-    let dataValid = false;
+    console.log("Lade Frontend-Daten vom Server...");
+    displayOutput("<p>Lade Tarifdaten...</p>", "info");
     let loadedDataArray = [];
+    try {
+        loadedDataArray = await Promise.all([
+            fetchJSON(DATA_PATHS.leistungskatalog), fetchJSON(DATA_PATHS.pauschaleLP),
+            fetchJSON(DATA_PATHS.pauschalen), fetchJSON(DATA_PATHS.pauschaleBedingungen),
+            fetchJSON(DATA_PATHS.tardocGesamt), fetchJSON(DATA_PATHS.tabellen)
+        ]);
 
-    if (cachedData) {
-        try {
-            const parsed = JSON.parse(cachedData);
-            if (parsed.version === CACHE_VERSION && parsed.data && Array.isArray(parsed.data) && parsed.data.length === Object.keys(DATA_PATHS).length) {
-                loadedDataArray = parsed.data;
-                dataValid = true;
-                console.log("Daten aus localStorage-Cache geladen.");
-            } else { console.log("Cache-Version veraltet oder Daten ungültig."); localStorage.removeItem(CACHE_KEY); }
-        } catch (e) { console.warn("Fehler beim Parsen des Caches:", e); localStorage.removeItem(CACHE_KEY); }
-    }
+        if (loadedDataArray.some(data => data === undefined)) { throw new Error("Einige Daten konnten nicht korrekt vom Server geholt werden."); }
 
-    if (!dataValid) {
-        console.log("Lade Frontend-Daten vom Server...");
-        displayOutput("<p>Lade Tarifdaten...</p>", "info");
-        try {
-            loadedDataArray = await Promise.all([
-                fetchJSON(DATA_PATHS.leistungskatalog), fetchJSON(DATA_PATHS.pauschaleLP),
-                fetchJSON(DATA_PATHS.pauschalen), fetchJSON(DATA_PATHS.pauschaleBedingungen),
-                fetchJSON(DATA_PATHS.tardocGesamt), fetchJSON(DATA_PATHS.tabellen)
-            ]);
-
-            if (loadedDataArray.some(data => data === undefined)) { throw new Error("Einige Daten konnten nicht korrekt vom Server geholt werden."); }
-
-            const cachePayload = { version: CACHE_VERSION, data: loadedDataArray };
-            try { localStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload)); console.log("Daten im Cache gespeichert."); }
-            catch (e) { console.warn("Fehler beim Speichern im Cache:", e); }
-
-            console.log("Frontend-Daten vom Server geladen.");
-            if (!$("output")?.classList.contains("error")) {
-                displayOutput("<p>Daten geladen. Bereit zur Prüfung.</p>", "success");
-                setTimeout(() => { if ($("output") && $("output").className === 'success') displayOutput(""); }, 2000);
-            }
-        } catch (error) {
-             console.error("Schwerwiegender Fehler beim Laden der Frontend-Daten:", error);
-             displayOutput(`<p class="error">Fehler beim Laden der notwendigen Frontend-Daten: ${escapeHtml(error.message)}. Bitte Seite neu laden.</p>`, "error");
-             data_leistungskatalog = []; data_pauschaleLeistungsposition = []; data_pauschalen = [];
-             data_pauschaleBedingungen = []; data_tardocGesamt = []; data_tabellen = [];
-             return;
-        }
-    }
-
-    // Weise die geladenen/gecachten Daten den globalen Variablen zu
-    if (loadedDataArray && loadedDataArray.length === Object.keys(DATA_PATHS).length) {
         [ data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
           data_pauschaleBedingungen, data_tardocGesamt, data_tabellen ] = loadedDataArray;
-    } else {
-         console.error("Fehler bei der Zuweisung der geladenen Daten.");
-         displayOutput(`<p class="error">Interner Fehler beim Verarbeiten der geladenen Daten.</p>`, "error");
+
+        console.log("Frontend-Daten vom Server geladen.");
+        if (!$("output")?.classList.contains("error")) {
+            displayOutput("<p>Daten geladen. Bereit zur Prüfung.</p>", "success");
+            setTimeout(() => { if ($("output") && $("output").className === 'success') displayOutput(""); }, 2000);
+        }
+    } catch (error) {
+         console.error("Schwerwiegender Fehler beim Laden der Frontend-Daten:", error);
+         displayOutput(`<p class="error">Fehler beim Laden der notwendigen Frontend-Daten: ${escapeHtml(error.message)}. Bitte Seite neu laden.</p>`, "error");
          return;
     }
 
@@ -193,6 +109,9 @@ async function loadData() {
          if (!$("output")?.classList.contains("error")) { displayOutput(`<p class="error">${escapeHtml(errorMsg)}</p>`, "error"); }
     } else { console.log("Alle kritischen Daten scheinen vorhanden zu sein."); }
 }
+
+// Cache-Löschfunktion wird nicht mehr benötigt
+// function clearDataCache() { ... }
 
 document.addEventListener("DOMContentLoaded", loadData);
 
@@ -211,31 +130,17 @@ async function getBillingAnalysis() {
     if (!outputDiv) { console.error("Output element not found!"); return; }
     if (!userInput) { displayOutput("<p>Bitte Leistungsbeschreibung eingeben.</p>", "error"); return; }
 
-    // *** KORREKTER FUNKTIONSAUFRUF ***
     showSpinner("<h4>Analyse gestartet...</h4><p>Sende Anfrage an Server...</p>");
-    showMouseSpinner();
-    displayOutput("", "info"); // Leere den Haupt-Output
+    displayOutput("", "info"); // Leere Haupt-Output
 
     try {
         console.log("[getBillingAnalysis] Sende Anfrage an Backend...");
         const requestBody = { inputText: userInput, icd: icdInput, gtin: gtinInput };
-        const res = await fetch("/api/analyze-billing", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify(requestBody)
-        });
+        const res = await fetch("/api/analyze-billing", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(requestBody) });
         rawResponseText = await res.text();
         console.log("[getBillingAnalysis] Raw Response vom Backend erhalten:", rawResponseText);
-        showSpinner("<h4>Analyse läuft...</h4><p>Antwort vom Server erhalten, parse Daten...</p>");
-
-        if (!res.ok) {
-            let errorMsg = `${res.status} ${res.statusText}`;
-            try { const errJson = JSON.parse(rawResponseText); errorMsg = `${res.status}: ${errJson.error || 'Unbekannter Fehler'} ${errJson.details ? '- ' + errJson.details : ''}`; } catch(e) { /* Ignore */ }
-            throw new Error(errorMsg);
-        }
-        try { backendResponse = JSON.parse(rawResponseText); }
-        catch (e) { throw new Error(`Ungültiges JSON vom Server empfangen: ${e.message}`); }
-
+        if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
+        backendResponse = JSON.parse(rawResponseText);
         console.log("[getBillingAnalysis] Backend-Antwort geparst:", backendResponse);
 
         // Strukturprüfung
@@ -251,7 +156,6 @@ async function getBillingAnalysis() {
         if (rawResponseText && !e.message.includes(rawResponseText.substring(0,50))) { msg += `<details style="margin-top:1em"><summary>Raw Response</summary><pre>${escapeHtml(rawResponseText)}</pre></details>`; }
         displayOutput(msg, "error");
         hideSpinner();
-        hideMouseSpinner();
         return;
     }
 
@@ -266,7 +170,7 @@ async function getBillingAnalysis() {
         const ruleResultsDetailsList = backendResponse.regel_ergebnisse_details || [];
 
         // --- Baue LLM Analyse HTML für den Spinner ---
-        let llmAnalysisHtml = `<h4>LLM-Analyse (Stufe 1)</h4>`;
+        let llmAnalysisHtml = `<h4>LLM-Analyse (Stufe 1) abgeschlossen</h4>`;
         if (identifiedLeistungen.length > 0) {
             const lknStrings = identifiedLeistungen.map(l => `${l.lkn} (${l.typ || '?'}, Menge:${l.menge ?? 'N/A'})`).join(', ');
             llmAnalysisHtml += `<p><b>Identifizierte LKN(s):</b> ${lknStrings}</p><ul>`;
@@ -275,7 +179,6 @@ async function getBillingAnalysis() {
                  llmAnalysisHtml += `<li><b>${escapeHtml(l.lkn)}:</b> ${escapeHtml(desc)}</li>`;
             });
             llmAnalysisHtml += `</ul>`;
-            showSpinner(llmAnalysisHtml);
         } else { llmAnalysisHtml += `<p><i>Keine LKN identifiziert.</i></p>`; }
         let extractedDetails = [];
         if (extractedInfo.dauer_minuten !== null) extractedDetails.push(`Dauer: ${extractedInfo.dauer_minuten} Min.`);
@@ -290,77 +193,88 @@ async function getBillingAnalysis() {
         showSpinner(llmAnalysisHtml);
 
         // --- Baue das FINALE HTML für den Output-Bereich ---
-        htmlOutput = `<h2>Ergebnisse für «${escapeHtml(userInput)}»</h2>`;
-        // Titel "Finale Abrechnung" entfernt
+        // Kurze Verzögerung, damit der Spinner sichtbar ist
+        setTimeout(() => {
+            htmlOutput = `<h2>Ergebnisse für «${escapeHtml(userInput)}»</h2>`;
+            // Titel "Finale Abrechnung" entfernt
 
-        let abrechnungsDetailHtml = ""; // HTML für die Tabelle/Details
+            let abrechnungsDetailHtml = ""; // HTML für die Tabelle/Details
 
-        switch (abrechnung.type) {
-            case "Pauschale":
-                console.log("[getBillingAnalysis] Abrechnungstyp: Pauschale", abrechnung.details);
-                htmlOutput += `<p class="success"><b>Abrechnung als Pauschale empfohlen.</b></p>`;
-                if (abrechnung.details) {
-                     abrechnungsDetailHtml = displayPauschale(abrechnung.details, abrechnung.bedingungs_pruef_html);
-                } else { abrechnungsDetailHtml = "<p class='error'>Fehler: Pauschalendetails fehlen.</p>"; }
-                break;
+            switch (abrechnung.type) {
+                case "Pauschale":
+                    console.log("[getBillingAnalysis] Abrechnungstyp: Pauschale", abrechnung.details);
+                    htmlOutput += `<p class="success"><b>Abrechnung als Pauschale empfohlen.</b></p>`;
+                    if (abrechnung.details) {
+                         // Rufe Hilfsfunktion zur Anzeige der Pauschale auf
+                         abrechnungsDetailHtml = displayPauschale(abrechnung.details, abrechnung.bedingungs_pruef_html);
+    
+                         // *** Zeige Bedingungsfehler an, falls vorhanden ***
+                         if (abrechnung.bedingungs_fehler && abrechnung.bedingungs_fehler.length > 0) {
+                              abrechnungsDetailHtml += `<p class="error" style="margin-top: 10px;"><b>Achtung: Folgende Bedingungen sind aktuell nicht erfüllt:</b></p><ul>`;
+                              abrechnung.bedingungs_fehler.forEach(fehler => {
+                                   abrechnungsDetailHtml += `<li class="error">${escapeHtml(fehler)}</li>`;
+                              });
+                              abrechnungsDetailHtml += `</ul>`;
+                         }    
+                    } else { abrechnungsDetailHtml = "<p class='error'>Fehler: Pauschalendetails fehlen.</p>"; }
+                    break;
 
-            case "TARDOC":
-                console.log("[getBillingAnalysis] Abrechnungstyp: TARDOC", abrechnung.leistungen);
-                htmlOutput += `<p class="success"><b>Abrechnung als TARDOC-Einzelleistung(en) empfohlen.</b></p>`;
-                if (abrechnung.leistungen && abrechnung.leistungen.length > 0) {
-                     // Übergib die Regel-Details an die Tabellenfunktion
-                     abrechnungsDetailHtml = displayTardocTable(abrechnung.leistungen, ruleResultsDetailsList);
-                } else { abrechnungsDetailHtml = "<p><i>Keine TARDOC-Positionen zur Abrechnung übermittelt.</i></p>"; }
-                break;
+                case "TARDOC":
+                    console.log("[getBillingAnalysis] Abrechnungstyp: TARDOC", abrechnung.leistungen);
+                    htmlOutput += `<p class="success"><b>Abrechnung als TARDOC-Einzelleistung(en) empfohlen.</b></p>`;
+                    if (abrechnung.leistungen && abrechnung.leistungen.length > 0) {
+                         abrechnungsDetailHtml = displayTardocTable(abrechnung.leistungen, ruleResultsDetailsList);
+                    } else { abrechnungsDetailHtml = "<p><i>Keine TARDOC-Positionen zur Abrechnung übermittelt.</i></p>"; }
+                    break;
 
-            case "Error":
-                console.error("[getBillingAnalysis] Abrechnungstyp: Error", abrechnung.message);
-                htmlOutput += `<p class="error"><b>Abrechnung nicht möglich oder Fehler aufgetreten.</b></p>`;
-                abrechnungsDetailHtml = `<p><i>Grund: ${escapeHtml(abrechnung.message || 'Unbekannter Fehler')}</i></p>`;
-                 // Zeige Regelprüfungsdetails bei Fehler an
-                 if (ruleResultsDetailsList && ruleResultsDetailsList.length > 0) {
-                     abrechnungsDetailHtml += `<details style="margin-top:1em;"><summary>Details zur Regelprüfung (evtl. relevant)</summary>`;
-                     ruleResultsDetailsList.forEach((resultItem) => {
-                         const lkn = resultItem.lkn || 'Unbekannt';
-                         // Zeige nur LKNs, die Probleme hatten oder relevant sind
-                         if (resultItem.regelpruefung && !resultItem.regelpruefung.abrechnungsfaehig) {
+                case "Error":
+                    console.error("[getBillingAnalysis] Abrechnungstyp: Error", abrechnung.message);
+                    htmlOutput += `<p class="error"><b>Abrechnung nicht möglich oder Fehler aufgetreten.</b></p>`;
+                    abrechnungsDetailHtml = `<p><i>Grund: ${escapeHtml(abrechnung.message || 'Unbekannter Fehler')}</i></p>`;
+                     // Zeige Regelprüfungsdetails bei Fehler an
+                     if (ruleResultsDetailsList && ruleResultsDetailsList.length > 0) {
+                         abrechnungsDetailHtml += `<details style="margin-top:1em;"><summary>Details zur Regelprüfung (evtl. relevant)</summary>`;
+                         ruleResultsDetailsList.forEach((resultItem) => {
+                             const lkn = resultItem.lkn || 'Unbekannt';
                              abrechnungsDetailHtml += `<h5>LKN: ${lkn} (Finale Menge: ${resultItem.finale_menge})</h5>`;
-                             if (resultItem.regelpruefung.fehler && resultItem.regelpruefung.fehler.length > 0) {
-                                  abrechnungsDetailHtml += `<ul>`;
-                                  resultItem.regelpruefung.fehler.forEach(fehler => { abrechnungsDetailHtml += `<li class="error">${escapeHtml(fehler)}</li>`; });
-                                  abrechnungsDetailHtml += `</ul>`;
-                             } else { abrechnungsDetailHtml += `<p><i>Keine spezifischen Fehler gefunden, aber nicht abrechnungsfähig.</i></p>`; }
-                         } else if (resultItem.regelpruefung && resultItem.regelpruefung.fehler && resultItem.regelpruefung.fehler.length > 0) {
-                             // Zeige auch Hinweise (z.B. Mengenreduktion)
-                             abrechnungsDetailHtml += `<h5>LKN: ${lkn} (Finale Menge: ${resultItem.finale_menge})</h5>`;
-                             abrechnungsDetailHtml += `<p><b>Hinweise:</b></p><ul>`;
-                             resultItem.regelpruefung.fehler.forEach(hinweis => {
-                                  const style = hinweis.includes("Menge auf") ? "color: var(--accent); font-weight: bold;" : "";
-                                  abrechnungsDetailHtml += `<li style="${style}">${escapeHtml(hinweis)}</li>`;
-                             });
-                             abrechnungsDetailHtml += `</ul>`;
-                         }
-                     });
-                     abrechnungsDetailHtml += `</details>`;
-                 }
-                break;
+                             if (resultItem.regelpruefung && !resultItem.regelpruefung.abrechnungsfaehig) {
+                                 if (resultItem.regelpruefung.fehler && resultItem.regelpruefung.fehler.length > 0) {
+                                      abrechnungsDetailHtml += `<ul>`;
+                                      resultItem.regelpruefung.fehler.forEach(fehler => { abrechnungsDetailHtml += `<li class="error">${escapeHtml(fehler)}</li>`; });
+                                      abrechnungsDetailHtml += `</ul>`;
+                                 } else { abrechnungsDetailHtml += `<p><i>Keine spezifischen Fehler gefunden, aber nicht abrechnungsfähig.</i></p>`; }
+                             } else if (resultItem.regelpruefung && resultItem.regelpruefung.fehler && resultItem.regelpruefung.fehler.length > 0) {
+                                 abrechnungsDetailHtml += `<p><b>Hinweise:</b></p><ul>`;
+                                 resultItem.regelpruefung.fehler.forEach(hinweis => {
+                                      const style = hinweis.includes("Menge auf") ? "color: var(--accent); font-weight: bold;" : "";
+                                      abrechnungsDetailHtml += `<li style="${style}">${escapeHtml(hinweis)}</li>`;
+                                 });
+                                 abrechnungsDetailHtml += `</ul>`;
+                             } else if (resultItem.regelpruefung) { abrechnungsDetailHtml += `<p><i>Regelprüfung OK oder nicht durchgeführt.</i></p>`; }
+                             else { abrechnungsDetailHtml += `<p><i>Kein Regelprüfungsergebnis vorhanden.</i></p>`; }
+                         });
+                         abrechnungsDetailHtml += `</details>`;
+                     }
+                    break;
 
-            default:
-                console.error("[getBillingAnalysis] Unbekannter Abrechnungstyp:", abrechnung.type);
-                htmlOutput += `<p class="error"><b>Unbekannter Abrechnungstyp vom Server.</b></p>`;
-        }
+                default:
+                    console.error("[getBillingAnalysis] Unbekannter Abrechnungstyp:", abrechnung.type);
+                    htmlOutput += `<p class="error"><b>Unbekannter Abrechnungstyp vom Server.</b></p>`;
+            }
 
-        htmlOutput += abrechnungsDetailHtml; // Füge die generierte Tabelle/Fehler hinzu
-        displayOutput(htmlOutput, "info"); // Zeige das finale Ergebnis im Haupt-Output
-        console.log("[getBillingAnalysis] Frontend-Verarbeitung abgeschlossen.");
+            htmlOutput += abrechnungsDetailHtml; // Füge die generierte Tabelle/Fehler hinzu
+            displayOutput(htmlOutput, "info"); // Zeige das finale Ergebnis im Haupt-Output
+            console.log("[getBillingAnalysis] Frontend-Verarbeitung abgeschlossen.");
+            hideSpinner(); // Spinner ausblenden, nachdem der Output gesetzt wurde
+
+        }, 100); // Kurze Verzögerung von 100ms
 
     } catch (error) {
          console.error("[getBillingAnalysis] Unerwarteter Fehler bei Ergebnisverarbeitung:", error);
          displayOutput(`<p class="error">Ein interner Fehler ist aufgetreten: ${escapeHtml(error.message)}</p><pre>${escapeHtml(error.stack)}</pre>`, "error");
-    } finally {
-         hideSpinner(); // Spinner am Ende ausblenden
-         hideMouseSpinner();
+         hideSpinner(); // Spinner auch hier ausblenden
     }
+    // Das finally hier ist nicht mehr nötig, da es im setTimeout-Callback ist
 } // Ende getBillingAnalysis
 
 
@@ -384,7 +298,7 @@ function displayPauschale(pauschaleDetails, bedingungsHtml = "") {
             </tr></tbody>
         </table>`;
     if (bedingungsHtml) {
-         html += `<details><summary>Details Pauschalen-Bedingungsprüfung</summary>${bedingungsHtml}</details>`; // Bedingungs-HTML vom Backend
+         html += `<details><summary>Details Pauschalen-Bedingungsprüfung</summary>${bedingungsHtml}</details>`;
     }
     return html;
 }
@@ -418,52 +332,36 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
 
         // --- Füge Regelhinweise aus Backend hinzu ---
         const ruleResult = ruleResultsDetailsList.find(r => r.lkn === lkn);
-        let hasErrorHint = false; // Umbenannt für Klarheit (zeigt an, ob es einen Fehler/Warnhinweis gibt)
+        let hasHint = false; // Flag für roten Text
         let hintListHtml = ""; // Baue die Liste separat auf
-
+        // Zeige Hinweise nur, wenn Fehler vorhanden sind (da abrechnungsfaehig=true sein muss, um hier zu sein)
         if (ruleResult && ruleResult.regelpruefung && ruleResult.regelpruefung.fehler && ruleResult.regelpruefung.fehler.length > 0) {
-             hintListHtml += `<ul>`;
+             if (regelnHtml) regelnHtml += "<hr style='margin: 5px 0; border-color: #eee;'>";
+             regelnHtml += `<p><b>Hinweise Regelprüfung:</b></p><ul>`;
              ruleResult.regelpruefung.fehler.forEach(hinweis => {
                   const isReduction = hinweis.includes("Menge auf");
                   const style = isReduction ? "color: var(--danger); font-weight: bold;" : ""; // Rot/Fett bei Reduktion
-                  if (isReduction) hasErrorHint = true; // Setze Flag, wenn Menge reduziert wurde
-                  hintListHtml += `<li style="${style}">${escapeHtml(hinweis)}</li>`;
+                  if (isReduction) hasHint = true; // Setze Flag für roten Details-Link
+                  regelnHtml += `<li style="${style}">${escapeHtml(hinweis)}</li>`;
              });
-             hintListHtml += `</ul>`;
+             regelnHtml += `</ul>`;
         }
         // --- ENDE Regelhinweise ---
 
         const total_tp = (al + ipl) * anzahl;
         gesamtTP += total_tp;
 
-        // --- Baue Details-Summary dynamisch ---
-        let summaryText = "Details";
-        let summaryClass = "";
-        if (hasErrorHint) {
-            summaryText = "Details (Hinweis!)"; // Geänderter Text
-            summaryClass = "rule-hint-trigger"; // CSS-Klasse für roten Text
-        }
-        // --- Ende Details-Summary ---
+        // Style für Details-Summary, wenn ein Hinweis vorhanden ist
+        const detailsSummaryStyle = hasHint ? ' class="rule-hint-trigger"' : ''; // CSS-Klasse für roten Text
 
-        // Füge TARDOC-Regeln und Regelprüfungshinweise zusammen
-        let combinedRegelnHtml = "";
-        if (tardocDetails.regeln) {
-             combinedRegelnHtml += `<p><b>TARDOC-Regeln:</b> ${escapeHtml(tardocDetails.regeln)}</p>`;
-        }
-        if (hintListHtml) {
-             if (combinedRegelnHtml) combinedRegelnHtml += "<hr style='margin: 5px 0; border-color: #eee;'>";
-             combinedRegelnHtml += `<p><b>Hinweise Regelprüfung:</b></p>${hintListHtml}`;
-        }
-
-         // Baue die Tabellenzeile (<tr>)
         tardocTableBody += `
             <tr>
                 <td>${escapeHtml(lkn)}</td><td>${escapeHtml(name)}</td>
                 <td>${al.toFixed(2)}</td><td>${ipl.toFixed(2)}</td>
                 <td>${anzahl}</td><td>${total_tp.toFixed(2)}</td>
-                <td>${combinedRegelnHtml ? `<details><summary class="${summaryClass}">${summaryText}</summary>${combinedRegelnHtml}</details>` : ''}</td>
+                <td>${regelnHtml ? `<details><summary${detailsSummaryStyle}>Details</summary>${regelnHtml}</details>` : ''}</td>
             </tr>`;
-    } // Ende der Schleife über TARDOC-Leistungen
+    }
 
     let html = `<!-- Titel "TARDOC-Positionen" wird jetzt in getBillingAnalysis gesetzt -->`;
     html += `
@@ -519,3 +417,4 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // Mache die Hauptfunktionen global verfügbar
 window.getBillingAnalysis = getBillingAnalysis;
+// window.clearDataCache = clearDataCache; // Entfernt
