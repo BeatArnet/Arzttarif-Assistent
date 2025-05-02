@@ -17,19 +17,20 @@
             --text-color: #333;
             --border-color: #ccc;
             --background-color: #f9f9f9; /* Heller Hintergrund für Output */
+            --details-bg: #fdfdfd;      /* Hintergrund für Details */
+            --details-border: #eee;     /* Rand für Details */
         }
         body {
-            /* Moderner System Font Stack */
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             line-height: 1.6; padding: 20px;
             background: var(--primary-light); color: var(--text-color);
-            font-size: 16px; /* Basis-Schriftgröße setzen */
+            font-size: 16px;
         }
         h1 {
             color: var(--primary);
             border-bottom: 2px solid var(--primary);
             padding-bottom: 5px;
-        }        
+        }
         label {
             display: block;
             margin-bottom: 5px;
@@ -37,15 +38,15 @@
         }
         /* --- Einheitliches Styling für Formularelemente & Tabelle --- */
         textarea, input[type="text"], select, button, table {
-            font-family: inherit; /* Erbt Schriftart von body */
-            font-size: 1em;       /* Erbt Schriftgröße von body (oder setze spezifisch z.B. 1rem) */
+            font-family: inherit;
+            font-size: 1em;
             box-sizing: border-box;
         }
         textarea, input[type="text"], select {
             width: 90%; max-width: 618px; margin-bottom: 15px; padding: 8px;
             border: 1px solid var(--border-color); border-radius: 4px;
         }
-        select { cursor: pointer; }
+        select { cursor: pointer; width: 90%; max-width: 618px; }
         button {
             padding: 10px 15px; cursor: pointer; margin-top: 10px;
             background: var(--primary); color: #fff; border: none;
@@ -54,94 +55,116 @@
         button:hover { filter: brightness(1.1); }
         button:disabled { background-color: #aaa; cursor: not-allowed; }
 
-        select {
-             width: 90%; /* Volle Breite wie andere Inputs */
-             max-width: 618px;
-             cursor: pointer;
-        }
         /* --- Output Bereich --- */
         #output {
             margin-top: 20px;
             border: 1px solid var(--primary-light);
             padding: 15px;
             background-color: var(--background-color);
-            white-space: pre-wrap; /* Zeilenumbrüche erhalten */
+            white-space: pre-wrap; /* Zeilenumbrüche erhalten, aber nicht für alles */
+            word-wrap: break-word; /* Lange Wörter umbrechen */
             border-radius: 4px;
-            min-height: 50px; /* Mindesthöhe, damit es nicht kollabiert */
+            min-height: 50px;
         }
-        #output details summary.rule-hint-trigger {
-            color: var(--danger) !important; /* Rote Farbe */
-            font-weight: bold !important; /* Fett */
+        /* Prominenteres Hauptergebnis */
+        #output .final-result-header {
+             font-size: 1.3em;
+             font-weight: bold;
+             margin-bottom: 15px;
+             padding-bottom: 5px;
+             border-bottom: 1px solid var(--border-color);
         }
+        #output .final-result-header.success { color: var(--accent); }
+        #output .final-result-header.error { color: var(--danger); }
+
+        /* Styling für Details/Collapsibles */
+        #output details {
+            margin-top: 10px; /* Etwas mehr Abstand zwischen Details-Blöcken */
+            font-size: 0.95em; /* Leicht verkleinert */
+            border: 1px solid var(--details-border);
+            padding: 8px 12px; /* Mehr Padding */
+            border-radius: 4px;
+            background: var(--details-bg);
+            white-space: normal; /* Standard-Umbruch für Details-Inhalt */
+        }
+        #output details summary {
+            cursor: pointer;
+            font-weight: bold; /* Summary fetter */
+            color: var(--primary); /* Primärfarbe für Summary */
+            margin-bottom: 5px; /* Kleiner Abstand zum Inhalt */
+        }
+        #output details summary:hover {
+            text-decoration: underline;
+        }
+        #output details summary.rule-hint-trigger { /* Für TARDOC Regel-Hinweise */
+            color: var(--danger) !important;
+            font-weight: bold !important;
+        }
+        #output details ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
+        #output details li { margin-bottom: 4px; } /* Etwas mehr Platz bei Listen */
+        #output details table { margin-top: 8px; margin-bottom: 10px; }
+        #output details th, #output details td { padding: 6px; font-size: 0.95em; }
+
         .disclaimer {
             font-size: 0.8em;
             color: #666;
             margin-top: 30px;
         }
-        /* Status-Klassen für Output */
-        #output.error { border-color: var(--danger); }
-        #output.error p:first-child, #output .error { color: var(--danger); font-weight: bold; }
-        #output.success p:first-child, #output .success { color: var(--accent); font-weight: bold; }
-        #output h2, #output h3, #output h4 { margin-top: 1em; margin-bottom: 0.2em; color: var(--primary); } /* Reduzierter Abstand unten */
-        #output h3 { border-top: 1px dashed #ccc; padding-top: 0.8em; }
-        #output h4 { font-size: 1.1em; }
-        #output hr { border: none; border-top: 1px solid #eee; margin: 1em 0; }
-        #output table { border-collapse: collapse; width: 100%; margin-top: 5px; margin-bottom: 15px; } /* Reduzierter Abstand oben */
-        #output th, #output td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top;}
-        #output th { background-color: var(--primary-light); }
-        #output details { margin-top: 5px; font-size: 0.9em; border: 1px solid #eee; padding: 5px; border-radius: 3px; background: #fdfdfd;}
-        #output details summary { cursor: pointer; font-style: italic; color: #555; }
-        #output ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
-        #output li { margin-bottom: 3px; }
-        /* Styling für Lade-Indikator */
+        /* Status-Klassen für Output (allgemein) */
+        #output .error { color: var(--danger); font-weight: bold; }
+        #output .success { color: var(--accent); font-weight: bold; }
+
+        /* Styling für Lade-Indikator (Text-Version) */
         #spinner {
             display: none; /* Standardmäßig ausgeblendet */
             margin-top: 15px; padding: 10px;
             background-color: #eee; border: 1px solid #ccc;
-            text-align: left; /* Linksbündig für mehr Text */
+            text-align: center; /* Zentriert */
             font-style: italic; border-radius: 4px;
-            white-space: pre-wrap; /* Erhalte Zeilenumbrüche */
             font-size: 0.9em;
             color: #333;
         }
-        #spinner h4 { margin-top: 0; color: #555; } /* Styling für Überschrift im Spinner */
-        /* Innerhalb des <style>-Blocks */
+        /* --- NEU: Mouse Spinner --- */
         .mouse-spinner {
             display: none; /* Standardmäßig versteckt */
             position: fixed; /* Feste Position relativ zum Viewport */
             z-index: 9999; /* Immer im Vordergrund */
             width: 24px;   /* Größe des Spinners */
             height: 24px;
-            /* Einfacher CSS-Spinner (alternativ Bild oder SVG) */
+            /* Einfacher CSS-Spinner */
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-left-color: var(--primary); /* Hauptfarbe für Animation */
             border-radius: 50%;
             animation: spin 1s linear infinite;
             /* Verhindert, dass der Spinner selbst Maus-Events abfängt */
             pointer-events: none;
+            /* Standardmäßig unsichtbar, wird per JS positioniert */
+            left: -100px;
+            top: -100px;
         }
-
         /* CSS Animation für den Spinner */
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-    /* --- Mouse Spinner --- */
     </style>
 </head>
 <body>
-    <div id="mouseSpinner" class="mouse-spinner"></div> <!-- SPINNER -->
+    <!-- NEU: Maus-Spinner Element -->
+    <div id="mouseSpinner" class="mouse-spinner"></div>
+
     <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
     <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
 
     <!-- Dropdown für Beispiele -->
     <label for="beispielSelect">Beispiele auswählen:</label>
-    <select id="beispielSelect" onclick="beispielEinfuegen()">
+    <select id="beispielSelect" onchange="beispielEinfuegen()"> <!-- Geändert zu onchange -->
+        <option value="" selected disabled>--- Bitte wählen ---</option> <!-- Platzhalter hinzugefügt -->
         <option value="Hausärztliche Konsultation von 17 Minuten">Hausärztliche Konsultation 17 Min.</option>
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
         <option value="Aufklärung des Patienten und Leberbiopsie durch die Haut">Aufklärung + Leberbiopsie (Haut)</option>
         <option value="Blinddarmentfernung als alleinige Leistung">Blinddarmentfernung (alleinig)</option>
         <option value="Korrektur eines Hallux valgus rechts">Korrektur Hallux valgus rechts</option>
-        <option value="Konsultation 10 Minuten und Entfernung einer gestielten Warze am Stamm">Konsultation 10 Min + Warzenentfernung Stamm</option>
+        <option value="Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie">Konsultation 10 Min + Warzenentfernung Stamm</option>
         <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
         <option value="Bronchoskopie mit Lavage">Bronchoskopie mit Lavage</option>
         <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
@@ -157,9 +180,8 @@
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
 
     <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
-    <!-- Button zum Cache löschen entfernt -->
 
-    <!-- Lade-Indikator / Zwischeninfo -->
+    <!-- Lade-Indikator (Text-Version) -->
     <div id="spinner">Wird geladen...</div>
 
     <!-- Hauptausgabe -->
@@ -176,20 +198,25 @@
     <script>
         function beispielEinfuegen() {
             const selectElement = document.getElementById('beispielSelect');
-            const selectedValue = selectElement.value; // Hole den Wert
+            const selectedValue = selectElement.value;
             const targetTextarea = document.getElementById('userInput');
 
-            // Nur einfügen, wenn ein echter Wert ausgewählt wurde (nicht der Platzhalter mit value="")
             if (selectedValue && targetTextarea) {
                 targetTextarea.value = selectedValue;
                 const outputDiv = document.getElementById('output');
                 if (outputDiv) outputDiv.innerHTML = "<i>Bitte 'Tarifpositionen finden' klicken.</i>";
-                outputDiv.className = "info";
-            } else if (targetTextarea) {
-                // Optional: Textarea leeren, wenn Platzhalter gewählt wird
-                // targetTextarea.value = "";
+                outputDiv.className = "info"; // Reset class
             }
         }
+        // Initial leeren Output setzen
+        document.addEventListener('DOMContentLoaded', () => {
+            const outputDiv = document.getElementById('output');
+            if (outputDiv) outputDiv.innerHTML = ""; // Leeren beim Laden
+            // Reset dropdown selection on load
+            const selectElement = document.getElementById('beispielSelect');
+            if(selectElement) selectElement.selectedIndex = 0;
+        });
+
     </script>
 
 </body>
