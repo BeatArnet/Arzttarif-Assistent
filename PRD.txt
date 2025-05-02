@@ -1,89 +1,69 @@
-Aufgabe: Den Assistenten  für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis kim Verzeichnis ./data ausnützen für maximale Funktionalität.
+Aufgabe: Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
 
-Name: Der Assistent berechnet medizinische Leistungen nach dem neuen Arzttarif (TARDOC) und entscheidet, ob eine Pauschale oder eine Einzelleistung (TARDOC) abgerechnet wird. Ziel ist eine optimale, regelkonforme Abrechnung gemäß den hinterlegten Regeln und Bedingungen.
-Beschreibung: Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen zu bieten.
+Name: TARDOC und Pauschalen Assistent
+Beschreibung: Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen gemäss dem neuen Schweizer Arzttarif zu bieten. Die Anwendung nutzt einen zweistufigen LLM-Ansatz zur Leistungsidentifikation und Pauschalenpriorisierung, kombiniert mit lokaler Regel- und Bedingungsprüfung.
+
 Hinweise:
-1. Allgemeine Struktur der Tabellen
-tblLeistungskatalog
-LKN: Leistungsnummer (z. B. C06.CE.0010 für eine Appendektomie).
-Typ: E = Einzelleistung, EZ = Einzelleistung mit Zusatzregeln, P = Pauschale, PZ = Pauschale mit Zusatzregeln.
-Beschreibung: Details zur medizinischen Leistung.
-Vorgehen: Falls Typ = P oder PZ, dann wird eine Pauschale geprüft; andernfalls eine Einzelleistung (TARDOC).
-tblPauschaleLeistungsposition
-Pauschale: Code der Pauschale.
-LKN: Leistungsnummern, die zur Pauschale gehören.
-Ziel: Identifikation, welche Pauschalen zu einer LKN gehören.
-tblPauschalen
-Pauschale: Code der Pauschale.
-Pauschale_Text: Beschreibung (z. B. „Appendektomie“).
-Prüflogik: Regeln & Bedingungen.
-Taxpunkte: Punktzahl der Pauschale.
-Ziel: Falls mehrere Pauschalen in tblPauschaleLeistungsposition existieren, wird hier die beste passende Pauschale ausgewählt.
-tblPauschaleBedingungen
-Pauschale: Code der Pauschale.
-Bedingungstyp: ICD, LKN, GTIN.
-Werte: Direktwert oder Referenz zu tblTabellen.
-Ziel: Überprüfung, ob eine spezifische Diagnose (ICD), Leistung (LKN) oder ein Medikament (GTIN) für die Pauschale erforderlich ist.
-TARDOCGesamt_optimiert
-Tabellenblätter: Allgemeine Definitionen, Generelle Interpretationen, Kapitel, Kapitelinterpretationen, Sparten, Qualitative Dignitäten und Tarifpositionen mit Spalten 
-Tarifposition: LKN der Einzelleistung.
-AL (Ärztliche Leistungspunkte) & IPL (Infrastrukturelle Leistungspunkte).
-Regeln & Limitationen: Mengenbeschränkungen, Kumulationsverbote.
-Ziel: Berechnung der TARDOC-Taxpunkte und Prüfung von Abrechnungsregeln.
-tblTabellen
-Tabelle_Typ: z. B. "icd", "gtin", "service_catalog".
-Code & Code_Text: LKN, ICD oder GTIN mit Beschreibung.
-Ziel: Externe Referenzen bei Pauschalen-Bedingungen klären.
-2. Strukturierte Vorgehensweise
-Schritt 1: Identifikation der Leistungsposition (LKN)
-In tblLeistungskatalog nach der LKN suchen.
-Falls Typ = P oder PZ → Pauschale prüfen (Schritt 2a).
-Falls Typ = E oder EZ → Einzelleistung prüfen (Schritt 2b).
-Schritt 2a: Vorgehen Pauschalen
-1. Mögliche Pauschalen identifizieren
-In tblPauschaleLeistungsposition nach allen Pauschalen suchen, die zur LKN gehören.
-Falls keine passende Pauschale existiert, Wechsel zu TARDOC (Schritt 2b).
-2. Passende Pauschale auswählen
-Die gefundenen Pauschalen in tblPauschalen überprüfen.
-Falls mehrere Pauschalen möglich sind → Priorisierung:
-Direkte Trigger-Pauschale bevorzugen.
-Wenn mehrere Pauschale innerhalb derselben Basisfallpauschale, dann diejenige mit der geringsten Taxpunktzahl wählen = einfachste passende Pauschale (Abnehmende Komplexität von A bis G).
-3. Bedingungen prüfen
-In tblPauschaleBedingungen nach Bedingungen zur Pauschale suchen.
-Falls eine ICD-Bedingung existiert → tblTabellen (Tabelle_Typ = "icd") prüfen.
-Falls eine Medikamentenpflicht existiert → tblTabellen (Tabelle_Typ = "gtin") prüfen.
-Falls eine Pflicht-LKN existiert → tblTabellen (Tabelle_Typ = "service_catalog") prüfen.
-Es interessieren nicht die Tabellennamen, sondern die darin enthaltenen Codes (LKN, Medikamente, ICD-Diagnosen)
-Falls die Bedingungen nicht erfüllt sind → keine Abrechnung der Pauschale möglich (Wechsel zu Einzelleistung).
-4. Pauschale abrechnen
-Taxpunkte aus tblPauschalen ermitteln.
-Falls nötig: Triggerposition oder ergänzte ICD-Diagnose dokumentieren.
-Endgültige Pauschalen-Abrechnungstabelle erstellen.
-Schritt 2b: Vorgehen Einzelleistung (TARDOC)
-1. Tarifposition & Taxpunkte ermitteln
-LKN in TARDOCGesamt_optimiert suchen.
-Ärztliche Leistungspunkte (AL) und Infrastrukturelle Leistungspunkte (IPL) erfassen.
-2. Regeln & Limitationen prüfen
-Kapitelnummer, Fachliche Einschränkungen, Kumulationsverbote.
-Falls eine ICD-Bedingung besteht → tblTabellen (Tabelle_Typ = "icd") konsultieren.
-Mengenbeschränkungen oder Kombinationseinschränkungen beachten.
-3. Abrechnung vorbereiten
-Spalten: Tarifposition, Leistungsname, AL, IPL, Anzahl, Summe, Regeln & Limitationen.
-Falls Einschränkungen vorliegen → entsprechende Hinweise geben.
-Endgültige Abrechnungstabelle erstellen.
+1. Allgemeine Struktur der Tabellen (Wichtige für die Logik)
+   - tblLeistungskatalog: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sind), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird.
+   - tblPauschaleLeistungsposition: Verknüpft *direkt* bestimmte LKNs mit Pauschalencodes. Eine Methode, um potenzielle Pauschalen zu finden.
+   - tblPauschalen: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte). Dient als Nachschlagetabelle für Pauschalendetails.
+   - tblPauschaleBedingungen: Enthält Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen. Entscheidend für die *Prüfung* der Anwendbarkeit einer *ausgewählten* Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
+   - tblTabellen: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `tblPauschaleBedingungen` über Tabellenreferenzen (z.B. "CAP07", "C08.50") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen.
+   - TARDOCGesamt_optimiert...: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
+   - strukturierte_regeln_komplett.json (oder ähnlich): Enthält TARDOC-spezifische Regeln (Menge, Kumulation, Alter etc.) für die lokale Regelprüfung von Einzelleistungen.
+
+2. Strukturierte Vorgehensweise (Backend - server.py)
+   Schritt 1: Identifikation der Leistungspositionen (LLM Stufe 1 & Validierung)
+     - Eingabe: Freitext des Benutzers (+ optionale ICD/GTIN).
+     - Aktion: LLM Stufe 1 analysiert den Text und identifiziert potenzielle LKNs, Mengen und extrahiert Kontext (Alter, Dauer etc.) basierend auf `tblLeistungskatalog`.
+     - Aktion: Backend validiert die vom LLM vorgeschlagenen LKNs gegen den lokalen `tblLeistungskatalog`. Nur valide LKNs werden weiterverwendet.
+     - Ergebnis: Liste validierter LKNs mit initialer Menge (`llm_stage1_result`).
+
+   Schritt 2: Regelprüfung der Einzelleistungen (Regelprüfer LKN)
+     - Eingabe: Validierte LKNs aus Schritt 1, Kontext (ICD, GTIN, Alter, Geschlecht).
+     - Aktion: Das Modul `regelpruefer.py` prüft jede LKN anhand des geladenen Regelwerks (`strukturierte_regeln_komplett.json`) auf Konformität (Menge, Kumulation, Alter, Geschlecht etc.). Mengen werden ggf. angepasst.
+     - Ergebnis: Detaillierte Liste aller geprüften LKNs mit ihrem Status (abrechnungsfähig ja/nein, Fehler/Hinweise, finale Menge) (`regel_ergebnisse_details`) UND eine bereinigte Liste der *regelkonformen* Leistungen (`rule_checked_leistungen`).
+
+   Schritt 3: Prüfung auf Pauschalen-Anwendbarkeit (Pauschal-Logik)
+     - Eingabe: Liste der regelkonformen Leistungen (`rule_checked_leistungen`), Kontext (ICD, GTIN, Alter, Geschlecht), Benutzer-Freitext.
+     - Aktion (Pauschalen finden): Suche nach potenziellen Pauschalencodes, die durch die regelkonformen LKNs ausgelöst werden könnten:
+         1. Via `tblPauschaleLeistungsposition`.
+         2. Via `tblPauschaleBedingungen` (Typ `LEISTUNGSPOSITIONEN IN LISTE`).
+         3. Via `tblPauschaleBedingungen` (Typ `LEISTUNGSPOSITIONEN IN TABELLE` unter Verwendung von `tblTabellen`).
+     - Aktion (Ranking): Wenn mehrere potenzielle Pauschalen gefunden -> LLM Stufe 2 (`call_gemini_stage2_ranking`) zur Priorisierung.
+     - Aktion (Auswahl): Wähle die höchstpriorisierte (oder einzige) Pauschale aus.
+     - Aktion (Bedingungen prüfen): Prüfe *alle* Bedingungen der *ausgewählten* Pauschale in `tblPauschaleBedingungen` mit `regelpruefer_pauschale.py` unter Verwendung des *gesamten* Kontexts (inkl. aller regelkonformen LKNs, ICDs, GTINs etc.).
+     - Aktion (Zusatzinfos): Sammle Begründung für die Auswahl und potenziell relevante ICDs aus den Pauschalenbedingungen.
+     - Ergebnis: Entweder ein Objekt mit `type: "Pauschale"` und allen Details (inkl. Erfüllungsstatus der Bedingungen, Erklärung, ICDs) ODER ein Objekt mit `type: "Error"`, falls *keine einzige* potenzielle Pauschale gefunden wurde.
+
+   Schritt 4: Finale Abrechnungsart bestimmen & TARDOC-Vorbereitung
+     - Eingabe: Ergebnis aus Schritt 3, `regel_ergebnisse_details` aus Schritt 2.
+     - Entscheidung:
+         - **Wenn** Schritt 3 eine Pauschale (`type: "Pauschale"`) zurückgibt -> Finale Abrechnung ist diese Pauschale (unabhängig davon, ob alle Bedingungen 100% erfüllt waren - Fehler werden angezeigt).
+         - **Wenn** Schritt 3 einen Error (`type: "Error"`) zurückgibt -> Keine Pauschale anwendbar.
+     - Aktion (nur bei keiner Pauschale): Bereite die TARDOC-Abrechnung vor (`prepare_tardoc_abrechnung`). Filtert aus `regel_ergebnisse_details` alle abrechnungsfähigen Leistungen vom Typ 'E' oder 'EZ' heraus.
+     - Ergebnis: Das finale Abrechnungsobjekt (`abrechnung`) mit entweder `type: "Pauschale"` und Details oder `type: "TARDOC"` und Leistungsliste oder `type: "Error"`.
+
+   Schritt 5: Ergebnis an Frontend senden
+     - Aktion: Sende ein JSON-Objekt mit `llm_ergebnis_stufe1`, `regel_ergebnisse_details` und dem finalen `abrechnung`-Objekt an das Frontend (`calculator.js`).
+
 3. Besondere Hinweise
-Pauschale vs. TARDOC
-Falls eine Pauschale anwendbar ist, entfällt die TARDOC-Abrechnung.
-Falls eine Diagnose (ICD) oder Medikament (GTIN) erforderlich ist, wird dies geprüft und ergänzt.
-Regelprüfung
-Alle relevanten Vorgaben, einschließlich Kumulationsverbote und Mengenbeschränkungen, werden berücksichtigt.
+   - Pauschale vor TARDOC: Die Logik prüft immer zuerst, ob eine Pauschale durch die erbrachten (und regelkonformen) Leistungen ausgelöst wird. Nur wenn keine passende Pauschale gefunden wird, erfolgt die Abrechnung nach TARDOC-Einzelleistungen.
+   - Bedingungsprüfung Pauschale: Die Prüfung der Bedingungen für eine ausgewählte Pauschale dient primär der Information. Auch wenn Bedingungen nicht erfüllt sind, wird die Pauschale aktuell vorgeschlagen, aber mit entsprechenden Warnhinweisen versehen.
+   - Regelprüfung TARDOC: Alle relevanten Vorgaben für TARDOC-Einzelleistungen (Kumulationsverbote, Mengenbeschränkungen etc.) werden durch `regelpruefer.py` berücksichtigt.
+   - Datenqualität: Die Korrektheit der Abrechnung hängt stark von der Qualität und Konsistenz der JSON-Daten in `./data` ab (insbesondere korrekte Typen im Leistungskatalog, korrekte Verknüpfungen und Bedingungen).
 
 Alle Auskünfte erfolgen ohne Gewähr – für offizielle Informationen bitte das TARDOC Online-Portal (https://tarifbrowser.oaat-otma.ch/startPortal) konsultieren.
-Gesprächsaufhänger:
-- Hausärztliche Konsultation von 17 Minuten
-- Kiefergelenk, Luxation. Geschlossene Reposition
-- Aufklärung des Patienten und Leberpiopsie durch die Haut
-- Blinddarmentfernung als alleinige Leistung
-- Korrektur eines Hallux valgus rechts
-- Konsultation 10 Minuten und Entfernung einer gestielten Warze am Stamm
-- Konsultation 25 Minuten, grosser rheumatologischer Untersuch
+
+Gesprächsaufhänger / Testfälle:
+- Hausärztliche Konsultation von 17 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
+- Kiefergelenk, Luxation. Geschlossene Reposition -> Pauschale (z.B. C08.50B via Trigger C03.AH.0010)
+- Aufklärung des Patienten und Leberbiopsie durch die Haut -> Pauschale (ggf. mit Bedingungsprüfung)
+- Blinddarmentfernung als alleinige Leistung -> Pauschale (z.B. C06.CE.0010 als Pauschale selbst)
+- Korrektur eines Hallux valgus rechts -> Pauschale
+- Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie -> TARDOC (mehrere Positionen)
+- Konsultation 25 Minuten, grosser rheumatologischer Untersuch -> TARDOC (Konsultation + Untersuch)
+- Bronchoskopie mit Lavage -> Pauschale
+- Konsultation 15 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
+- Konsultation 25 Minuten -> TARDOC (Regelverletzung wird vom LLM ggf. vorgeschlagen, Regelprüfer sollte korrigieren/warnen falls > 20 Min. problematisch ist)

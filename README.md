@@ -1,45 +1,113 @@
-# TARDOC Tarifziffern-Erkenner
+# TARDOC und Pauschalen Assistent
 
-Dieser verbesserte TARDOC Tarifziffern-Erkenner verwendet einen hybriden Ansatz, um medizinische Leistungen zu analysieren und die entsprechenden Tarifziffern zu identifizieren.
+Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung medizinischer Leistungen nach dem neuen Schweizer Arzttarif (TARDOC und Pauschalen). Die Anwendung nimmt eine Freitextbeschreibung einer medizinischen Leistung entgegen und schlägt die optimale Abrechnungsart (Pauschale oder TARDOC-Einzelleistung) vor, basierend auf einem zweistufigen LLM-Ansatz und lokaler Regelprüfung.
 
-## Funktionsweise
+## Beschreibung
 
-Der Erkenner kombiniert drei Methoden:
-1. **Regelbasierte Erkennung** mit Mapping-Tabellen für häufige Eingriffe
-2. **Keyword-basierte Extraktion** für strukturierte Informationen
-3. **Semantische Suche** als Fallback für komplexere Fälle
+Der Assistent analysiert die eingegebene Leistungsbeschreibung mithilfe eines Large Language Models (Google Gemini), um relevante Leistungspositionen (LKNs) zu identifizieren. Anschliessend prüft ein Backend-Regelwerk die Konformität dieser LKNs (Mengen, Kumulationen etc.). Die Kernlogik entscheidet dann, ob eine Pauschale für die (regelkonformen) Leistungen anwendbar ist. Falls ja, wird die passendste Pauschale ausgewählt (ggf. mit LLM-Ranking) und deren Bedingungen geprüft. Falls keine Pauschale greift, wird eine Abrechnung nach TARDOC-Einzelleistungen vorbereitet.
 
-## Dateien
+Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur LLM-Analyse, Regelprüfung und zur finalen Abrechnungsempfehlung (inkl. Pauschalenbegründung und möglicher ICD-Codes).
 
-- **hybrid_recognizer.py**: Implementierung des Hybrid-Erkenners
-- **medical_mappings.json**: Mapping-Tabellen für häufige Eingriffe
-- **server_integration.py**: Integration in den bestehenden Server
-- **DOCUMENTATION.md**: Ausführliche Dokumentation der Änderungen
+## Kernlogik / Architektur
 
-## Installation
+1.  **Frontend (HTML/CSS/JS - `index.html`, `calculator.js`):**
+    *   Nimmt Benutzereingaben (Text, ICD, GTIN) entgegen.
+    *   Sendet die Anfrage an das Backend.
+    *   Empfängt das strukturierte Ergebnis vom Backend.
+    *   Stellt die Ergebnisse benutzerfreundlich dar (prominentes Hauptergebnis, aufklappbare Details für LLM-Analyse, Regelprüfung, Pauschalenbegründung, ICDs etc.).
+    *   Zeigt Ladeindikatoren (Text und Maus-Spinner).
+2.  **Backend (Python/Flask - `server.py`):**
+    *   Empfängt Anfragen vom Frontend.
+    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini und dem lokalen Leistungskatalog. Validiert LKNs.
+    *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln (Menge, Kumulation etc.) basierend auf einem lokalen Regelwerk (`strukturierte_regeln_komplett.json`).
+    *   **Pauschalen-Prüfung (`determine_applicable_pauschale`):**
+        *   Sucht nach potenziellen Pauschalen basierend auf den *regelkonformen* LKNs unter Verwendung von `tblPauschaleLeistungsposition.json`, `tblPauschaleBedingungen.json` und `tblTabellen.json`.
+        *   **LLM Stufe 2 (`call_gemini_stage2_ranking`):** Optionales Ranking bei mehreren potenziellen Pauschalen.
+        *   Wählt die beste Pauschale aus.
+        *   Prüft die Bedingungen der ausgewählten Pauschale (`regelpruefer_pauschale.py`, `tblPauschaleBedingungen.json`).
+        *   Sammelt Zusatzinfos (Erklärung, ICDs).
+    *   **Entscheidung & TARDOC-Vorbereitung:** Entscheidet "Pauschale vor TARDOC". Wenn keine Pauschale anwendbar ist, bereitet es die TARDOC-Liste (`prepare_tardoc_abrechnung`) vor.
+    *   Sendet das Gesamtergebnis zurück an das Frontend.
+3.  **Daten (`./data` Verzeichnis):** Lokale JSON-Dateien als Wissensbasis für Katalog, Pauschalen, Bedingungen, TARDOC-Details und Regeln.
 
-1. Stellen Sie sicher, dass alle Dateien im Projektverzeichnis vorhanden sind
-2. Integrieren Sie den Hybrid-Erkenner in Ihren Server:
+## Technologie-Stack
 
-```python
-from hybrid_recognizer import HybridRecognizer
-from server_integration import integrate_hybrid_recognizer
+*   **Backend:** Python 3, Flask
+*   **Frontend:** HTML5, CSS3, Vanilla JavaScript
+*   **LLM:** Google Gemini API (via REST)
+*   **Daten:** JSON
 
-# Hybrid-Erkenner in den Server integrieren
-integrate_hybrid_recognizer(app, server_module)
-```
+## Setup / Installation
 
-## Beispiel
+1.  **Voraussetzungen:**
+    *   Python 3.x installiert.
+    *   `pip` (Python package installer).
+2.  **Repository klonen:**
+    ```bash
+    git clone <repository_url>
+    cd <repository_directory>
+    ```
+3.  **Virtuelle Umgebung (Empfohlen):**
+    ```bash
+    python -m venv venv
+    # Windows
+    .\venv\Scripts\activate
+    # macOS/Linux
+    source venv/bin/activate
+    ```
+4.  **Abhängigkeiten installieren:**
+    *   Erstelle eine Datei `requirements.txt` mit folgendem Inhalt:
+        ```txt
+        Flask
+        requests
+        python-dotenv
+        ```
+    *   Installiere die Pakete:
+        ```bash
+        pip install -r requirements.txt
+        ```
+5.  **API-Schlüssel konfigurieren:**
+    *   Erstelle eine Datei namens `.env` im Hauptverzeichnis des Projekts.
+    *   Füge deinen Google Gemini API-Schlüssel hinzu:
+        ```env
+        GEMINI_API_KEY=DEIN_API_SCHLUESSEL_HIER
+        # Optional: Spezifisches Modell auswählen (Standard ist gemini-1.5-flash-latest)
+        # GEMINI_MODEL=gemini-1.5-pro-latest
+        ```
+    *   Ersetze `DEIN_API_SCHLUESSEL_HIER` mit deinem tatsächlichen Schlüssel.
+6.  **Daten bereitstellen:**
+    *   Stelle sicher, dass das Verzeichnis `data` im Hauptverzeichnis existiert.
+    *   Platziere alle benötigten JSON-Datendateien (siehe unten) in diesem Verzeichnis.
+    *   Stelle sicher, dass die LKN-Regelwerkdatei (z.B. `strukturierte_regeln_komplett.json`) im `data`-Verzeichnis liegt und der Pfad in `server.py` korrekt ist (`REGELWERK_PATH`).
 
-Für die Eingabe "Entfernung Warze am Oberkörper mit scharfem Löffel und 10 Minuten Information Patienten" liefert der Erkenner:
+## Benötigte Dateien
+.
+├── .env                   # API Schlüssel und Konfiguration (NICHT versionieren!)
+├── data/                  # Verzeichnis für alle JSON Daten
+│   ├── tblLeistungskatalog.json
+│   ├── tblPauschaleLeistungsposition.json
+│   ├── tblPauschalen.json
+│   ├── tblPauschaleBedingungen.json
+│   ├── TARDOCGesamt_optimiert_Tarifpositionen.json
+│   ├── tblTabellen.json
+│   └── strukturierte_regeln_komplett.json # (Beispielname für LKN-Regeln)
+├── server.py              # Flask Backend Logik
+├── calculator.js          # Frontend JavaScript Logik
+├── index.html             # Haupt-HTML-Datei
+├── regelpruefer.py        # Backend Modul für TARDOC LKN Regelprüfung
+├── regelpruefer_pauschale.py # Backend Modul für Pauschalen Bedingungsprüfung
+├── PRD.txt                # Product Requirements Document (dieses Dokument)
+├── README.md              # Dieses README
+└── requirements.txt       # Python Abhängigkeiten
+└── favicon.ico / .svg     # Favicons
 
-```
-Erkannte Tarifziffern:
-  AA.00.0010 1x
-  AA.00.0020 5x
-  MK.05.0070 1x
-```
+## Disclaimer
 
-## Erweiterung
+Alle Auskünfte erfolgen ohne Gewähr. Diese Anwendung ist ein Prototyp und dient nur zu Demonstrations- und Testzwecken. Für offizielle und verbindliche Informationen konsultieren Sie bitte das TARDOC Online-Portal der Oaat AG / Otma SA: https://tarifbrowser.oaat-otma.ch/startPortal.
 
-Die Mapping-Tabellen können leicht um weitere medizinische Eingriffe erweitert werden, indem neue Einträge in der Datei `medical_mappings.json` hinzugefügt werden.
+## Anwendung starten
+
+Führe den Flask-Server aus dem Hauptverzeichnis des Projekts aus:
+
+```bash
+python server.py
