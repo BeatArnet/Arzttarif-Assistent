@@ -256,8 +256,8 @@ async function getBillingAnalysis() {
                 console.log("[getBillingAnalysis] Abrechnungstyp: Pauschale", abrechnung.details?.Pauschale);
                 finalResultHeader = `<p class="final-result-header success"><b>Abrechnung als Pauschale empfohlen.</b></p>`;
                 if (abrechnung.details) {
-                    // Rufe Hilfsfunktion zur Anzeige der Pauschale auf (gibt HTML für <details> zurück)
-                    finalResultDetailsHtml = displayPauschale(abrechnung.details, abrechnung.bedingungs_pruef_html, abrechnung.bedingungs_fehler);
+                    // Übergebe das ganze abrechnung-Objekt an die Funktion
+                    finalResultDetailsHtml = displayPauschale(abrechnung);
                 } else {
                     finalResultDetailsHtml = "<p class='error'>Fehler: Pauschalendetails fehlen.</p>";
                 }
@@ -325,11 +325,13 @@ function generateLlmStage1Details(llmResult) {
     detailsHtml += `<div>`; // Container für Inhalt
 
     if (identifiedLeistungen.length > 0) {
-        detailsHtml += `<p><b>Identifizierte LKN(s) durch LLM:</b></p><ul>`;
+        // Geändert: "Die identifizierte(n) LKN(s)..."
+        detailsHtml += `<p><b>Die vom LLM identifizierte(n) LKN(s):</b></p><ul>`;
         identifiedLeistungen.forEach(l => {
             const desc = l.beschreibung || beschreibungZuLKN(l.lkn) || 'N/A';
             const mengeText = l.menge !== null ? ` (Menge: ${l.menge})` : '';
-            detailsHtml += `<li><b>${escapeHtml(l.lkn)}:</b> ${escapeHtml(desc)}${mengeText}</li>`;
+            // Geändert: "Die LKN ..."
+            detailsHtml += `<li><b>Die LKN ${escapeHtml(l.lkn)}:</b> ${escapeHtml(desc)}${mengeText}</li>`;
         });
         detailsHtml += `</ul>`;
     } else {
@@ -414,24 +416,34 @@ function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
 }
 
 
-// Anpassung: Zeigt Pauschale in <details>, inkl. Begründung & möglicher ICDs
-function displayPauschale(pauschaleDetails, bedingungsHtml = "", bedingungsFehler = []) {
-    // Schlüssel aus tblPauschalen (Annahme)
+// In calculator.js
+
+// Funktion erhält jetzt das ganze Abrechnungs-Objekt
+function displayPauschale(abrechnungsObjekt) {
+    // --- NUR HIER darf bedingungsHtml deklariert werden ---
+    const pauschaleDetails = abrechnungsObjekt.details;
+    const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || ""; // <<<< Erste und einzige Deklaration
+    const bedingungsFehler = abrechnungsObjekt.bedingungs_fehler || [];
+    const conditions_met = abrechnungsObjekt.conditions_met === true;
+    // -----------------------------------------------------
+
+    // Schlüssel für Pauschalen-Details
     const PAUSCHALE_KEY = 'Pauschale';
     const PAUSCHALE_TEXT_KEY = 'Pauschale_Text';
     const PAUSCHALE_TP_KEY = 'Taxpunkte';
-    // NEU: Schlüssel für Erklärung und ICDs aus Backend-Antwort (Annahme)
     const PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html';
     const POTENTIAL_ICDS_KEY = 'potential_icds';
 
     if (!pauschaleDetails) return "<p class='error'>Pauschalendetails fehlen.</p>";
 
+    // Werte aus Details holen
     const pauschaleCode = escapeHtml(pauschaleDetails[PAUSCHALE_KEY] || 'N/A');
     const pauschaleText = escapeHtml(pauschaleDetails[PAUSCHALE_TEXT_KEY] || 'N/A');
     const pauschaleTP = escapeHtml(pauschaleDetails[PAUSCHALE_TP_KEY] || 'N/A');
-    const pauschaleErklaerung = pauschaleDetails[PAUSCHALE_ERKLAERUNG_KEY] || ""; // HTML vom Backend
-    const potentialICDs = pauschaleDetails[POTENTIAL_ICDS_KEY] || []; // Liste von {Code, Code_Text}
+    const pauschaleErklaerung = pauschaleDetails[PAUSCHALE_ERKLAERUNG_KEY] || "";
+    const potentialICDs = pauschaleDetails[POTENTIAL_ICDS_KEY] || [];
 
+    // HTML-Struktur aufbauen
     let detailsContent = `
         <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
             <thead><tr><th>Pauschale Code</th><th>Beschreibung</th><th>Taxpunkte</th></tr></thead>
@@ -442,29 +454,22 @@ function displayPauschale(pauschaleDetails, bedingungsHtml = "", bedingungsFehle
             </tr></tbody>
         </table>`;
 
-    // 1. Begründung der Auswahl
+    // 1. Begründung der Auswahl hinzufügen
     if (pauschaleErklaerung) {
          detailsContent += `<details style="margin-top: 10px;"><summary>Begründung Pauschalenauswahl</summary>${pauschaleErklaerung}</details>`;
     }
 
-    // 2. Details zur Bedingungsprüfung
+    // 2. Details zur Bedingungsprüfung hinzufügen (verwende die Variable 'bedingungsHtml')
     if (bedingungsHtml) {
-         // Wenn Fehler vorliegen, Details standardmäßig öffnen
-         const openAttr = bedingungsFehler && bedingungsFehler.length > 0 ? 'open' : '';
-         detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>Details Pauschalen-Bedingungsprüfung</summary>${bedingungsHtml}`;
-         // Zeige Fehler prominent an, falls vorhanden
-         if (bedingungsFehler && bedingungsFehler.length > 0) {
-             detailsContent += `<p class="error" style="margin-top: 10px;"><b>Achtung: Folgende Bedingungen sind aktuell nicht erfüllt:</b></p><ul>`;
-             bedingungsFehler.forEach(fehler => {
-                 detailsContent += `<li class="error">${escapeHtml(fehler)}</li>`;
-             });
-             detailsContent += `</ul>`;
-         }
-         detailsContent += `</details>`; // Schließe Bedingungs-Details
+         const openAttr = !conditions_met ? 'open' : ''; // Öffnen, wenn Bedingungen NICHT erfüllt sind
+         detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>Details Pauschalen-Bedingungsprüfung (${conditions_met ? 'Alle erfüllt' : 'Nicht alle erfüllt'})</summary>${bedingungsHtml}</details>`;
+         // Der separate Fehlerblock wurde entfernt, da die Infos jetzt im bedingungsHtml sind
     }
 
-    // 3. Mögliche ICDs
+    // 3. Mögliche ICDs hinzufügen
     if (potentialICDs.length > 0) {
+        // Finde die Zeile mit "if (potentialICDs..." - das ist etwa Zeile 438 in deiner Datei
+        // Stelle sicher, dass hier KEINE zweite Deklaration von bedingungsHtml steht.
         detailsContent += `<details style="margin-top: 10px;"><summary>Mögliche zugehörige ICD-Diagnosen (gem. Bedingungen)</summary><ul>`;
         potentialICDs.forEach(icd => {
             detailsContent += `<li><b>${escapeHtml(icd.Code || 'N/A')}</b>: ${escapeHtml(icd.Code_Text || 'N/A')}</li>`;
@@ -472,10 +477,13 @@ function displayPauschale(pauschaleDetails, bedingungsHtml = "", bedingungsFehle
         detailsContent += `</ul></details>`;
     }
 
-    // Haupt-Details-Block für die Pauschale
-    let html = `<details open><summary>Details Pauschale: ${pauschaleCode}</summary>${detailsContent}</details>`;
+    // Haupt-Details-Block für die Pauschale erstellen
+    let html = `<details open><summary>Details Pauschale: ${pauschaleCode} ${conditions_met ? ' <span style="color:green;">(Bedingungen erfüllt)</span>' : ' <span style="color:red;">(Bedingungen teilweise nicht erfüllt)</span>'}</summary>${detailsContent}</details>`;
     return html;
 }
+
+// Stelle sicher, dass diese Zeile am Ende der Datei calculator.js steht:
+window.getBillingAnalysis = getBillingAnalysis;
 
 // Anpassung: Zeigt TARDOC-Tabelle in <details>
 function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {

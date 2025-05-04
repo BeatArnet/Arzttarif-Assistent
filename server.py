@@ -3,43 +3,46 @@
 import os
 import re
 import json
+import time # für Zeitmessung
+import html # für escaping
+import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 from flask import Flask, jsonify, send_from_directory, request, abort
 import requests
 from dotenv import load_dotenv
-import regelpruefer_pauschale # Stelle sicher, dass dieser Import existiert
 
-# Importiere Regelprüfer und Pauschalen-Bedingungsprüfer
+# Importiere Regelprüfer-Module und setze Fallbacks
 try:
     import regelpruefer
-    # Check, ob die Pauschalen-Prüffunktion da ist (aus dem richtigen Modul!)
+    print("✓ Regelprüfer LKN (regelpruefer.py) Modul geladen.")
+except ImportError:
+    print("FEHLER: regelpruefer.py nicht gefunden.")
+    class DummyRegelpruefer:
+        def lade_regelwerk(self, path): return {}
+        def pruefe_abrechnungsfaehigkeit(self, fall, werk): return {"abrechnungsfaehig": False, "fehler": ["Regelprüfer LKN nicht geladen."]}
+    regelpruefer = DummyRegelpruefer() # type: ignore
+
+try:
+    import regelpruefer_pauschale
     if not hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
          print("WARNUNG: Funktion 'check_pauschale_conditions' nicht in regelpruefer_pauschale.py gefunden.")
-         # Fallback definieren
-         def check_pauschale_conditions_fallback(pauschale_code, context, pauschale_bedingungen_data, tabellen_data):
+         def check_pauschale_conditions_fallback(pauschale_code, context, pauschale_bedingungen_data, tabellen_dict_by_table):
              print(f"WARNUNG: Bedingungsprüfung für {pauschale_code} übersprungen (Fallback).")
              return {"allMet": True, "html": "<p><i>Bedingungsprüfung nicht verfügbar.</i></p>", "errors": []}
-         # Weise den Fallback zu, wenn das Modul importiert wurde, aber die Funktion fehlt
-         if regelpruefer_pauschale:
+         if 'regelpruefer_pauschale' in locals(): # Nur zuweisen, wenn Modul importiert wurde
              regelpruefer_pauschale.check_pauschale_conditions = check_pauschale_conditions_fallback # type: ignore
     else:
          print("✓ Regelprüfer Pauschalen (regelpruefer_pauschale.py) geladen.")
-
-    print("✓ Regelprüfer LKN (regelpruefer.py) Modul geladen.")
-except ImportError as e:
-    print(f"FEHLER beim Importieren der Regelprüfer-Module: {e}")
-    # Definiere sichere Fallbacks für alle benötigten Funktionen
-    def lade_regelwerk(datei_pfad): return {}
-    def pruefe_abrechnungsfaehigkeit(fall, werk): return {"abrechnungsfaehig": False, "fehler": ["Regelprüfer nicht geladen."]}
-    def check_pauschale_conditions(pauschale_code, context, pauschale_bedingungen_data, tabellen_data): return {"allMet": False, "html": "<p><i>Regelprüfer nicht geladen.</i></p>", "errors": ["Regelprüfer nicht geladen"]}
-    # Erstelle Dummy-Module, falls der Import komplett fehlschlägt
-    class DummyRegelpruefer:
-        def lade_regelwerk(self, path): return {}
-        def pruefe_abrechnungsfaehigkeit(self, fall, werk): return {"abrechnungsfaehig": False, "fehler": ["Regelprüfer nicht geladen."]}
+except ImportError:
+    print("FEHLER: regelpruefer_pauschale.py nicht gefunden.")
+    def check_pauschale_conditions_fallback(pauschale_code, context, pauschale_bedingungen_data, tabellen_dict_by_table):
+        print(f"WARNUNG: Bedingungsprüfung für {pauschale_code} übersprungen (Fallback).")
+        return {"allMet": False, "html": "<p><i>Regelprüfer Pauschale nicht geladen.</i></p>", "errors": ["Regelprüfer Pauschale nicht geladen"]}
+    # Erstelle Dummy-Modul, falls Import fehlschlägt
     class DummyPauschaleRegelpruefer:
-         def check_pauschale_conditions(self, pc, ctx, bed_data, tab_data): return {"allMet": False, "html": "<p><i>Regelprüfer nicht geladen.</i></p>", "errors": ["Regelprüfer nicht geladen"]}
-    if 'regelpruefer' not in locals(): regelpruefer = DummyRegelpruefer() # type: ignore
+         def check_pauschale_conditions(self, pc, ctx, bed_data, tab_dict): return check_pauschale_conditions_fallback(pc, ctx, bed_data, tab_dict)
     if 'regelpruefer_pauschale' not in locals(): regelpruefer_pauschale = DummyPauschaleRegelpruefer() # type: ignore
+
 
 # --- Konfiguration ---
 load_dotenv()
@@ -54,7 +57,7 @@ PAUSCHALEN_PATH = DATA_DIR / "tblPauschalen.json"
 PAUSCHALE_BED_PATH = DATA_DIR / "tblPauschaleBedingungen.json"
 TABELLEN_PATH = DATA_DIR / "tblTabellen.json"
 
-# --- Initialisierung ---
+# --- Globale Datencontainer ---
 app = Flask(__name__, static_folder='.', static_url_path='')
 leistungskatalog_data: list[dict] = []
 leistungskatalog_dict: dict[str, dict] = {}
@@ -65,12 +68,12 @@ pauschalen_data: list[dict] = []
 pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
-# NEU: Für Tabellen-Lookup
 tabellen_dict_by_table: dict[str, list[dict]] = {}
 
 
 # --- Daten laden ---
 def load_data():
+    # ... (load_data Funktion bleibt unverändert wie im letzten Schritt) ...
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
     global tabellen_dict_by_table # NEU
@@ -134,7 +137,7 @@ def load_data():
 
             else:
                 print(f"FEHLER: {name}-Datei nicht gefunden: {path}")
-                if name in ["Leistungskatalog", "Pauschalen", "TARDOC"]: all_loaded = False # Kritische Daten fehlen
+                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False # Kritische Daten fehlen
         except json.JSONDecodeError as e:
              print(f"FEHLER beim Parsen der {name}-JSON-Datei ({path}): {e}")
              all_loaded = False
@@ -159,20 +162,25 @@ def load_data():
     if not all_loaded: print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
 
 
-# --- LLM Stufe 1: LKN Identifikation (weitgehend unverändert) ---
+# --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
-    # ... (Prompt und API Call bleiben gleich) ...
+    # ... (call_gemini_stage1 Funktion bleibt unverändert wie im letzten Schritt) ...
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
-    # *** PROMPT STUFE 1 *** (Leicht angepasst für Klarheit bei Menge)
+    # *** PROMPT STUFE 1 ***
     prompt = f"""Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz SEHR GENAU.
-Deine Aufgabe ist es, ALLE relevanten LKN-Codes zu identifizieren, deren korrekte Menge zu bestimmen und zusätzliche Informationen zu extrahieren.
-NUTZE ausschliesslich DIE FOLGENDE LISTE ALS DEINE PRIMÄRE REFERENZ für verfügbare LKNs, ihre Typen und Bedeutungen. Ignoriere jegliches anderes Wissen über LKNs:
---- Leistungskatalog Start ---
-{katalog_context}
---- Leistungskatalog Ende ---
+    Deine Aufgabe ist es, ALLE relevanten Leistungs-Katalog-Nummern (LKN) zu identifizieren, deren korrekte Menge zu bestimmen und zusätzliche Informationen zu extrahieren.
+    NUTZE ausschliesslich DIE FOLGENDE LISTE ALS DEINE PRIMÄRE REFERENZ für verfügbare LKNs, ihre Typen und Bedeutungen. Ignoriere jegliches anderes Wissen über LKNs:
+    --- Leistungskatalog Start ---
+    {katalog_context}
+    --- Leistungskatalog Ende ---
 
 Führe folgende Schritte durch:
-1. Identifiziere ALLE relevanten LKN-Codes (Format: XX.##.####) aus der obigen Liste, die die beschriebene(n) Tätigkeit(en) am besten repräsentieren. Achte auf Schlüsselwörter wie "Hausarzt"/"hausärztlich" für CA.-Codes. Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert (z.B. Konsultation), gib BEIDE LKNs an (z.B. CA.00.0010 und CA.00.0020). Gib niemals 'unknown' oder null als LKN zurück. Nur LKNs aus der Liste verwenden!
+1. Identifiziere ALLE relevanten LKN-Codes (Format: XX.##.####) aus der obigen Liste, 
+    die die beschriebene(n) Tätigkeit(en) am besten repräsentieren. 
+    Achte auf Schlüsselwörter wie "Hausarzt"/"hausärztlich" für CA.-Codes. 
+    Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert (z.B. Konsultation), 
+    gib BEIDE LKNs an (z.B. CA.00.0010 und CA.00.0020). 
+    Gib niemals 'unknown' oder null als LKN zurück. Nur die LKNs aus der Liste verwenden!
 2. Gib für jede identifizierte LKN den zugehörigen Typ und die Beschreibung aus dem Katalog an.
 3. Extrahiere explizit genannte Zeitdauern (nur Zahl in Minuten), allgemeine Mengenangaben (z.B. "3 mal", "2 Stück" -> nur Zahl), Alter (nur Zahl) und Geschlecht ('weiblich', 'männlich', 'divers', 'unbekannt') aus dem "Behandlungstext". Gib null an, wenn nichts gefunden wird.
 4. **Bestimme die abzurechnende Menge für JEDE identifizierte LKN und schreibe sie als ZAHL in das 'menge'-Feld:**
@@ -200,7 +208,8 @@ Gib das Ergebnis NUR als JSON-Objekt im folgenden Format zurück. KEINEN anderen
     "alter": ALTER_ODER_NULL,
     "geschlecht": "GESCHLECHT_STRING_ODER_NULL"
   }},
-  "begruendung_llm": "<Kurze Begründung, warum diese LKN(s) mit diesen Mengen gewählt wurden, basierend auf dem Text und dem Katalog>"
+  "begruendung_llm": "<Kurze Begründung, warum diese spezifische(n) LKN(s) mit diesen Mengen gewählt wurden, 
+  basierend auf dem Text und dem Katalog. Verwende 'die LKN' für nachfolgende Nennungen.>"
 }}
 
 Wenn absolut keine passende LKN aus dem Katalog gefunden wird, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
@@ -314,9 +323,9 @@ JSON-Antwort:"""
         raise e # Unerwartete Fehler weiterleiten
 
 
-# --- LLM Stufe 2: Pauschalen-Ranking (unverändert) ---
+# --- LLM Stufe 2: Pauschalen-Ranking ---
 def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
-    # ... (unverändert) ...
+    # ... (call_gemini_stage2_ranking Funktion bleibt unverändert wie im letzten Schritt) ...
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
     prompt = f"""Basierend auf dem folgenden Behandlungstext, welche der unten aufgeführten Pauschalen passt inhaltlich am besten?
 Berücksichtige die Beschreibung der Pauschale ('Pauschale_Text').
@@ -362,196 +371,358 @@ Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
          raise e
 
 
-# --- Ausgelagerte Pauschalen-Ermittlung ---
-def determine_applicable_pauschale(user_input: str, rule_checked_leistungen: list[dict], context: dict) -> dict:
-    """
-    Ermittelt, ob eine Pauschale für die gegebenen regelkonformen Leistungen anwendbar ist.
-    Gibt entweder die Pauschale oder einen Error zurück.
-    """
-    print("INFO: Starte überarbeitete Pauschalenermittlung...")
+# --- HILFSFUNKTIONEN (auf Modulebene) ---
 
-    # Schlüssel für Frontend-Antwort
-    PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
-    POTENTIAL_ICDS_KEY = 'potential_icds'
-
-    # Annahmen über Schlüsselnamen in den DATEN - ANPASSEN FALLS NÖTIG!
-    LKN_KEY_IN_RULE_CHECKED = 'lkn' # Schlüssel in der übergebenen Liste rule_checked_leistungen
-    LKN_KEY_IN_PAUSCHALE_LP = 'Leistungsposition'
-    PAUSCHALE_KEY_IN_PAUSCHALE_LP = 'Pauschale'
-    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
-    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
+def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set:
+    """ Wandelt Bedingungen in eine vereinfachte, vergleichbare Darstellung um (Set von Strings). """
+    simplified_set = set()
+    # Schlüssel für Bedingungen - anpassen falls nötig!
     PAUSCHALE_KEY_IN_BEDINGUNGEN = 'Pauschale'
     BED_TYP_KEY = 'Bedingungstyp'
     BED_WERTE_KEY = 'Werte'
+    BED_FELD_KEY = 'Feld'
+    BED_MIN_KEY = 'MinWert'
+    BED_MAX_KEY = 'MaxWert'
+
+    pauschale_conditions = [cond for cond in bedingungen_data if cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN) == pauschale_code]
+
+    for cond in pauschale_conditions:
+        typ = cond.get(BED_TYP_KEY, "").upper()
+        wert = cond.get(BED_WERTE_KEY, "")
+        feld = cond.get(BED_FELD_KEY, "")
+
+        condition_repr = ""
+        if "IN TABELLE" in typ:
+            condition_repr = f"{typ}:{wert}" # Trenner ':' statt ': ' für einfacheres Splitten
+        elif "IN LISTE" in typ:
+             condition_repr = f"{typ}:{wert}"
+        elif typ == "PATIENTENBEDINGUNG" and feld:
+             if cond.get(BED_MIN_KEY) is not None or cond.get(BED_MAX_KEY) is not None:
+                 bereich_text = f"({cond.get(BED_MIN_KEY, '-')}-{cond.get(BED_MAX_KEY, '-')})"
+                 condition_repr = f"{typ}:{feld} {bereich_text}"
+             else:
+                 condition_repr = f"{typ}:{feld}={wert}"
+        elif typ:
+             condition_repr = f"{typ}:{wert}"
+
+        if condition_repr:
+            simplified_set.add(condition_repr)
+
+    return simplified_set
+
+
+def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict) -> list[dict]:
+    """Holt Einträge für eine Tabelle und einen Typ."""
+    content = []
+    # Schlüssel für tblTabellen - anpassen falls nötig!
     TAB_CODE_KEY = 'Code'
     TAB_TEXT_KEY = 'Code_Text'
-    TAB_TABELLE_KEY = 'Tabelle'
     TAB_TYP_KEY = 'Tabelle_Typ'
 
-    potential_pauschale_codes = set()
-    rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
-    print(f"INFO: Prüfe Pauschalen für LKNs: {rule_checked_lkns}")
+    if table_ref in tabellen_dict_by_table:
+        for entry in tabellen_dict_by_table[table_ref]:
+            if entry.get(TAB_TYP_KEY) == table_type:
+                code = entry.get(TAB_CODE_KEY)
+                text = entry.get(TAB_TEXT_KEY)
+                if code:
+                    content.append({"Code": code, "Code_Text": text or "N/A"})
+    return sorted(content, key=lambda x: x.get('Code', ''))
 
-    # 1. Finde potenzielle Pauschalen über Bedingungen und Verknüpfungen
-    lkns_in_tables = {} # Cache für LKN -> zugehörige Tabellennamen (z.B. {'C03.AH.0010': {'C08.50'}})
+
+def generate_condition_detail_html(cond_repr: str) -> str:
+    """Generiert HTML für eine einzelne Bedingungsrepräsentation mit aufklappbaren Details."""
+    global leistungskatalog_dict, tabellen_dict_by_table # Zugriff auf globale Daten
+
+    condition_html = f"<li>{html.escape(cond_repr)}" # Standardanzeige
+    nested_details_html = ""
+
+    try:
+        parts = cond_repr.split(':', 1)
+        cond_type = parts[0].strip().upper()
+        cond_value = parts[1].strip() if len(parts) > 1 else ""
+
+        # --- Logik für aufklappbare Details ---
+        if cond_type == "LEISTUNGSPOSITIONEN IN LISTE":
+            lkns = [lkn.strip() for lkn in cond_value.split(',') if lkn.strip()]
+            if lkns:
+                nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(lkns)} LKN(s)</summary><ul>"
+                for lkn in lkns:
+                    # Schlüssel für Leistungskatalog anpassen!
+                    desc = leistungskatalog_dict.get(lkn, {}).get('Beschreibung', 'Beschreibung nicht gefunden')
+                    nested_details_html += f"<li><b>{html.escape(lkn)}</b>: {html.escape(desc)}</li>"
+                nested_details_html += "</ul></details>"
+
+        elif cond_type == "LEISTUNGSPOSITIONEN IN TABELLE" or cond_type == "TARIFPOSITIONEN IN TABELLE":
+            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
+            all_content = []
+            for table_name in table_names:
+                table_content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
+                if table_content:
+                    all_content.extend(table_content)
+                else:
+                    print(f"WARNUNG: Tabelle '{table_name}' (LKN) für Vergleich nicht gefunden oder leer.")
+
+            if all_content:
+                 unique_content = {item['Code']: item for item in all_content}.values()
+                 sorted_content = sorted(unique_content, key=lambda x: x['Code'])
+                 table_links = ", ".join([f"'{html.escape(t)}'" for t in table_names])
+                 nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(sorted_content)} LKN(s) aus Tabellen: {table_links}</summary><ul>"
+                 for item in sorted_content:
+                     nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
+                 nested_details_html += "</ul></details>"
+            elif table_names:
+                 nested_details_html = " (Tabellen leer oder nicht gefunden)"
+
+
+        elif cond_type == "HAUPTDIAGNOSE IN TABELLE":
+            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
+            all_content = []
+            for table_name in table_names:
+                table_content = get_table_content(table_name, "icd", tabellen_dict_by_table)
+                if table_content:
+                    all_content.extend(table_content)
+                else:
+                    print(f"WARNUNG: Tabelle '{table_name}' (ICD) für Vergleich nicht gefunden oder leer.")
+
+            if all_content:
+                 unique_content = {item['Code']: item for item in all_content}.values()
+                 sorted_content = sorted(unique_content, key=lambda x: x['Code'])
+                 table_links = ", ".join([f"'{html.escape(t)}'" for t in table_names])
+                 nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(sorted_content)} ICD(s) aus Tabellen: {table_links}</summary><ul>"
+                 for item in sorted_content:
+                     nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
+                 nested_details_html += "</ul></details>"
+            elif table_names:
+                 nested_details_html = " (Tabellen leer oder nicht gefunden)"
+
+        # Füge die verschachtelten Details zum Listeneintrag hinzu
+        condition_html += nested_details_html
+
+    except Exception as e_detail:
+        print(f"FEHLER beim Erstellen der Detailansicht für Bedingung '{cond_repr}': {e_detail}")
+        # Fallback zur einfachen Anzeige
+
+    condition_html += "</li>"
+    return condition_html
+
+
+# --- Ausgelagerte Pauschalen-Ermittlung ---
+def determine_applicable_pauschale(user_input: str, rule_checked_leistungen: list[dict], context: dict) -> dict:
+    """
+    Ermittelt die anwendbarste Pauschale, prüft Bedingungen für alle Kandidaten
+    und wählt die niedrigste gültige aus.
+    Gibt entweder die Pauschale oder einen Error zurück.
+    """
+    print("INFO: Starte überarbeitete Pauschalenermittlung mit Bedingungsprüfung vor Auswahl...")
+
+    # Schlüssel und globale Variablen
+    PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
+    POTENTIAL_ICDS_KEY = 'potential_icds'
+    LKN_KEY_IN_RULE_CHECKED = 'lkn'
+    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
+    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
+    global leistungskatalog_dict, tabellen_dict_by_table, pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict
+
+    # 1. Finde potenzielle Pauschalen (wie vorher)
+    potential_pauschale_codes = set()
+    # ... (Logik zum Finden von potential_pauschale_codes via Methode a, b, c wie vorher) ...
+    rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
+    lkns_in_tables = {}
     for lkn in rule_checked_lkns:
-        # Methode a) Über tblPauschaleLeistungsposition
+        # a) Via tblPauschaleLeistungsposition
         for item in pauschale_lp_data:
-            if item.get(LKN_KEY_IN_PAUSCHALE_LP) == lkn:
-                pauschale_code_a = item.get(PAUSCHALE_KEY_IN_PAUSCHALE_LP)
+            if item.get('Leistungsposition') == lkn: # Anpassen!
+                pauschale_code_a = item.get('Pauschale') # Anpassen!
                 if pauschale_code_a and pauschale_code_a in pauschalen_dict:
                     potential_pauschale_codes.add(pauschale_code_a)
-                    # print(f"DEBUG: Pauschale {pauschale_code_a} via tblPauschaleLeistungsposition für LKN {lkn}")
-
-        # Methode b) Über tblPauschaleBedingungen (LEISTUNGSPOSITIONEN IN LISTE)
+        # b) Via Bedingungen 'IN LISTE'
         for cond in pauschale_bedingungen_data:
-            if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN LISTE":
-                werte_liste = [w.strip() for w in str(cond.get(BED_WERTE_KEY, "")).split(',') if w.strip()]
+            if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN LISTE": # Anpassen!
+                werte_liste = [w.strip() for w in str(cond.get('Werte', "")).split(',') if w.strip()] # Anpassen!
                 if lkn in werte_liste:
-                    pauschale_code_b = cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN)
+                    pauschale_code_b = cond.get('Pauschale') # Anpassen!
                     if pauschale_code_b and pauschale_code_b in pauschalen_dict:
                         potential_pauschale_codes.add(pauschale_code_b)
-                        # print(f"DEBUG: Pauschale {pauschale_code_b} via Bedingung 'IN LISTE' für LKN {lkn}")
-
-        # Methode c) Über tblPauschaleBedingungen (LEISTUNGSPOSITIONEN IN TABELLE)
-        # Erst Tabellen für LKN finden (Caching)
+        # c) Via Bedingungen 'IN TABELLE'
         if lkn not in lkns_in_tables:
              tables_for_lkn = set()
              for table_name, entries in tabellen_dict_by_table.items():
-                  # Ignoriere bestimmte Tabellen
                   if table_name in ["nonELT", "nonOR"]: continue
                   for entry in entries:
-                       if entry.get(TAB_CODE_KEY) == lkn and entry.get(TAB_TYP_KEY) == "service_catalog":
+                       if entry.get('Code') == lkn and entry.get('Tabelle_Typ') == "service_catalog": # Anpassen!
                             tables_for_lkn.add(table_name)
              lkns_in_tables[lkn] = tables_for_lkn
-             # if tables_for_lkn: print(f"DEBUG: LKN {lkn} gefunden in Tabellen: {tables_for_lkn}")
-
-
-        # Dann passende Bedingungen suchen
         tables_for_current_lkn = lkns_in_tables.get(lkn, set())
         if tables_for_current_lkn:
             for cond in pauschale_bedingungen_data:
-                if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN TABELLE":
-                    table_ref_in_cond = cond.get(BED_WERTE_KEY)
+                if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN TABELLE": # Anpassen!
+                    table_ref_in_cond = cond.get('Werte') # Anpassen!
                     if table_ref_in_cond in tables_for_current_lkn:
-                        pauschale_code_c = cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN)
+                        pauschale_code_c = cond.get('Pauschale') # Anpassen!
                         if pauschale_code_c and pauschale_code_c in pauschalen_dict:
                             potential_pauschale_codes.add(pauschale_code_c)
-                            # print(f"DEBUG: Pauschale {pauschale_code_c} via Bedingung 'IN TABELLE {table_ref_in_cond}' für LKN {lkn}")
 
-
-    # 2. Prüfen, ob überhaupt potenzielle Pauschalen gefunden wurden
     if not potential_pauschale_codes:
         print("INFO: Keine potenziellen Pauschalen-Codes für die erbrachten Leistungen gefunden.")
         return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
 
-    print(f"INFO: Potenzielle Pauschalen-Codes nach Prüfung: {potential_pauschale_codes}")
-    potential_details = [pauschalen_dict[code] for code in potential_pauschale_codes if code in pauschalen_dict]
+    print(f"INFO: Potenzielle Pauschalen-Codes: {potential_pauschale_codes}")
 
-    if not potential_details:
-        # Sollte nicht passieren, wenn potential_pauschale_codes nicht leer ist
-        print(f"FEHLER: Inkonsistenz - Potenzielle Codes {potential_pauschale_codes}, aber keine Details gefunden.")
-        return {"type": "Error", "message": "Interner Fehler: Pauschalen-Details nicht gefunden."}
+    # 2. Prüfe Bedingungen für ALLE potenziellen Kandidaten
+    candidate_results = []
+    print(f"INFO: Prüfe Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen...")
+    for code in potential_pauschale_codes:
+        if code not in pauschalen_dict: continue # Überspringe, falls nicht in Pauschalen-Liste
 
-    # 3. LLM Ranking (wenn mehr als eine Pauschale möglich ist)
-    ranked_pauschale_codes = list(potential_pauschale_codes) # Fallback: Unsortiert
-    if len(potential_details) > 1:
-        # ... (Ranking-Logik wie im vorherigen Snippet) ...
-        pauschalen_context_text = "\n".join([
-            f"- Code: {p.get(PAUSCHALE_KEY_IN_PAUSCHALEN, 'N/A')}, Text: {p.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')}"
-            for p in potential_details
-        ])
-        try:
-            ranked_llm = call_gemini_stage2_ranking(user_input, pauschalen_context_text)
-            valid_ranked_codes = [code for code in ranked_llm if code in potential_pauschale_codes]
-            missing_codes = [code for code in potential_pauschale_codes if code not in valid_ranked_codes]
-            ranked_pauschale_codes = valid_ranked_codes + missing_codes
-            print(f"INFO: Pauschalen nach LLM-Ranking (gefiltert & ergänzt): {ranked_pauschale_codes}")
-        except ConnectionError as e:
-             print(f"WARNUNG: Verbindungsfehler bei LLM Stufe 2 Ranking: {e}. Verwende unsortierte Liste.")
-        except Exception as e:
-            print(f"FEHLER bei LLM Stufe 2 Ranking: {e}. Verwende unsortierte Liste.")
-    else:
-        print("INFO: Nur eine potenzielle Pauschale gefunden, kein Ranking nötig.")
-
-    # 4. Beste Pauschale auswählen
-    if not ranked_pauschale_codes:
-        print("FEHLER: Keine gültigen Pauschalen-Codes nach Ranking.")
-        return {"type": "Error", "message": "Keine gültigen Pauschalen-Codes nach Ranking vorhanden."}
-
-    best_ranked_code = ranked_pauschale_codes[0]
-    best_pauschale_details = pauschalen_dict.get(best_ranked_code, {}).copy()
-    if not best_pauschale_details:
-         print(f"FEHLER: Details für ausgewählte beste Pauschale {best_ranked_code} nicht gefunden.")
-         return {"type": "Error", "message": f"Interner Fehler: Details für ausgewählte Pauschale {best_ranked_code} nicht gefunden."}
-    print(f"INFO: Beste Pauschale ausgewählt: {best_ranked_code}")
-
-
-    # 5. Bedingungen prüfen (für die ausgewählte Pauschale)
-    # ... (Code für Bedingungsprüfung wie im vorherigen Snippet, verwendet regelpruefer_pauschale) ...
-    bedingungs_pruef_html_result = "<p><i>Bedingungsprüfung nicht durchgeführt oder fehlgeschlagen.</i></p>"
-    condition_errors = []
-    conditions_met = False # Standard: Nicht erfüllt
-    if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
-        print(f"INFO: Prüfe Bedingungen für ausgewählte Pauschale: {best_ranked_code}")
         bedingungs_context = {
              "ICD": context.get("ICD", []), "GTIN": context.get("GTIN", []),
-             "LKN": rule_checked_lkns, # Wichtig: ALLE regelkonformen LKNs für die Prüfung
+             "LKN": rule_checked_lkns, # Alle regelkonformen LKNs übergeben
              "Alter": context.get("Alter"), "Geschlecht": context.get("Geschlecht")
         }
-        try:
-            condition_result = regelpruefer_pauschale.check_pauschale_conditions(
-                 best_ranked_code, bedingungs_context, pauschale_bedingungen_data, tabellen_data
-            )
-            bedingungs_pruef_html_result = condition_result.get("html", "<p class='error'>Fehler bei HTML-Generierung der Bedingungsprüfung.</p>")
-            condition_errors = condition_result.get("errors", [])
-            conditions_met = condition_result.get("allMet", False)
-            if not conditions_met:
-                 print(f"WARNUNG: Bedingungen für Pauschale {best_ranked_code} sind NICHT erfüllt (Fehler: {condition_errors}). Wird trotzdem ausgewählt.")
-            else:
-                 print(f"INFO: Bedingungen für Pauschale {best_ranked_code} erfüllt.")
-        except Exception as e_cond:
-            print(f"FEHLER bei Aufruf von check_pauschale_conditions: {e_cond}")
-            bedingungs_pruef_html_result = f"<p class='error'>Fehler bei Bedingungsprüfung: {e_cond}</p>"
-            condition_errors = [f"Fehler bei Bedingungsprüfung: {e_cond}"]
+        # --- DEBUG LOGGING ---
+        print(f"\n--- DEBUG: Prüfe Bedingungen für Pauschale: {code} ---")
+        print(f"DEBUG: Kontext für Prüfung: {bedingungs_context}")
+        # --- END DEBUG ---
+
+        condition_result = {"allMet": False, "html": "Prüfung fehlgeschlagen", "errors": ["Prüfung fehlgeschlagen"]} # Default
+
+        # Rufe die Bedingungsprüfung auf oder setze Fallback
+        if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
+            try:
+                condition_result = regelpruefer_pauschale.check_pauschale_conditions(
+                    code,
+                    bedingungs_context,
+                    pauschale_bedingungen_data,
+                    tabellen_dict_by_table
+                )
+                # --- DEBUG LOGGING ---
+                print(f"DEBUG: Ergebnis von check_pauschale_conditions für {code}: allMet={condition_result.get('allMet')}, Errors={condition_result.get('errors')}")
+                # --- END DEBUG ---
+            except Exception as e_cond_check:
+                 print(f"FEHLER bei check_pauschale_conditions für {code}: {e_cond_check}")
+                 condition_result["html"] = f"<p class='error'>Fehler bei Bedingungsprüfung für {code}: {e_cond_check}</p>"
+                 condition_result["errors"] = [f"Fehler bei Bedingungsprüfung: {e_cond_check}"]
+                 condition_result["allMet"] = False # Bei Fehler gilt es als nicht erfüllt
+        else:
+            print(f"WARNUNG: Bedingungsprüfung für {code} übersprungen (Modul fehlt).")
+            condition_result = {"allMet": False, "html": "Bedingungsprüfung nicht verfügbar", "errors": ["Bedingungsprüfung nicht verfügbar"]}
+
+        # Füge das Ergebnis für diesen Kandidaten zur Liste hinzu
+        # Dieser Block ist INNERHALB der for-Schleife
+        candidate_results.append({
+            "code": code,
+            "details": pauschalen_dict[code], # Hole Details aus dem globalen Dict
+            "conditions_met": condition_result.get("allMet", False),
+            "trigger_lkn_condition_met": condition_result.get("trigger_lkn_condition_met", False),
+            "bedingungs_pruef_html": condition_result.get("html", ""),
+            "bedingungs_fehler": condition_result.get("errors", [])
+        })
+    # print(f"DEBUG: Bedingungsprüfung für {code}: Erfüllt = {condition_result.get('allMet')}")
+
+    # 3. Filtere gültige Kandidaten (Bedingungen erfüllt)
+    lkn_triggered_candidates = [cand for cand in candidate_results if cand["trigger_lkn_condition_met"]]
+    print(f"DEBUG: Kandidaten, deren LKN-Bedingung erfüllt ist: {[c['code'] for c in lkn_triggered_candidates]}")
+
+    # 4. Wähle die beste Pauschale aus den LKN-GETRIGGERTEN Kandidaten
+    selected_candidate = None
+    if lkn_triggered_candidates:
+        # --- KORREKTUR: Sortiere AUFSTEIGEND (A vor B vor D) ---
+        lkn_triggered_candidates.sort(key=lambda x: x['code'], reverse=False) # reverse=False (oder weglassen)
+        selected_candidate = lkn_triggered_candidates[0] # Nimm die erste (spezifischste)
+        print(f"INFO: Spezifischste Pauschale ausgewählt, deren LKN-Bedingung erfüllt ist: {selected_candidate['code']}")
+        # --- ENDE KORREKTUR ---
     else:
-         print("WARNUNG: regelpruefer_pauschale.check_pauschale_conditions nicht verfügbar.")
+        # Fallback: Keine Pauschale wurde durch die LKNs getriggert
+        print("INFO: Keine Pauschale gefunden, deren LKN-Bedingung erfüllt ist.")
+        return {"type": "Error", "message": "Keine Pauschale gefunden, deren LKN-Bedingung erfüllt ist."}
 
-    # HIER ENTSCHEIDEN: Wenn Bedingungen NICHT erfüllt, trotzdem Pauschale oder TARDOC?
-    # Aktuelle Logik: Wir geben die Pauschale IMMER zurück, wenn eine gefunden wurde,
-    # und überlassen die Interpretation der Fehler dem Frontend/Nutzer.
-    # Alternative:
-    # if not conditions_met:
-    #     print(f"INFO: Bedingungen für Pauschale {best_ranked_code} nicht erfüllt. Keine Pauschale anwendbar.")
-    #     return {"type": "Error", "message": f"Pauschale {best_ranked_code} gefunden, aber Bedingungen nicht erfüllt: {'; '.join(condition_errors)}"}
+    # --- Ab hier verwenden wir selected_candidate ---
+    best_ranked_code = selected_candidate["code"]
+    best_pauschale_details = selected_candidate["details"].copy()
+    bedingungs_pruef_html_result = selected_candidate["bedingungs_pruef_html"]
+    condition_errors = selected_candidate["bedingungs_fehler"]
+    conditions_met = selected_candidate["conditions_met"]
+    print(f"INFO: Ausgewählte Pauschale {best_ranked_code} - Alle Bedingungen erfüllt: {conditions_met}")
 
-
-    # 6. Pauschalen-Begründung erstellen
-    # ... (Code für Begründung wie im vorherigen Snippet) ...
-    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden basierend auf den regelkonformen Leistungen ({}) in Betracht gezogen:</p><ul>".format(", ".join(rule_checked_lkns) or "keine")
-    for code in sorted(list(potential_pauschale_codes)):
-         pauschale_text = pauschalen_dict.get(code, {}).get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
-         pauschale_erklaerung_html += f"<li><b>{code}</b>: {pauschale_text}</li>"
+    # 5. Pauschalen-Begründung erstellen (jetzt basierend auf der Auswahl)
+    rule_checked_lkns_str_list = [str(lkn) for lkn in rule_checked_lkns if lkn]
+    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden basierend auf den regelkonformen Leistungen ({}) in Betracht gezogen:</p><ul>".format(", ".join(rule_checked_lkns_str_list) or "keine")
+    for cand in sorted(candidate_results, key=lambda x: x['code']): # Sortiert A->E für die Anzeige
+         lkn_status_color = "green" if cand["trigger_lkn_condition_met"] else "grey"
+         lkn_status_text = "Ja" if cand["trigger_lkn_condition_met"] else "Nein"
+         all_status_color = "green" if cand["conditions_met"] else "red"
+         all_status_text = "Alle erfüllt" if cand["conditions_met"] else "Nicht alle erfüllt"
+         pauschale_text = cand["details"].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
+         pauschale_erklaerung_html += f"<li><b>{cand['code']}</b>: {pauschale_text} (LKN-Bedingung: <span style='color:{lkn_status_color};'>{lkn_status_text}</span>, Gesamt: <span style='color:{all_status_color};'>{all_status_text}</span>)</li>"
     pauschale_erklaerung_html += "</ul>"
-    if len(potential_details) > 1:
-         pauschale_erklaerung_html += "<p>Das LLM hat folgende Reihenfolge vorgeschlagen (beste zuerst): {}</p>".format(", ".join(ranked_pauschale_codes))
-    else:
-         pauschale_erklaerung_html += "<p>Nur eine Pauschale kam in Frage.</p>"
-    pauschale_erklaerung_html += f"<p><b>Ausgewählt wurde: {best_ranked_code}</b> ({pauschalen_dict.get(best_ranked_code, {}).get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')})</p>"
+    
+    # --- Vergleich mit anderen Pauschalen im Kapitel (nur mit denen, die *nicht* ausgewählt wurden) ---
+    match = re.match(r"([A-Z0-9.]+)[A-Z]$", best_ranked_code)
+    pauschalen_gruppe = match.group(1) if match else None
+
+    if pauschalen_gruppe:
+        # Vergleiche nur mit den *anderen* ursprünglichen Kandidaten derselben Gruppe
+        other_candidates_in_group = [
+            cand for cand in candidate_results
+            if cand['code'].startswith(pauschalen_gruppe) and cand['code'] != best_ranked_code
+        ]
+
+        if other_candidates_in_group:
+            pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen geprüften Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe)
+            selected_conditions_repr = get_simplified_conditions(best_ranked_code, pauschale_bedingungen_data)
+
+            for other_cand in sorted(other_candidates_in_group, key=lambda x: x['code']): # Sortiert A->E
+                other_code = other_cand['code']
+                other_text = other_cand['details'].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
+                other_conditions_met = other_cand['conditions_met']
+
+                pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary><b>{other_code}</b> ({other_text}) - Bedingungen: <span style='color:{'red' if not other_conditions_met else 'grey'};'>{'Nicht erfüllt' if not other_conditions_met else 'Erfüllt (aber höherrangig)'}</span></summary>"
+
+                # Zeige Unterschiede nur, wenn sinnvoll (z.B. wenn andere nicht erfüllt war oder höherrangig)
+                other_conditions_repr = get_simplified_conditions(other_code, pauschale_bedingungen_data)
+                additional_conditions = other_conditions_repr - selected_conditions_repr # Was hat die andere mehr/anders?
+                missing_conditions = selected_conditions_repr - other_conditions_repr # Was hat die ausgewählte mehr/anders?
+
+                if additional_conditions:
+                    pauschale_erklaerung_html += "<p>Zusätzliche/Andere Anforderungen für {}:</p><ul>".format(other_code)
+                    for cond_repr in sorted(list(additional_conditions)):
+                        condition_html = generate_condition_detail_html(cond_repr)
+                        pauschale_erklaerung_html += condition_html
+                    pauschale_erklaerung_html += "</ul>"
+
+                if missing_conditions:
+                     pauschale_erklaerung_html += "<p>Folgende Anforderungen von {} fehlen bei {}:</p><ul>".format(best_ranked_code, other_code)
+                     for cond_repr in sorted(list(missing_conditions)):
+                         condition_html = generate_condition_detail_html(cond_repr)
+                         pauschale_erklaerung_html += condition_html
+                     pauschale_erklaerung_html += "</ul>"
+
+                if not additional_conditions and not missing_conditions:
+                     pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden (basierend auf vereinfachter Prüfung).</i></p>"
+
+                # Zeige ggf. die nicht erfüllten Bedingungen der anderen Pauschale
+                if not other_conditions_met and other_cand['bedingungs_fehler']:
+                     pauschale_erklaerung_html += "<p style='color:red;'>Nicht erfüllte Bedingungen für {}:</p><ul>".format(other_code)
+                     for fehler in other_cand['bedingungs_fehler']:
+                          pauschale_erklaerung_html += f"<li style='color:red;'>{html.escape(fehler)}</li>"
+                     pauschale_erklaerung_html += "</ul>"
+
+                pauschale_erklaerung_html += "</details>" # Schließe Details für other_cand
+
     best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
+    # --- ENDE Vergleich ---
 
-
-    # 7. Potenzielle ICDs ermitteln
-    # ... (Code für ICD-Suche wie im vorherigen Snippet) ...
+    # 6. Potenzielle ICDs ermitteln (für die ausgewählte Pauschale)
     potential_icds = []
-    pauschale_conditions = [cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN) == best_ranked_code]
-    for cond in pauschale_conditions:
-        if cond.get(BED_TYP_KEY) == "HAUPTDIAGNOSE IN TABELLE":
-            tabelle_ref = cond.get(BED_WERTE_KEY)
+    # ... (Logik zur ICD-Ermittlung wie vorher) ...
+    pauschale_conditions_selected = [cond for cond in pauschale_bedingungen_data if cond.get('Pauschale') == best_ranked_code] # Anpassen!
+    for cond in pauschale_conditions_selected:
+        if cond.get('Bedingungstyp') == "HAUPTDIAGNOSE IN TABELLE": # Anpassen!
+            tabelle_ref = cond.get('Werte') # Anpassen!
             if tabelle_ref and tabelle_ref in tabellen_dict_by_table:
-                icd_entries = [ entry for entry in tabellen_dict_by_table[tabelle_ref] if entry.get(TAB_TYP_KEY) == "icd" ]
+                icd_entries = [ entry for entry in tabellen_dict_by_table[tabelle_ref] if entry.get('Tabelle_Typ') == "icd" ] # Anpassen!
                 for entry in icd_entries:
-                    code = entry.get(TAB_CODE_KEY); text = entry.get(TAB_TEXT_KEY)
+                    code = entry.get('Code'); text = entry.get('Code_Text') # Anpassen!
                     if code: potential_icds.append({"Code": code, "Code_Text": text or "N/A"})
             elif tabelle_ref: print(f"WARNUNG: Tabelle '{tabelle_ref}' für ICD-Bedingung nicht in gruppierten Tabellendaten gefunden.")
     unique_icds_dict = {icd['Code']: icd for icd in potential_icds if icd.get('Code')}
@@ -559,18 +730,19 @@ def determine_applicable_pauschale(user_input: str, rule_checked_leistungen: lis
     best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted_unique_icds
 
 
-    # 8. Finale Pauschalen-Antwort erstellen
+    # 7. Finale Pauschalen-Antwort erstellen
     final_result = {
         "type": "Pauschale",
-        "details": best_pauschale_details,
-        "bedingungs_pruef_html": bedingungs_pruef_html_result,
-        "bedingungs_fehler": condition_errors
+        "details": best_pauschale_details, # Enthält jetzt Erklärung und ICDs
+        "bedingungs_pruef_html": bedingungs_pruef_html_result, # HTML der Prüfung für die *ausgewählte*
+        "bedingungs_fehler": condition_errors, # Fehler der *ausgewählten*
+        "conditions_met": conditions_met # Status der *ausgewählten* (sollte True sein)
     }
-
     return final_result
 
-# --- Ausgelagerte TARDOC-Vorbereitung (weitgehend unverändert) ---
+# --- Ausgelagerte TARDOC-Vorbereitung ---
 def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
+    # ... (prepare_tardoc_abrechnung Funktion bleibt unverändert wie im letzten Schritt) ...
     print("INFO: TARDOC-Abrechnung wird vorbereitet...")
     tardoc_leistungen_final = []
     LKN_KEY = 'lkn' # Schlüssel in regel_ergebnisse_liste
@@ -602,9 +774,10 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
         return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
 
 
-# --- API Endpunkt (Hauptlogik - angepasst für Regelprüfung Details) ---
+# --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
+    # ... (analyze_billing Funktion bleibt unverändert wie im letzten Schritt) ...
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time() # Zeitmessung starten
 
@@ -773,7 +946,7 @@ def analyze_billing():
     rule_time = time.time()
     print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
 
-    # 4. Entscheidung Pauschale vs. TARDOC
+    # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (NEUE LOGIK)
     final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
     pauschale_context = { # Kontext für Pauschalen-Prüfung vorbereiten
         "ICD": icd_input, "GTIN": gtin_input,
@@ -796,12 +969,6 @@ def analyze_billing():
             if pauschale_pruef_ergebnis.get("type") == "Pauschale":
                 print("INFO: Anwendbare Pauschale gefunden.")
                 final_result = pauschale_pruef_ergebnis
-                # Optional: Prüfen, ob Bedingungen erfüllt sind, bevor wir sie definitiv nehmen?
-                # if not pauschale_pruef_ergebnis.get("bedingungs_fehler"):
-                #    final_result = pauschale_pruef_ergebnis
-                # else:
-                #    print("INFO: Pauschale gefunden, aber Bedingungen nicht erfüllt. Prüfe TARDOC als Alternative.")
-                #    final_result = prepare_tardoc_abrechnung(regel_ergebnisse_liste)
             else:
                 # Keine Pauschale gefunden oder anwendbar -> TARDOC
                 print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
@@ -813,9 +980,9 @@ def analyze_billing():
         except Exception as e:
              print(f"FEHLER bei Pauschalen-/TARDOC-Entscheidung: {e}")
              # Traceback loggen für Debugging
-             import traceback
              traceback.print_exc()
              final_result = {"type": "Error", "message": f"Interner Fehler bei Abrechnungsentscheidung: {e}"}
+
 
     decision_time = time.time()
     print(f"Zeit nach Entscheidung Pauschale/TARDOC: {decision_time - rule_time:.2f}s")
@@ -823,20 +990,17 @@ def analyze_billing():
     # 5. Kombiniertes Ergebnis an Frontend senden
     final_response = {
         "llm_ergebnis_stufe1": llm_stage1_result,
-        "regel_ergebnisse_details": regel_ergebnisse_liste, # Sende ALLE Regelergebnisse zur Anzeige
-        "abrechnung": final_result # Das finale Ergebnis (Pauschale, TARDOC oder Error)
+        "regel_ergebnisse_details": regel_ergebnisse_liste,
+        "abrechnung": final_result
     }
 
     end_time = time.time()
     print(f"Gesamtverarbeitungszeit Backend: {end_time - start_time:.2f}s")
-    # print(f"DEBUG: Finale Antwort an Frontend:\n{json.dumps(final_response, indent=2, ensure_ascii=False)}") # Zu verbose für Produktion
     print(f"INFO: Sende finale Antwort Typ '{final_result.get('type')}' an Frontend.")
     return jsonify(final_response)
 
 
 # --- Static‑Routes & Start ---
-import time # für Zeitmessung
-
 @app.route("/")
 def index(): return send_from_directory(".", "index.html")
 
@@ -845,7 +1009,6 @@ def favicon_ico(): return send_from_directory(".", "favicon.ico", mimetype='imag
 
 @app.route("/favicon.svg")
 def favicon_svg(): return send_from_directory(".", "favicon.svg", mimetype='image/svg+xml')
-
 
 @app.route("/<path:filename>")
 def serve_static(filename):
@@ -861,7 +1024,7 @@ def serve_static(filename):
          abort(404)
 
     # Erlaube JS-Datei oder Dateien im data-Verzeichnis
-    if filename in allowed_files or file_path.parts[0] in allowed_dirs:
+    if filename in allowed_files or (len(file_path.parts) > 0 and file_path.parts[0] in allowed_dirs):
          #print(f"INFO: Sende statische Datei: {filename}")
          return send_from_directory('.', filename)
     else:
@@ -879,4 +1042,7 @@ if __name__ == "__main__":
     if not pauschalen_dict: print("   WARNUNG: Pauschalen nicht geladen!")
     if not tardoc_data_dict: print("   WARNUNG: TARDOC-Daten nicht geladen!")
     if not regelwerk_dict: print("   WARNUNG: LKN-Regelwerk nicht geladen!")
+    if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
+    if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
+
     app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
