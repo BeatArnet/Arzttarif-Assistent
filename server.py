@@ -604,7 +604,7 @@ def analyze_billing():
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
     print(f"Empfangener inputText: '{user_input[:100]}...'")
     print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_llm}, Gender: {geschlecht_llm}") # Log 
-
+    
     # Stelle sicher, dass Daten geladen sind
     if not leistungskatalog_dict or not pauschalen_dict or not tardoc_data_dict or not pauschale_bedingungen_data or not tabellen_data: # Füge fehlende hinzu
          print("FEHLER: Kritische Daten nicht geladen. Analyse abgebrochen.")
