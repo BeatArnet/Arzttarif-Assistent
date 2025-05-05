@@ -160,15 +160,16 @@
     <select id="beispielSelect" onchange="beispielEinfuegen()"> <!-- Geändert zu onchange -->
         <option value="" selected disabled>--- Bitte wählen ---</option> <!-- Platzhalter hinzugefügt -->
         <option value="Hausärztliche Konsultation von 17 Minuten">Hausärztliche Konsultation 17 Min.</option>
+        <option value="Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie">Konsultation 10 Min + Warzenentfernung Stamm</option>
+        <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
+        <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
+        <option value="Konsultation 25 Minuten Hausarzt">hausärztliche Konsultation 25 Minuten</option> <!-- Beispiel für Regelverletzung -->
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
+        <option value="Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesist">Kiefergelenk, Luxation, Reposition, Anästhesie</option>
         <option value="Aufklärung des Patienten und Leberbiopsie durch die Haut">Aufklärung + Leberbiopsie (Haut)</option>
         <option value="Blinddarmentfernung als alleinige Leistung">Blinddarmentfernung (alleinig)</option>
         <option value="Korrektur eines Hallux valgus rechts">Korrektur Hallux valgus rechts</option>
-        <option value="Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie">Konsultation 10 Min + Warzenentfernung Stamm</option>
-        <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
         <option value="Bronchoskopie mit Lavage">Bronchoskopie mit Lavage</option>
-        <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
-        <option value="Konsultation 25 Minuten">hausärztliche Konsultation 25 Minuten</option> <!-- Beispiel für Regelverletzung -->
     </select>
 
     <label for="userInput">Leistungsbeschreibung / LKN:</label>
@@ -178,6 +179,11 @@
     <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
     <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
+
+    <div style="margin-top: 10px; margin-bottom: 10px;">
+        <input type="checkbox" id="useIcdCheckbox" checked> <!-- Standardmäßig aktiviert -->
+        <label for="useIcdCheckbox" style="display: inline; font-weight: normal;">ICD-Diagnose für Pauschalenprüfung berücksichtigen</label>
+    </div>
 
     <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
 

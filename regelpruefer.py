@@ -6,6 +6,7 @@ und der Bedingungen für Pauschalen.
 """
 import json
 import re # Importiere Regex für Mengenanpassung
+from typing import Dict, List 
 
 # --- Konstanten für Regeltypen (zur besseren Lesbarkeit) ---
 REGEL_MENGE = "Mengenbeschränkung"
@@ -183,146 +184,42 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
 
     return {"abrechnungsfaehig": allowed, "fehler": errors}
 
-
-# --- Funktion zur Prüfung von Pauschalenbedingungen ---
-def check_pauschale_conditions(
-    pauschale_code: str,
-    context: dict, # Enthält ICD, GTIN, LKN (Liste aller regelkonformen LKNs im Fall)
-    pauschale_bedingungen_data: list[dict],
-    tabellen_data: list[dict]
-) -> dict:
+def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict) -> dict:
     """
-    Prüft die Bedingungen für eine gegebene Pauschale.
+    Filtert regelkonforme TARDOC-Leistungen (Typ E/EZ) aus den Regelergebnissen
+    und bereitet die Liste für die Frontend-Antwort vor.
     """
-    errors: list[str] = []
-    condition_details: list[str] = [] # Für detailliertes Logging/HTML
-    all_met = True
+    print("INFO (regelpruefer): TARDOC-Abrechnung wird vorbereitet...")
+    tardoc_leistungen_final = []
+    LKN_KEY = 'lkn' # Schlüssel in regel_ergebnisse_liste
+    MENGE_KEY = 'finale_menge' # Schlüssel in regel_ergebnisse_liste
 
-    # Finde alle Bedingungen für diese Pauschale
-    # --- !!! ANPASSEN: Korrekten Schlüssel für Pauschale in Bedingungs-Daten !!! ---
-    PAUSCHALE_KEY_BED = 'Pauschale'
-    # --- !!! ENDE ANPASSUNG !!! ---
-    conditions = [cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY_BED) == pauschale_code]
+    for res in regel_ergebnisse_liste:
+        lkn = res.get(LKN_KEY)
+        menge = res.get(MENGE_KEY, 0)
+        abrechnungsfaehig = res.get("regelpruefung", {}).get("abrechnungsfaehig", False)
 
-    if not conditions:
-        print(f"Info: Keine spezifischen Bedingungen für Pauschale {pauschale_code} gefunden.")
-        return {"allMet": True, "html": "<ul><li>Keine spezifischen Bedingungen gefunden.</li></ul>", "errors": []}
+        if not lkn or not abrechnungsfaehig or menge <= 0:
+            continue # Überspringe ungültige, nicht abrechenbare oder Menge 0
 
-    print(f"Info: Prüfe {len(conditions)} Bedingungen für Pauschale {pauschale_code}...")
+        # Hole Details aus dem übergebenen Leistungskatalog
+        lkn_info = leistungskatalog_dict.get(str(lkn).upper()) # Suche Case-Insensitive
 
-    # Kontext extrahieren
-    provided_icds = context.get("ICD", [])
-    provided_gtins = context.get("GTIN", [])
-    provided_lkns = context.get("LKN", [])
-    if isinstance(provided_icds, str): provided_icds = [provided_icds]
-    if isinstance(provided_gtins, str): provided_gtins = [provided_gtins]
-    if isinstance(provided_lkns, str): provided_lkns = [provided_lkns]
+        if lkn_info and lkn_info.get("Typ") in ['E', 'EZ']: # Nur Einzelleistungen
+            tardoc_leistungen_final.append({
+                "lkn": lkn,
+                "menge": menge,
+                "typ": lkn_info.get("Typ"),
+                "beschreibung": lkn_info.get("Beschreibung", "") # Beschreibung aus Katalog
+            })
+        elif not lkn_info:
+             print(f"WARNUNG (prepare_tardoc): Details für LKN {lkn} nicht im Leistungskatalog gefunden.")
+        # else: LKNs vom Typ P/PZ werden hier ignoriert
 
-    # Iteriere durch jede Bedingung
-    for i, cond in enumerate(conditions):
-        # --- !!! ANPASSEN: Korrekte Schlüsselnamen für Bedingungen !!! ---
-        bedingungstyp = cond.get("Bedingungstyp", "").upper()
-        werte_str = cond.get("Werte", "") # Kann kommasepariert sein
-        tabelle_ref = cond.get("Tabelle") # Für Typ "IN TABELLE"
-        # --- !!! ENDE ANPASSUNG !!! ---
-
-        werte_list = [w.strip() for w in str(werte_str).split(',') if w.strip()]
-
-        condition_met = False
-        status_text = "NICHT geprüft"
-        bedingung_text = f"Typ: {bedingungstyp}, Wert/Ref: '{werte_str or tabelle_ref or '-'}'"
-
-        try:
-            if not werte_list and not tabelle_ref:
-                print(f"WARNUNG: Bedingung {i+1} für {pauschale_code} hat keine Werte oder Tabelle.")
-                condition_met = True; status_text = "Erfüllt (keine Werte)"
-            elif bedingungstyp == "ICD":
-                condition_met = any(req_icd.upper() in (p_icd.upper() for p_icd in provided_icds) for req_icd in werte_list)
-                status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "GTIN":
-                 condition_met = any(req_gtin in provided_gtins for req_gtin in werte_list)
-                 status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
-                 condition_met = any(req_lkn.upper() in (p_lkn.upper() for p_lkn in provided_lkns) for req_lkn in werte_list)
-                 status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
-                 # --- !!! ANPASSEN: Korrekte Schlüsselnamen in tblTabellen !!! ---
-                 TAB_CODE_KEY = "Code"
-                 TAB_TABELLE_KEY = "Tabelle"
-                 TAB_TYP_KEY = "Tabelle_Typ"
-                 # --- !!! ENDE ANPASSUNG !!! ---
-                 codes_in_tabelle = [
-                     e.get(TAB_CODE_KEY) for e in tabellen_data
-                     if e.get(TAB_TABELLE_KEY) == tabelle_ref and e.get(TAB_TYP_KEY) == "service_catalog" and e.get(TAB_CODE_KEY)
-                 ]
-                 condition_met = any(code.upper() in (p_lkn.upper() for p_lkn in provided_lkns) for code in codes_in_tabelle)
-                 bedingung_text += f" (Tabelle: {tabelle_ref})"
-                 status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE":
-                 # --- !!! ANPASSEN: Korrekte Schlüsselnamen in tblTabellen !!! ---
-                 TAB_CODE_KEY = "Code"
-                 TAB_TABELLE_KEY = "Tabelle"
-                 TAB_TYP_KEY = "Tabelle_Typ"
-                 # --- !!! ENDE ANPASSUNG !!! ---
-                 codes_in_tabelle = [
-                     e.get(TAB_CODE_KEY) for e in tabellen_data
-                     if e.get(TAB_TABELLE_KEY) == tabelle_ref and e.get(TAB_TYP_KEY) == "icd" and e.get(TAB_CODE_KEY)
-                 ]
-                 condition_met = any(code.upper() in (p_icd.upper() for p_icd in provided_icds) for code in codes_in_tabelle)
-                 bedingung_text += f" (Tabelle: {tabelle_ref})"
-                 status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "MEDIKAMENTE IN LISTE":
-                 condition_met = any(req_gtin in provided_gtins for req_gtin in werte_list)
-                 status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-            elif bedingungstyp == "PATIENTENBEDINGUNG":
-                 field = cond.get("Feld")
-                 wert_regel = cond.get("Wert")
-                 min_val = cond.get("MinWert")
-                 max_val = cond.get("MaxWert")
-                 wert_fall = context.get(field)
-                 bedingung_text = f"Typ: {bedingungstyp}, Feld: {field}, Wert: '{wert_regel or str(min_val)+'-'+str(max_val)}'"
-
-                 if wert_fall is None: condition_met = False; status_text = "NICHT erfüllt (Kontext fehlt)"
-                 elif field == "Alter":
-                     try:
-                         alter_patient = int(wert_fall); alter_ok = True; range_parts = []
-                         if min_val is not None and alter_patient < int(min_val): alter_ok = False; range_parts.append(f"min. {min_val}")
-                         if max_val is not None and alter_patient > int(max_val): alter_ok = False; range_parts.append(f"max. {max_val}")
-                         if wert_regel is not None and alter_patient != int(wert_regel): alter_ok = False; range_parts.append(f"exakt {wert_regel}")
-                         condition_met = alter_ok; status_text = "Erfüllt" if condition_met else f"NICHT erfüllt ({' '.join(range_parts)})"
-                     except (ValueError, TypeError): condition_met = False; status_text = "NICHT erfüllt (ungültiger Wert)"
-                 elif field == "Geschlecht":
-                     if isinstance(wert_regel, str) and isinstance(wert_fall, str): condition_met = wert_fall.lower() == wert_regel.lower(); status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-                     else: condition_met = False; status_text = "NICHT erfüllt (ungültiger Wert)"
-                 elif field == "GTIN":
-                     required_gtins_cond = [str(wert_regel)] if isinstance(wert_regel, (str, int)) else [str(w) for w in (wert_regel or [])]
-                     condition_met = any(req in provided_gtins for req in required_gtins_cond); status_text = "Erfüllt" if condition_met else "NICHT erfüllt"
-                 else: print(f"WARNUNG: Unbekanntes Feld '{field}' für Patientenbedingung Pauschale {pauschale_code}."); condition_met = True; status_text = "Erfüllt (unbekanntes Feld)"
-            else:
-                print(f"WARNUNG: Unbekannter Pauschalen-Bedingungstyp '{bedingungstyp}' für {pauschale_code}. Wird als erfüllt angenommen.")
-                condition_met = True
-                status_text = "Erfüllt (unbekannter Typ)"
-
-        except Exception as e:
-            print(f"FEHLER bei Prüfung Bedingung {i+1} für {pauschale_code}: {e}")
-            condition_met = False
-            status_text = f"FEHLER bei Prüfung: {e}"
-            errors.append(f"Fehler bei Prüfung Bedingung {bedingung_text}: {e}")
-
-        # Füge Detail mit Status hinzu
-        color = "green" if condition_met else "red" if status_text.startswith("NICHT") else "orange"
-        condition_details.append(f'<li>{bedingung_text}: <span style="color:{color}; font-weight:bold;">{status_text}</span></li>')
-
-        if not condition_met:
-            all_met = False
-            if not status_text.startswith("FEHLER"):
-                 errors.append(f"Bedingung nicht erfüllt: {bedingung_text}")
-
-    # Erstelle HTML-String für Details
-    html_details = "<ul>" + "".join(condition_details) + "</ul>"
-
-    return {
-        "allMet": all_met,
-        "html": html_details,
-        "errors": errors
-    }
+    if not tardoc_leistungen_final:
+        # Wichtig: Gib einen spezifischen Fehler zurück, wenn keine TARDOC-Leistungen übrig bleiben
+        return {"type": "Error", "message": "Keine abrechenbaren TARDOC-Leistungen nach Regelprüfung gefunden."}
+    else:
+        print(f"INFO (regelpruefer): {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
+        return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
+    
