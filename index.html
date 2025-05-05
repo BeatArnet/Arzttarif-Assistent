@@ -164,6 +164,7 @@
         <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
         <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
         <option value="Konsultation 25 Minuten Hausarzt">hausärztliche Konsultation 25 Minuten</option> <!-- Beispiel für Regelverletzung -->
+        <option value="Hausärztliche Konsultation 15 Minuten und 10 Minuten Beratung Kind">Hausärztliche Kons 15 Min + 10 Min. Beratung Kind</option>
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesist">Kiefergelenk, Luxation, Reposition, Anästhesie</option>
         <option value="Aufklärung des Patienten und Leberbiopsie durch die Haut">Aufklärung + Leberbiopsie (Haut)</option>
@@ -179,7 +180,11 @@
     <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
     <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
+
     <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; margin-bottom: 15px; max-width: 630px;">
+        <!--
+        Alter und Geschlecht wird vorerst nicht berücksichtigt
+        art, 05.05.2025
         <div>
             <label for="ageInput">Alter (Jahre):</label>
             <input type="number" id="ageInput" min="0" max="150" step="1" style="width: 80px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;">
@@ -193,6 +198,7 @@
                 <option value="unbekannt">Divers</option>
             </select>
         </div>
+        -->
         <div style="align-self: center;"> <!-- Checkbox vertikal zentrieren -->
             <input type="checkbox" id="useIcdCheckbox" checked style="margin-right: 5px;">
             <label for="useIcdCheckbox" style="display: inline; font-weight: normal;">ICD berücksichtigen</label>
