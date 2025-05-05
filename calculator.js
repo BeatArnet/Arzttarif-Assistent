@@ -182,12 +182,11 @@ async function loadData() {
     }
 }
 
-
 document.addEventListener("DOMContentLoaded", () => {
     mouseSpinnerElement = $('mouseSpinner'); // Spinner-Element holen, wenn DOM bereit ist
+    loadIcdCheckboxState(); // Lade Checkbox-Status beim Start    
     loadData(); // Daten laden
 });
-
 
 // ─── 3 · Hauptlogik (Button‑Click) ────────────────────────────────────────
 async function getBillingAnalysis() {
@@ -195,6 +194,8 @@ async function getBillingAnalysis() {
     const userInput = $("userInput").value.trim();
     const icdInput = $("icdInput").value.trim().split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const gtinInput = ($("gtinInput") ? $("gtinInput").value.trim().split(",").map(s => s.trim()).filter(Boolean) : []);
+    const useIcd = $('useIcdCheckbox')?.checked ?? true; // Default true, falls Element nicht da
+    console.log(`[getBillingAnalysis] ICD-Prüfung berücksichtigen: ${useIcd}`);    
 
     let backendResponse = null;
     let rawResponseText = "";
@@ -210,7 +211,12 @@ async function getBillingAnalysis() {
 
     try {
         console.log("[getBillingAnalysis] Sende Anfrage an Backend...");
-        const requestBody = { inputText: userInput, icd: icdInput, gtin: gtinInput };
+        const requestBody = {
+            inputText: userInput,
+            icd: icdInput,
+            gtin: gtinInput,
+            useIcd: useIcd // Flag mitsenden
+        };
         const res = await fetch("/api/analyze-billing", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(requestBody) });
         rawResponseText = await res.text();
         console.log("[getBillingAnalysis] Raw Response vom Backend erhalten:", rawResponseText.substring(0, 500) + "..."); // Gekürzt loggen
@@ -254,7 +260,7 @@ async function getBillingAnalysis() {
         switch (abrechnung.type) {
             case "Pauschale":
                 console.log("[getBillingAnalysis] Abrechnungstyp: Pauschale", abrechnung.details?.Pauschale);
-                finalResultHeader = `<p class="final-result-header success"><b>Abrechnung als Pauschale empfohlen.</b></p>`;
+                finalResultHeader = `<p class="final-result-header success"><b>Abrechnung als Pauschale.</b></p>`;
                 if (abrechnung.details) {
                     // Übergebe das ganze abrechnung-Objekt an die Funktion
                     finalResultDetailsHtml = displayPauschale(abrechnung);
@@ -265,7 +271,7 @@ async function getBillingAnalysis() {
 
             case "TARDOC":
                 console.log("[getBillingAnalysis] Abrechnungstyp: TARDOC");
-                finalResultHeader = `<p class="final-result-header success"><b>Abrechnung als TARDOC-Einzelleistung(en) empfohlen.</b></p>`;
+                finalResultHeader = `<p class="final-result-header success"><b>Abrechnung als TARDOC-Einzelleistung(en).</b></p>`;
                 if (abrechnung.leistungen && abrechnung.leistungen.length > 0) {
                     // Rufe Hilfsfunktion zur Anzeige der TARDOC-Tabelle auf (gibt HTML für <details> zurück)
                     finalResultDetailsHtml = displayTardocTable(abrechnung.leistungen, regelErgebnisseDetails);
@@ -313,7 +319,27 @@ async function getBillingAnalysis() {
 
 // ─── 4 · Hilfsfunktionen zur ANZEIGE (jetzt alle in <details>) ────
 
-// NEU: Generiert den <details> Block für LLM Stufe 1 Ergebnisse
+
+// Funktion zum Speichern/Laden des Checkbox-Status
+function saveIcdCheckboxState() {
+    const checkbox = $('useIcdCheckbox');
+    if (checkbox) {
+        localStorage.setItem('useIcdRelevance', checkbox.checked);
+    }
+}
+
+function loadIcdCheckboxState() {
+    const checkbox = $('useIcdCheckbox');
+    if (checkbox) {
+        const savedState = localStorage.getItem('useIcdRelevance');
+        // Setze auf true (checked) wenn nichts gespeichert ist oder wenn 'true' gespeichert ist
+        checkbox.checked = (savedState === null || savedState === 'true');
+        // Event Listener hinzufügen, um Änderungen zu speichern
+        checkbox.addEventListener('change', saveIcdCheckboxState);
+    }
+}
+
+// Generiert den <details> Block für LLM Stufe 1 Ergebnisse
 function generateLlmStage1Details(llmResult) {
     if (!llmResult) return "";
 
@@ -420,12 +446,11 @@ function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
 
 // Funktion erhält jetzt das ganze Abrechnungs-Objekt
 function displayPauschale(abrechnungsObjekt) {
-    // --- NUR HIER darf bedingungsHtml deklariert werden ---
     const pauschaleDetails = abrechnungsObjekt.details;
     const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || ""; // <<<< Erste und einzige Deklaration
     const bedingungsFehler = abrechnungsObjekt.bedingungs_fehler || [];
     const conditions_met = abrechnungsObjekt.conditions_met === true;
-    // -----------------------------------------------------
+    const conditions_met_structured = abrechnungsObjekt.conditions_met === true; // Das Ergebnis der UND/ODER Logik
 
     // Schlüssel für Pauschalen-Details
     const PAUSCHALE_KEY = 'Pauschale';
@@ -461,9 +486,19 @@ function displayPauschale(abrechnungsObjekt) {
 
     // 2. Details zur Bedingungsprüfung hinzufügen (verwende die Variable 'bedingungsHtml')
     if (bedingungsHtml) {
-         const openAttr = !conditions_met ? 'open' : ''; // Öffnen, wenn Bedingungen NICHT erfüllt sind
-         detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>Details Pauschalen-Bedingungsprüfung (${conditions_met ? 'Alle erfüllt' : 'Nicht alle erfüllt'})</summary>${bedingungsHtml}</details>`;
-         // Der separate Fehlerblock wurde entfernt, da die Infos jetzt im bedingungsHtml sind
+        // Öffne Details immer, wenn die strukturierte Logik nicht erfüllt war ODER wenn es Einzelfehler gab
+        const openAttr = !conditions_met_structured || (bedingungsFehler && bedingungsFehler.length > 0) ? 'open' : '';
+        // --- KORRIGIERTER TEXT ---
+        let summary_status_text = "";
+        if (conditions_met_structured) {
+            summary_status_text = "Gesamtlogik erfüllt";
+        } else {
+            // Prüfe, ob LKN-Trigger erfüllt war (optional, braucht Anpassung im Backend)
+            // const trigger_met = abrechnungsObjekt.trigger_lkn_condition_met === true;
+            // summary_status_text = trigger_met ? "Gesamtlogik NICHT erfüllt (aber LKN-Trigger OK)" : "Gesamtlogik NICHT erfüllt";
+            summary_status_text = "Gesamtlogik NICHT erfüllt"; // Einfacher
+        }
+        detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>Details Pauschalen-Bedingungsprüfung (${summary_status_text})</summary>${bedingungsHtml}</details>`;
     }
 
     // 3. Mögliche ICDs hinzufügen
@@ -478,7 +513,8 @@ function displayPauschale(abrechnungsObjekt) {
     }
 
     // Haupt-Details-Block für die Pauschale erstellen
-    let html = `<details open><summary>Details Pauschale: ${pauschaleCode} ${conditions_met ? ' <span style="color:green;">(Bedingungen erfüllt)</span>' : ' <span style="color:red;">(Bedingungen teilweise nicht erfüllt)</span>'}</summary>${detailsContent}</details>`;
+    let summary_main_status = conditions_met_structured ? '<span style="color:green;">(Logik erfüllt)</span>' : '<span style="color:red;">(Logik NICHT erfüllt)</span>';
+    let html = `<details open><summary>Details Pauschale: ${pauschaleCode} ${summary_main_status}</summary>${detailsContent}</details>`;
     return html;
 }
 

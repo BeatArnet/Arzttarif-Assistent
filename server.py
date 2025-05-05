@@ -1,5 +1,4 @@
 # server.py - Zweistufiger LLM-Ansatz mit Backend-Regelprüfung (Erweitert)
-
 import os
 import re
 import json
@@ -10,6 +9,8 @@ from pathlib import Path
 from flask import Flask, jsonify, send_from_directory, request, abort
 import requests
 from dotenv import load_dotenv
+import regelpruefer
+import regelpruefer_pauschale
 
 # Importiere Regelprüfer-Module und setze Fallbacks
 try:
@@ -100,7 +101,7 @@ def load_data():
                     data = json.load(f)
                     if not isinstance(data, list):
                          print(f"WARNUNG: {name}-Daten in '{path}' sind keine Liste, überspringe.")
-                         continue # Überspringe, wenn es keine Liste ist
+                         continue
 
                     # Fülle das Dictionary, falls gewünscht
                     if target_dict is not None and key_field is not None:
@@ -115,7 +116,22 @@ def load_data():
                               else:
                                    print(f"WARNUNG: Ungültiger Eintrag (kein Dict) in {name}: {str(item)[:100]}...")
                          print(f"✓ {name}-Daten '{path}' geladen ({len(target_dict)} Einträge im Dict).")
-
+                         # if name == "Leistungskatalog":
+                            # print("--- DEBUG: Prüfung leistungskatalog_dict ---")
+                            # test_key_wrong = 'C08.AH.0010'
+                            # test_key_correct = 'C03.AH.0010'
+                            # if test_key_wrong in target_dict:
+                            #     print(f"FEHLER ALARM: Unerwarteter Schlüssel '{test_key_wrong}' in leistungskatalog_dict gefunden!")
+                            #     print(f"   -> Wert: {target_dict[test_key_wrong]}")
+                            # else:
+                            #     print(f"INFO: Korrekt - Schlüssel '{test_key_wrong}' NICHT in leistungskatalog_dict gefunden.")
+                            #
+                            # if test_key_correct in target_dict:
+                            #     print(f"INFO: Korrekt - Schlüssel '{test_key_correct}' in leistungskatalog_dict gefunden.")
+                            #     print(f"   -> Wert: {target_dict[test_key_correct]}")
+                            # else:
+                            #     print(f"FEHLER ALARM: Erwarteter Schlüssel '{test_key_correct}' NICHT in leistungskatalog_dict gefunden!")
+                            # print("--- ENDE DEBUG: Prüfung leistungskatalog_dict ---")
                     # Fülle die Liste, falls gewünscht
                     if target_list is not None:
                          target_list.extend(data)
@@ -123,18 +139,43 @@ def load_data():
                          if target_dict is None:
                               print(f"✓ {name}-Daten '{path}' geladen ({len(target_list)} Einträge in Liste).")
 
-                    # NEU: Fülle tabellen_dict_by_table
+                    # Fülle tabellen_dict_by_table
                     if name == "Tabellen":
-                        TAB_KEY = "Tabelle" # Schlüssel für den Tabellennamen
-                        for item in data:
+                        TAB_KEY = "Tabelle" # <<< PRÜFEN: Ist dieser Schlüssel korrekt?
+                        print(f"DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
+                        tabellen_dict_by_table.clear()
+                        items_processed = 0
+                        keys_created = set()
+                        for item_index, item in enumerate(data):
+                            items_processed += 1
                             if isinstance(item, dict):
                                 table_name = item.get(TAB_KEY)
                                 if table_name:
-                                    if table_name not in tabellen_dict_by_table:
-                                        tabellen_dict_by_table[table_name] = []
-                                    tabellen_dict_by_table[table_name].append(item)
-                        print(f"✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen).")
+                                    normalized_key = str(table_name).lower()
+                                    if normalized_key not in tabellen_dict_by_table:
+                                        tabellen_dict_by_table[normalized_key] = []
+                                        keys_created.add(normalized_key)
+                                        # Logge nur, wenn ein *neuer* Key erstellt wird
+                                        # print(f"DEBUG (load_data): Neuer Key erstellt: '{normalized_key}' (Original: '{table_name}')")
+                                    tabellen_dict_by_table[normalized_key].append(item)
+                                else:
+                                    # Logge Items ohne den erwarteten Schlüssel
+                                    print(f"WARNUNG (load_data): Eintrag {item_index} in '{name}' fehlt Schlüssel '{TAB_KEY}'. Item: {str(item)[:100]}...")
+                            else:
+                                # Logge ungültige Items
+                                print(f"WARNUNG (load_data): Eintrag {item_index} in '{name}' ist kein Dictionary. Item: {str(item)[:100]}...")
 
+                        print(f"DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
+                        print(f"✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen, {len(keys_created)} neue Schlüssel erstellt).")
+                        # Prüfe spezifische Schlüssel nach der Gruppierung
+                        missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz']
+                        found_keys_check = {k for k in missing_keys_check if k in tabellen_dict_by_table}
+                        not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
+                        print(f"DEBUG (load_data): Prüfung spezifischer Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
+                        if not_found_keys_check:
+                             print(f"FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table!")
+                             # Optional: Zeige einige der tatsächlich vorhandenen Schlüssel zum Vergleich
+                             print(f"DEBUG: Vorhandene Schlüssel (Auszug): {list(tabellen_dict_by_table.keys())[:50]}")              
             else:
                 print(f"FEHLER: {name}-Datei nicht gefunden: {path}")
                 if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False # Kritische Daten fehlen
@@ -161,55 +202,55 @@ def load_data():
     print("--- Daten laden abgeschlossen ---")
     if not all_loaded: print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
 
-
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
-    # ... (call_gemini_stage1 Funktion bleibt unverändert wie im letzten Schritt) ...
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
-    # *** PROMPT STUFE 1 ***
-    prompt = f"""Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz SEHR GENAU.
-    Deine Aufgabe ist es, ALLE relevanten Leistungs-Katalog-Nummern (LKN) zu identifizieren, deren korrekte Menge zu bestimmen und zusätzliche Informationen zu extrahieren.
-    NUTZE ausschliesslich DIE FOLGENDE LISTE ALS DEINE PRIMÄRE REFERENZ für verfügbare LKNs, ihre Typen und Bedeutungen. Ignoriere jegliches anderes Wissen über LKNs:
-    --- Leistungskatalog Start ---
-    {katalog_context}
-    --- Leistungskatalog Ende ---
+    prompt = f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine einzige Aufgabe ist die Identifikation relevanter Leistungs-Katalog-Nummern (LKN), deren Menge und die Extraktion spezifischer Kontextinformationen basierend **ausschließlich** auf dem bereitgestellten Leistungskatalog.
 
-Führe folgende Schritte durch:
-1. Identifiziere ALLE relevanten LKN-Codes (Format: XX.##.####) aus der obigen Liste, 
-    die die beschriebene(n) Tätigkeit(en) am besten repräsentieren. 
-    Achte auf Schlüsselwörter wie "Hausarzt"/"hausärztlich" für CA.-Codes. 
-    Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert (z.B. Konsultation), 
-    gib BEIDE LKNs an (z.B. CA.00.0010 und CA.00.0020). 
-    Gib niemals 'unknown' oder null als LKN zurück. Nur die LKNs aus der Liste verwenden!
-2. Gib für jede identifizierte LKN den zugehörigen Typ und die Beschreibung aus dem Katalog an.
-3. Extrahiere explizit genannte Zeitdauern (nur Zahl in Minuten), allgemeine Mengenangaben (z.B. "3 mal", "2 Stück" -> nur Zahl), Alter (nur Zahl) und Geschlecht ('weiblich', 'männlich', 'divers', 'unbekannt') aus dem "Behandlungstext". Gib null an, wenn nichts gefunden wird.
-4. **Bestimme die abzurechnende Menge für JEDE identifizierte LKN und schreibe sie als ZAHL in das 'menge'-Feld:**
-    - Standardmenge ist 1.
-    - **Konsultationsdauer:** WENN eine LKN "pro 5 Min." oder "pro 1 Min." im Katalog hat UND eine Dauer im Text genannt wird (siehe Schritt 3), DANN setze die 'menge' auf die extrahierte Dauer in Minuten (z.B. `menge: 17` für 17 Minuten).
-    - **Konsultationszuschlag:** WENN es sich um eine Zuschlagsleistung für Konsultationen handelt (z.B. CA.00.0020 "weitere 5 Min.") UND eine Gesamtdauer extrahiert wurde, DANN berechne die Menge als (Gesamtdauer - Basisdauer [meist 5 Min, siehe Basis-LKN Beschreibung]) / Zuschlagsintervall [meist 5 Min]. Beispiel: Konsultation 17 Min. -> Basis CA.00.0010 (Menge 1) + Zuschlag CA.00.0020 (Menge = (17-5)/5 = 2.4 -> aufrunden auf 3?). *Korrektur: Oft wird die Dauer direkt verwendet. Prüfe die LKN-Beschreibung im Katalog genau!* Wenn CA.00.0020 "pro 5 Min." ist, und die Dauer 17 Min ist, braucht es CA.00.0010 (Menge 1) und CA.00.0020 (Menge 12 -> 17-5=12). *Nochmal Korrektur*: CA.00.0010 (erste 5 Min, Menge 1), CA.00.0020 (pro WEITERE 5 Min). Für 17 Min: 1x CA.00.0010 + 2x CA.00.0020 (für Min 6-10 und 11-15). Min 16&17 werden nicht voll. *FINALE Logik*: Wenn LKN X 'pro 5 min' ist und Dauer Y genannt wird, Menge = Y. Wenn LKN Z 'weitere 5 min' ZUSCHLAG zu LKN B (erste 5 min) ist, und Dauer Y=17, dann LKN B Menge 1, LKN Z Menge = (17 - 5) = 12. ***Vereinfachung***: Wenn die LKN Beschreibung "pro X Min" enthält und eine Dauer Y genannt wird, setze Menge=Y. Die Regelprüfung im Backend korrigiert das ggf.
-    - **Allgemeine Menge:** WENN eine allgemeine Menge extrahiert wurde und sich klar auf eine LKN bezieht (die NICHT pro Minute abgerechnet wird), setze die 'menge' für DIESE LKN auf den Wert aus Schritt 3.
-5. Stelle sicher, dass JEDE LKN in der `identified_leistungen`-Liste eine numerische `menge` hat (mindestens 1).
+**Kontext: Leistungskatalog (Dies ist die EINZIGE Quelle für gültige LKNs und deren Beschreibungen! Ignoriere jegliches anderes Wissen.)**
+--- Leistungskatalog Start ---
+{katalog_context}
+--- Leistungskatalog Ende ---
 
-Gib das Ergebnis NUR als JSON-Objekt im folgenden Format zurück. KEINEN anderen Text oder Erklärungen hinzufügen.
+**Anweisungen:** Führe die folgenden Schritte exakt aus:
 
+1.  **LKN Identifikation & STRIKTE Validierung:**
+    *   Lies den "Behandlungstext" sorgfältig.
+    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
+    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Achte besonders auf die ersten Zeichen (z.B. 'C03.' vs. 'C08.').
+    *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben.
+    *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen, auch wenn sie ähnlich klingen oder thematisch passen könnten. Erfinde keine LKNs.
+    *   Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert, stelle sicher, dass **beide** LKNs (Basis + Zuschlag) identifiziert und **validiert** werden.
+
+2.  **Typ & Beschreibung hinzufügen:**
+    *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext** hinzu.
+
+3.  **Kontextinformationen extrahieren:**
+    *   Extrahiere **nur explizit genannte** Werte aus dem "Behandlungstext": `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
+
+4.  **Menge bestimmen (pro validierter LKN):**
+    *   Standardmenge ist `1`.
+    *   **Zeitbasiert:** Wenn Katalog-Beschreibung "pro X Min" enthält UND `dauer_minuten` (Y) extrahiert wurde, setze `menge` = Y.
+    *   **Allgemein:** Wenn `menge_allgemein` (Z) extrahiert wurde UND LKN nicht zeitbasiert ist, setze `menge` = Z.
+    *   Sicherstellen: `menge` >= 1.
+
+5.  **Begründung:**
+    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden. Beziehe dich auf Text und **Katalog-Beschreibungen**. Verwende "Die LKN [Code]...".
+
+**Output-Format:** **NUR** valides JSON, **KEIN** anderer Text.
+```json
 {{
   "identified_leistungen": [
     {{
-      "lkn": "IDENTIFIZIERTE_LKN_1",
+      "lkn": "VALIDIERTE_LKN_1",
       "typ": "TYP_AUS_KATALOG_1",
       "beschreibung": "BESCHREIBUNG_AUS_KATALOG_1",
-      "menge": MENGE_ZAHL_LKN_1 // Immer eine Zahl, mind. 1
-    }},
-    // ... weitere LKNs
+      "menge": MENGE_ZAHL_LKN_1
+    }}
+    // ... ggf. weitere validierte LKNs
   ],
-  "extracted_info": {{
-    "dauer_minuten": DAUER_IN_MINUTEN_ODER_NULL,
-    "menge_allgemein": ALLGEMEINE_MENGE_ODER_NULL,
-    "alter": ALTER_ODER_NULL,
-    "geschlecht": "GESCHLECHT_STRING_ODER_NULL"
-  }},
-  "begruendung_llm": "<Kurze Begründung, warum diese spezifische(n) LKN(s) mit diesen Mengen gewählt wurden, 
-  basierend auf dem Text und dem Katalog. Verwende 'die LKN' für nachfolgende Nennungen.>"
+  "extracted_info": {{ ... }},
+  "begruendung_llm": "<Begründung>"
 }}
 
 Wenn absolut keine passende LKN aus dem Katalog gefunden wird, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
@@ -223,90 +264,76 @@ JSON-Antwort:"""
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "response_mime_type": "application/json",
-            "temperature": 0.1, # Sehr niedrig für Konsistenz
-            "maxOutputTokens": 2048 # Erhöht, falls der Katalog lang ist
-         }
+            "temperature": 0.05, # Noch weiter reduziert für mehr Konsistenz
+            "maxOutputTokens": 2048
+        }
     }
-    print(f"Sende Anfrage Stufe 1 an Gemini Model: {GEMINI_MODEL}...")
+    print(f"Sende Anfrage Stufe 1 (gehärtet) an Gemini Model: {GEMINI_MODEL}...")
     try:
-        response = requests.post(gemini_url, json=payload, timeout=90) # Längeres Timeout
+        response = requests.post(gemini_url, json=payload, timeout=90)
         print(f"Gemini Stufe 1 Antwort Status Code: {response.status_code}")
-        response.raise_for_status() # Wirft HTTPError bei 4xx/5xx
-
+        response.raise_for_status()
         gemini_data = response.json()
-        # Tiefere Prüfung der Antwortstruktur
+        # ... (Rest der Parsing- und Validierungslogik wie im letzten funktionierenden Stand) ...
+        # Stelle sicher, dass die Validierung im Python-Code nach wie vor prüft,
+        # ob die zurückgegebenen LKNs im leistungskatalog_dict existieren!
+        # ...
         if not gemini_data.get('candidates'):
-             # Versuche, Safety Ratings oder Blockierungsgründe zu loggen
-             finish_reason = gemini_data.get('promptFeedback', {}).get('blockReason')
-             safety_ratings = gemini_data.get('promptFeedback', {}).get('safetyRatings')
-             error_details = f"Keine Kandidaten gefunden. Finish Reason: {finish_reason}, Safety Ratings: {safety_ratings}"
-             print(f"WARNUNG: {error_details}")
-             # Versuche, den Rohtext zu parsen, falls doch vorhanden
-             try: raw_text_response = gemini_data['text'] # Manchmal ist es direkt da?
-             except KeyError: raise ValueError(error_details)
+            finish_reason = gemini_data.get('promptFeedback', {}).get('blockReason')
+            safety_ratings = gemini_data.get('promptFeedback', {}).get('safetyRatings')
+            error_details = f"Keine Kandidaten gefunden. Finish Reason: {finish_reason}, Safety Ratings: {safety_ratings}"
+            print(f"WARNUNG: {error_details}")
+            try: raw_text_response = gemini_data['text']
+            except KeyError: raise ValueError(error_details)
         else:
             candidate = gemini_data['candidates'][0]
             content = candidate.get('content', {})
             parts = content.get('parts', [{}])[0]
             raw_text_response = parts.get('text', '')
 
-        print(f"DEBUG: Roher Text von LLM Stufe 1 (gekürzt):\n---\n{raw_text_response[:500]}...\n---")
+        print(f"DEBUG: Roher Text von LLM Stufe 1 (gehärtet, gekürzt):\n---\n{raw_text_response[:500]}...\n---")
 
         if not raw_text_response:
-             finish_reason = candidate.get('finishReason', 'UNKNOWN')
-             safety_ratings = candidate.get('safetyRatings')
-             if finish_reason != 'STOP': raise ValueError(f"Gemini stopped with reason: {finish_reason}, Safety: {safety_ratings}")
-             else: raise ValueError("Leere Textantwort von Gemini erhalten trotz Status OK.")
+            finish_reason = candidate.get('finishReason', 'UNKNOWN'); safety_ratings = candidate.get('safetyRatings')
+            if finish_reason != 'STOP': raise ValueError(f"Gemini stopped with reason: {finish_reason}, Safety: {safety_ratings}")
+            else: raise ValueError("Leere Textantwort von Gemini erhalten trotz Status OK.")
 
-        # Vorsichtiges Parsen
         try:
-             llm_response_json = json.loads(raw_text_response)
+            llm_response_json = json.loads(raw_text_response)
         except json.JSONDecodeError as json_err:
-             # Versuch, Markdown ```json ... ``` zu extrahieren
-             match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
-             if match:
-                 try:
-                     llm_response_json = json.loads(match.group(1))
-                     print("INFO: JSON aus Markdown extrahiert.")
-                 except json.JSONDecodeError:
-                     raise ValueError(f"JSONDecodeError auch nach Markdown-Extraktion: {json_err}. Rohtext: {raw_text_response[:500]}...")
-             else:
-                 raise ValueError(f"JSONDecodeError: {json_err}. Rohtext: {raw_text_response[:500]}...")
+            match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
+            if match:
+                try: llm_response_json = json.loads(match.group(1)); print("INFO: JSON aus Markdown extrahiert.")
+                except json.JSONDecodeError: raise ValueError(f"JSONDecodeError auch nach Markdown-Extraktion: {json_err}. Rohtext: {raw_text_response[:500]}...")
+            else: raise ValueError(f"JSONDecodeError: {json_err}. Rohtext: {raw_text_response[:500]}...")
 
         print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
 
-        # Strikte Validierung der Struktur und Typen
+        # Strikte Validierung (wie vorher)
+        # ... (Code für Validierung der Struktur und Typen) ...
         if not isinstance(llm_response_json, dict): raise ValueError("Antwort ist kein JSON-Objekt.")
-        if not all(k in llm_response_json for k in ["identified_leistungen", "extracted_info", "begruendung_llm"]): raise ValueError("Hauptschlüssel fehlen (identified_leistungen, extracted_info, begruendung_llm).")
+        if not all(k in llm_response_json for k in ["identified_leistungen", "extracted_info", "begruendung_llm"]): raise ValueError("Hauptschlüssel fehlen.")
         if not isinstance(llm_response_json["identified_leistungen"], list): raise ValueError("'identified_leistungen' ist keine Liste.")
-        if not isinstance(llm_response_json["extracted_info"], dict): raise ValueError("'extracted_info' ist kein Dict.")
-        expected_extracted = ["dauer_minuten", "menge_allgemein", "alter", "geschlecht"]
-        if not all(k in llm_response_json["extracted_info"] for k in expected_extracted): raise ValueError(f"Schlüssel in 'extracted_info' fehlen (erwartet: {expected_extracted}).")
-        # Typen in extracted_info prüfen
+        if not isinstance(llm_response_json["extracted_info"], dict): raise ValueError("'extracted_info' kein Dict.")
+        expected_extracted = ["dauer_minuten", "menge_allgemein", "alter", "geschlecht"];
+        if not all(k in llm_response_json["extracted_info"] for k in expected_extracted): raise ValueError(f"Schlüssel in 'extracted_info' fehlen.")
         for key, expected_type in [("dauer_minuten", (int, type(None))), ("menge_allgemein", (int, type(None))), ("alter", (int, type(None))), ("geschlecht", (str, type(None)))]:
-             if not isinstance(llm_response_json["extracted_info"].get(key), expected_type):
-                  # Toleranter bei Geschlecht, falls es mal fehlt
-                  if key == "geschlecht" and llm_response_json["extracted_info"].get(key) is None: continue
-                  raise ValueError(f"Typfehler in 'extracted_info': '{key}' sollte {expected_type} sein, ist {type(llm_response_json['extracted_info'].get(key))}.")
-
-        expected_leistung_keys = ["lkn", "typ", "beschreibung", "menge"]
+            if not isinstance(llm_response_json["extracted_info"].get(key), expected_type):
+                if key == "geschlecht" and llm_response_json["extracted_info"].get(key) is None: continue
+                raise ValueError(f"Typfehler in 'extracted_info': '{key}'")
+        expected_leistung = ["lkn", "typ", "beschreibung", "menge"]
         for i, item in enumerate(llm_response_json["identified_leistungen"]):
-             if not isinstance(item, dict): raise ValueError(f"Element {i} in 'identified_leistungen' ist kein Dict.")
-             if not all(k in item for k in expected_leistung_keys): raise ValueError(f"Schlüssel in Element {i} fehlen (erwartet: {expected_leistung_keys}).")
-             # Menge MUSS eine Zahl sein (oder null/None, wird dann zu 1)
-             menge_val = item.get("menge")
-             if menge_val is None:
-                 item["menge"] = 1 # Setze Default 1 wenn null/None
-             elif not isinstance(menge_val, int):
-                 try: item["menge"] = int(menge_val); print(f"WARNUNG: Menge in Element {i} war {type(menge_val)}, wurde zu int konvertiert.")
-                 except (ValueError, TypeError): raise ValueError(f"Menge '{menge_val}' in Element {i} ist keine gültige Zahl.")
-             if item["menge"] < 0: raise ValueError(f"Menge in Element {i} ist negativ.")
-             # LKN muss ein String sein
-             if not isinstance(item.get("lkn"), str) or not item.get("lkn"): raise ValueError(f"LKN in Element {i} ist kein gültiger String.")
+            if not isinstance(item, dict): raise ValueError(f"Element {i} keine Dict.")
+            if not all(k in item for k in expected_leistung): raise ValueError(f"Schlüssel in Element {i} fehlen.")
+            menge_val = item.get("menge")
+            if menge_val is None: item["menge"] = 1
+            elif not isinstance(menge_val, int):
+                try: item["menge"] = int(menge_val)
+                except (ValueError, TypeError): raise ValueError(f"Menge '{menge_val}' in Element {i} keine Zahl.")
+            if item["menge"] < 0: raise ValueError(f"Menge in Element {i} negativ.")
+            if not isinstance(item.get("lkn"), str) or not item.get("lkn"): raise ValueError(f"LKN in Element {i} kein String.")
+        if "begruendung_llm" not in llm_response_json or not isinstance(llm_response_json["begruendung_llm"], str): llm_response_json["begruendung_llm"] = "N/A"
 
-        # Begründung sicherstellen
-        if "begruendung_llm" not in llm_response_json or not isinstance(llm_response_json["begruendung_llm"], str):
-             llm_response_json["begruendung_llm"] = "N/A"
 
         print("INFO: LLM Stufe 1 Antwort erfolgreich validiert.")
         return llm_response_json
@@ -316,11 +343,10 @@ JSON-Antwort:"""
         raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 1: {req_err}")
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as proc_err:
         print(f"FEHLER: Fehler beim Verarbeiten der LLM Stufe 1 Antwort: {proc_err}")
-        # Sende den Fehler weiter, damit das Frontend ihn anzeigen kann
         raise ValueError(f"Verarbeitungsfehler LLM Stufe 1: {proc_err}")
     except Exception as e:
         print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 1: {e}")
-        raise e # Unerwartete Fehler weiterleiten
+        raise e
 
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
@@ -370,375 +396,32 @@ Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
          print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2: {e}")
          raise e
 
-
-# --- HILFSFUNKTIONEN (auf Modulebene) ---
-
-def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set:
-    """ Wandelt Bedingungen in eine vereinfachte, vergleichbare Darstellung um (Set von Strings). """
-    simplified_set = set()
-    # Schlüssel für Bedingungen - anpassen falls nötig!
-    PAUSCHALE_KEY_IN_BEDINGUNGEN = 'Pauschale'
-    BED_TYP_KEY = 'Bedingungstyp'
-    BED_WERTE_KEY = 'Werte'
-    BED_FELD_KEY = 'Feld'
-    BED_MIN_KEY = 'MinWert'
-    BED_MAX_KEY = 'MaxWert'
-
-    pauschale_conditions = [cond for cond in bedingungen_data if cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN) == pauschale_code]
-
-    for cond in pauschale_conditions:
-        typ = cond.get(BED_TYP_KEY, "").upper()
-        wert = cond.get(BED_WERTE_KEY, "")
-        feld = cond.get(BED_FELD_KEY, "")
-
-        condition_repr = ""
-        if "IN TABELLE" in typ:
-            condition_repr = f"{typ}:{wert}" # Trenner ':' statt ': ' für einfacheres Splitten
-        elif "IN LISTE" in typ:
-             condition_repr = f"{typ}:{wert}"
-        elif typ == "PATIENTENBEDINGUNG" and feld:
-             if cond.get(BED_MIN_KEY) is not None or cond.get(BED_MAX_KEY) is not None:
-                 bereich_text = f"({cond.get(BED_MIN_KEY, '-')}-{cond.get(BED_MAX_KEY, '-')})"
-                 condition_repr = f"{typ}:{feld} {bereich_text}"
-             else:
-                 condition_repr = f"{typ}:{feld}={wert}"
-        elif typ:
-             condition_repr = f"{typ}:{wert}"
-
-        if condition_repr:
-            simplified_set.add(condition_repr)
-
-    return simplified_set
-
-
 def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict) -> list[dict]:
-    """Holt Einträge für eine Tabelle und einen Typ."""
+    """Holt Einträge für eine Tabelle und einen Typ (Case-Insensitive)."""
     content = []
-    # Schlüssel für tblTabellen - anpassen falls nötig!
-    TAB_CODE_KEY = 'Code'
-    TAB_TEXT_KEY = 'Code_Text'
-    TAB_TYP_KEY = 'Tabelle_Typ'
+    TAB_CODE_KEY = 'Code'; TAB_TEXT_KEY = 'Code_Text'; TAB_TYP_KEY = 'Tabelle_Typ'
 
-    if table_ref in tabellen_dict_by_table:
-        for entry in tabellen_dict_by_table[table_ref]:
-            if entry.get(TAB_TYP_KEY) == table_type:
-                code = entry.get(TAB_CODE_KEY)
-                text = entry.get(TAB_TEXT_KEY)
-                if code:
-                    content.append({"Code": code, "Code_Text": text or "N/A"})
-    return sorted(content, key=lambda x: x.get('Code', ''))
+    table_names = [t.strip() for t in table_ref.split(',') if t.strip()]
+    all_entries_for_type = []
 
+    for name in table_names:
+        normalized_key = name.lower() # Suche immer mit kleinem Schlüssel
+        print(f"DEBUG (get_table_content): Suche normalisierten Schlüssel '{normalized_key}' für Typ '{table_type}'")
 
-def generate_condition_detail_html(cond_repr: str) -> str:
-    """Generiert HTML für eine einzelne Bedingungsrepräsentation mit aufklappbaren Details."""
-    global leistungskatalog_dict, tabellen_dict_by_table # Zugriff auf globale Daten
-
-    condition_html = f"<li>{html.escape(cond_repr)}" # Standardanzeige
-    nested_details_html = ""
-
-    try:
-        parts = cond_repr.split(':', 1)
-        cond_type = parts[0].strip().upper()
-        cond_value = parts[1].strip() if len(parts) > 1 else ""
-
-        # --- Logik für aufklappbare Details ---
-        if cond_type == "LEISTUNGSPOSITIONEN IN LISTE":
-            lkns = [lkn.strip() for lkn in cond_value.split(',') if lkn.strip()]
-            if lkns:
-                nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(lkns)} LKN(s)</summary><ul>"
-                for lkn in lkns:
-                    # Schlüssel für Leistungskatalog anpassen!
-                    desc = leistungskatalog_dict.get(lkn, {}).get('Beschreibung', 'Beschreibung nicht gefunden')
-                    nested_details_html += f"<li><b>{html.escape(lkn)}</b>: {html.escape(desc)}</li>"
-                nested_details_html += "</ul></details>"
-
-        elif cond_type == "LEISTUNGSPOSITIONEN IN TABELLE" or cond_type == "TARIFPOSITIONEN IN TABELLE":
-            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
-            all_content = []
-            for table_name in table_names:
-                table_content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
-                if table_content:
-                    all_content.extend(table_content)
-                else:
-                    print(f"WARNUNG: Tabelle '{table_name}' (LKN) für Vergleich nicht gefunden oder leer.")
-
-            if all_content:
-                 unique_content = {item['Code']: item for item in all_content}.values()
-                 sorted_content = sorted(unique_content, key=lambda x: x['Code'])
-                 table_links = ", ".join([f"'{html.escape(t)}'" for t in table_names])
-                 nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(sorted_content)} LKN(s) aus Tabellen: {table_links}</summary><ul>"
-                 for item in sorted_content:
-                     nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
-                 nested_details_html += "</ul></details>"
-            elif table_names:
-                 nested_details_html = " (Tabellen leer oder nicht gefunden)"
-
-
-        elif cond_type == "HAUPTDIAGNOSE IN TABELLE":
-            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
-            all_content = []
-            for table_name in table_names:
-                table_content = get_table_content(table_name, "icd", tabellen_dict_by_table)
-                if table_content:
-                    all_content.extend(table_content)
-                else:
-                    print(f"WARNUNG: Tabelle '{table_name}' (ICD) für Vergleich nicht gefunden oder leer.")
-
-            if all_content:
-                 unique_content = {item['Code']: item for item in all_content}.values()
-                 sorted_content = sorted(unique_content, key=lambda x: x['Code'])
-                 table_links = ", ".join([f"'{html.escape(t)}'" for t in table_names])
-                 nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(sorted_content)} ICD(s) aus Tabellen: {table_links}</summary><ul>"
-                 for item in sorted_content:
-                     nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
-                 nested_details_html += "</ul></details>"
-            elif table_names:
-                 nested_details_html = " (Tabellen leer oder nicht gefunden)"
-
-        # Füge die verschachtelten Details zum Listeneintrag hinzu
-        condition_html += nested_details_html
-
-    except Exception as e_detail:
-        print(f"FEHLER beim Erstellen der Detailansicht für Bedingung '{cond_repr}': {e_detail}")
-        # Fallback zur einfachen Anzeige
-
-    condition_html += "</li>"
-    return condition_html
-
-
-# --- Ausgelagerte Pauschalen-Ermittlung ---
-def determine_applicable_pauschale(user_input: str, rule_checked_leistungen: list[dict], context: dict) -> dict:
-    """
-    Ermittelt die anwendbarste Pauschale, prüft Bedingungen für alle Kandidaten
-    und wählt die niedrigste gültige aus.
-    Gibt entweder die Pauschale oder einen Error zurück.
-    """
-    print("INFO: Starte überarbeitete Pauschalenermittlung mit Bedingungsprüfung vor Auswahl...")
-
-    # Schlüssel und globale Variablen
-    PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
-    POTENTIAL_ICDS_KEY = 'potential_icds'
-    LKN_KEY_IN_RULE_CHECKED = 'lkn'
-    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
-    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
-    global leistungskatalog_dict, tabellen_dict_by_table, pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict
-
-    # 1. Finde potenzielle Pauschalen (wie vorher)
-    potential_pauschale_codes = set()
-    # ... (Logik zum Finden von potential_pauschale_codes via Methode a, b, c wie vorher) ...
-    rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
-    lkns_in_tables = {}
-    for lkn in rule_checked_lkns:
-        # a) Via tblPauschaleLeistungsposition
-        for item in pauschale_lp_data:
-            if item.get('Leistungsposition') == lkn: # Anpassen!
-                pauschale_code_a = item.get('Pauschale') # Anpassen!
-                if pauschale_code_a and pauschale_code_a in pauschalen_dict:
-                    potential_pauschale_codes.add(pauschale_code_a)
-        # b) Via Bedingungen 'IN LISTE'
-        for cond in pauschale_bedingungen_data:
-            if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN LISTE": # Anpassen!
-                werte_liste = [w.strip() for w in str(cond.get('Werte', "")).split(',') if w.strip()] # Anpassen!
-                if lkn in werte_liste:
-                    pauschale_code_b = cond.get('Pauschale') # Anpassen!
-                    if pauschale_code_b and pauschale_code_b in pauschalen_dict:
-                        potential_pauschale_codes.add(pauschale_code_b)
-        # c) Via Bedingungen 'IN TABELLE'
-        if lkn not in lkns_in_tables:
-             tables_for_lkn = set()
-             for table_name, entries in tabellen_dict_by_table.items():
-                  if table_name in ["nonELT", "nonOR"]: continue
-                  for entry in entries:
-                       if entry.get('Code') == lkn and entry.get('Tabelle_Typ') == "service_catalog": # Anpassen!
-                            tables_for_lkn.add(table_name)
-             lkns_in_tables[lkn] = tables_for_lkn
-        tables_for_current_lkn = lkns_in_tables.get(lkn, set())
-        if tables_for_current_lkn:
-            for cond in pauschale_bedingungen_data:
-                if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN TABELLE": # Anpassen!
-                    table_ref_in_cond = cond.get('Werte') # Anpassen!
-                    if table_ref_in_cond in tables_for_current_lkn:
-                        pauschale_code_c = cond.get('Pauschale') # Anpassen!
-                        if pauschale_code_c and pauschale_code_c in pauschalen_dict:
-                            potential_pauschale_codes.add(pauschale_code_c)
-
-    if not potential_pauschale_codes:
-        print("INFO: Keine potenziellen Pauschalen-Codes für die erbrachten Leistungen gefunden.")
-        return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
-
-    print(f"INFO: Potenzielle Pauschalen-Codes: {potential_pauschale_codes}")
-
-    # 2. Prüfe Bedingungen für ALLE potenziellen Kandidaten
-    candidate_results = []
-    print(f"INFO: Prüfe Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen...")
-    for code in potential_pauschale_codes:
-        if code not in pauschalen_dict: continue # Überspringe, falls nicht in Pauschalen-Liste
-
-        bedingungs_context = {
-             "ICD": context.get("ICD", []), "GTIN": context.get("GTIN", []),
-             "LKN": rule_checked_lkns, # Alle regelkonformen LKNs übergeben
-             "Alter": context.get("Alter"), "Geschlecht": context.get("Geschlecht")
-        }
-        # --- DEBUG LOGGING ---
-        print(f"\n--- DEBUG: Prüfe Bedingungen für Pauschale: {code} ---")
-        print(f"DEBUG: Kontext für Prüfung: {bedingungs_context}")
-        # --- END DEBUG ---
-
-        condition_result = {"allMet": False, "html": "Prüfung fehlgeschlagen", "errors": ["Prüfung fehlgeschlagen"]} # Default
-
-        # Rufe die Bedingungsprüfung auf oder setze Fallback
-        if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
-            try:
-                condition_result = regelpruefer_pauschale.check_pauschale_conditions(
-                    code,
-                    bedingungs_context,
-                    pauschale_bedingungen_data,
-                    tabellen_dict_by_table
-                )
-                # --- DEBUG LOGGING ---
-                print(f"DEBUG: Ergebnis von check_pauschale_conditions für {code}: allMet={condition_result.get('allMet')}, Errors={condition_result.get('errors')}")
-                # --- END DEBUG ---
-            except Exception as e_cond_check:
-                 print(f"FEHLER bei check_pauschale_conditions für {code}: {e_cond_check}")
-                 condition_result["html"] = f"<p class='error'>Fehler bei Bedingungsprüfung für {code}: {e_cond_check}</p>"
-                 condition_result["errors"] = [f"Fehler bei Bedingungsprüfung: {e_cond_check}"]
-                 condition_result["allMet"] = False # Bei Fehler gilt es als nicht erfüllt
+        if normalized_key in tabellen_dict_by_table:
+            # print(f"DEBUG (get_table_content): Schlüssel '{normalized_key}' gefunden. Prüfe {len(tabellen_dict_by_table[normalized_key])} Einträge.")
+            found_count = 0
+            for entry in tabellen_dict_by_table[normalized_key]: # Greife direkt auf die Liste zu
+                entry_typ = entry.get(TAB_TYP_KEY)
+                if entry_typ and entry_typ.lower() == table_type.lower():
+                    code = entry.get(TAB_CODE_KEY); text = entry.get(TAB_TEXT_KEY)
+                    if code: all_entries_for_type.append({"Code": code, "Code_Text": text or "N/A"}); found_count +=1
+            # print(f"DEBUG (get_table_content): {found_count} Einträge vom Typ '{table_type}' für Tabelle '{name}' gefunden.")
         else:
-            print(f"WARNUNG: Bedingungsprüfung für {code} übersprungen (Modul fehlt).")
-            condition_result = {"allMet": False, "html": "Bedingungsprüfung nicht verfügbar", "errors": ["Bedingungsprüfung nicht verfügbar"]}
+             print(f"WARNUNG (get_table_content): Normalisierter Schlüssel '{normalized_key}' (Original: '{name}') nicht in tabellen_dict_by_table gefunden.")
 
-        # Füge das Ergebnis für diesen Kandidaten zur Liste hinzu
-        # Dieser Block ist INNERHALB der for-Schleife
-        candidate_results.append({
-            "code": code,
-            "details": pauschalen_dict[code], # Hole Details aus dem globalen Dict
-            "conditions_met": condition_result.get("allMet", False),
-            "trigger_lkn_condition_met": condition_result.get("trigger_lkn_condition_met", False),
-            "bedingungs_pruef_html": condition_result.get("html", ""),
-            "bedingungs_fehler": condition_result.get("errors", [])
-        })
-    # print(f"DEBUG: Bedingungsprüfung für {code}: Erfüllt = {condition_result.get('allMet')}")
-
-    # 3. Filtere gültige Kandidaten (Bedingungen erfüllt)
-    lkn_triggered_candidates = [cand for cand in candidate_results if cand["trigger_lkn_condition_met"]]
-    print(f"DEBUG: Kandidaten, deren LKN-Bedingung erfüllt ist: {[c['code'] for c in lkn_triggered_candidates]}")
-
-    # 4. Wähle die beste Pauschale aus den LKN-GETRIGGERTEN Kandidaten
-    selected_candidate = None
-    if lkn_triggered_candidates:
-        # --- KORREKTUR: Sortiere AUFSTEIGEND (A vor B vor D) ---
-        lkn_triggered_candidates.sort(key=lambda x: x['code'], reverse=False) # reverse=False (oder weglassen)
-        selected_candidate = lkn_triggered_candidates[0] # Nimm die erste (spezifischste)
-        print(f"INFO: Spezifischste Pauschale ausgewählt, deren LKN-Bedingung erfüllt ist: {selected_candidate['code']}")
-        # --- ENDE KORREKTUR ---
-    else:
-        # Fallback: Keine Pauschale wurde durch die LKNs getriggert
-        print("INFO: Keine Pauschale gefunden, deren LKN-Bedingung erfüllt ist.")
-        return {"type": "Error", "message": "Keine Pauschale gefunden, deren LKN-Bedingung erfüllt ist."}
-
-    # --- Ab hier verwenden wir selected_candidate ---
-    best_ranked_code = selected_candidate["code"]
-    best_pauschale_details = selected_candidate["details"].copy()
-    bedingungs_pruef_html_result = selected_candidate["bedingungs_pruef_html"]
-    condition_errors = selected_candidate["bedingungs_fehler"]
-    conditions_met = selected_candidate["conditions_met"]
-    print(f"INFO: Ausgewählte Pauschale {best_ranked_code} - Alle Bedingungen erfüllt: {conditions_met}")
-
-    # 5. Pauschalen-Begründung erstellen (jetzt basierend auf der Auswahl)
-    rule_checked_lkns_str_list = [str(lkn) for lkn in rule_checked_lkns if lkn]
-    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden basierend auf den regelkonformen Leistungen ({}) in Betracht gezogen:</p><ul>".format(", ".join(rule_checked_lkns_str_list) or "keine")
-    for cand in sorted(candidate_results, key=lambda x: x['code']): # Sortiert A->E für die Anzeige
-         lkn_status_color = "green" if cand["trigger_lkn_condition_met"] else "grey"
-         lkn_status_text = "Ja" if cand["trigger_lkn_condition_met"] else "Nein"
-         all_status_color = "green" if cand["conditions_met"] else "red"
-         all_status_text = "Alle erfüllt" if cand["conditions_met"] else "Nicht alle erfüllt"
-         pauschale_text = cand["details"].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
-         pauschale_erklaerung_html += f"<li><b>{cand['code']}</b>: {pauschale_text} (LKN-Bedingung: <span style='color:{lkn_status_color};'>{lkn_status_text}</span>, Gesamt: <span style='color:{all_status_color};'>{all_status_text}</span>)</li>"
-    pauschale_erklaerung_html += "</ul>"
-    
-    # --- Vergleich mit anderen Pauschalen im Kapitel (nur mit denen, die *nicht* ausgewählt wurden) ---
-    match = re.match(r"([A-Z0-9.]+)[A-Z]$", best_ranked_code)
-    pauschalen_gruppe = match.group(1) if match else None
-
-    if pauschalen_gruppe:
-        # Vergleiche nur mit den *anderen* ursprünglichen Kandidaten derselben Gruppe
-        other_candidates_in_group = [
-            cand for cand in candidate_results
-            if cand['code'].startswith(pauschalen_gruppe) and cand['code'] != best_ranked_code
-        ]
-
-        if other_candidates_in_group:
-            pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen geprüften Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe)
-            selected_conditions_repr = get_simplified_conditions(best_ranked_code, pauschale_bedingungen_data)
-
-            for other_cand in sorted(other_candidates_in_group, key=lambda x: x['code']): # Sortiert A->E
-                other_code = other_cand['code']
-                other_text = other_cand['details'].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
-                other_conditions_met = other_cand['conditions_met']
-
-                pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary><b>{other_code}</b> ({other_text}) - Bedingungen: <span style='color:{'red' if not other_conditions_met else 'grey'};'>{'Nicht erfüllt' if not other_conditions_met else 'Erfüllt (aber höherrangig)'}</span></summary>"
-
-                # Zeige Unterschiede nur, wenn sinnvoll (z.B. wenn andere nicht erfüllt war oder höherrangig)
-                other_conditions_repr = get_simplified_conditions(other_code, pauschale_bedingungen_data)
-                additional_conditions = other_conditions_repr - selected_conditions_repr # Was hat die andere mehr/anders?
-                missing_conditions = selected_conditions_repr - other_conditions_repr # Was hat die ausgewählte mehr/anders?
-
-                if additional_conditions:
-                    pauschale_erklaerung_html += "<p>Zusätzliche/Andere Anforderungen für {}:</p><ul>".format(other_code)
-                    for cond_repr in sorted(list(additional_conditions)):
-                        condition_html = generate_condition_detail_html(cond_repr)
-                        pauschale_erklaerung_html += condition_html
-                    pauschale_erklaerung_html += "</ul>"
-
-                if missing_conditions:
-                     pauschale_erklaerung_html += "<p>Folgende Anforderungen von {} fehlen bei {}:</p><ul>".format(best_ranked_code, other_code)
-                     for cond_repr in sorted(list(missing_conditions)):
-                         condition_html = generate_condition_detail_html(cond_repr)
-                         pauschale_erklaerung_html += condition_html
-                     pauschale_erklaerung_html += "</ul>"
-
-                if not additional_conditions and not missing_conditions:
-                     pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden (basierend auf vereinfachter Prüfung).</i></p>"
-
-                # Zeige ggf. die nicht erfüllten Bedingungen der anderen Pauschale
-                if not other_conditions_met and other_cand['bedingungs_fehler']:
-                     pauschale_erklaerung_html += "<p style='color:red;'>Nicht erfüllte Bedingungen für {}:</p><ul>".format(other_code)
-                     for fehler in other_cand['bedingungs_fehler']:
-                          pauschale_erklaerung_html += f"<li style='color:red;'>{html.escape(fehler)}</li>"
-                     pauschale_erklaerung_html += "</ul>"
-
-                pauschale_erklaerung_html += "</details>" # Schließe Details für other_cand
-
-    best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
-    # --- ENDE Vergleich ---
-
-    # 6. Potenzielle ICDs ermitteln (für die ausgewählte Pauschale)
-    potential_icds = []
-    # ... (Logik zur ICD-Ermittlung wie vorher) ...
-    pauschale_conditions_selected = [cond for cond in pauschale_bedingungen_data if cond.get('Pauschale') == best_ranked_code] # Anpassen!
-    for cond in pauschale_conditions_selected:
-        if cond.get('Bedingungstyp') == "HAUPTDIAGNOSE IN TABELLE": # Anpassen!
-            tabelle_ref = cond.get('Werte') # Anpassen!
-            if tabelle_ref and tabelle_ref in tabellen_dict_by_table:
-                icd_entries = [ entry for entry in tabellen_dict_by_table[tabelle_ref] if entry.get('Tabelle_Typ') == "icd" ] # Anpassen!
-                for entry in icd_entries:
-                    code = entry.get('Code'); text = entry.get('Code_Text') # Anpassen!
-                    if code: potential_icds.append({"Code": code, "Code_Text": text or "N/A"})
-            elif tabelle_ref: print(f"WARNUNG: Tabelle '{tabelle_ref}' für ICD-Bedingung nicht in gruppierten Tabellendaten gefunden.")
-    unique_icds_dict = {icd['Code']: icd for icd in potential_icds if icd.get('Code')}
-    sorted_unique_icds = sorted(unique_icds_dict.values(), key=lambda x: x['Code'])
-    best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted_unique_icds
-
-
-    # 7. Finale Pauschalen-Antwort erstellen
-    final_result = {
-        "type": "Pauschale",
-        "details": best_pauschale_details, # Enthält jetzt Erklärung und ICDs
-        "bedingungs_pruef_html": bedingungs_pruef_html_result, # HTML der Prüfung für die *ausgewählte*
-        "bedingungs_fehler": condition_errors, # Fehler der *ausgewählten*
-        "conditions_met": conditions_met # Status der *ausgewählten* (sollte True sein)
-    }
-    return final_result
+    unique_content = {item['Code']: item for item in all_entries_for_type}.values()
+    return sorted(unique_content, key=lambda x: x.get('Code', ''))
 
 # --- Ausgelagerte TARDOC-Vorbereitung ---
 def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
@@ -773,17 +456,19 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
         print(f"INFO: {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
         return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
 
-
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
-    # ... (analyze_billing Funktion bleibt unverändert wie im letzten Schritt) ...
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time() # Zeitmessung starten
 
     # 1. Eingaben holen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
-    data = request.get_json(); user_input = data.get('inputText'); icd_input = data.get('icd', []); gtin_input = data.get('gtin', [])
+    data = request.get_json(); 
+    user_input = data.get('inputText'); 
+    icd_input = data.get('icd', []); 
+    gtin_input = data.get('gtin', [])
+    use_icd_flag = data.get('useIcd', True) # Default True
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
     print(f"Empfangener inputText: '{user_input[:100]}...'")
     print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}")
@@ -803,6 +488,23 @@ def analyze_billing():
             if item.get('LKN') # Nur wenn LKN existiert
         ])
         if not katalog_context: raise ValueError("Leistungskatalog für LLM-Kontext ist leer.")
+
+        # print("--- DEBUG: Prüfung katalog_context ---")
+        # test_key_wrong = 'C08.AH.0010'
+        # test_key_correct = 'C03.AH.0010'
+        # if test_key_wrong in katalog_context:
+        #      print(f"FEHLER ALARM: Unerwarteter LKN '{test_key_wrong}' im katalog_context gefunden!")
+        #       # Finde die Zeile(n)
+        #       lines_with_wrong_key = [line for line in katalog_context.splitlines() if test_key_wrong in line]
+        #       print(f"   -> Zeilen: {lines_with_wrong_key}")
+        #  else:
+        #       print(f"INFO: Korrekt - LKN '{test_key_wrong}' NICHT im katalog_context gefunden.")
+        #
+        #  if test_key_correct in katalog_context:
+        #       print(f"INFO: Korrekt - LKN '{test_key_correct}' im katalog_context gefunden.")
+        #  else:
+        #       print(f"FEHLER ALARM: Erwarteter LKN '{test_key_correct}' NICHT im katalog_context gefunden!")
+        #  print("--- ENDE DEBUG: Prüfung katalog_context ---")
 
         llm_stage1_result = call_gemini_stage1(user_input, katalog_context)
 
@@ -948,21 +650,31 @@ def analyze_billing():
 
     # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (NEUE LOGIK)
     final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
-    pauschale_context = { # Kontext für Pauschalen-Prüfung vorbereiten
+    pauschale_context = {
         "ICD": icd_input, "GTIN": gtin_input,
-        "Alter": alter_llm, "Geschlecht": geschlecht_llm
+        "Alter": alter_llm, "Geschlecht": geschlecht_llm,
+        "useIcd": use_icd_flag # Flag weitergeben
     }
 
     if not rule_checked_leistungen:
          print("WARNUNG: Keine regelkonformen Leistungen nach Regelprüfung übrig.")
-         # Direkt zur TARDOC-Prüfung (die dann wahrscheinlich auch leer sein wird)
-         final_result = prepare_tardoc_abrechnung(regel_ergebnisse_liste)
+         # Rufe TARDOC-Vorbereitung direkt auf
+         final_result = regelpruefer.prepare_tardoc_abrechnung(
+             regel_ergebnisse_liste,
+             leistungskatalog_dict # Übergebe das Katalog-Dict
+         )
     else:
         try:
-            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} regelkonforme Leistung(en) zu finden...")
-            # Rufe IMMER determine_applicable_pauschale auf
-            pauschale_pruef_ergebnis = determine_applicable_pauschale(
-                user_input, rule_checked_leistungen, pauschale_context
+            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} Leistung(en) zu finden (useIcd={use_icd_flag})...")
+            # Rufe determine_applicable_pauschale mit dem Kontext auf
+            pauschale_pruef_ergebnis = regelpruefer_pauschale.determine_applicable_pauschale(
+                user_input, rule_checked_leistungen, pauschale_context,
+                # Übergebe die globalen Daten-Dictionaries
+                pauschale_lp_data,
+                pauschale_bedingungen_data,
+                pauschalen_dict,
+                leistungskatalog_dict,
+                tabellen_dict_by_table
             )
 
             # Prüfe das Ergebnis der Pauschalenprüfung
@@ -972,8 +684,10 @@ def analyze_billing():
             else:
                 # Keine Pauschale gefunden oder anwendbar -> TARDOC
                 print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
-                final_result = prepare_tardoc_abrechnung(regel_ergebnisse_liste)
-
+                final_result = regelpruefer.prepare_tardoc_abrechnung(
+                    regel_ergebnisse_liste,
+                    leistungskatalog_dict # Übergebe das Katalog-Dict
+                )
         except ConnectionError as e:
              print(f"FEHLER: Verbindung zu LLM Stufe 2 fehlgeschlagen: {e}")
              final_result = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2): {e}"}
@@ -998,7 +712,6 @@ def analyze_billing():
     print(f"Gesamtverarbeitungszeit Backend: {end_time - start_time:.2f}s")
     print(f"INFO: Sende finale Antwort Typ '{final_result.get('type')}' an Frontend.")
     return jsonify(final_response)
-
 
 # --- Static‑Routes & Start ---
 @app.route("/")
@@ -1030,7 +743,6 @@ def serve_static(filename):
     else:
          print(f"WARNUNG: Zugriff verweigert (nicht erlaubt): {filename}")
          abort(404)
-
 
 if __name__ == "__main__":
     load_data() # Lade Daten beim Start
