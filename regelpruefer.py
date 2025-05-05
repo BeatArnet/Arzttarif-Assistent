@@ -184,40 +184,35 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
 
     return {"abrechnungsfaehig": allowed, "fehler": errors}
 
-def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict) -> dict:
+def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict) -> dict: # Argument hinzugefügt
     """
     Filtert regelkonforme TARDOC-Leistungen (Typ E/EZ) aus den Regelergebnissen
     und bereitet die Liste für die Frontend-Antwort vor.
     """
     print("INFO (regelpruefer): TARDOC-Abrechnung wird vorbereitet...")
     tardoc_leistungen_final = []
-    LKN_KEY = 'lkn' # Schlüssel in regel_ergebnisse_liste
-    MENGE_KEY = 'finale_menge' # Schlüssel in regel_ergebnisse_liste
+    LKN_KEY = 'lkn'; MENGE_KEY = 'finale_menge'
 
     for res in regel_ergebnisse_liste:
         lkn = res.get(LKN_KEY)
         menge = res.get(MENGE_KEY, 0)
         abrechnungsfaehig = res.get("regelpruefung", {}).get("abrechnungsfaehig", False)
 
-        if not lkn or not abrechnungsfaehig or menge <= 0:
-            continue # Überspringe ungültige, nicht abrechenbare oder Menge 0
+        if not lkn or not abrechnungsfaehig or menge <= 0: continue
 
         # Hole Details aus dem übergebenen Leistungskatalog
         lkn_info = leistungskatalog_dict.get(str(lkn).upper()) # Suche Case-Insensitive
 
-        if lkn_info and lkn_info.get("Typ") in ['E', 'EZ']: # Nur Einzelleistungen
+        if lkn_info and lkn_info.get("Typ") in ['E', 'EZ']:
             tardoc_leistungen_final.append({
-                "lkn": lkn,
-                "menge": menge,
+                "lkn": lkn, "menge": menge,
                 "typ": lkn_info.get("Typ"),
-                "beschreibung": lkn_info.get("Beschreibung", "") # Beschreibung aus Katalog
+                "beschreibung": lkn_info.get("Beschreibung", "")
             })
         elif not lkn_info:
              print(f"WARNUNG (prepare_tardoc): Details für LKN {lkn} nicht im Leistungskatalog gefunden.")
-        # else: LKNs vom Typ P/PZ werden hier ignoriert
 
     if not tardoc_leistungen_final:
-        # Wichtig: Gib einen spezifischen Fehler zurück, wenn keine TARDOC-Leistungen übrig bleiben
         return {"type": "Error", "message": "Keine abrechenbaren TARDOC-Leistungen nach Regelprüfung gefunden."}
     else:
         print(f"INFO (regelpruefer): {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
