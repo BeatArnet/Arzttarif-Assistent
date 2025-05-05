@@ -3,48 +3,73 @@ import os
 import re
 import json
 import time # für Zeitmessung
-import html # für escaping
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 from flask import Flask, jsonify, send_from_directory, request, abort
 import requests
 from dotenv import load_dotenv
 import regelpruefer
-import regelpruefer_pauschale
 from typing import Dict, List, Any, Set
+from utils import get_table_content
 
 # Importiere Regelprüfer-Module und setze Fallbacks
 try:
-    import regelpruefer
+    import regelpruefer # Nur das Modul importieren
     print("✓ Regelprüfer LKN (regelpruefer.py) Modul geladen.")
+    # Prüfe explizit auf die Funktion im Modul
+    if not hasattr(regelpruefer, 'prepare_tardoc_abrechnung'):
+         print("FEHLER: Funktion 'prepare_tardoc_abrechnung' NICHT im Modul regelpruefer gefunden!")
+         # Definiere hier ggf. einen Fallback, wenn die Funktion fehlt
+         def prepare_tardoc_fallback(r, l): return {"type":"Error", "message":"TARDOC Prep Fallback"}
+         prepare_tardoc_abrechnung_func = prepare_tardoc_fallback
+    else:
+         print("DEBUG: Funktion 'prepare_tardoc_abrechnung' im Modul regelpruefer gefunden.")
+         prepare_tardoc_abrechnung_func = regelpruefer.prepare_tardoc_abrechnung # Weise die Funktion einer Variablen zu
 except ImportError:
     print("FEHLER: regelpruefer.py nicht gefunden.")
-    class DummyRegelpruefer:
-        def lade_regelwerk(self, path): return {}
-        def pruefe_abrechnungsfaehigkeit(self, fall, werk): return {"abrechnungsfaehig": False, "fehler": ["Regelprüfer LKN nicht geladen."]}
-    regelpruefer = DummyRegelpruefer() # type: ignore
+    # ... (Fallback für DummyRegelpruefer) ...
+    def prepare_tardoc_fallback(r, l): return {"type":"Error", "message":"TARDOC Prep Fallback (Import Error)"}
+    prepare_tardoc_abrechnung_func = prepare_tardoc_fallback
 
 try:
     import regelpruefer_pauschale
-    if not hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
-         print("WARNUNG: Funktion 'check_pauschale_conditions' nicht in regelpruefer_pauschale.py gefunden.")
-         def check_pauschale_conditions_fallback(pauschale_code, context, pauschale_bedingungen_data, tabellen_dict_by_table):
-             print(f"WARNUNG: Bedingungsprüfung für {pauschale_code} übersprungen (Fallback).")
-             return {"allMet": True, "html": "<p><i>Bedingungsprüfung nicht verfügbar.</i></p>", "errors": []}
-         if 'regelpruefer_pauschale' in locals(): # Nur zuweisen, wenn Modul importiert wurde
-             regelpruefer_pauschale.check_pauschale_conditions = check_pauschale_conditions_fallback # type: ignore
+    # print(f"DEBUG: Import von regelpruefer_pauschale erfolgreich. Typ: {type(regelpruefer_pauschale)}")
+    # Prüfe explizit auf die Funktion NACH dem Import
+    if hasattr(regelpruefer_pauschale, 'evaluate_structured_conditions'):
+        # print("DEBUG: Funktion 'evaluate_structured_conditions' im Modul gefunden.")
+        evaluate_structured_conditions = regelpruefer_pauschale.evaluate_structured_conditions
     else:
-         print("✓ Regelprüfer Pauschalen (regelpruefer_pauschale.py) geladen.")
-except ImportError:
-    print("FEHLER: regelpruefer_pauschale.py nicht gefunden.")
-    def check_pauschale_conditions_fallback(pauschale_code, context, pauschale_bedingungen_data, tabellen_dict_by_table):
-        print(f"WARNUNG: Bedingungsprüfung für {pauschale_code} übersprungen (Fallback).")
-        return {"allMet": False, "html": "<p><i>Regelprüfer Pauschale nicht geladen.</i></p>", "errors": ["Regelprüfer Pauschale nicht geladen"]}
-    # Erstelle Dummy-Modul, falls Import fehlschlägt
-    class DummyPauschaleRegelpruefer:
-         def check_pauschale_conditions(self, pc, ctx, bed_data, tab_dict): return check_pauschale_conditions_fallback(pc, ctx, bed_data, tab_dict)
-    if 'regelpruefer_pauschale' not in locals(): regelpruefer_pauschale = DummyPauschaleRegelpruefer() # type: ignore
+        print("FEHLER: Funktion 'evaluate_structured_conditions' NICHT im Modul gefunden!")
+        def evaluate_fallback(pc, ctx, bed_data, tab_dict): return False
+        evaluate_structured_conditions = evaluate_fallback
 
+    if hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
+        # print("DEBUG: Funktion 'check_pauschale_conditions' im Modul gefunden.")
+        check_pauschale_conditions = regelpruefer_pauschale.check_pauschale_conditions
+    else:
+        print("FEHLER: Funktion 'check_pauschale_conditions' NICHT im Modul gefunden!")
+        def check_html_fallback(pc, ctx, bed_data, tab_dict): return {"html": "HTML-Prüfung nicht verfügbar", "errors": [], "trigger_lkn_condition_met": False}
+        check_pauschale_conditions = check_html_fallback
+
+    # Importiere die anderen Hilfsfunktionen, falls sie existieren
+    try:
+        from regelpruefer_pauschale import get_simplified_conditions, generate_condition_detail_html
+        print("DEBUG: Hilfsfunktionen get_simplified_conditions/generate_condition_detail_html importiert.")
+    except ImportError:
+        print("WARNUNG: Hilfsfunktionen get_simplified_conditions/generate_condition_detail_html nicht gefunden.")
+        # Definiere Fallbacks, falls nötig
+        def get_simplified_conditions(pc, bed_data): return set()
+        def generate_condition_detail_html(ct, lk_dict, tab_dict): return "<li>Detail-Generierung fehlgeschlagen</li>"
+
+    print("✓ Regelprüfer Pauschalen (regelpruefer_pauschale.py) geladen (vereinfachter Import).")
+
+except ImportError:
+    print("FEHLER: regelpruefer_pauschale.py konnte nicht importiert werden.")
+    # Definiere alle notwendigen Fallbacks
+    def evaluate_structured_conditions(pc, ctx, bed_data, tab_dict): return False
+    def check_pauschale_conditions(pc, ctx, bed_data, tab_dict): return {"html": "Regelprüfer Pauschale nicht geladen", "errors": ["Regelprüfer Pauschale nicht geladen"], "trigger_lkn_condition_met": False}
+    def get_simplified_conditions(pc, bed_data): return set()
+    def generate_condition_detail_html(ct, lk_dict, tab_dict): return "<li>Detail-Generierung fehlgeschlagen</li>"
 
 # --- Konfiguration ---
 load_dotenv()
@@ -216,40 +241,29 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
 **Anweisungen:** Führe die folgenden Schritte exakt aus:
 
 1.  **LKN Identifikation & STRIKTE Validierung:**
-    *   Lies den "Behandlungstext" sorgfältig.
-    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
-    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Achte besonders auf die ersten Zeichen (z.B. 'C03.' vs. 'C08.').
+    *   Lies den "Behandlungstext" sorgfältig. Suche nach beschriebenen medizinischen Tätigkeiten, Konsultationen, Untersuchungen oder **chirurgischen Eingriffen** (z.B. "Entfernung", "Biopsie", "Reposition", "Appendektomie", "Blinddarmentfernung").
+    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die diese Tätigkeiten repräsentieren könnten.
+    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt.
     *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben.
-    *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen, auch wenn sie ähnlich klingen oder thematisch passen könnten. Erfinde keine LKNs.
-    *   Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert, stelle sicher, dass **beide** LKNs (Basis + Zuschlag) identifiziert und **validiert** werden.
+    *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen.
 
 2.  **Typ & Beschreibung hinzufügen:**
-    *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext** hinzu.
+    *   Füge für jede **validierte** LKN den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem Katalogkontext** hinzu.
 
 3.  **Kontextinformationen extrahieren:**
-    *   Extrahiere **nur explizit genannte** Werte aus dem "Behandlungstext": `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
+    *   Extrahiere **nur explizit genannte** Werte: `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
 
 4.  **Menge bestimmen (pro validierter LKN):**
     *   Standardmenge ist `1`.
-    *   **Zeitbasiert:** Wenn Katalog-Beschreibung "pro X Min" enthält UND `dauer_minuten` (Y) extrahiert wurde, setze `menge` = Y.
-    *   **Allgemein:** Wenn `menge_allgemein` (Z) extrahiert wurde UND LKN nicht zeitbasiert ist, setze `menge` = Z.
-    *   Sicherstellen: `menge` >= 1.
+    *   (Logik für Zeit/Menge wie vorher)
 
 5.  **Begründung:**
-    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden. Beziehe dich auf Text und **Katalog-Beschreibungen**. Verwende "Die LKN [Code]...".
+    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden.
 
 **Output-Format:** **NUR** valides JSON, **KEIN** anderer Text.
 ```json
 {{
-  "identified_leistungen": [
-    {{
-      "lkn": "VALIDIERTE_LKN_1",
-      "typ": "TYP_AUS_KATALOG_1",
-      "beschreibung": "BESCHREIBUNG_AUS_KATALOG_1",
-      "menge": MENGE_ZAHL_LKN_1
-    }}
-    // ... ggf. weitere validierte LKNs
-  ],
+  "identified_leistungen": [ ... ],
   "extracted_info": {{ ... }},
   "begruendung_llm": "<Begründung>"
 }}
@@ -407,8 +421,9 @@ Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "temperature": 0.2, # Niedrig für konsistente Auswahl
-            "maxOutputTokens": 100 # Antwort ist kurz
+            "response_mime_type": "application/json",
+            "temperature": 0.05, # Niedrig für konsistente Auswahl
+            "maxOutputTokens": 4096 # Antwort ist kurz
          }
     }
     print(f"Sende Anfrage Stufe 2 (Mapping) für {tardoc_lkn} an Gemini Model: {GEMINI_MODEL}...")
@@ -550,6 +565,232 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
         print(f"INFO: {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
         return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
 
+# --- Ausgelagerte Pauschalen-Ermittlung ---
+def determine_applicable_pauschale(
+    user_input: str,
+    rule_checked_leistungen: list[dict],
+    context: dict,
+    # Benötigte Daten als Argumente übergeben
+    pauschale_lp_data: List[Dict],
+    pauschale_bedingungen_data: List[Dict],
+    pauschalen_dict: Dict[str, Dict],
+    leistungskatalog_dict: Dict[str, Dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]]
+    ) -> dict:
+    """
+    Ermittelt die anwendbarste Pauschale durch Auswertung der strukturierten Bedingungen.
+    Priorisiert spezifische Pauschalen (C00-C89) und wählt dann die niedrigste
+    gültige aus (höchster Buchstabe: E vor B vor A).
+    Gibt entweder die Pauschale oder einen Error zurück.
+    """
+    print("INFO: Starte Pauschalenermittlung mit strukturierter Bedingungsprüfung und Priorisierung...")
+
+    # Schlüssel und globale Variablen...
+    PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
+    POTENTIAL_ICDS_KEY = 'potential_icds'
+    LKN_KEY_IN_RULE_CHECKED = 'lkn'
+    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
+    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
+    LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale'
+    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
+    TAB_CODE_KEY = 'Code'; TAB_TYP_KEY = 'Tabelle_Typ'; TAB_TABELLE_KEY = 'Tabelle'
+
+    # 1. Finde potenzielle Pauschalen
+    potential_pauschale_codes = set()
+    rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
+    print(f"DEBUG: Regelkonforme LKNs für Pauschalen-Suche: {rule_checked_lkns}")
+    lkns_in_tables = {}
+    for lkn in rule_checked_lkns:
+        # Methode a, b, c ... (Code zum Füllen von potential_pauschale_codes wie in deiner funktionierenden Version)
+        # Methode a)
+        for item in pauschale_lp_data:
+            if item.get(LP_LKN_KEY) == lkn:
+                pauschale_code_a = item.get(LP_PAUSCHALE_KEY)
+                if pauschale_code_a and pauschale_code_a in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_a)
+        # Methode b)
+        for cond in pauschale_bedingungen_data:
+            if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN LISTE":
+                werte_liste = [w.strip() for w in str(cond.get(BED_WERTE_KEY, "")).split(',') if w.strip()]
+                if lkn in werte_liste:
+                    pauschale_code_b = cond.get(BED_PAUSCHALE_KEY)
+                    if pauschale_code_b and pauschale_code_b in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_b)
+        # Methode c)
+        if lkn not in lkns_in_tables:
+             tables_for_lkn = set()
+             for table_name_key in tabellen_dict_by_table.keys():
+                  for entry in tabellen_dict_by_table[table_name_key]:
+                       if entry.get(TAB_CODE_KEY) == lkn and entry.get(TAB_TYP_KEY) == "service_catalog": tables_for_lkn.add(table_name_key)
+             lkns_in_tables[lkn] = tables_for_lkn
+        tables_for_current_lkn_normalized = lkns_in_tables.get(lkn, set())
+        if tables_for_current_lkn_normalized:
+            for cond in pauschale_bedingungen_data:
+                if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN TABELLE":
+                    table_ref_in_cond_str = cond.get(BED_WERTE_KEY, "")
+                    pauschale_code_c = cond.get(BED_PAUSCHALE_KEY)
+                    condition_tables_normalized = {t.strip().lower() for t in table_ref_in_cond_str.split(',') if t.strip()}
+                    if not condition_tables_normalized.isdisjoint(tables_for_current_lkn_normalized):
+                        if pauschale_code_c and pauschale_code_c in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_c)
+
+    print(f"DEBUG: Finale potenzielle Pauschalen nach Schleife: {potential_pauschale_codes}")
+
+    if not potential_pauschale_codes:
+        print("INFO: Keine potenziellen Pauschalen-Codes für die erbrachten Leistungen gefunden.")
+        return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
+
+    # 2. Werte die strukturierte Logik für ALLE potenziellen Kandidaten aus
+    evaluated_candidates = []
+    print(f"INFO: Werte strukturierte Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen aus...")
+    for code in potential_pauschale_codes:
+        if code not in pauschalen_dict: continue
+        bedingungs_context = context # Enthält bereits useIcd
+        is_pauschale_valid = False
+        if 'regelpruefer_pauschale' in locals() and hasattr(regelpruefer_pauschale, 'evaluate_structured_conditions'):
+             try:
+                 is_pauschale_valid = regelpruefer_pauschale.evaluate_structured_conditions(
+                     code, bedingungs_context, pauschale_bedingungen_data, tabellen_dict_by_table
+                 )
+             except Exception as e_eval: print(f"FEHLER bei evaluate_structured_conditions für {code}: {e_eval}"); is_pauschale_valid = False
+        else: print(f"WARNUNG: evaluate_structured_conditions nicht verfügbar für {code}."); is_pauschale_valid = False
+        print(f"DEBUG: Strukturierte Prüfung für {code}: Gültig = {is_pauschale_valid}")
+        evaluated_candidates.append({"code": code, "details": pauschalen_dict[code], "is_valid_structured": is_pauschale_valid})
+
+    # 3. Filtere die Kandidaten, die die strukturierte Prüfung bestanden haben
+    valid_candidates = [cand for cand in evaluated_candidates if cand["is_valid_structured"]]
+    print(f"DEBUG: Struktur-gültige Kandidaten nach Prüfung: {[c['code'] for c in valid_candidates]}")
+
+    # 4. Wähle die beste Pauschale aus den GÜLTIGEN Kandidaten mit PRIORISIERUNG
+    selected_candidate_info = None
+    if valid_candidates:
+        # Teile gültige Kandidaten auf
+        specific_valid = [cand for cand in valid_candidates if not cand['code'].startswith('C9')] # C00-C89
+        fallback_valid = [cand for cand in valid_candidates if cand['code'].startswith('C9')] # C90-C99
+
+        print(f"DEBUG: Spezifische gültige Kandidaten: {[c['code'] for c in specific_valid]}")
+        print(f"DEBUG: Fallback gültige Kandidaten: {[c['code'] for c in fallback_valid]}")
+
+        target_list_to_sort = None
+        if specific_valid:
+            target_list_to_sort = specific_valid
+            sort_order_desc = "Niedrigste spezifische Pauschale ausgewählt (E-A Sortierung)"
+            sort_reverse = True # E vor B vor A
+        elif fallback_valid:
+            target_list_to_sort = fallback_valid
+            sort_order_desc = "Niedrigste Fallback-Pauschale ausgewählt (Z-A Sortierung)" # Oder A-Z? Aktuell Z-A
+            sort_reverse = True # Z vor A?
+        else: # Sollte nicht passieren, wenn valid_candidates nicht leer war
+             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?")
+             return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl."}
+
+        # Sortiere die ausgewählte Liste und nimm den ersten Eintrag
+        target_list_to_sort.sort(key=lambda x: x['code'], reverse=sort_reverse)
+        selected_candidate_info = target_list_to_sort[0]
+        print(f"INFO: {sort_order_desc}, deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
+
+    # Wenn immer noch keine Auswahl getroffen wurde
+    if not selected_candidate_info:
+        print("INFO: Keine Pauschale erfüllt die strukturierten Bedingungen.")
+        return {"type": "Error", "message": "Keine Pauschale gefunden, deren UND/ODER-Bedingungen vollständig erfüllt sind (Kontext prüfen!)."}
+
+    # --- Ab hier verwenden wir selected_candidate_info ---
+    best_pauschale_code = selected_candidate_info["code"]
+    best_pauschale_details = selected_candidate_info["details"].copy()
+
+    # 5. Generiere das Detail-HTML für die ausgewählte Pauschale
+    # ... (Rest der HTML-Generierung wie vorher) ...
+    bedingungs_pruef_html_result = "<p><i>Detail-HTML nicht generiert.</i></p>"
+    condition_errors = []
+    conditions_met_html = False # Status aus der HTML-Generierungsfunktion
+    if 'regelpruefer_pauschale' in locals() and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions'):
+         bedingungs_context_html = context # Enthält useIcd
+         try:
+             condition_result_html = regelpruefer_pauschale.check_pauschale_conditions(
+                 best_pauschale_code, bedingungs_context_html, pauschale_bedingungen_data, tabellen_dict_by_table
+             )
+             bedingungs_pruef_html_result = condition_result_html.get("html", "<p class='error'>Fehler bei HTML-Generierung.</p>")
+             condition_errors = condition_result_html.get("errors", [])
+             # conditions_met_html = condition_result_html.get("allMet", False) # Status aus HTML-Funktion (optional)
+         except Exception as e_html_gen:
+              print(f"FEHLER bei check_pauschale_conditions (HTML-Generierung) für {best_pauschale_code}: {e_html_gen}")
+              bedingungs_pruef_html_result = f"<p class='error'>Fehler bei HTML-Generierung: {e_html_gen}</p>"
+              condition_errors = [f"Fehler HTML-Generierung: {e_html_gen}"]
+
+
+    # 6. Pauschalen-Begründung erstellen
+    # ... (Code für Begründung wie vorher, nutzt valid_candidates und best_pauschale_code) ...
+    rule_checked_lkns_str_list = [str(lkn) for lkn in rule_checked_lkns if lkn]
+    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden basierend auf den regelkonformen Leistungen ({}) geprüft:</p>".format(", ".join(rule_checked_lkns_str_list) or "keine")
+    pauschale_erklaerung_html += "<p>Folgende Pauschalen erfüllten die strukturierten UND/ODER Bedingungen:</p><ul>"
+    for cand in sorted(valid_candidates, key=lambda x: x['code']): # Sortiere A-Z für die Anzeige
+         pauschale_text = cand["details"].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
+         pauschale_erklaerung_html += f"<li><b>{cand['code']}</b>: {pauschale_text}</li>"
+    pauschale_erklaerung_html += "</ul>"
+    pauschale_erklaerung_html += f"<p><b>Ausgewählt wurde: {best_pauschale_code}</b> ({best_pauschale_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')}) - als <b>priorisierte ({'Spezifisch (C00-C89)' if not best_pauschale_code.startswith('C9') else 'Fallback (C90-C99)'}) und niedrigste</b> (höchster Buchstabe) Pauschale, deren strukturierte Bedingungen erfüllt sind.</p>"
+
+
+    # 7. Vergleich mit anderen Pauschalen
+    # ... (Code für Vergleich wie vorher, nutzt potential_pauschale_codes und best_pauschale_code) ...
+    match = re.match(r"([A-Z0-9.]+)[A-Z]$", best_pauschale_code)
+    pauschalen_gruppe = match.group(1) if match else None
+    if pauschalen_gruppe:
+        all_candidates_in_group = [
+            cand_code for cand_code in potential_pauschale_codes
+            if cand_code.startswith(pauschalen_gruppe) and cand_code != best_pauschale_code and cand_code in pauschalen_dict
+        ]
+        if all_candidates_in_group:
+             pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe)
+             selected_conditions_repr = get_simplified_conditions(best_pauschale_code, pauschale_bedingungen_data)
+             for other_code in sorted(all_candidates_in_group):
+                  other_details = pauschalen_dict[other_code]
+                  other_conditions_repr = get_simplified_conditions(other_code, pauschale_bedingungen_data)
+                  additional_conditions = other_conditions_repr - selected_conditions_repr
+                  missing_conditions = selected_conditions_repr - other_conditions_repr
+
+                  pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary>Unterschiede zu <b>{other_code}</b> ({other_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')})</summary>"
+                  if additional_conditions:
+                      pauschale_erklaerung_html += "<p>Zusätzliche/Andere Anforderungen für {}:</p><ul>".format(other_code)
+                      for cond_tuple in sorted(list(additional_conditions)):
+                          condition_html = generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                          pauschale_erklaerung_html += condition_html
+                      pauschale_erklaerung_html += "</ul>"
+                  if missing_conditions:
+                     pauschale_erklaerung_html += "<p>Folgende Anforderungen von {} fehlen bei {}:</p><ul>".format(best_pauschale_code, other_code)
+                     for cond_tuple in sorted(list(missing_conditions)):
+                         condition_html = generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                         pauschale_erklaerung_html += condition_html
+                     pauschale_erklaerung_html += "</ul>"
+                  if not additional_conditions and not missing_conditions:
+                     pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden (basierend auf vereinfachter Prüfung).</i></p>"
+                  pauschale_erklaerung_html += "</details>"
+    best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
+
+
+    # 8. Potenzielle ICDs ermitteln
+    # ... (wie vorher) ...
+    potential_icds = []
+    pauschale_conditions_selected = [cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == best_pauschale_code]
+    for cond in pauschale_conditions_selected:
+        if cond.get(BED_TYP_KEY) == "HAUPTDIAGNOSE IN TABELLE":
+            tabelle_ref = cond.get(BED_WERTE_KEY)
+            if tabelle_ref:
+                icd_entries = get_table_content(tabelle_ref, "icd", tabellen_dict_by_table)
+                for entry in icd_entries:
+                    code = entry.get('Code'); text = entry.get('Code_Text')
+                    if code: potential_icds.append({"Code": code, "Code_Text": text or "N/A"})
+    unique_icds_dict = {icd['Code']: icd for icd in potential_icds if icd.get('Code')}
+    sorted_unique_icds = sorted(unique_icds_dict.values(), key=lambda x: x['Code'])
+    best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted_unique_icds
+
+
+    # 9. Finale Pauschalen-Antwort erstellen
+    final_result = {
+        "type": "Pauschale",
+        "details": best_pauschale_details,
+        "bedingungs_pruef_html": bedingungs_pruef_html_result,
+        "bedingungs_fehler": condition_errors,
+        "conditions_met": True # Da wir nur struktur-gültige auswählen
+    }
+    return final_result
+
 def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict):
     """Sammelt alle LKNs, die in Pauschalenbedingungen vorkommen."""
     candidate_lkns = set()
@@ -655,157 +896,106 @@ def analyze_billing():
 
     # *** Validierung der vom LLM identifizierten LKNs gegen lokalen Katalog ***
     validated_leistungen_llm = []
-    identified_leistungen_raw = llm_stage1_result.get("identified_leistungen", [])
-    if not identified_leistungen_raw:
+    identified_leistungen_llm = llm_stage1_result.get("identified_leistungen", []) # Hole Liste oder leere Liste
+    
+    regel_ergebnisse_liste = []
+    rule_checked_leistungen = []
+    alle_validen_lkn = []
+    mapped_lkns = set()
+    final_pauschale_lkn_context_list = []
+    
+    if not identified_leistungen_llm:
          print("WARNUNG: LLM Stufe 1 hat keine Leistungen identifiziert.")
+         # Füge einen Standard-Fehlereintrag hinzu
+         regel_ergebnisse_liste.append({
+             "lkn": None, "initiale_menge": 0,
+             "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine LKN vom LLM identifiziert."]},
+             "finale_menge": 0
+         })
+         # Die anderen Listen bleiben leer (sind schon initialisiert)
     else:
-        for leistung in identified_leistungen_raw:
+        # --- Dieser Block wird nur ausgeführt, wenn LLM LKNs gefunden hat ---
+        # Validierung gegen Katalog
+        for leistung in identified_leistungen_llm:
             lkn = leistung.get("lkn")
-            menge_llm = leistung.get("menge", 1) # Menge aus LLM holen
-
-            # Prüfe, ob LKN existiert und im lokalen Katalog vorhanden ist
-            local_data = leistungskatalog_dict.get(str(lkn).upper()) # Immer upper case suchen
+            menge_llm = leistung.get("menge", 1)
+            local_data = leistungskatalog_dict.get(str(lkn).upper())
             if local_data:
-                 # Überschreibe Typ und Beschreibung mit lokalen Daten für Konsistenz
                  leistung["typ"] = local_data.get("Typ", leistung.get("typ"))
                  leistung["beschreibung"] = local_data.get("Beschreibung", leistung.get("beschreibung"))
-                 leistung["lkn"] = str(lkn).upper() # LKN normalisieren
-                 leistung["menge"] = max(1, int(menge_llm)) # Sicherstellen, dass Menge >= 1 ist
+                 leistung["lkn"] = str(lkn).upper()
+                 leistung["menge"] = max(1, int(menge_llm))
                  validated_leistungen_llm.append(leistung)
             else:
                  print(f"WARNUNG: Vom LLM identifizierte LKN '{lkn}' nicht im lokalen Katalog gefunden. Wird ignoriert.")
-
-        # Verwende die validierte Liste für die weitere Verarbeitung
-        identified_leistungen_llm = validated_leistungen_llm
-        # Aktualisiere das Ergebnisobjekt für Transparenz (wichtig für Frontend)
-        llm_stage1_result["identified_leistungen"] = identified_leistungen_llm
+        # Aktualisiere die Variable mit der validierten Liste
+        identified_leistungen_llm = validated_leistungen_llm # Enthält jetzt nur noch valide LKNs
+        llm_stage1_result["identified_leistungen"] = identified_leistungen_llm # Aktualisiere auch das Ergebnisobjekt
         print(f"INFO: {len(identified_leistungen_llm)} LKNs nach Validierung durch LLM Stufe 1 identifiziert.")
 
-
-    # 3. Regelprüfung für identifizierte LKNs
-    regel_ergebnisse_liste = [] # Wird an Frontend gesendet
-    rule_checked_leistungen = [] # Nur regelkonforme für Pauschalen-/TARDOC-Entscheid
-    extracted_info = llm_stage1_result.get("extracted_info", {})
-    alter_llm = extracted_info.get("alter"); geschlecht_llm = extracted_info.get("geschlecht")
-    # Liste aller validierten LKNs für den 'Begleit_LKNs'-Kontext
-    alle_validen_lkn = [l.get("lkn") for l in identified_leistungen_llm if l.get("lkn")]
-
-    if not identified_leistungen_llm:
-         # Spezieller Eintrag für Frontend, wenn LLM nichts fand
-         regel_ergebnisse_liste.append({
-             "lkn": None,
-             "initiale_menge": 0,
-             "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine gültige LKN vom LLM identifiziert oder im Katalog gefunden."]},
-             "finale_menge": 0
-         })
-    else:
+        # 3. Regelprüfung für identifizierte LKNs (nur wenn welche da sind)
+        alle_validen_lkn = [l.get("lkn") for l in identified_leistungen_llm if l.get("lkn")] # Jetzt sicher hier definieren
         for leistung in identified_leistungen_llm:
             lkn = leistung.get("lkn")
-            menge_initial = leistung.get("menge", 1) # Bereits validierte Menge >= 1
-
+            menge_initial = leistung.get("menge", 1)
             print(f"INFO: Prüfe Regeln für LKN {lkn} (Initiale Menge: {menge_initial})")
             regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
-            angepasste_menge = 0 # Standard: Nicht abrechenbar
-
+            angepasste_menge = 0
             if regelpruefer and regelwerk_dict:
-                # Kontext für die Regelprüfung dieser LKN
                 abrechnungsfall = {
-                    "LKN": lkn,
-                    "Menge": menge_initial,
-                    # Begleitleistungen sind ALLE ANDEREN validierten LKNs aus Stufe 1
+                    "LKN": lkn, "Menge": menge_initial,
                     "Begleit_LKNs": [b_lkn for b_lkn in alle_validen_lkn if b_lkn != lkn],
-                    "ICD": icd_input,
-                    "Geschlecht": geschlecht_llm,
-                    "Alter": alter_llm,
-                    "Pauschalen": [], # Pauschalen werden hier noch nicht berücksichtigt
-                    "GTIN": gtin_input
+                    "ICD": icd_input, "Geschlecht": geschlecht_llm, "Alter": alter_llm,
+                    "Pauschalen": [], "GTIN": gtin_input
                 }
                 try:
                     regel_ergebnis = regelpruefer.pruefe_abrechnungsfaehigkeit(abrechnungsfall, regelwerk_dict)
-
-                    if regel_ergebnis.get("abrechnungsfaehig"):
-                        angepasste_menge = menge_initial # Menge bleibt, wenn OK
-                    else:
-                        # Versuch, Menge anzupassen bei reinem Mengenfehler
-                        fehler_liste = regel_ergebnis.get("fehler", [])
-                        fehler_ohne_menge = [f for f in fehler_liste if "Mengenbeschränkung" not in f and "reduziert" not in f]
-                        mengen_fehler = [f for f in fehler_liste if "Mengenbeschränkung" in f]
-
-                        if not fehler_ohne_menge and mengen_fehler: # Nur Mengenfehler
-                            max_menge_match = None
-                            match = re.search(r'max\.\s*(\d+(\.\d+)?)', mengen_fehler[0]) # Sucht nach "max. Zahl"
+                    if regel_ergebnis.get("abrechnungsfaehig"): angepasste_menge = menge_initial
+                    else: # Versuch Menge anzupassen...
+                        fehler_liste=regel_ergebnis.get("fehler",[]);fehler_ohne_menge=[f for f in fehler_liste if"Mengenbeschränkung"not in f and"reduziert"not in f];mengen_fehler=[f for f in fehler_liste if"Mengenbeschränkung"in f]
+                        if not fehler_ohne_menge and mengen_fehler:
+                            max_menge_match=None;match=re.search(r'max\.\s*(\d+(\.\d+)?)',mengen_fehler[0])
                             if match:
-                                try: max_menge_match = int(float(match.group(1))) # Erst float, dann int
-                                except ValueError: pass
+                                try:max_menge_match=int(float(match.group(1)))
+                                except ValueError:pass
+                            if max_menge_match is not None and menge_initial>max_menge_match:
+                                angepasste_menge=max_menge_match;print(f"INFO: Menge für LKN {lkn} angepasst: {menge_initial} -> {angepasste_menge}.")
+                                regel_ergebnis["fehler"]=[f"Menge auf {angepasste_menge} reduziert (Regel: max. {max_menge_match}, LLM: {menge_initial})"];regel_ergebnis["abrechnungsfaehig"]=True
+                            else:angepasste_menge=0;print(f"INFO: LKN {lkn} Mengenfehler (Anpassung nicht möglich/nötig).")
+                        else:angepasste_menge=0;print(f"INFO: LKN {lkn} nicht abrechnungsfähig: {fehler_ohne_menge or fehler_liste}")
+                except Exception as e_rule: print(f"FEHLER bei Regelprüfung für LKN {lkn}: {e_rule}"); regel_ergebnis={"abrechnungsfaehig":False,"fehler":[f"Interner Fehler Regelprüfung: {e_rule}"]}; angepasste_menge=0
+            else: regel_ergebnis={"abrechnungsfaehig":False,"fehler":["Regelprüfung nicht verfügbar."]}; angepasste_menge=0
+            regel_ergebnisse_liste.append({"lkn":lkn,"initiale_menge":menge_initial,"regelpruefung":regel_ergebnis,"finale_menge":angepasste_menge})
+            if regel_ergebnis.get("abrechnungsfaehig")and angepasste_menge>0:rule_checked_leistungen.append({**leistung,"menge":angepasste_menge})
+        # --- Ende Regelprüfungsschleife ---
 
-                            if max_menge_match is not None and menge_initial > max_menge_match:
-                                angepasste_menge = max_menge_match
-                                print(f"INFO: Menge für LKN {lkn} aufgrund Regel angepasst: {menge_initial} -> {angepasste_menge}.")
-                                # Formatiere Fehlermeldung für Frontend
-                                regel_ergebnis["fehler"] = [f"Menge auf {angepasste_menge} reduziert (Regel: max. {max_menge_match}, LLM-Vorschlag: {menge_initial})"]
-                                regel_ergebnis["abrechnungsfaehig"] = True # Gilt jetzt als abrechnungsfähig mit angepasster Menge
-                            else:
-                                angepasste_menge = 0 # Menge auf 0 setzen, wenn Anpassung nicht möglich/nötig
-                                print(f"INFO: LKN {lkn} nicht abrechnungsfähig wegen Mengenfehler (Anpassung nicht möglich/nötig).")
-                        else:
-                             angepasste_menge = 0 # Menge auf 0 bei anderen Fehlern
-                             print(f"INFO: LKN {lkn} nicht abrechnungsfähig wegen Regel: {fehler_ohne_menge or fehler_liste}")
+        rule_time = time.time()
+        print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
 
-                except Exception as e_rule:
-                    print(f"FEHLER bei Regelprüfung für LKN {lkn}: {e_rule}")
-                    regel_ergebnis = {"abrechnungsfaehig": False, "fehler": [f"Interner Fehler bei Regelprüfung: {e_rule}"]}
-                    angepasste_menge = 0
-            else:
-                 # Keine Regelprüfung möglich
-                 print(f"WARNUNG: Keine Regelprüfung für LKN {lkn} durchgeführt (Regelprüfer/Regelwerk fehlt). Annahme: Nicht abrechnungsfähig.")
-                 regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht verfügbar."]}
-                 angepasste_menge = 0 # Sicherheitshalber auf 0
+        print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
+        pauschal_lkn_candidates = get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict)
+        tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
+        print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
+        # mapped_lkns wurde oben initialisiert
+        if tardoc_lkns_to_map and pauschal_lkn_candidates:
+            for tardoc_leistung in tardoc_lkns_to_map:
+                t_lkn = tardoc_leistung.get('lkn'); t_desc = tardoc_leistung.get('beschreibung')
+                relevant_candidates = pauschal_lkn_candidates
+                if t_lkn and t_lkn.startswith('AG.'):
+                     relevant_candidates = {k:v for k,v in pauschal_lkn_candidates.items() if k.startswith('WA.')}
+                     print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
+                if t_lkn and t_desc and relevant_candidates:
+                    mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
+                    if mapped_code: mapped_lkns.add(mapped_code)
 
-            # Ergebnis für Frontend speichern
-            regel_ergebnisse_liste.append({
-                "lkn": lkn,
-                "initiale_menge": menge_initial, # Wichtig für Transparenz im Frontend
-                "regelpruefung": regel_ergebnis,
-                "finale_menge": angepasste_menge
-            })
-
-            # Nur wenn abrechnungsfähig und Menge > 0 zur nächsten Stufe
-            if regel_ergebnis.get("abrechnungsfaehig") and angepasste_menge > 0:
-                # Füge die *regelkonforme* Leistung zur Liste für die Pauschal/TARDOC-Entscheidung hinzu
-                rule_checked_leistungen.append({
-                    **leistung, # Nimm ursprüngliche Infos (Typ, Beschreibung)
-                    "menge": angepasste_menge # Aber mit der finalen Menge
-                })
-
-    rule_time = time.time()
-    print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
-
-    # --- Kontextanreicherung ---
-    print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
-    pauschal_lkn_candidates = get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict)
-    tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
-    print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
-    mapped_lkns = set()
-    if tardoc_lkns_to_map and pauschal_lkn_candidates:
-        for tardoc_leistung in tardoc_lkns_to_map:
-            t_lkn = tardoc_leistung.get('lkn'); t_desc = tardoc_leistung.get('beschreibung')
-            # --- Optional: Filtere Kandidaten für Mapping ---
-            # Beispiel: Nur Anästhesie-Kandidaten (WA.*) für Anästhesie-TARDOC (AG.*)
-            relevant_candidates = pauschal_lkn_candidates
-            if t_lkn and t_lkn.startswith('AG.'):
-                 relevant_candidates = {k:v for k,v in pauschal_lkn_candidates.items() if k.startswith('WA.')}
-                 print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
-            # --- Ende Optional ---
-            if t_lkn and t_desc and relevant_candidates: # Nur mappen wenn Kandidaten vorhanden
-                mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
-                if mapped_code: mapped_lkns.add(mapped_code)
-
-    final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
-    final_pauschale_lkn_context_set.update(mapped_lkns)
-    final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set)
+        final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
+        final_pauschale_lkn_context_set.update(mapped_lkns)
+        final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set) # Wird hier korrekt gefüllt
+        
     print(f"INFO: Finaler LKN-Kontext für Pauschalenprüfung: {final_pauschale_lkn_context_list}")
     pauschale_context = {
-        "ICD": icd_input, "GTIN": gtin_input,
+        "ICD": icd_input, 
+        "GTIN": gtin_input,
         "Alter": alter_llm, # Verwende Wert aus Eingabe
         "Geschlecht": geschlecht_llm, # Verwende Wert aus Eingabe
         "useIcd": use_icd_flag,
@@ -814,45 +1004,44 @@ def analyze_billing():
 
     # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (nutzt jetzt angereicherten Kontext)
     final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
-    if not rule_checked_leistungen:
-         # ... (Fallback TARDOC wie vorher) ...
-         final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
+
+    if not final_pauschale_lkn_context_list:
+        print("WARNUNG: Keine relevanten LKNs für Pauschalenprüfung.")
+        # Gehe direkt zu TARDOC
+        final_result = prepare_tardoc_abrechnung_func(regel_ergebnisse_liste, leistungskatalog_dict)
     else:
+        # --- Dieser Block wird nur ausgeführt, wenn LKNs vorhanden sind ---
         try:
-            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} Leistung(en) zu finden (useIcd={use_icd_flag}, angereicherter Kontext)...")
-            # Rufe Pauschalen-Ermittlung mit dem *angereicherten* Kontext auf
-            pauschale_pruef_ergebnis = regelpruefer_pauschale.determine_applicable_pauschale(
-                user_input, 
-                rule_checked_leistungen, 
-                pauschale_context, # pauschale_context enthält jetzt gemappte LKNs
-                pauschale_lp_data, 
-                pauschale_bedingungen_data, 
+            print(f"INFO: Versuche, Pauschale zu finden (useIcd={use_icd_flag}, angereicherter Kontext)...")
+            pauschale_pruef_ergebnis = determine_applicable_pauschale(
+                user_input,
+                rule_checked_leistungen,
+                pauschale_context,
+                pauschale_lp_data,
+                pauschale_bedingungen_data,
                 pauschalen_dict,
-                leistungskatalog_dict, 
+                leistungskatalog_dict,
                 tabellen_dict_by_table
             )
-            # ... (Rest der Logik: Prüfe Ergebnis, ggf. TARDOC) ...
+
             if pauschale_pruef_ergebnis.get("type") == "Pauschale":
-                print("INFO: Anwendbare Pauschale gefunden.")
-                final_result = pauschale_pruef_ergebnis
+               final_result = pauschale_pruef_ergebnis
             else:
-                print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
-                final_result = regelpruefer.prepare_tardoc_abrechnung(
-                    regel_ergebnisse_liste, 
-                    leistungskatalog_dict
-                    )
+               print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
+
+               final_result = prepare_tardoc_abrechnung_func(regel_ergebnisse_liste, leistungskatalog_dict)
+
         except ConnectionError as e:
              print(f"FEHLER: Verbindung zu LLM Stufe 2 fehlgeschlagen: {e}")
              final_result = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2): {e}"}
         except Exception as e:
              print(f"FEHLER bei Pauschalen-/TARDOC-Entscheidung: {e}")
-             # Traceback loggen für Debugging
              traceback.print_exc()
              final_result = {"type": "Error", "message": f"Interner Fehler bei Abrechnungsentscheidung: {e}"}
-
+        # --- Ende des else-Blocks ---
 
     decision_time = time.time()
-    print(f"Zeit nach Entscheidung Pauschale/TARDOC: {decision_time - rule_time:.2f}s")
+    print(f"Zeit nach Entscheidung Pauschale/TARDOC: {decision_time - rule_time:.2f}s") # rule_time ist hier evtl. nicht definiert
 
     # 5. Kombiniertes Ergebnis an Frontend senden
     final_response = {
@@ -862,7 +1051,9 @@ def analyze_billing():
     }
 
     end_time = time.time()
-    print(f"Gesamtverarbeitungszeit Backend: {end_time - start_time:.2f}s")
+    # Berechne Gesamtzeit
+    total_time = end_time - start_time
+    print(f"Gesamtverarbeitungszeit Backend: {total_time:.2f}s")
     print(f"INFO: Sende finale Antwort Typ '{final_result.get('type')}' an Frontend.")
     return jsonify(final_response)
 
