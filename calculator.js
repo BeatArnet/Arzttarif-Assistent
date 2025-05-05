@@ -195,8 +195,11 @@ async function getBillingAnalysis() {
     const icdInput = $("icdInput").value.trim().split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const gtinInput = ($("gtinInput") ? $("gtinInput").value.trim().split(",").map(s => s.trim()).filter(Boolean) : []);
     const useIcd = $('useIcdCheckbox')?.checked ?? true; // Default true, falls Element nicht da
+    const ageInput = $('ageInput')?.value;
+    const age = ageInput ? parseInt(ageInput, 10) : null; // Als Zahl oder null
+    const gender = $('genderSelect')?.value || null; // Wert oder null
+    console.log(`[getBillingAnalysis] Kontext: useIcd=${useIcd}, Age=${age}, Gender=${gender}`);   
     console.log(`[getBillingAnalysis] ICD-Prüfung berücksichtigen: ${useIcd}`);    
-
     let backendResponse = null;
     let rawResponseText = "";
     let htmlOutput = "";
@@ -211,11 +214,14 @@ async function getBillingAnalysis() {
 
     try {
         console.log("[getBillingAnalysis] Sende Anfrage an Backend...");
+        // --- NEU: Alter und Geschlecht zum Request hinzufügen ---
         const requestBody = {
             inputText: userInput,
             icd: icdInput,
             gtin: gtinInput,
-            useIcd: useIcd // Flag mitsenden
+            useIcd: useIcd,
+            age: age, // Alter hinzufügen
+            gender: gender // Geschlecht hinzufügen
         };
         const res = await fetch("/api/analyze-billing", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(requestBody) });
         rawResponseText = await res.text();
