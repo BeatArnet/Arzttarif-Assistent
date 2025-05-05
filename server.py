@@ -11,6 +11,7 @@ import requests
 from dotenv import load_dotenv
 import regelpruefer
 import regelpruefer_pauschale
+from typing import Dict, List, Any, Set
 
 # Importiere Regelprüfer-Module und setze Fallbacks
 try:
@@ -348,6 +349,99 @@ JSON-Antwort:"""
         print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 1: {e}")
         raise e
 
+def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_pauschal_lkns: Dict[str, str]) -> str | None:
+    """
+    Findet die funktional äquivalente Pauschalen-LKN für eine gegebene TARDOC-LKN.
+    Args:
+        tardoc_lkn: Die TARDOC LKN (z.B. 'AG.00.0030').
+        tardoc_desc: Die Beschreibung der TARDOC LKN.
+        candidate_pauschal_lkns: Dict der möglichen Pauschalen-LKNs {lkn: beschreibung}.
+    Returns:
+        Die am besten passende Pauschalen-LKN als String oder None, wenn keine passt.
+    """
+    if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
+    if not candidate_pauschal_lkns:
+        print(f"WARNUNG (Mapping): Keine Kandidaten-LKNs für Mapping von {tardoc_lkn} übergeben.")
+        return None
+
+    # Baue den Kontext der Kandidaten auf (nur relevante, z.B. Anästhesie?)
+    # Hier könnte man filtern, z.B. nur WA.* Kandidaten für AG.* LKNs
+    # Vorerst nehmen wir alle übergebenen Kandidaten
+    candidates_text = "\n".join([f"- {lkn}: {desc}" for lkn, desc in candidate_pauschal_lkns.items()])
+    if len(candidates_text) > 15000: # Limit Kontextlänge (Anpassen nach Bedarf)
+        print(f"WARNUNG (Mapping): Kandidatenliste für {tardoc_lkn} zu lang, wird gekürzt.")
+        # Einfache Kürzung, intelligentere wäre möglich
+        candidates_text = candidates_text[:15000] + "\n..."
+
+
+    # *** PROMPT STUFE 2 - MAPPING ***
+    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für eine gegebene TARDOC-Leistung die funktional **äquivalenten** Leistungen aus der "Kandidatenliste" zu finden und nach Passgenauigkeit zu priorisieren.
+
+**Gegebene TARDOC-Leistung:**
+*   LKN: {tardoc_lkn}
+*   Beschreibung: {tardoc_desc}
+*   Kontext: Diese Leistung wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
+
+**Mögliche Äquivalente (Kandidatenliste aus Pauschalen-Kontext):**
+Dies sind LKNs, die oft Bedingungen für Pauschalen darstellen. Finde diejenigen, die die **gleiche Art von medizinischer Tätigkeit** wie die TARDOC-Leistung beschreiben.
+--- Kandidaten Start ---
+{candidates_text}
+--- Kandidaten Ende ---
+
+**Analyse & Entscheidung:**
+1.  Verstehe die **Kernfunktion** der TARDOC-Leistung (z.B. "Lokalanästhesie", "Bildgebung", "Laboranalyse").
+2.  Vergleiche diese Kernfunktion mit der Funktion jeder Kandidaten-LKN.
+3.  Identifiziere **alle** Kandidaten-LKNs, deren Funktion der TARDOC-Leistung nahekommt.
+4.  **Priorisiere** die gefundenen Kandidaten-LKNs nach der Ähnlichkeit ihrer Funktion zur TARDOC-Leistung. Die beste Übereinstimmung kommt zuerst.
+
+**Antwort:**
+*   Gib eine **kommagetrennte, priorisierte Liste** der LKN-Codes der passenden Kandidaten zurück (z.B. `WA.10.0010,WA.10.0020`).
+*   Wenn **keine** der Kandidaten-LKNs funktional passt, gib exakt das Wort `NONE` zurück.
+*   Gib **keine** Erklärungen, Begründungen oder sonstigen Text aus.
+
+Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
+    # *** ENDE PROMPT ***
+
+
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2, # Niedrig für konsistente Auswahl
+            "maxOutputTokens": 100 # Antwort ist kurz
+         }
+    }
+    print(f"Sende Anfrage Stufe 2 (Mapping) für {tardoc_lkn} an Gemini Model: {GEMINI_MODEL}...")
+    try:
+        response = requests.post(gemini_url, json=payload, timeout=60) # Etwas mehr Zeit
+        print(f"Gemini Stufe 2 (Mapping) Antwort Status Code: {response.status_code}")
+        response.raise_for_status()
+        gemini_data = response.json()
+
+        if not gemini_data.get('candidates'): raise ValueError("Keine Kandidaten in Stufe 2 (Mapping) Antwort.")
+        mapped_lkn_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print(f"DEBUG: Roher Text von LLM Stufe 2 (Mapping) für {tardoc_lkn}: '{mapped_lkn_text}'")
+
+        if mapped_lkn_text.upper() == "NONE":
+             print(f"INFO: Kein passendes Mapping für {tardoc_lkn} gefunden (LLM sagte NONE).")
+             return None # Gib None zurück, wenn LLM explizit NONE sagt
+
+        # Parse die kommagetrennte Liste
+        ranked_mapped_codes = [code.strip().upper() for code in mapped_lkn_text.split(',') if code.strip()]
+
+        # Finde den ersten validen Code aus der Liste
+        for code in ranked_mapped_codes:
+            if code in candidate_pauschal_lkns: # Prüfe gegen die ursprünglichen Kandidaten
+                print(f"INFO: Mapping erfolgreich (aus Liste): {tardoc_lkn} -> {code}")
+                return code # Gib den ersten validen Code zurück
+
+        # Wenn keiner der zurückgegebenen Codes valide war
+        print(f"WARNUNG: Keiner der vom Mapping-LLM zurückgegebenen Codes ({ranked_mapped_codes}) war valide für {tardoc_lkn}.")
+        return None
+
+    except requests.exceptions.RequestException as req_err: print(f"FEHLER: Netzwerkfehler bei Gemini Stufe 2 (Mapping): {req_err}"); return None
+    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e: print(f"FEHLER beim Verarbeiten der Mapping-Antwort: {e}"); return None
+    except Exception as e: print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2 (Mapping): {e}"); return None
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
 def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
@@ -368,7 +462,7 @@ Potenzielle Pauschalen:
 Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    payload = { "contents": [{"parts": [{"text": prompt}]}], "generationConfig": { "temperature": 0.0, "maxOutputTokens": 500 } } # Temp 0.0 für deterministisches Ranking
+    payload = { "contents": [{"parts": [{"text": prompt}]}], "generationConfig": { "temperature": 0.1, "maxOutputTokens": 500 } } # Temp 0.0 für deterministisches Ranking
     print(f"Sende Anfrage Stufe 2 (Ranking) an Gemini Model: {GEMINI_MODEL}...")
     try:
         response = requests.post(gemini_url, json=payload, timeout=45)
@@ -456,6 +550,32 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
         print(f"INFO: {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
         return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
 
+def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict):
+    """Sammelt alle LKNs, die in Pauschalenbedingungen vorkommen."""
+    candidate_lkns = set()
+    candidate_lkns = set()
+    BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte' # Anpassen!
+    for cond in pauschale_bedingungen_data:
+        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, "")
+        if not wert: continue
+        if typ == "LEISTUNGSPOSITIONEN IN LISTE" or typ == "LKN":
+            lkns = [lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]
+            candidate_lkns.update(lkns)
+        elif typ == "LEISTUNGSPOSITIONEN IN TABELLE" or typ == "TARIFPOSITIONEN IN TABELLE":
+            table_names = [t.strip() for t in wert.split(',') if t.strip()]
+            for table_name in table_names:
+                # Nutze utils.get_table_content (muss importiert sein oder hier definiert)
+                from utils import get_table_content # Import innerhalb der Funktion (alternativ global)
+                content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
+                for item in content:
+                    if item.get('Code'): candidate_lkns.add(item['Code'].upper())
+    valid_candidates = {}
+    for lkn in candidate_lkns:
+        lkn_details = leistungskatalog_dict.get(lkn) # Suche mit Upper Case
+        if lkn_details: valid_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
+    print(f"DEBUG: {len(valid_candidates)} gültige Pauschalen-LKN-Kandidaten für Mapping gefunden.")
+    return valid_candidates
+
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
@@ -469,9 +589,21 @@ def analyze_billing():
     icd_input = data.get('icd', []); 
     gtin_input = data.get('gtin', [])
     use_icd_flag = data.get('useIcd', True) # Default True
+    age_input = data.get('age') # Kann None, Zahl oder String sein
+    gender_input = data.get('gender') # Kann None oder String sein    
+
+    # Konvertiere Alter sicher zu int oder None
+    try:
+        alter_llm = int(age_input) if age_input is not None else None
+    except (ValueError, TypeError):
+        alter_llm = None # Bei ungültigem Input
+    
+    # Übernehme Geschlecht, stelle sicher, dass es ein gültiger String oder None ist
+    geschlecht_llm = str(gender_input) if isinstance(gender_input, str) and gender_input else None
+
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
     print(f"Empfangener inputText: '{user_input[:100]}...'")
-    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}")
+    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_llm}, Gender: {geschlecht_llm}") # Log 
 
     # Stelle sicher, dass Daten geladen sind
     if not leistungskatalog_dict or not pauschalen_dict or not tardoc_data_dict or not pauschale_bedingungen_data or not tabellen_data: # Füge fehlende hinzu
@@ -648,46 +780,67 @@ def analyze_billing():
     rule_time = time.time()
     print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
 
-    # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (NEUE LOGIK)
-    final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
+    # --- Kontextanreicherung ---
+    print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
+    pauschal_lkn_candidates = get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict)
+    tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
+    print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
+    mapped_lkns = set()
+    if tardoc_lkns_to_map and pauschal_lkn_candidates:
+        for tardoc_leistung in tardoc_lkns_to_map:
+            t_lkn = tardoc_leistung.get('lkn'); t_desc = tardoc_leistung.get('beschreibung')
+            # --- Optional: Filtere Kandidaten für Mapping ---
+            # Beispiel: Nur Anästhesie-Kandidaten (WA.*) für Anästhesie-TARDOC (AG.*)
+            relevant_candidates = pauschal_lkn_candidates
+            if t_lkn and t_lkn.startswith('AG.'):
+                 relevant_candidates = {k:v for k,v in pauschal_lkn_candidates.items() if k.startswith('WA.')}
+                 print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
+            # --- Ende Optional ---
+            if t_lkn and t_desc and relevant_candidates: # Nur mappen wenn Kandidaten vorhanden
+                mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
+                if mapped_code: mapped_lkns.add(mapped_code)
+
+    final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
+    final_pauschale_lkn_context_set.update(mapped_lkns)
+    final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set)
+    print(f"INFO: Finaler LKN-Kontext für Pauschalenprüfung: {final_pauschale_lkn_context_list}")
     pauschale_context = {
         "ICD": icd_input, "GTIN": gtin_input,
-        "Alter": alter_llm, "Geschlecht": geschlecht_llm,
-        "useIcd": use_icd_flag # Flag weitergeben
+        "Alter": alter_llm, # Verwende Wert aus Eingabe
+        "Geschlecht": geschlecht_llm, # Verwende Wert aus Eingabe
+        "useIcd": use_icd_flag,
+        "LKN": final_pauschale_lkn_context_list
     }
 
+    # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (nutzt jetzt angereicherten Kontext)
+    final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
     if not rule_checked_leistungen:
-         print("WARNUNG: Keine regelkonformen Leistungen nach Regelprüfung übrig.")
-         # Rufe TARDOC-Vorbereitung direkt auf
-         final_result = regelpruefer.prepare_tardoc_abrechnung(
-             regel_ergebnisse_liste,
-             leistungskatalog_dict # Übergebe das Katalog-Dict
-         )
+         # ... (Fallback TARDOC wie vorher) ...
+         final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
     else:
         try:
-            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} Leistung(en) zu finden (useIcd={use_icd_flag})...")
-            # Rufe determine_applicable_pauschale mit dem Kontext auf
+            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} Leistung(en) zu finden (useIcd={use_icd_flag}, angereicherter Kontext)...")
+            # Rufe Pauschalen-Ermittlung mit dem *angereicherten* Kontext auf
             pauschale_pruef_ergebnis = regelpruefer_pauschale.determine_applicable_pauschale(
-                user_input, rule_checked_leistungen, pauschale_context,
-                # Übergebe die globalen Daten-Dictionaries
-                pauschale_lp_data,
-                pauschale_bedingungen_data,
+                user_input, 
+                rule_checked_leistungen, 
+                pauschale_context, # pauschale_context enthält jetzt gemappte LKNs
+                pauschale_lp_data, 
+                pauschale_bedingungen_data, 
                 pauschalen_dict,
-                leistungskatalog_dict,
+                leistungskatalog_dict, 
                 tabellen_dict_by_table
             )
-
-            # Prüfe das Ergebnis der Pauschalenprüfung
+            # ... (Rest der Logik: Prüfe Ergebnis, ggf. TARDOC) ...
             if pauschale_pruef_ergebnis.get("type") == "Pauschale":
                 print("INFO: Anwendbare Pauschale gefunden.")
                 final_result = pauschale_pruef_ergebnis
             else:
-                # Keine Pauschale gefunden oder anwendbar -> TARDOC
                 print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
                 final_result = regelpruefer.prepare_tardoc_abrechnung(
-                    regel_ergebnisse_liste,
-                    leistungskatalog_dict # Übergebe das Katalog-Dict
-                )
+                    regel_ergebnisse_liste, 
+                    leistungskatalog_dict
+                    )
         except ConnectionError as e:
              print(f"FEHLER: Verbindung zu LLM Stufe 2 fehlgeschlagen: {e}")
              final_result = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2): {e}"}

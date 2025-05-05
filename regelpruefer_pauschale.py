@@ -109,55 +109,62 @@ def evaluate_structured_conditions(
     tabellen_dict_by_table: Dict[str, List[Dict]]
 ) -> bool:
     """
-    Wertet die strukturierte UND/ODER-Logik der Bedingungen für eine Pauschale aus.
-    Gibt True zurück, wenn die Gesamtlogik erfüllt ist, sonst False.
+    Wertet die strukturierte UND/ODER-Logik aus.
+    Berücksichtigt useIcd-Flag für ICD-Bedingungen.
     """
-    print(f"DEBUG (evaluate): Erhaltene Tabellen-Keys (Auszug): {list(tabellen_dict_by_table.keys())[:10]}")
-    # Schlüssel - anpassen!
-    PAUSCHALE_KEY = 'Pauschale'
-    GRUPPE_KEY = 'Gruppe'
-    OPERATOR_KEY = 'Operator'
+    PAUSCHALE_KEY = 'Pauschale'; GRUPPE_KEY = 'Gruppe'; OPERATOR_KEY = 'Operator'; BED_TYP_KEY = 'Bedingungstyp'
+    use_icd_check = context.get("useIcd", True) # Hole Flag
 
     conditions = [cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY) == pauschale_code]
-    if not conditions:
-        print(f"INFO (evaluate): Keine Bedingungen für Pauschale {pauschale_code}, gilt als erfüllt.")
-        return True
+    if not conditions: return True
 
     grouped_conditions: Dict[Any, List[Dict]] = {}
     for cond in conditions:
         gruppe = cond.get(GRUPPE_KEY)
-        if gruppe is None: # Bedingungen ohne Gruppe ignorieren? Oder als eigene Gruppe behandeln? Hier: Ignorieren
-             print(f"WARNUNG (evaluate): Bedingung ohne Gruppe für {pauschale_code} gefunden: {cond.get('BedingungsID')}")
-             continue
-        if gruppe not in grouped_conditions:
-            grouped_conditions[gruppe] = []
-        grouped_conditions[gruppe].append(cond)
-
-    if not grouped_conditions: # Falls alle Bedingungen ohne Gruppe waren
-        print(f"INFO (evaluate): Keine gruppierten Bedingungen für {pauschale_code}, gilt als erfüllt.")
-        return True
+        if gruppe is None: continue
+        grouped_conditions.setdefault(gruppe, []).append(cond)
+    if not grouped_conditions: return True
 
     overall_result = False
-    print(f"DEBUG (evaluate): Prüfe {len(grouped_conditions)} Gruppen für {pauschale_code}")
+    print(f"DEBUG (evaluate): Prüfe {len(grouped_conditions)} Gruppen für {pauschale_code} (useIcd={use_icd_check})")
     for gruppe, conditions_in_group in grouped_conditions.items():
         if not conditions_in_group: continue
-
         group_operator = conditions_in_group[0].get(OPERATOR_KEY, 'UND').upper()
-        if group_operator not in ['UND', 'ODER']:
-            print(f"WARNUNG (evaluate): Ungültiger Operator '{group_operator}' in Gruppe {gruppe} für {pauschale_code}. Verwende UND.")
-            group_operator = 'UND'
+        if group_operator not in ['UND', 'ODER']: group_operator = 'UND'
 
         group_met = False
-        results_in_group = [check_single_condition(cond, context, tabellen_dict_by_table) for cond in conditions_in_group]
+        results_in_group = []
+        non_icd_results_in_group = [] # Ergebnisse ohne ICD-Bedingungen
 
+        for cond in conditions_in_group:
+            cond_type = cond.get(BED_TYP_KEY, "").upper()
+            is_icd_condition = "ICD" in cond_type or "DIAGNOSE" in cond_type
+
+            # Prüfe die Einzelbedingung (berücksichtigt use_icd_check intern)
+            single_result = check_single_condition(cond, context, tabellen_dict_by_table)
+            results_in_group.append(single_result)
+
+            # Sammle Ergebnisse der Nicht-ICD-Bedingungen separat
+            if not is_icd_condition:
+                non_icd_results_in_group.append(single_result)
+
+        # Werte die Gruppe aus
         if group_operator == 'UND':
+            # Alle Bedingungen (inkl. evtl. ignorierter ICDs) müssen True sein
             group_met = all(results_in_group)
         elif group_operator == 'ODER':
-            group_met = any(results_in_group)
+            # Mindestens eine Bedingung muss True sein.
+            # Wenn ICDs ignoriert werden, prüfen wir zusätzlich, ob mindestens
+            # eine *Nicht-ICD*-Bedingung erfüllt ist, um zu verhindern, dass
+            # die Gruppe nur wegen ignorierter ICDs True wird.
+            if not use_icd_check:
+                 group_met = any(results_in_group) and any(non_icd_results_in_group)
+            else:
+                 group_met = any(results_in_group)
 
-        print(f"DEBUG (evaluate): Gruppe {gruppe} (Operator: {group_operator}) für {pauschale_code}: Einzel-Ergebnisse={results_in_group}, Gruppen-Ergebnis={group_met}")
 
-        # Implizites ODER zwischen den Gruppen: Wenn eine Gruppe erfüllt ist, ist alles erfüllt
+        print(f"DEBUG (evaluate): Gruppe {gruppe} (Op: {group_operator}): Einzel={results_in_group}, NonICD={non_icd_results_in_group if not use_icd_check and group_operator=='ODER' else 'N/A'}, GruppenErgebnis={group_met}")
+
         if group_met:
             overall_result = True
             print(f"DEBUG (evaluate): Gruppe {gruppe} erfüllt, Gesamtergebnis für {pauschale_code} ist True.")
@@ -176,11 +183,11 @@ def check_pauschale_conditions(
     """
     Prüft die Bedingungen für eine gegebene Pauschale deterministisch.
     Generiert detailliertes HTML inkl. klickbarer Tabellenreferenzen für die Anzeige.
-    Gibt auch den Gesamtstatus (allMet) und den LKN-Trigger-Status zurück.
+    Gibt auch den LKN-Trigger-Status zurück.
     """
     errors: list[str] = []
     condition_details_html: str = "<ul>"
-    all_met_overall = True # Gesamtstatus über alle Bedingungen/Gruppen (basierend auf Einzelprüfung)
+    all_met_overall = True # Wird nicht mehr für die Auswahl verwendet, nur für Info
     trigger_lkn_condition_met = False # Wurde irgendeine LKN-Bedingung erfüllt?
 
     # Schlüsseldefinitionen...
@@ -195,7 +202,8 @@ def check_pauschale_conditions(
 
     if not conditions:
         condition_details_html += "<li>Keine spezifischen Bedingungen gefunden.</li></ul>"
-        return {"allMet": True, "html": condition_details_html, "errors": [], "trigger_lkn_condition_met": False}
+        # allMet ist hier True, da keine Bedingungen verletzt wurden
+        return {"html": condition_details_html, "errors": [], "trigger_lkn_condition_met": False}
 
     print(f"--- DEBUG [check_pauschale_conditions HTML]: Starte Prüfung für {pauschale_code} ---")
     # Kontext nur einmal holen
@@ -211,6 +219,7 @@ def check_pauschale_conditions(
         feld_ref = cond.get(BED_FELD_KEY)
 
         # Prüfe diese einzelne Bedingung mit der Hilfsfunktion
+        # Wichtig: Der Kontext wird hier korrekt übergeben
         condition_met_this_line = check_single_condition(cond, context, tabellen_dict_by_table)
 
         # Setze Status und Beschreibung für HTML
@@ -220,7 +229,7 @@ def check_pauschale_conditions(
         bedingung_beschreibung = ""
         is_lkn_condition = False
 
-        # Generiere Beschreibung und Details für HTML (redundant zur Logik in check_single_condition, aber für HTML nötig)
+        # Generiere Beschreibung und Details für HTML
         try:
             if bedingungstyp == "ICD":
                 bedingung_beschreibung = f" - Erfordert ICD: {escape(werte_str)}"
@@ -233,8 +242,7 @@ def check_pauschale_conditions(
                 bedingung_beschreibung = f" - Erfordert LKN aus "
                 is_lkn_condition = True
                 table_names = [t.strip() for t in werte_str.split(',') if t.strip()]
-                all_content = []
-                valid_table_names = []
+                all_content = []; valid_table_names = []
                 for table_name in table_names:
                     table_content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
                     if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
@@ -249,8 +257,7 @@ def check_pauschale_conditions(
             elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE":
                 bedingung_beschreibung = f" - Erfordert ICD aus "
                 table_names = [t.strip() for t in werte_str.split(',') if t.strip()]
-                all_content = []
-                valid_table_names = []
+                all_content = []; valid_table_names = []
                 for table_name in table_names:
                     table_content = get_table_content(table_name, "icd", tabellen_dict_by_table)
                     if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
@@ -267,6 +274,8 @@ def check_pauschale_conditions(
                  bedingung_beschreibung = f" - Patientenbedingung: Feld='{escape(feld_ref)}'"
                  if feld_ref == "Alter": bedingung_beschreibung += f", Bereich/Wert='{min_val or '-'} bis {max_val or '-'} / {wert_regel or '-'}'"
                  elif feld_ref == "Geschlecht": bedingung_beschreibung += f", Erwartet='{escape(wert_regel)}'"
+            elif bedingungstyp == "GESCHLECHT IN LISTE": # Beschreibung für HTML
+                 bedingung_beschreibung = f" - Geschlecht in Liste: {escape(werte_str)}"
             else: # Unbekannter Typ
                  bedingung_beschreibung = f" - Wert/Ref: {escape(werte_str or feld_ref or '-')}"
 
@@ -282,7 +291,9 @@ def check_pauschale_conditions(
         # Füge Listeneintrag zum HTML hinzu
         color = "green" if condition_met_this_line else "red" if not status_text.startswith("FEHLER") else "orange"
         li_content += bedingung_beschreibung
-        li_content += details_fuer_bedingung
+        # Füge Details nur hinzu, wenn sie nicht schon Teil der Beschreibung sind (für Tabellen)
+        if not ("IN TABELLE" in bedingungstyp and details_fuer_bedingung):
+             li_content += details_fuer_bedingung # Füge Tabellen-Details hinzu, falls vorhanden
         li_content += f': <span style="color:{color}; font-weight:bold;">{status_text}</span></li>'
         condition_details_html += li_content
 
@@ -294,14 +305,11 @@ def check_pauschale_conditions(
             else: # Füge auch explizite Fehler hinzu
                  errors.append(f"Fehler bei Prüfung Bedingung {i+1}: {status_text.replace('FEHLER bei Prüfung: ','')}")
 
-
     condition_details_html += "</ul>"
     print(f"--- DEBUG [check_pauschale_conditions HTML]: Abschluss Prüfung für {pauschale_code}: allMetOverall={all_met_overall}, triggerLKNMet={trigger_lkn_condition_met} ---")
 
-    # Wichtig: allMet hier spiegelt nur wider, ob *jede einzelne Zeile* erfüllt war,
-    # nicht die komplexe UND/ODER Logik! Dafür ist evaluate_structured_conditions zuständig.
+    # Gibt jetzt kein 'allMet' mehr zurück, da dies durch evaluate_structured_conditions bestimmt wird
     return {
-        "allMet": all_met_overall,
         "html": condition_details_html,
         "errors": errors,
         "trigger_lkn_condition_met": trigger_lkn_condition_met
@@ -411,22 +419,23 @@ def determine_applicable_pauschale(
     # 4. Wähle die beste Pauschale aus den STRUKTURIELL GÜLTIGEN Kandidaten
     selected_candidate_info = None
     if valid_candidates:
+        # --- NEUE AUSWAHL-LOGIK: Spezifischste (A vor B) ---
+        # Trenne spezifische und Fallback-Pauschalen
         specific_valid = [c for c in valid_candidates if not c['code'].startswith('C9')]
         fallback_valid = [c for c in valid_candidates if c['code'].startswith('C9')]
 
         if specific_valid:
-            # Priorisiere spezifische Pauschalen: Wähle die "niedrigste" (höchster Buchstabe)
-            specific_valid.sort(key=lambda x: x['code'], reverse=True) # E vor B vor A
+            # Priorisiere spezifische Pauschalen: Wähle die "spezifischste" (niedrigster Buchstabe)
+            specific_valid.sort(key=lambda x: x['code'], reverse=False) # A vor B vor E
             selected_candidate_info = specific_valid[0]
-            print(f"INFO: Spezifische Pauschale ausgewählt (höchster Buchstabe), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
+            print(f"INFO: Spezifischste Pauschale ausgewählt (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
         elif fallback_valid:
-            # Nur wenn keine spezifische passt, nimm die "niedrigste" Fallback-Pauschale
-            fallback_valid.sort(key=lambda x: x['code'], reverse=True) # Z.B. C99.80Z vor C90.03Z
+            # Nur wenn keine spezifische passt, nimm die "spezifischste" Fallback-Pauschale
+            fallback_valid.sort(key=lambda x: x['code'], reverse=False) # C90 vor C99? Oder höchste Nummer? Hier A-Z
             selected_candidate_info = fallback_valid[0]
-            print(f"INFO: Fallback-Pauschale ausgewählt (höchster Buchstabe), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
+            print(f"INFO: Spezifischste Fallback-Pauschale ausgewählt (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
         else:
-            # Sollte nicht passieren, wenn valid_candidates nicht leer war, aber zur Sicherheit
-             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?")
+             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?") # Sollte nicht passieren
              return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl."}
         # --- ENDE NEUE AUSWAHL-LOGIK ---
 
@@ -444,7 +453,8 @@ def determine_applicable_pauschale(
     condition_errors = []
     bedingungs_context_html = context # Enthält useIcd
     try:
-        condition_result_html = check_pauschale_conditions( # Direkter Aufruf
+        # Direkter Aufruf der Funktion im selben Modul
+        condition_result_html = check_pauschale_conditions(
             best_pauschale_code,
             bedingungs_context_html,
             pauschale_bedingungen_data,
@@ -452,10 +462,11 @@ def determine_applicable_pauschale(
         )
         bedingungs_pruef_html_result = condition_result_html.get("html", "<p class='error'>Fehler bei HTML-Generierung.</p>")
         condition_errors = condition_result_html.get("errors", [])
+        # trigger_lkn_met = condition_result_html.get("trigger_lkn_condition_met", False) # Optional holen
     except Exception as e_html_gen:
          print(f"FEHLER bei check_pauschale_conditions (HTML-Generierung) für {best_pauschale_code}: {e_html_gen}")
          bedingungs_pruef_html_result = f"<p class='error'>Fehler bei HTML-Generierung: {e_html_gen}</p>"
-         condition_errors = [f"Fehler HTML-Generierung: {e_html_gen}"] # Fehler auch hier setzen
+         condition_errors = [f"Fehler HTML-Generierung: {e_html_gen}"]
 
     # 6. Pauschalen-Begründung erstellen
     rule_checked_lkns_str_list = [str(lkn) for lkn in rule_checked_lkns if lkn]
