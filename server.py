@@ -218,13 +218,13 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
 1.  **LKN Identifikation & STRIKTE Validierung:**
     *   Lies den "Behandlungstext" sorgfältig.
     *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
-    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Achte besonders auf die ersten Zeichen (z.B. 'C03.' vs. 'C08.').
-    *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben.
-    *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen, auch wenn sie ähnlich klingen oder thematisch passen könnten. Erfinde keine LKNs.
-    *   Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert, stelle sicher, dass **beide** LKNs (Basis + Zuschlag) identifiziert und **validiert** werden.
+    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Verwechsle nicht ähnliche Codes (z.B. C03.AH.0010 ist NICHT C08.AH.0010, es sei denn, beide stehen exakt so im Katalog und passen zur Beschreibung). Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zum Behandlungstext passt.
+    *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben UND deren Beschreibung zum Text passt.
+    *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen oder deren Beschreibung nicht zur genannten Leistung passt. Erfinde keine LKNs.
+    *   Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert (primär bei Konsultationen), stelle sicher, dass **beide** LKNs (Basis + Zuschlag) identifiziert und **validiert** werden.
 
 2.  **Typ & Beschreibung hinzufügen:**
-    *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext** hinzu.
+    *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext für DIESE LKN** hinzu.
 
 3.  **Kontextinformationen extrahieren:**
     *   Extrahiere **nur explizit genannte** Werte aus dem "Behandlungstext": `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
@@ -250,7 +250,7 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     }}
     // ... ggf. weitere validierte LKNs
   ],
-  "extracted_info": {{ ... }},
+  "extracted_info": {{ "dauer_minuten": null, "menge_allgemein": null, "alter": null, "geschlecht": null }},
   "begruendung_llm": "<Begründung>"
 }}
 
@@ -589,71 +589,48 @@ def analyze_billing():
     icd_input = data.get('icd', []); 
     gtin_input = data.get('gtin', [])
     use_icd_flag = data.get('useIcd', True) # Default True
-    age_input = data.get('age') # Kann None, Zahl oder String sein
-    gender_input = data.get('gender') # Kann None oder String sein    
+    age_input = data.get('age') 
+    gender_input = data.get('gender')   
 
-    # Konvertiere Alter sicher zu int oder None
     try:
         alter_llm = int(age_input) if age_input is not None else None
     except (ValueError, TypeError):
-        alter_llm = None # Bei ungültigem Input
+        alter_llm = None 
     
-    # Übernehme Geschlecht, stelle sicher, dass es ein gültiger String oder None ist
     geschlecht_llm = str(gender_input) if isinstance(gender_input, str) and gender_input else None
 
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
     print(f"Empfangener inputText: '{user_input[:100]}...'")
-    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_llm}, Gender: {geschlecht_llm}") # Log 
+    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_llm}, Gender: {geschlecht_llm}") 
     
-    # Stelle sicher, dass Daten geladen sind
-    if not leistungskatalog_dict or not pauschalen_dict or not tardoc_data_dict or not pauschale_bedingungen_data or not tabellen_data: # Füge fehlende hinzu
+    if not leistungskatalog_dict or not pauschalen_dict or not tardoc_data_dict or not pauschale_bedingungen_data or not tabellen_data:
          print("FEHLER: Kritische Daten nicht geladen. Analyse abgebrochen.")
          return jsonify({"error": "Kritische Server-Daten nicht geladen. Bitte Administrator kontaktieren."}), 503
     
-    # 2. LLM Stufe 1: LKNs identifizieren
     llm_stage1_result = None
     try:
-        # Erstelle Katalog-Kontext nur mit relevanten Feldern
         katalog_context = "\n".join([
-            f"LKN: {item.get('LKN', 'N/A')}, Typ: {item.get('Typ', 'N/A')}, Beschreibung: {item.get('Beschreibung', 'N/A')}"
-            for item in leistungskatalog_data # Nutze Liste für Reihenfolge? Oder Dict? Dict ist schneller für Lookup.
-            if item.get('LKN') # Nur wenn LKN existiert
+            f"LKN: {item.get('LKN', 'N/A')}, Typ: {item.get('Typ', 'N/A')}, Beschreibung: {html.escape(item.get('Beschreibung', 'N/A'))}" # Beschreibung escapen für Robustheit
+            for item in leistungskatalog_data 
+            if item.get('LKN') 
         ])
         if not katalog_context: raise ValueError("Leistungskatalog für LLM-Kontext ist leer.")
-
-        # print("--- DEBUG: Prüfung katalog_context ---")
-        # test_key_wrong = 'C08.AH.0010'
-        # test_key_correct = 'C03.AH.0010'
-        # if test_key_wrong in katalog_context:
-        #      print(f"FEHLER ALARM: Unerwarteter LKN '{test_key_wrong}' im katalog_context gefunden!")
-        #       # Finde die Zeile(n)
-        #       lines_with_wrong_key = [line for line in katalog_context.splitlines() if test_key_wrong in line]
-        #       print(f"   -> Zeilen: {lines_with_wrong_key}")
-        #  else:
-        #       print(f"INFO: Korrekt - LKN '{test_key_wrong}' NICHT im katalog_context gefunden.")
-        #
-        #  if test_key_correct in katalog_context:
-        #       print(f"INFO: Korrekt - LKN '{test_key_correct}' im katalog_context gefunden.")
-        #  else:
-        #       print(f"FEHLER ALARM: Erwarteter LKN '{test_key_correct}' NICHT im katalog_context gefunden!")
-        #  print("--- ENDE DEBUG: Prüfung katalog_context ---")
-
         llm_stage1_result = call_gemini_stage1(user_input, katalog_context)
 
     except ConnectionError as e:
          print(f"FEHLER: Verbindung zu LLM Stufe 1 fehlgeschlagen: {e}")
-         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504 # Gateway Timeout
-    except ValueError as e: # Fängt Validierungsfehler und andere Fehler von call_gemini_stage1
+         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504 
+    except ValueError as e: 
          print(f"FEHLER: Verarbeitung LLM Stufe 1 fehlgeschlagen: {e}")
-         return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400 # Bad Request oder 500? Eher 400 wenn Input/Format Problem
+         return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400 
     except Exception as e:
          print(f"FEHLER: Unerwarteter Fehler bei LLM Stufe 1: {e}")
-         return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500 # Internal Server Error
+         traceback.print_exc() # Log full traceback for unexpected errors
+         return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500 
 
     llm1_time = time.time()
     print(f"Zeit nach LLM Stufe 1: {llm1_time - start_time:.2f}s")
 
-    # *** Validierung der vom LLM identifizierten LKNs gegen lokalen Katalog ***
     validated_leistungen_llm = []
     identified_leistungen_raw = llm_stage1_result.get("identified_leistungen", [])
     if not identified_leistungen_raw:
@@ -661,26 +638,23 @@ def analyze_billing():
     else:
         for leistung in identified_leistungen_raw:
             lkn = leistung.get("lkn")
-            menge_llm = leistung.get("menge", 1) # Menge aus LLM holen
+            menge_llm = leistung.get("menge", 1) 
+            llm_beschreibung = leistung.get("beschreibung", "N/A von LLM") # Hinzugefügt
 
-            # Prüfe, ob LKN existiert und im lokalen Katalog vorhanden ist
-            local_data = leistungskatalog_dict.get(str(lkn).upper()) # Immer upper case suchen
+            local_data = leistungskatalog_dict.get(str(lkn).upper()) 
             if local_data:
-                 # Überschreibe Typ und Beschreibung mit lokalen Daten für Konsistenz
                  leistung["typ"] = local_data.get("Typ", leistung.get("typ"))
                  leistung["beschreibung"] = local_data.get("Beschreibung", leistung.get("beschreibung"))
-                 leistung["lkn"] = str(lkn).upper() # LKN normalisieren
-                 leistung["menge"] = max(1, int(menge_llm)) # Sicherstellen, dass Menge >= 1 ist
+                 leistung["lkn"] = str(lkn).upper() 
+                 leistung["menge"] = max(1, int(menge_llm)) 
                  validated_leistungen_llm.append(leistung)
             else:
-                 print(f"WARNUNG: Vom LLM identifizierte LKN '{lkn}' nicht im lokalen Katalog gefunden. Wird ignoriert.")
+                 # Geändertes Logging hier:
+                 print(f"WARNUNG: Vom LLM identifizierte LKN '{lkn}' (LLM-Beschreibung: '{llm_beschreibung}') nicht im lokalen Katalog gefunden. Wird ignoriert.")
 
-        # Verwende die validierte Liste für die weitere Verarbeitung
         identified_leistungen_llm = validated_leistungen_llm
-        # Aktualisiere das Ergebnisobjekt für Transparenz (wichtig für Frontend)
         llm_stage1_result["identified_leistungen"] = identified_leistungen_llm
         print(f"INFO: {len(identified_leistungen_llm)} LKNs nach Validierung durch LLM Stufe 1 identifiziert.")
-
 
     # 3. Regelprüfung für identifizierte LKNs
     regel_ergebnisse_liste = [] # Wird an Frontend gesendet

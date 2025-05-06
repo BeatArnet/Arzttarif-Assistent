@@ -1,5 +1,5 @@
 # regelpruefer_pauschale.py (Version mit strukturierter Auswertung UND HTML-Generierung)
-
+import traceback
 import json
 from typing import Dict, List, Any
 from utils import escape, get_table_content 
@@ -7,100 +7,140 @@ import re, html
 
 # === FUNKTION ZUR PRÜFUNG EINER EINZELNEN BEDINGUNG ===
 def check_single_condition(
-    condition: Dict, # Ein einzelnes Bedingungs-Dictionary
+    condition: Dict,
     context: Dict,
     tabellen_dict_by_table: Dict[str, List[Dict]]
 ) -> bool:
     """Prüft eine einzelne Bedingungszeile und gibt True/False zurück."""
-    print(f"DEBUG (check_single): Erhaltene Tabellen-Keys (Auszug): {list(tabellen_dict_by_table.keys())[:10]}")
 
-    use_icd_check = context.get("useIcd", True) # Default: True
-    # Schlüssel für Bedingungen - anpassen!
+    # Dieses Flag steuert, ob ICD-Bedingungen ÜBERHAUPT GEPRÜFT werden.
+    # Wenn False, werden ICD-Bedingungen als "erfüllt" (True) betrachtet.
+    # Wenn True, erfolgt eine spezifische Prüfung.
+    check_icd_conditions_at_all = context.get("useIcd", True)
+
     BED_TYP_KEY = 'Bedingungstyp'
     BED_WERTE_KEY = 'Werte'
-    BED_FELD_KEY = 'Feld'
-    BED_MIN_KEY = 'MinWert'
-    BED_MAX_KEY = 'MaxWert'
+    # ... (andere Schlüsseldefinitionen)
 
     bedingungstyp = condition.get(BED_TYP_KEY, "").upper()
     werte_str = condition.get(BED_WERTE_KEY, "")
-    werte_list_upper = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
-    feld_ref = condition.get(BED_FELD_KEY)
-    min_val = condition.get(BED_MIN_KEY)
-    max_val = condition.get(BED_MAX_KEY)
-    wert_regel = condition.get(BED_WERTE_KEY) # Wert aus Regel für Patientenbedingung
+    # ... (andere Variableninitialisierungen)
 
-    # Kontext sicher holen
     provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-    provided_gtins = set(context.get("GTIN", []))
-    provided_lkns_upper = {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn}
-    provided_alter = context.get("Alter")
-    provided_geschlecht = context.get("Geschlecht")
+    # ... (andere Kontextvariablen)
 
     try:
-        if bedingungstyp == "ICD":
-            if not use_icd_check:
-                print("DEBUG (check_single): ICD-Prüfung übersprungen (Checkbox).")
-                return True # Ignorieren -> Erfüllt
-            # Prüfe, ob *mindestens einer* der geforderten ICDs im Kontext ist
-            return any(req_icd in provided_icds_upper for req_icd in werte_list_upper)
+        if bedingungstyp == "ICD": # ICD IN LISTE
+            if not check_icd_conditions_at_all: # Wenn useIcd=False
+                # print(f"DEBUG (check_single): ICD-Listen-Bedingung '{werte_str}' ignoriert (useIcd=False).")
+                return True # Bedingung ignorieren -> Erfüllt
+            
+            # Strikte Prüfung, wenn check_icd_conditions_at_all = True:
+            # Ist mindestens einer der *im Kontext vorhandenen ICDs* in der *in der Regel definierten Liste*?
+            # ODER umgekehrt: Ist mindestens einer der *in der Regel definierten ICDs* im *Kontext*?
+            # Die zweite Variante ist üblicher: Die Regel gibt vor, was da sein muss.
+            required_icds_in_rule_list = {w.strip().upper() for w in str(werte_str).split(',') if w.strip()}
+            if not required_icds_in_rule_list: # Wenn die Regel keine ICDs vorgibt
+                # print(f"DEBUG (check_single): ICD-Listen-Bedingung '{werte_str}' ist leer, gilt als erfüllt.")
+                return True # Keine spezifische Anforderung
+            # print(f"DEBUG (check_single): ICD-Listen-Prüfung: Regel fordert {required_icds_in_rule_list}, Kontext hat {provided_icds_upper}")
+            return any(req_icd in provided_icds_upper for req_icd in required_icds_in_rule_list)
 
+        elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE": # ICD IN TABELLE
+            if not check_icd_conditions_at_all: # Wenn useIcd=False
+                # print(f"DEBUG (check_single): ICD-Tabellen-Bedingung '{werte_str}' ignoriert (useIcd=False).")
+                return True # Bedingung ignorieren -> Erfüllt
+
+            # Strikte Prüfung, wenn check_icd_conditions_at_all = True:
+            table_ref = werte_str
+            # Hole alle Codes des Typs "icd" aus der/den referenzierten Tabelle(n)
+            icd_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "icd", tabellen_dict_by_table) if entry.get('Code')}
+            
+            if not icd_codes_in_rule_table: # Wenn die Regel-Tabelle für ICDs leer ist oder nicht existiert
+                # print(f"DEBUG (check_single): ICD-Tabellen-Bedingung '{werte_str}' referenziert leere/unbekannte ICD-Tabelle, gilt als NICHT erfüllt, wenn Kontext-ICDs vorhanden.")
+                # Wenn die Regel keine spezifischen ICDs fordert (leere Tabelle), aber der Kontext welche hat,
+                # ist die spezifische Anforderung "ICD aus DIESER Tabelle" nicht erfüllt.
+                # Wenn der Kontext auch keine ICDs hätte, wäre es True.
+                # Aber hier geht es um eine spezifische Anforderung.
+                return False if provided_icds_upper else True # Nicht erfüllt, wenn Kontext-ICDs da sind, sonst ja.
+                                                              # Sicherer: return False, da eine spezifische Tabelle erwartet wird.
+                                                              # Überlegung: Wenn die Regel sagt "ICD aus Tabelle X" und X ist leer, ist die Bedingung unerfüllbar.
+            
+            # print(f"DEBUG (check_single): ICD-Tabellen-Prüfung: Regel-Tabelle '{table_ref}' enthält {icd_codes_in_rule_table}, Kontext hat {provided_icds_upper}")
+            # Ist mindestens einer der *im Kontext vorhandenen ICDs* auch in der *Menge der ICDs aus der Regel-Tabelle*?
+            return any(provided_icd in icd_codes_in_rule_table for provided_icd in provided_icds_upper)
+
+        # --- Andere Bedingungstypen bleiben wie zuvor ---
         elif bedingungstyp == "GTIN" or bedingungstyp == "MEDIKAMENTE IN LISTE":
+            # ... (unverändert)
             werte_list_gtin = [w.strip() for w in str(werte_str).split(',') if w.strip()]
-            # Prüfe, ob *mindestens einer* der geforderten GTINs im Kontext ist
-            return any(req_gtin in provided_gtins for req_gtin in werte_list_gtin)
+            if not werte_list_gtin: return True # Keine spezifische Anforderung
+            return any(req_gtin in context.get("GTIN", []) for req_gtin in werte_list_gtin)
 
         elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
-             # Prüfe, ob *mindestens einer* der geforderten LKNs im Kontext ist
-            return any(req_lkn in provided_lkns_upper for req_lkn in werte_list_upper)
+            # ... (unverändert)
+            werte_list_upper_lkn = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
+            if not werte_list_upper_lkn: return True # Keine spezifische Anforderung
+            return any(req_lkn in {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn} for req_lkn in werte_list_upper_lkn)
+        
+        elif bedingungstyp == "GESCHLECHT IN LISTE":
+            # ... (unverändert)
+            provided_geschlecht_str = context.get("Geschlecht")
+            if provided_geschlecht_str and werte_str: 
+                geschlechter_in_regel_lower = {g.strip().lower() for g in str(werte_str).split(',') if g.strip()}
+                return provided_geschlecht_str.strip().lower() in geschlechter_in_regel_lower
+            elif not werte_str: 
+                return True
+            return False 
 
         elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
-            table_ref = werte_str # Kann kommasepariert sein
-            codes_in_tabelle = get_table_content(table_ref, "service_catalog", tabellen_dict_by_table)
-            if not codes_in_tabelle: return False # Keine Codes in Tabelle(n) -> nicht erfüllt
-            # Prüfe, ob *mindestens einer* der LKNs aus der/den Tabelle(n) im Kontext ist
-            return any(entry['Code'].upper() in provided_lkns_upper for entry in codes_in_tabelle)
+            # ... (unverändert)
+            table_ref = werte_str 
+            lkn_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "service_catalog", tabellen_dict_by_table) if entry.get('Code')}
+            if not lkn_codes_in_rule_table: return False # Regel fordert LKNs aus einer leeren/unbekannten Tabelle
+            return any(provided_lkn in lkn_codes_in_rule_table for provided_lkn in {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn})
 
-        elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE":
-            if not use_icd_check:
-                print("DEBUG (check_single): ICD-Tabellen-Prüfung übersprungen (Checkbox).")
-                return True # Ignorieren -> Erfüllt
-            table_ref = werte_str # Kann kommasepariert sein
-            codes_in_tabelle = get_table_content(table_ref, "icd", tabellen_dict_by_table)
-            if not codes_in_tabelle: return False # Keine Codes in Tabelle(n) -> nicht erfüllt
-             # Prüfe, ob *mindestens einer* der ICDs aus der/den Tabelle(n) im Kontext ist
-            return any(entry['Code'].upper() in provided_icds_upper for entry in codes_in_tabelle)
 
         elif bedingungstyp == "PATIENTENBEDINGUNG":
+            # ... (unverändert)
+            # ... (Logik für Alter und Geschlecht (exakt) bleibt)
+            feld_ref = condition.get('Feld')
+            wert_regel = condition.get('Werte') # Wert aus Regel für Patientenbedingung
+            min_val = condition.get('MinWert')
+            max_val = condition.get('MaxWert')
             wert_fall = context.get(feld_ref)
+
             if feld_ref == "Alter":
                 if wert_fall is None: return False
                 try:
                     alter_patient = int(wert_fall); alter_ok = True
                     if min_val is not None and alter_patient < int(min_val): alter_ok = False
                     if max_val is not None and alter_patient > int(max_val): alter_ok = False
+                    # Fall für exakten Wert, wenn kein Bereich definiert ist
                     if min_val is None and max_val is None and wert_regel is not None and alter_patient != int(wert_regel): alter_ok = False
                     return alter_ok
                 except (ValueError, TypeError): return False
             elif feld_ref == "Geschlecht":
-                 if isinstance(wert_fall, str) and isinstance(wert_regel, str):
-                     return wert_fall.lower() == wert_regel.lower()
-                 elif wert_fall is None and wert_regel is None:
-                     return True
-                 else:
-                     return False
-            else: # Unbekanntes Feld
+                 provided_geschlecht_str = context.get("Geschlecht")
+                 if isinstance(provided_geschlecht_str, str) and isinstance(wert_regel, str):
+                     return provided_geschlecht_str.strip().lower() == wert_regel.strip().lower()
+                 elif provided_geschlecht_str is None and (wert_regel is None or str(wert_regel).strip().lower() == 'unbekannt' or str(wert_regel).strip() == ""):
+                     return True # Beide unbekannt/nicht spezifiziert
+                 else: 
+                     return False # Einer ist spezifiziert, der andere nicht (oder unterschiedlich)
+            else: 
                 print(f"WARNUNG (check_single): Unbekanntes Feld '{feld_ref}' für Patientenbedingung.")
-                return True # Unbekannt -> OK
+                return True # Unbekannte Felder gelten als erfüllt, um nicht zu blockieren
 
-        else: # Unbekannter Bedingungstyp
+        else: 
             print(f"WARNUNG (check_single): Unbekannter Pauschalen-Bedingungstyp '{bedingungstyp}'. Wird als False angenommen.")
-            return False # Unbekannt -> NOK
+            return False 
 
     except Exception as e:
         print(f"FEHLER (check_single) bei Prüfung Einzelbedingung ({bedingungstyp}, {werte_str}): {e}")
-        return False # Bei Fehler gilt Bedingung als nicht erfüllt
-
+        traceback.print_exc() 
+        return False
+        
 # === FUNKTION ZUR AUSWERTUNG DER STRUKTURIERTEN LOGIK (UND/ODER) ===
 def evaluate_structured_conditions(
     pauschale_code: str,
@@ -109,69 +149,69 @@ def evaluate_structured_conditions(
     tabellen_dict_by_table: Dict[str, List[Dict]]
 ) -> bool:
     """
-    Wertet die strukturierte UND/ODER-Logik aus.
-    Berücksichtigt useIcd-Flag für ICD-Bedingungen.
+    Wertet die strukturierte Logik für eine Pauschale aus.
+    Eine Pauschale ist gültig, wenn MINDESTENS EINE ihrer Bedingungs-GRUPPEN vollständig erfüllt ist.
+    Innerhalb einer GRUPPE müssen ALLE einzelnen Bedingungen (unabhängig von 'Ebene' oder 'Operator' der Einzelbedingung)
+    erfüllt sein (implizite UND-Logik für die Komponenten einer Gruppe).
     """
-    PAUSCHALE_KEY = 'Pauschale'; GRUPPE_KEY = 'Gruppe'; OPERATOR_KEY = 'Operator'; BED_TYP_KEY = 'Bedingungstyp'
-    use_icd_check = context.get("useIcd", True) # Hole Flag
+    PAUSCHALE_KEY = 'Pauschale'
+    GRUPPE_KEY = 'Gruppe'
+    # Der 'Operator' und 'Ebene' Schlüssel der einzelnen Bedingungen wird hier ignoriert,
+    # da die Logik pro Gruppe als striktes UND aller ihrer Komponenten interpretiert wird,
+    # und die Pauschale als ODER über die erfüllten Gruppen.
 
-    conditions = [cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY) == pauschale_code]
-    if not conditions: return True
+    # Hole alle Bedingungen für die spezifische Pauschale
+    conditions_for_this_pauschale = [
+        cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY) == pauschale_code
+    ]
 
+    if not conditions_for_this_pauschale:
+        # print(f"DEBUG (evaluate): Keine Bedingungen für Pauschale {pauschale_code} gefunden, gilt als gültig.")
+        return True # Keine Bedingungen -> immer gültig
+
+    # Gruppiere die Bedingungen nach ihrem 'Gruppe'-Schlüssel
     grouped_conditions: Dict[Any, List[Dict]] = {}
-    for cond in conditions:
-        gruppe = cond.get(GRUPPE_KEY)
-        if gruppe is None: continue
-        grouped_conditions.setdefault(gruppe, []).append(cond)
-    if not grouped_conditions: return True
+    for cond in conditions_for_this_pauschale:
+        gruppe_id = cond.get(GRUPPE_KEY)
+        if gruppe_id is None: 
+            # print(f"WARNUNG (evaluate): Bedingung ohne Gruppe für Pauschale {pauschale_code}: {cond}")
+            continue # Bedingung ohne Gruppe kann nicht ausgewertet werden
+        grouped_conditions.setdefault(gruppe_id, []).append(cond)
 
-    overall_result = False
-    print(f"DEBUG (evaluate): Prüfe {len(grouped_conditions)} Gruppen für {pauschale_code} (useIcd={use_icd_check})")
-    for gruppe, conditions_in_group in grouped_conditions.items():
-        if not conditions_in_group: continue
-        group_operator = conditions_in_group[0].get(OPERATOR_KEY, 'UND').upper()
-        if group_operator not in ['UND', 'ODER']: group_operator = 'UND'
+    if not grouped_conditions:
+        # print(f"DEBUG (evaluate): Keine gültigen Gruppen für Pauschale {pauschale_code} nach Filterung, gilt als NICHT gültig (oder True, wenn keine Bedingungen da waren - oben abgefangen).")
+        # Wenn conditions_for_this_pauschale da war, aber keine davon eine Gruppe hatte.
+        return False 
 
-        group_met = False
-        results_in_group = []
-        non_icd_results_in_group = [] # Ergebnisse ohne ICD-Bedingungen
+    # print(f"DEBUG (evaluate): Prüfe {len(grouped_conditions)} Gruppen für Pauschale {pauschale_code}.")
 
-        for cond in conditions_in_group:
-            cond_type = cond.get(BED_TYP_KEY, "").upper()
-            is_icd_condition = "ICD" in cond_type or "DIAGNOSE" in cond_type
+    # Iteriere durch jede Gruppe. Wenn EINE Gruppe vollständig erfüllt ist, ist die Pauschale gültig.
+    for gruppe_id, conditions_in_group in grouped_conditions.items():
+        if not conditions_in_group: # Sollte nicht passieren, wenn Gruppe existiert
+            continue
 
-            # Prüfe die Einzelbedingung (berücksichtigt use_icd_check intern)
-            single_result = check_single_condition(cond, context, tabellen_dict_by_table)
-            results_in_group.append(single_result)
+        # print(f"  DEBUG (evaluate): Prüfe Gruppe {gruppe_id} mit {len(conditions_in_group)} Bedingungen.")
+        all_conditions_in_group_met = True # Annahme für UND-Logik innerhalb der Gruppe
+        
+        condition_results_in_group_for_log = [] # Für detaillierteres Logging
 
-            # Sammle Ergebnisse der Nicht-ICD-Bedingungen separat
-            if not is_icd_condition:
-                non_icd_results_in_group.append(single_result)
+        for cond_item_idx, cond_item in enumerate(conditions_in_group):
+            single_cond_met = check_single_condition(cond_item, context, tabellen_dict_by_table)
+            condition_results_in_group_for_log.append(f"Cond{cond_item_idx+1}({cond_item.get('Bedingungstyp','N/A')}:{cond_item.get('Werte','N/A')}):{single_cond_met}")
+            
+            if not single_cond_met:
+                all_conditions_in_group_met = False
+                break # Wenn eine Bedingung in der Gruppe nicht erfüllt ist, ist die ganze Gruppe nicht erfüllt
 
-        # Werte die Gruppe aus
-        if group_operator == 'UND':
-            # Alle Bedingungen (inkl. evtl. ignorierter ICDs) müssen True sein
-            group_met = all(results_in_group)
-        elif group_operator == 'ODER':
-            # Mindestens eine Bedingung muss True sein.
-            # Wenn ICDs ignoriert werden, prüfen wir zusätzlich, ob mindestens
-            # eine *Nicht-ICD*-Bedingung erfüllt ist, um zu verhindern, dass
-            # die Gruppe nur wegen ignorierter ICDs True wird.
-            if not use_icd_check:
-                 group_met = any(results_in_group) and any(non_icd_results_in_group)
-            else:
-                 group_met = any(results_in_group)
+        # print(f"  DEBUG (evaluate): Gruppe {gruppe_id} Ergebnisse: [{', '.join(condition_results_in_group_for_log)}]. Gruppe erfüllt: {all_conditions_in_group_met}")
 
+        if all_conditions_in_group_met:
+            # print(f"DEBUG (evaluate): Gruppe {gruppe_id} für Pauschale {pauschale_code} ist VOLLSTÄNDIG erfüllt.")
+            return True # Mindestens eine Gruppe ist erfüllt, also ist die Pauschale gültig
 
-        print(f"DEBUG (evaluate): Gruppe {gruppe} (Op: {group_operator}): Einzel={results_in_group}, NonICD={non_icd_results_in_group if not use_icd_check and group_operator=='ODER' else 'N/A'}, GruppenErgebnis={group_met}")
-
-        if group_met:
-            overall_result = True
-            print(f"DEBUG (evaluate): Gruppe {gruppe} erfüllt, Gesamtergebnis für {pauschale_code} ist True.")
-            break
-
-    print(f"DEBUG (evaluate): FINALES Ergebnis für {pauschale_code}: {overall_result}")
-    return overall_result
+    # Wenn keine Gruppe vollständig erfüllt wurde
+    # print(f"DEBUG (evaluate): KEINE Gruppe für Pauschale {pauschale_code} wurde vollständig erfüllt.")
+    return False
 
 # === FUNKTION ZUR HTML-GENERIERUNG DER BEDINGUNGSPRÜFUNG (für die Anzeige) ===
 def check_pauschale_conditions(
@@ -320,7 +360,6 @@ def determine_applicable_pauschale(
     user_input: str,
     rule_checked_leistungen: list[dict],
     context: dict,
-    # Benötigte Daten als Argumente übergeben
     pauschale_lp_data: List[Dict],
     pauschale_bedingungen_data: List[Dict],
     pauschalen_dict: Dict[str, Dict],
@@ -334,46 +373,37 @@ def determine_applicable_pauschale(
     """
     print("INFO: Starte Pauschalenermittlung mit strukturierter Bedingungsprüfung...")
 
-    # Schlüssel und globale Variablen...
     PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
     POTENTIAL_ICDS_KEY = 'potential_icds'
     LKN_KEY_IN_RULE_CHECKED = 'lkn'
-    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale'
-    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
-    LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale'
-    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
-    TAB_CODE_KEY = 'Code'; TAB_TYP_KEY = 'Tabelle_Typ'; TAB_TABELLE_KEY = 'Tabelle'
+    PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale' # In tblPauschalen
+    PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text' # In tblPauschalen
+    LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale' # In tblPauschaleLeistungsposition
+    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte' # In tblPauschaleBedingungen
+    TAB_CODE_KEY = 'Code'; TAB_TYP_KEY = 'Tabelle_Typ'; TAB_TABELLE_KEY = 'Tabelle' # In tblTabellen
 
-    # 1. Finde potenzielle Pauschalen
     potential_pauschale_codes = set()
     rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
     print(f"DEBUG: Regelkonforme LKNs für Pauschalen-Suche: {rule_checked_lkns}")
-    lkns_in_tables = {}
+    lkns_in_tables = {} 
     for lkn in rule_checked_lkns:
-        # print(f"DEBUG: Suche Pauschalen für LKN: {lkn}") # Optional
         found_via_a = False; found_via_b = False; found_via_c = False
-        # Methode a)
         for item in pauschale_lp_data:
             if item.get(LP_LKN_KEY) == lkn:
                 pauschale_code_a = item.get(LP_PAUSCHALE_KEY)
                 if pauschale_code_a and pauschale_code_a in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_a); found_via_a = True
-        # if found_via_a: print(f"DEBUG: Pauschalen via Methode A für {lkn} hinzugefügt: {potential_pauschale_codes}") # Optional
-        # Methode b)
         for cond in pauschale_bedingungen_data:
             if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN LISTE":
                 werte_liste = [w.strip() for w in str(cond.get(BED_WERTE_KEY, "")).split(',') if w.strip()]
                 if lkn in werte_liste:
                     pauschale_code_b = cond.get(BED_PAUSCHALE_KEY)
                     if pauschale_code_b and pauschale_code_b in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_b); found_via_b = True
-        # if found_via_b: print(f"DEBUG: Pauschalen via Methode B für {lkn} hinzugefügt: {potential_pauschale_codes}") # Optional
-        # Methode c)
         if lkn not in lkns_in_tables:
              tables_for_lkn = set()
              for table_name_key in tabellen_dict_by_table.keys():
                   for entry in tabellen_dict_by_table[table_name_key]:
-                       if entry.get(TAB_CODE_KEY) == lkn and entry.get(TAB_TYP_KEY) == "service_catalog": tables_for_lkn.add(table_name_key)
+                       if entry.get(TAB_CODE_KEY) == lkn and entry.get(TAB_TYP_KEY) == "service_catalog": tables_for_lkn.add(table_name_key.lower()) # Store normalized
              lkns_in_tables[lkn] = tables_for_lkn
-             # print(f"DEBUG: LKN {lkn} gefunden in normalisierten Tabellen (Set): {lkns_in_tables[lkn]}") # Optional
         tables_for_current_lkn_normalized = lkns_in_tables.get(lkn, set())
         if tables_for_current_lkn_normalized:
             for cond in pauschale_bedingungen_data:
@@ -382,25 +412,22 @@ def determine_applicable_pauschale(
                     pauschale_code_c = cond.get(BED_PAUSCHALE_KEY)
                     condition_tables_normalized = {t.strip().lower() for t in table_ref_in_cond_str.split(',') if t.strip()}
                     if not condition_tables_normalized.isdisjoint(tables_for_current_lkn_normalized):
-                        # print(f"DEBUG: Match! LKN-Tabellen {tables_for_current_lkn_normalized} überschneiden sich mit Bedingungs-Tabellen {condition_tables_normalized} für Pauschale {pauschale_code_c}") # Optional
                         if pauschale_code_c and pauschale_code_c in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_c); found_via_c = True
-        # if found_via_c: print(f"DEBUG: Pauschalen via Methode C für {lkn} hinzugefügt: {potential_pauschale_codes}") # Optional
-
-    print(f"DEBUG: Finale potenzielle Pauschalen nach Schleife: {potential_pauschale_codes}")
+    
+    print(f"DEBUG: Finale potenzielle Pauschalen nach LKN-basierter Suche: {potential_pauschale_codes}")
 
     if not potential_pauschale_codes:
         print("INFO: Keine potenziellen Pauschalen-Codes für die erbrachten Leistungen gefunden.")
         return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
 
-    # 2. Werte die strukturierte Logik für ALLE potenziellen Kandidaten aus
     evaluated_candidates = []
     print(f"INFO: Werte strukturierte Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen aus...")
     for code in potential_pauschale_codes:
         if code not in pauschalen_dict: continue
-        bedingungs_context = context # Enthält bereits useIcd
+        bedingungs_context = context 
         is_pauschale_valid = False
         try:
-            is_pauschale_valid = evaluate_structured_conditions( # Direkter Aufruf
+            is_pauschale_valid = evaluate_structured_conditions(
                 code,
                 bedingungs_context,
                 pauschale_bedingungen_data,
@@ -409,44 +436,50 @@ def determine_applicable_pauschale(
         except Exception as e_eval:
              print(f"FEHLER bei evaluate_structured_conditions für {code}: {e_eval}")
              is_pauschale_valid = False
-        print(f"DEBUG: Strukturierte Prüfung für {code}: Gültig = {is_pauschale_valid}")
+        # print(f"DEBUG: Strukturierte Prüfung für {code}: Gültig = {is_pauschale_valid}") # Weniger verbose hier
         evaluated_candidates.append({"code": code, "details": pauschalen_dict[code], "is_valid_structured": is_pauschale_valid})
 
-    # 3. Filtere die Kandidaten, die die strukturierte Prüfung bestanden haben
     valid_candidates = [cand for cand in evaluated_candidates if cand["is_valid_structured"]]
     print(f"DEBUG: Struktur-gültige Kandidaten nach Prüfung: {[c['code'] for c in valid_candidates]}")
 
-    # 4. Wähle die beste Pauschale aus den STRUKTURIELL GÜLTIGEN Kandidaten
+    # --- TEMPORÄRES DEBUGGING: Bedingungen der relevanten Kandidaten ausgeben ---
+    debug_pauschalen_codes = ['C08.50A', 'C08.50B', 'C08.50E']
+    for pc_debug_code in debug_pauschalen_codes:
+        if any(cand['code'] == pc_debug_code for cand in valid_candidates): # Nur wenn sie unter den gültigen sind
+            print(f"--- DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
+            conditions_for_pc = [
+                cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == pc_debug_code
+            ]
+            if conditions_for_pc:
+                for cond_item in conditions_for_pc:
+                    print(f"  Gruppe: {cond_item.get('Gruppe')}, Operator: {cond_item.get('Operator')}, Typ: {cond_item.get(BED_TYP_KEY)}, Werte: {cond_item.get(BED_WERTE_KEY)}, Feld: {cond_item.get('Feld')}")
+            else:
+                print(f"  Keine Bedingungen für {pc_debug_code} in tblPauschaleBedingungen gefunden.")
+            print(f"--- ENDE DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
+    # --- ENDE TEMPORÄRES DEBUGGING ---
+
     selected_candidate_info = None
     if valid_candidates:
-        # --- NEUE AUSWAHL-LOGIK: Spezifischste (A vor B) ---
-        # Trenne spezifische und Fallback-Pauschalen
         specific_valid = [c for c in valid_candidates if not c['code'].startswith('C9')]
         fallback_valid = [c for c in valid_candidates if c['code'].startswith('C9')]
 
         if specific_valid:
-            # Priorisiere spezifische Pauschalen: Wähle die "spezifischste" (niedrigster Buchstabe)
-            specific_valid.sort(key=lambda x: x['code'], reverse=False) # A vor B vor E
+            specific_valid.sort(key=lambda x: x['code'], reverse=False) 
             selected_candidate_info = specific_valid[0]
-            print(f"INFO: Spezifischste Pauschale ausgewählt (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
+            print(f"INFO: Spezifischste Pauschale ausgewählt (A-Z Sortierung der spezifischen), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
         elif fallback_valid:
-            # Nur wenn keine spezifische passt, nimm die "spezifischste" Fallback-Pauschale
-            fallback_valid.sort(key=lambda x: x['code'], reverse=False) # C90 vor C99? Oder höchste Nummer? Hier A-Z
+            fallback_valid.sort(key=lambda x: x['code'], reverse=False) 
             selected_candidate_info = fallback_valid[0]
             print(f"INFO: Spezifischste Fallback-Pauschale ausgewählt (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
         else:
-             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?") # Sollte nicht passieren
+             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?") 
              return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl."}
-        # --- ENDE NEUE AUSWAHL-LOGIK ---
-
     else:
-        # Fallback: Keine Pauschale erfüllt die strukturierte Logik
         print("INFO: Keine Pauschale erfüllt die strukturierten Bedingungen.")
         return {"type": "Error", "message": "Keine Pauschale gefunden, deren UND/ODER-Bedingungen vollständig erfüllt sind (Kontext prüfen!)."}
 
-    # --- Ab hier verwenden wir selected_candidate_info ---
     best_pauschale_code = selected_candidate_info["code"]
-    best_pauschale_details = selected_candidate_info["details"].copy()
+    best_pauschale_details = selected_candidate_info["details"].copy() # Wichtig .copy()
 
     # 5. Generiere das Detail-HTML für die ausgewählte Pauschale
     bedingungs_pruef_html_result = "<p><i>Detail-HTML nicht generiert.</i></p>"

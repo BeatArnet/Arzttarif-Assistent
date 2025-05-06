@@ -1,69 +1,94 @@
-Aufgabe: Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
+**Aufgabe:** Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
 
-Name: TARDOC und Pauschalen Assistent
-Beschreibung: Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen gemäss dem neuen Schweizer Arzttarif zu bieten. Die Anwendung nutzt einen zweistufigen LLM-Ansatz zur Leistungsidentifikation und Pauschalenpriorisierung, kombiniert mit lokaler Regel- und Bedingungsprüfung.
+**Name:** TARDOC und Pauschalen Assistent
 
-Hinweise:
-1. Allgemeine Struktur der Tabellen (Wichtige für die Logik)
-   - tblLeistungskatalog: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sind), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird.
-   - tblPauschaleLeistungsposition: Verknüpft *direkt* bestimmte LKNs mit Pauschalencodes. Eine Methode, um potenzielle Pauschalen zu finden.
-   - tblPauschalen: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte). Dient als Nachschlagetabelle für Pauschalendetails.
-   - tblPauschaleBedingungen: Enthält Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen. Entscheidend für die *Prüfung* der Anwendbarkeit einer *ausgewählten* Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
-   - tblTabellen: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `tblPauschaleBedingungen` über Tabellenreferenzen (z.B. "CAP07", "C08.50") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen.
-   - TARDOCGesamt_optimiert...: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
-   - strukturierte_regeln_komplett.json (oder ähnlich): Enthält TARDOC-spezifische Regeln (Menge, Kumulation, Alter etc.) für die lokale Regelprüfung von Einzelleistungen.
+**Beschreibung:** Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen gemäss dem neuen Schweizer Arzttarif zu bieten. Die Anwendung nutzt einen initialen LLM-Ansatz zur Leistungsidentifikation, kombiniert mit detaillierter lokaler Regel- und Bedingungsprüfung zur Bestimmung der optimalen Abrechnungsart.
 
-2. Strukturierte Vorgehensweise (Backend - server.py)
-   Schritt 1: Identifikation der Leistungspositionen (LLM Stufe 1 & Validierung)
-     - Eingabe: Freitext des Benutzers (+ optionale ICD/GTIN).
-     - Aktion: LLM Stufe 1 analysiert den Text und identifiziert potenzielle LKNs, Mengen und extrahiert Kontext (Alter, Dauer etc.) basierend auf `tblLeistungskatalog`.
-     - Aktion: Backend validiert die vom LLM vorgeschlagenen LKNs gegen den lokalen `tblLeistungskatalog`. Nur valide LKNs werden weiterverwendet.
-     - Ergebnis: Liste validierter LKNs mit initialer Menge (`llm_stage1_result`).
+**Hinweise:**
 
-   Schritt 2: Regelprüfung der Einzelleistungen (Regelprüfer LKN)
-     - Eingabe: Validierte LKNs aus Schritt 1, Kontext (ICD, GTIN, Alter, Geschlecht).
-     - Aktion: Das Modul `regelpruefer.py` prüft jede LKN anhand des geladenen Regelwerks (`strukturierte_regeln_komplett.json`) auf Konformität (Menge, Kumulation, Alter, Geschlecht etc.). Mengen werden ggf. angepasst.
-     - Ergebnis: Detaillierte Liste aller geprüften LKNs mit ihrem Status (abrechnungsfähig ja/nein, Fehler/Hinweise, finale Menge) (`regel_ergebnisse_details`) UND eine bereinigte Liste der *regelkonformen* Leistungen (`rule_checked_leistungen`).
+**1. Allgemeine Struktur der Tabellen (Wichtige für die Logik)**
 
-   Schritt 3: Prüfung auf Pauschalen-Anwendbarkeit (Pauschal-Logik)
-     - Eingabe: Liste der regelkonformen Leistungen (`rule_checked_leistungen`), Kontext (ICD, GTIN, Alter, Geschlecht), Benutzer-Freitext.
-     - Aktion (Pauschalen finden): Suche nach potenziellen Pauschalencodes, die durch die regelkonformen LKNs ausgelöst werden könnten:
-         1. Via `tblPauschaleLeistungsposition`.
-         2. Via `tblPauschaleBedingungen` (Typ `LEISTUNGSPOSITIONEN IN LISTE`).
-         3. Via `tblPauschaleBedingungen` (Typ `LEISTUNGSPOSITIONEN IN TABELLE` unter Verwendung von `tblTabellen`).
-     - Aktion (Ranking): Wenn mehrere potenzielle Pauschalen gefunden -> LLM Stufe 2 (`call_gemini_stage2_ranking`) zur Priorisierung.
-     - Aktion (Auswahl): Wähle die höchstpriorisierte (oder einzige) Pauschale aus.
-     - Aktion (Bedingungen prüfen): Prüfe *alle* Bedingungen der *ausgewählten* Pauschale in `tblPauschaleBedingungen` mit `regelpruefer_pauschale.py` unter Verwendung des *gesamten* Kontexts (inkl. aller regelkonformen LKNs, ICDs, GTINs etc.).
-     - Aktion (Zusatzinfos): Sammle Begründung für die Auswahl und potenziell relevante ICDs aus den Pauschalenbedingungen.
-     - Ergebnis: Entweder ein Objekt mit `type: "Pauschale"` und allen Details (inkl. Erfüllungsstatus der Bedingungen, Erklärung, ICDs) ODER ein Objekt mit `type: "Error"`, falls *keine einzige* potenzielle Pauschale gefunden wurde.
+*   **`tblLeistungskatalog.json`**: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sein können oder diese auslösen), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird oder eine Bedingung dafür darstellt.
+*   **`tblPauschaleLeistungsposition.json`**: Verknüpft *direkt* bestimmte LKNs (Leistungspositionen) mit Pauschalencodes. Eine primäre Methode, um potenzielle Pauschalen basierend auf identifizierten LKNs zu finden.
+*   **`tblPauschalen.json`**: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte, ggf. Hierarchie-Suffix wie A, B, E). Dient als Nachschlagetabelle für Pauschalendetails.
+*   **`tblPauschaleBedingungen.json`**: Enthält detaillierte, strukturierte Bedingungen für spezifische Pauschalen. Jede Bedingung ist einer `Pauschale` und einer `Gruppe` zugeordnet.
+    *   Bedingungstypen umfassen: ICD (in Liste/Tabelle), GTIN, LKN (in Liste/Tabelle), Alter, Geschlecht etc.
+    *   **Logik-Interpretation (NEU/VERFEINERT):**
+        *   Eine Pauschale gilt als anwendbar, wenn **mindestens eine** ihrer `Gruppen` vollständig erfüllt ist (ODER-Logik zwischen den Gruppen).
+        *   Innerhalb einer `Gruppe` müssen **alle** definierten Einzelbedingungen erfüllt sein (strikte UND-Logik für die Komponenten einer Gruppe). Die Felder `Operator` und `Ebene` innerhalb der JSON-Struktur einer einzelnen Bedingung werden aktuell für diese übergeordnete Gruppen-UND-Logik nicht herangezogen, sondern dienen eher der internen Strukturierung der Quelldaten.
+    *   Diese Datei ist entscheidend für die *Prüfung* der Anwendbarkeit potenzieller Pauschalen und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
+*   **`tblTabellen.json`**: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `tblPauschaleBedingungen` über Tabellenreferenzen (z.B. "CAP08", "C08.50", "ANAST") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen. **Wichtig:** Eine Tabelle (z.B. "CAP08") kann Einträge unterschiedlicher `Tabelle_Typ`en enthalten (z.B. sowohl ICDs als auch LKNs). Die korrekte Filterung nach `Tabelle_Typ` ist bei der Auflösung entscheidend.
+*   **`TARDOCGesamt_optimiert...json`**: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, TARDOC-spezifische Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
+*   **`strukturierte_regeln_komplett.json`**: Enthält TARDOC-spezifische Regeln (Mengenbeschränkungen, Kumulationsverbote, Patientenalter/-geschlecht etc.) für die lokale Regelprüfung von Einzelleistungen.
 
-   Schritt 4: Finale Abrechnungsart bestimmen & TARDOC-Vorbereitung
-     - Eingabe: Ergebnis aus Schritt 3, `regel_ergebnisse_details` aus Schritt 2.
-     - Entscheidung:
-         - **Wenn** Schritt 3 eine Pauschale (`type: "Pauschale"`) zurückgibt -> Finale Abrechnung ist diese Pauschale (unabhängig davon, ob alle Bedingungen 100% erfüllt waren - Fehler werden angezeigt).
-         - **Wenn** Schritt 3 einen Error (`type: "Error"`) zurückgibt -> Keine Pauschale anwendbar.
-     - Aktion (nur bei keiner Pauschale): Bereite die TARDOC-Abrechnung vor (`prepare_tardoc_abrechnung`). Filtert aus `regel_ergebnisse_details` alle abrechnungsfähigen Leistungen vom Typ 'E' oder 'EZ' heraus.
-     - Ergebnis: Das finale Abrechnungsobjekt (`abrechnung`) mit entweder `type: "Pauschale"` und Details oder `type: "TARDOC"` und Leistungsliste oder `type: "Error"`.
+**2. Strukturierte Vorgehensweise (Backend - `server.py`)**
 
-   Schritt 5: Ergebnis an Frontend senden
-     - Aktion: Sende ein JSON-Objekt mit `llm_ergebnis_stufe1`, `regel_ergebnisse_details` und dem finalen `abrechnung`-Objekt an das Frontend (`calculator.js`).
+*   **Schritt 1: Identifikation der Leistungspositionen (LLM Stufe 1 & Validierung)**
+    *   Eingabe: Freitext des Benutzers (+ optionale ICD/GTIN, Alter, Geschlecht).
+    *   Aktion: LLM Stufe 1 (`call_gemini_stage1`) analysiert den Text und identifiziert potenzielle LKNs, deren Mengen und extrahiert Kontextinformationen (Alter, Dauer etc.) basierend auf dem Inhalt von `tblLeistungskatalog.json`. Der Prompt ist darauf optimiert, LKNs exakt so zu identifizieren, wie sie im Katalog stehen.
+    *   Aktion: Backend validiert die vom LLM vorgeschlagenen LKNs strikt gegen den lokalen `leistungskatalog_dict`. Nur valide LKNs werden weiterverwendet. Typ und Beschreibung werden mit den lokalen Daten überschrieben.
+    *   Ergebnis: Liste validierter LKNs mit initialer Menge (`llm_stage1_result`).
 
-3. Besondere Hinweise
-   - Pauschale vor TARDOC: Die Logik prüft immer zuerst, ob eine Pauschale durch die erbrachten (und regelkonformen) Leistungen ausgelöst wird. Nur wenn keine passende Pauschale gefunden wird, erfolgt die Abrechnung nach TARDOC-Einzelleistungen.
-   - Bedingungsprüfung Pauschale: Die Prüfung der Bedingungen für eine ausgewählte Pauschale dient primär der Information. Auch wenn Bedingungen nicht erfüllt sind, wird die Pauschale aktuell vorgeschlagen, aber mit entsprechenden Warnhinweisen versehen.
-   - Regelprüfung TARDOC: Alle relevanten Vorgaben für TARDOC-Einzelleistungen (Kumulationsverbote, Mengenbeschränkungen etc.) werden durch `regelpruefer.py` berücksichtigt.
-   - Datenqualität: Die Korrektheit der Abrechnung hängt stark von der Qualität und Konsistenz der JSON-Daten in `./data` ab (insbesondere korrekte Typen im Leistungskatalog, korrekte Verknüpfungen und Bedingungen).
+*   **Schritt 2: Regelprüfung der Einzelleistungen (Regelprüfer LKN)**
+    *   Eingabe: Validierte LKNs aus Schritt 1, Kontext (ICD, GTIN, Alter, Geschlecht aus Benutzereingabe oder LLM-Extraktion).
+    *   Aktion: Das Modul `regelpruefer.py` prüft jede LKN anhand des geladenen Regelwerks (`strukturierte_regeln_komplett.json`) auf Konformität (Menge, Kumulation, Alter, Geschlecht etc.). Mengen werden ggf. angepasst (z.B. bei Überschreitung einer Maximalmenge).
+    *   Ergebnis:
+        *   `regel_ergebnisse_details`: Detaillierte Liste aller geprüften LKNs mit ihrem Status (abrechnungsfähig ja/nein, Fehler/Hinweise, initiale und finale Menge).
+        *   `rule_checked_leistungen`: Eine bereinigte Liste der *regelkonformen* Leistungen (LKN, finale Menge, Typ, Beschreibung).
+
+*   **Schritt 3: Kontextanreicherung für Pauschalenprüfung (LKN-Mapping - Optional/Experimentell)**
+    *   Eingabe: `rule_checked_leistungen`, `pauschale_bedingungen_data`, `tabellen_dict_by_table`, `leistungskatalog_dict`.
+    *   Aktion: Identifiziere TARDOC-Einzelleistungen (Typ 'E'/'EZ') aus `rule_checked_leistungen`. Für diese wird versucht, funktional äquivalente LKNs zu finden, die häufig als Bedingungen in Pauschalen vorkommen (z.B. Anästhesie-LKNs vom Typ 'WA'). Dies geschieht mittels `call_gemini_stage2_mapping`.
+    *   Ergebnis: Eine erweiterte Liste von LKNs (`final_pauschale_lkn_context_list`), die sowohl die direkt identifizierten/regelkonformen LKNs als auch die gemappten LKNs enthält. Dieser erweiterte Kontext wird für die Pauschalenfindung verwendet.
+
+*   **Schritt 4: Prüfung auf Pauschalen-Anwendbarkeit (Pauschal-Logik - `regelpruefer_pauschale.py`)**
+    *   Eingabe: `rule_checked_leistungen` (primär für die initiale Findung), `final_pauschale_lkn_context_list` (für die Bedingungsprüfung), globaler Kontext (ICD, GTIN, Alter, Geschlecht, `useIcd`-Flag), Benutzer-Freitext (aktuell nicht direkt für Logik, eher für LLM-Ranking falls verwendet).
+    *   Aktion (Potenzielle Pauschalen finden - `determine_applicable_pauschale`):
+        1.  Via `tblPauschaleLeistungsposition` (direkte LKN-zu-Pauschale-Verknüpfung).
+        2.  Via `tblPauschaleBedingungen` (Bedingungstyp `LEISTUNGSPOSITIONEN IN LISTE`).
+        3.  Via `tblPauschaleBedingungen` (Bedingungstyp `LEISTUNGSPOSITIONEN IN TABELLE` unter Verwendung von `tblTabellen`).
+        *   Alle LKNs aus `rule_checked_leistungen` werden für diese Suche verwendet.
+    *   Aktion (Strukturierte Bedingungsprüfung - `evaluate_structured_conditions`):
+        *   Für jede potenzielle Pauschale werden ihre Bedingungen aus `tblPauschaleBedingungen.json` geprüft.
+        *   **Logik:** Eine Pauschale gilt als struktur-gültig, wenn **mindestens eine** ihrer Bedingungs-`Gruppen` erfüllt ist. Innerhalb einer `Gruppe` müssen **alle** Einzelbedingungen dieser Gruppe erfüllt sein (UND-Logik).
+        *   Die Funktion `check_single_condition` prüft jede Einzelbedingung unter Berücksichtigung des `useIcd`-Flags (ICD-Bedingungen werden bei `useIcd: False` als erfüllt betrachtet, ansonsten spezifisch geprüft).
+    *   Aktion (Auswahl der besten Pauschale - `determine_applicable_pauschale`):
+        *   Aus allen struktur-gültigen Pauschalen werden spezifische (nicht `C9x.xxZ`) von Fallback-Pauschalen (`C9x.xxZ`) getrennt. Spezifische werden bevorzugt.
+        *   Innerhalb der gewählten Kategorie erfolgt eine Sortierung: Primär nach Pauschalencode-Stamm (z.B. "C08.50") alphabetisch aufsteigend, sekundär nach dem Suffix-Buchstaben alphabetisch **absteigend** (z.B. E vor B vor A). Dies wählt die "am wenigsten komplexe, aber passende" Pauschale gemäß der Hierarchie (A=komplexest, E=weniger komplex).
+        *   **Hinweis:** Die LLM Stufe 2 für Pauschalen-Ranking (`call_gemini_stage2_ranking`) wird aktuell **nicht** mehr für die finale Auswahl verwendet, da die deterministische Logik verfeinert wurde. Sie könnte optional wieder aktiviert werden, falls die deterministische Auswahl nicht ausreicht.
+    *   Aktion (Zusatzinfos generieren): Für die ausgewählte Pauschale werden eine HTML-Begründung der Auswahl (Vergleich mit anderen Pauschalen der Gruppe) und potenziell relevante ICDs (aus den Bedingungen der Pauschale) gesammelt.
+    *   Ergebnis: Entweder ein Objekt mit `type: "Pauschale"` und allen Details (Pauschalencode, Text, TP, Erklärungen, HTML-Bedingungsprüfung, Fehler bei Bedingungen, Status ob Bedingungen erfüllt) ODER ein Objekt mit `type: "Error"`, falls keine struktur-gültige Pauschale gefunden wurde.
+
+*   **Schritt 5: Finale Abrechnungsart bestimmen & TARDOC-Vorbereitung**
+    *   Eingabe: Ergebnis aus Schritt 4 (`pauschale_pruef_ergebnis`), `regel_ergebnisse_details` aus Schritt 2.
+    *   Entscheidung:
+        *   **Wenn** Schritt 4 eine Pauschale (`type: "Pauschale"`) zurückgibt -> Finale Abrechnung ist diese Pauschale. Die Information, ob alle Einzelbedingungen der Pauschale im Detail erfüllt waren (`conditions_met` im Pauschalenobjekt, basierend auf der strukturierten Prüfung), wird mitgeliefert.
+        *   **Wenn** Schritt 4 einen Error (`type: "Error"`) zurückgibt (z.B. "Keine passende Pauschale gefunden" oder "Keine erfüllte die UND/ODER-Bedingungen") -> Keine Pauschale anwendbar.
+    *   Aktion (nur bei keiner Pauschale): Bereite die TARDOC-Abrechnung vor (`regelpruefer.prepare_tardoc_abrechnung`). Filtert aus `regel_ergebnisse_details` alle abrechnungsfähigen Leistungen vom Typ 'E' oder 'EZ' (Einzelleistungen) heraus.
+    *   Ergebnis: Das finale Abrechnungsobjekt (`abrechnung`) mit entweder `type: "Pauschale"` und Details oder `type: "TARDOC"` und Leistungsliste oder `type: "Error"`.
+
+*   **Schritt 6: Ergebnis an Frontend senden**
+    *   Aktion: Sende ein JSON-Objekt mit `llm_ergebnis_stufe1` (Ergebnis der LLM-Analyse und Validierung), `regel_ergebnisse_details` (Ergebnis der LKN-Regelprüfung) und dem finalen `abrechnung`-Objekt an das Frontend (`calculator.js`).
+
+**3. Besondere Hinweise**
+
+*   **Pauschale vor TARDOC:** Die Logik prüft immer zuerst, ob eine Pauschale basierend auf den identifizierten Leistungen und dem Kontext anwendbar ist. Nur wenn keine passende und struktur-gültige Pauschale gefunden wird, erfolgt die Abrechnung nach TARDOC-Einzelleistungen.
+*   **Bedingungsprüfung Pauschale:** Die Prüfung der Bedingungen für eine ausgewählte Pauschale (mittels `check_pauschale_conditions` für die HTML-Darstellung und `evaluate_structured_conditions` für die Gültigkeitsentscheidung) ist zentral. Das Frontend zeigt detailliert, welche Bedingungen erfüllt sind und welche nicht, auch wenn die Pauschale insgesamt als "struktur-gültig" ausgewählt wurde.
+*   **Regelprüfung TARDOC:** Alle relevanten Vorgaben für TARDOC-Einzelleistungen (Kumulationsverbote, Mengenbeschränkungen etc.) werden durch `regelpruefer.py` berücksichtigt.
+*   **Datenqualität:** Die Korrektheit der Abrechnung hängt stark von der Qualität, Konsistenz und korrekten Strukturierung der JSON-Daten in `./data` ab. Insbesondere die korrekte Definition von Pauschalengruppen und deren Bedingungen in `tblPauschaleBedingungen.json` sowie die genaue Abbildung der LKNs und ihrer Eigenschaften in `tblLeistungskatalog.json` und `tblTabellen.json` sind kritisch.
+*   **`useIcd`-Flag:** Dieses Flag steuert, ob ICD-bezogene Bedingungen bei der Pauschalenprüfung strikt ausgewertet oder ignoriert (als erfüllt angenommen) werden.
 
 Alle Auskünfte erfolgen ohne Gewähr – für offizielle Informationen bitte das TARDOC Online-Portal (https://tarifbrowser.oaat-otma.ch/startPortal) konsultieren.
 
-Gesprächsaufhänger / Testfälle:
-- Hausärztliche Konsultation von 17 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
-- Kiefergelenk, Luxation. Geschlossene Reposition -> Pauschale (z.B. C08.50B via Trigger C03.AH.0010)
-- Aufklärung des Patienten und Leberbiopsie durch die Haut -> Pauschale (ggf. mit Bedingungsprüfung)
-- Blinddarmentfernung als alleinige Leistung -> Pauschale (z.B. C06.CE.0010 als Pauschale selbst)
-- Korrektur eines Hallux valgus rechts -> Pauschale
-- Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie -> TARDOC (mehrere Positionen)
-- Konsultation 25 Minuten, grosser rheumatologischer Untersuch -> TARDOC (Konsultation + Untersuch)
-- Bronchoskopie mit Lavage -> Pauschale
-- Konsultation 15 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
-- Konsultation 25 Minuten -> TARDOC (Regelverletzung wird vom LLM ggf. vorgeschlagen, Regelprüfer sollte korrigieren/warnen falls > 20 Min. problematisch ist)
+**Gesprächsaufhänger / Testfälle:**
+
+*   Hausärztliche Konsultation von 17 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
+*   Kiefergelenk, Luxation. Geschlossene Reposition (`C03.AH.0010`) -> Pauschale `C08.50E` (sowohl mit als auch ohne Berücksichtigung eines unpassenden ICDs, solange `C03.AH.0010` die LKN-Bedingung von C08.50E erfüllt).
+*   Aufklärung des Patienten und Leberbiopsie durch die Haut -> Pauschale (ggf. mit Bedingungsprüfung)
+*   Blinddarmentfernung als alleinige Leistung -> Pauschale (z.B. `C06.CE.0010` als Pauschale selbst)
+*   Korrektur eines Hallux valgus rechts -> Pauschale
+*   Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie -> TARDOC (mehrere Positionen)
+*   Konsultation 25 Minuten, grosser rheumatologischer Untersuch -> TARDOC (Konsultation + Untersuch)
+*   Bronchoskopie mit Lavage -> Pauschale
+*   Konsultation 15 Minuten -> TARDOC (CA.00.0010, CA.00.0020)
+*   Konsultation 25 Minuten -> TARDOC (Regelverletzung wird vom LLM ggf. vorgeschlagen, Regelprüfer sollte korrigieren/warnen falls > 20 Min. problematisch ist)
