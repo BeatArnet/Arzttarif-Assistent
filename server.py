@@ -143,7 +143,7 @@ def load_data():
                     # Fülle tabellen_dict_by_table
                     if name == "Tabellen":
                         TAB_KEY = "Tabelle" # <<< PRÜFEN: Ist dieser Schlüssel korrekt?
-                        print(f"DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
+                        # print(f"DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
                         tabellen_dict_by_table.clear()
                         items_processed = 0
                         keys_created = set()
@@ -166,17 +166,17 @@ def load_data():
                                 # Logge ungültige Items
                                 print(f"WARNUNG (load_data): Eintrag {item_index} in '{name}' ist kein Dictionary. Item: {str(item)[:100]}...")
 
-                        print(f"DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
+                        # print(f"DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
                         print(f"✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen, {len(keys_created)} neue Schlüssel erstellt).")
                         # Prüfe spezifische Schlüssel nach der Gruppierung
                         missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz']
                         found_keys_check = {k for k in missing_keys_check if k in tabellen_dict_by_table}
                         not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
-                        print(f"DEBUG (load_data): Prüfung spezifischer Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
+                        # print(f"DEBUG (load_data): Prüfung spezifischer Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
                         if not_found_keys_check:
                              print(f"FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table!")
                              # Optional: Zeige einige der tatsächlich vorhandenen Schlüssel zum Vergleich
-                             print(f"DEBUG: Vorhandene Schlüssel (Auszug): {list(tabellen_dict_by_table.keys())[:50]}")              
+                             # print(f"DEBUG: Vorhandene Schlüssel (Auszug): {list(tabellen_dict_by_table.keys())[:50]}")              
             else:
                 print(f"FEHLER: {name}-Datei nicht gefunden: {path}")
                 if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False # Kritische Daten fehlen
@@ -292,7 +292,7 @@ JSON-Antwort:"""
             parts = content.get('parts', [{}])[0]
             raw_text_response = parts.get('text', '')
 
-        print(f"DEBUG: Roher Text von LLM Stufe 1 (gehärtet, gekürzt):\n---\n{raw_text_response[:500]}...\n---")
+        # print(f"DEBUG: Roher Text von LLM Stufe 1 (gehärtet, gekürzt):\n---\n{raw_text_response[:500]}...\n---")
 
         if not raw_text_response:
             finish_reason = candidate.get('finishReason', 'UNKNOWN'); safety_ratings = candidate.get('safetyRatings')
@@ -308,7 +308,7 @@ JSON-Antwort:"""
                 except json.JSONDecodeError: raise ValueError(f"JSONDecodeError auch nach Markdown-Extraktion: {json_err}. Rohtext: {raw_text_response[:500]}...")
             else: raise ValueError(f"JSONDecodeError: {json_err}. Rohtext: {raw_text_response[:500]}...")
 
-        print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
+        # print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
 
         # Strikte Validierung (wie vorher)
         # ... (Code für Validierung der Struktur und Typen) ...
@@ -420,7 +420,7 @@ Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
 
         if not gemini_data.get('candidates'): raise ValueError("Keine Kandidaten in Stufe 2 (Mapping) Antwort.")
         mapped_lkn_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
-        print(f"DEBUG: Roher Text von LLM Stufe 2 (Mapping) für {tardoc_lkn}: '{mapped_lkn_text}'")
+        # print(f"DEBUG: Roher Text von LLM Stufe 2 (Mapping) für {tardoc_lkn}: '{mapped_lkn_text}'")
 
         if mapped_lkn_text.upper() == "NONE":
              print(f"INFO: Kein passendes Mapping für {tardoc_lkn} gefunden (LLM sagte NONE).")
@@ -472,7 +472,7 @@ Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
 
         if not gemini_data.get('candidates'): raise ValueError("Keine Kandidaten in Stufe 2 Antwort.")
         ranked_text = gemini_data['candidates'][0]['content']['parts'][0]['text']
-        print(f"DEBUG: Roher Text von LLM Stufe 2 (Ranking):\n---\n{ranked_text}\n---")
+        # print(f"DEBUG: Roher Text von LLM Stufe 2 (Ranking):\n---\n{ranked_text}\n---")
         # Entferne mögliche Begründungen oder Formatierungen
         ranked_text = ranked_text.strip().replace("`", "")
         ranked_codes = [code.strip() for code in ranked_text.split(',') if code.strip() and re.match(r'^[A-Z0-9.]+$', code.strip())] # Nur gültige Code-Formate
@@ -500,7 +500,7 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
 
     for name in table_names:
         normalized_key = name.lower() # Suche immer mit kleinem Schlüssel
-        print(f"DEBUG (get_table_content): Suche normalisierten Schlüssel '{normalized_key}' für Typ '{table_type}'")
+        # print(f"DEBUG (get_table_content): Suche normalisierten Schlüssel '{normalized_key}' für Typ '{table_type}'")
 
         if normalized_key in tabellen_dict_by_table:
             # print(f"DEBUG (get_table_content): Schlüssel '{normalized_key}' gefunden. Prüfe {len(tabellen_dict_by_table[normalized_key])} Einträge.")
@@ -573,7 +573,7 @@ def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_ta
     for lkn in candidate_lkns:
         lkn_details = leistungskatalog_dict.get(lkn) # Suche mit Upper Case
         if lkn_details: valid_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
-    print(f"DEBUG: {len(valid_candidates)} gültige Pauschalen-LKN-Kandidaten für Mapping gefunden.")
+    # print(f"DEBUG: {len(valid_candidates)} gültige Pauschalen-LKN-Kandidaten für Mapping gefunden.")
     return valid_candidates
 
 # --- API Endpunkt ---
@@ -656,6 +656,11 @@ def analyze_billing():
         llm_stage1_result["identified_leistungen"] = identified_leistungen_llm
         print(f"INFO: {len(identified_leistungen_llm)} LKNs nach Validierung durch LLM Stufe 1 identifiziert.")
 
+    llm_stage2_results_for_frontend = {
+        "mapping_results": []
+        # "ranking_results": [] # Optionaler Platzhalter für später
+    }
+        
     # 3. Regelprüfung für identifizierte LKNs
     regel_ergebnisse_liste = [] # Wird an Frontend gesendet
     rule_checked_leistungen = [] # Nur regelkonforme für Pauschalen-/TARDOC-Entscheid
@@ -758,22 +763,43 @@ def analyze_billing():
     print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
     pauschal_lkn_candidates = get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict)
     tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
-    print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
+    # print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
     mapped_lkns = set()
     if tardoc_lkns_to_map and pauschal_lkn_candidates:
         for tardoc_leistung in tardoc_lkns_to_map:
-            t_lkn = tardoc_leistung.get('lkn'); t_desc = tardoc_leistung.get('beschreibung')
-            # --- Optional: Filtere Kandidaten für Mapping ---
-            # Beispiel: Nur Anästhesie-Kandidaten (WA.*) für Anästhesie-TARDOC (AG.*)
-            relevant_candidates = pauschal_lkn_candidates
+            # --- Variablen innerhalb der Schleife definieren ---
+            t_lkn = tardoc_leistung.get('lkn')
+            t_desc = tardoc_leistung.get('beschreibung')
+            relevant_candidates = pauschal_lkn_candidates # Start mit allen
+
+            # Optional: Filtern der Kandidaten
             if t_lkn and t_lkn.startswith('AG.'):
                  relevant_candidates = {k:v for k,v in pauschal_lkn_candidates.items() if k.startswith('WA.')}
-                 print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
-            # --- Ende Optional ---
-            if t_lkn and t_desc and relevant_candidates: # Nur mappen wenn Kandidaten vorhanden
-                mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
-                if mapped_code: mapped_lkns.add(mapped_code)
+                 # print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
+            # --- Ende Variablen Definition ---
 
+            # --- Prüfen, ob alle nötigen Infos vorhanden sind ---
+            if t_lkn and t_desc and relevant_candidates:
+                # Nur wenn LKN, Beschreibung und Kandidaten vorhanden sind, das Mapping versuchen
+                
+                mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
+                if mapped_code:
+                    mapped_lkns.add(mapped_code)
+
+                # --- Ergebnis für Frontend speichern ---
+                # --->>> DIESER BLOCK MUSS HIER DRIN SEIN <<<---
+                llm_stage2_results_for_frontend["mapping_results"].append({
+                    "tardoc_lkn": t_lkn, # t_lkn ist hier definiert
+                    "tardoc_desc": t_desc, # t_desc ist hier definiert
+                    "mapped_lkn": mapped_code, # mapped_code ist hier definiert (kann None sein)
+                    "candidates_considered_count": len(relevant_candidates) # relevant_candidates ist hier definiert
+                })
+                # --- Ende Ergebnis speichern ---
+            
+            else:
+                # Optional: Loggen, wenn ein Schritt übersprungen wurde
+                print(f"WARNUNG: Mapping für Eintrag übersprungen, da LKN/Beschreibung/Kandidaten fehlen: {tardoc_leistung}")
+                
     final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
     final_pauschale_lkn_context_set.update(mapped_lkns)
     final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set)
@@ -832,7 +858,8 @@ def analyze_billing():
     final_response = {
         "llm_ergebnis_stufe1": llm_stage1_result,
         "regel_ergebnisse_details": regel_ergebnisse_liste,
-        "abrechnung": final_result
+        "abrechnung": final_result,
+        "llm_ergebnis_stufe2": llm_stage2_results_for_frontend
     }
 
     end_time = time.time()
