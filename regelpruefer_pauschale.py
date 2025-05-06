@@ -218,139 +218,215 @@ def check_pauschale_conditions(
     pauschale_code: str,
     context: dict,
     pauschale_bedingungen_data: list[dict],
-    tabellen_dict_by_table: Dict[str, List[Dict]]
+    tabellen_dict_by_table: Dict[str, List[Dict]],
 ) -> dict:
-    """
-    Prüft die Bedingungen für eine gegebene Pauschale deterministisch.
-    Generiert detailliertes HTML inkl. klickbarer Tabellenreferenzen für die Anzeige.
-    Gibt auch den LKN-Trigger-Status zurück.
-    """
     errors: list[str] = []
-    condition_details_html: str = "<ul>"
-    all_met_overall = True # Wird nicht mehr für die Auswahl verwendet, nur für Info
-    trigger_lkn_condition_met = False # Wurde irgendeine LKN-Bedingung erfüllt?
+    # NEU: Gruppierte HTML-Teile
+    grouped_html_parts: Dict[Any, List[str]] = {}
+    trigger_lkn_condition_met = False
 
-    # Schlüsseldefinitionen...
     PAUSCHALE_KEY_IN_BEDINGUNGEN = 'Pauschale'
+    BED_ID_KEY = 'BedingungsID'
     BED_TYP_KEY = 'Bedingungstyp'
     BED_WERTE_KEY = 'Werte'
     BED_FELD_KEY = 'Feld'
-    BED_MIN_KEY = 'MinWert'
-    BED_MAX_KEY = 'MaxWert'
+    GRUPPE_KEY = 'Gruppe' # Wichtig für die Gruppierung
 
-    conditions = [cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN) == pauschale_code]
+    conditions_for_this_pauschale = [
+        cond for cond in pauschale_bedingungen_data if cond.get(PAUSCHALE_KEY_IN_BEDINGUNGEN) == pauschale_code
+    ]
 
-    if not conditions:
-        condition_details_html += "<li>Keine spezifischen Bedingungen gefunden.</li></ul>"
-        # allMet ist hier True, da keine Bedingungen verletzt wurden
-        return {"html": condition_details_html, "errors": [], "trigger_lkn_condition_met": False}
+    if not conditions_for_this_pauschale:
+        return {
+            "html": "<ul><li>Keine spezifischen Bedingungen für diese Pauschale definiert.</li></ul>",
+            "errors": [],
+            "trigger_lkn_condition_met": False
+        }
 
-    print(f"--- DEBUG [check_pauschale_conditions HTML]: Starte Prüfung für {pauschale_code} ---")
-    # Kontext nur einmal holen
-    provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-    provided_gtins = set(context.get("GTIN", []))
-    provided_lkns_upper = {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn}
-    provided_alter = context.get("Alter")
-    provided_geschlecht = context.get("Geschlecht")
+    # Sortiere Bedingungen nach Gruppe und dann ID für konsistente Reihenfolge
+    conditions_for_this_pauschale.sort(key=lambda x: (x.get(GRUPPE_KEY, 0), x.get(BED_ID_KEY, 0)))
 
-    for i, cond in enumerate(conditions):
-        bedingungstyp = cond.get(BED_TYP_KEY, "").upper()
-        werte_str = cond.get(BED_WERTE_KEY, "")
-        feld_ref = cond.get(BED_FELD_KEY)
+    # --- Generiere HTML für jede Bedingung und gruppiere es ---
+    for i, cond_definition in enumerate(conditions_for_this_pauschale):
+        gruppe_id = cond_definition.get(GRUPPE_KEY, 'Ohne_Gruppe')
+        bedingung_id = cond_definition.get(BED_ID_KEY, f"Unbekannt_{i+1}")
+        bedingungstyp = cond_definition.get(BED_TYP_KEY, "UNBEKANNT").upper()
+        werte_aus_regel = cond_definition.get(BED_WERTE_KEY, "")
+        feld_ref_patientenbed = cond_definition.get(BED_FELD_KEY)
 
-        # Prüfe diese einzelne Bedingung mit der Hilfsfunktion
-        # Wichtig: Der Kontext wird hier korrekt übergeben
-        condition_met_this_line = check_single_condition(cond, context, tabellen_dict_by_table)
+        condition_met_this_line = check_single_condition(cond_definition, context, tabellen_dict_by_table)
 
-        # Setze Status und Beschreibung für HTML
-        status_text = "Erfüllt" if condition_met_this_line else "NICHT erfüllt"
-        li_content = f"<li>Bedingung {i+1}: {escape(bedingungstyp)}"
-        details_fuer_bedingung = ""
-        bedingung_beschreibung = ""
-        is_lkn_condition = False
+        status_color = "green" if condition_met_this_line else "red"
+        status_label = "Erfüllt" if condition_met_this_line else "NICHT erfüllt"
 
-        # Generiere Beschreibung und Details für HTML
-        try:
-            if bedingungstyp == "ICD":
-                bedingung_beschreibung = f" - Erfordert ICD: {escape(werte_str)}"
-            elif bedingungstyp == "GTIN" or bedingungstyp == "MEDIKAMENTE IN LISTE":
-                bedingung_beschreibung = f" - Erfordert GTIN/Medikament: {escape(werte_str)}"
-            elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
-                bedingung_beschreibung = f" - Erfordert LKN: {escape(werte_str)}"
-                is_lkn_condition = True
-            elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
-                bedingung_beschreibung = f" - Erfordert LKN aus "
-                is_lkn_condition = True
-                table_names = [t.strip() for t in werte_str.split(',') if t.strip()]
-                all_content = []; valid_table_names = []
-                for table_name in table_names:
-                    table_content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
-                    if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
-                if all_content:
-                    sorted_content = sorted({item['Code']: item for item in all_content}.values(), key=lambda x: x['Code'])
-                    table_links = ", ".join([f"'{escape(t)}'" for t in valid_table_names])
-                    details_fuer_bedingung += f"<details class='inline-details' style='display: inline-block; margin-left: 5px; vertical-align: middle;'><summary style='display: inline; cursor: pointer; color: blue; text-decoration: underline;'>Tabelle(n): {table_links}</summary><div style='margin-top: 5px; border: 1px solid #eee; padding: 5px; background: #f9f9f9;'><ul>"
-                    for item in sorted_content: details_fuer_bedingung += f"<li><b>{escape(item['Code'])}</b>: {escape(item['Code_Text'])}</li>"
-                    details_fuer_bedingung += "</ul></div></details>"
-                elif table_names: bedingung_beschreibung += f" Tabelle(n): {escape(werte_str)} (leer oder nicht gefunden)"
-                else: bedingung_beschreibung += " Tabelle: (Keine Angabe)"
-            elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE":
-                bedingung_beschreibung = f" - Erfordert ICD aus "
-                table_names = [t.strip() for t in werte_str.split(',') if t.strip()]
-                all_content = []; valid_table_names = []
-                for table_name in table_names:
-                    table_content = get_table_content(table_name, "icd", tabellen_dict_by_table)
-                    if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
-                if all_content:
-                    sorted_content = sorted({item['Code']: item for item in all_content}.values(), key=lambda x: x['Code'])
-                    table_links = ", ".join([f"'{escape(t)}'" for t in valid_table_names])
-                    details_fuer_bedingung += f"<details class='inline-details' style='display: inline-block; margin-left: 5px; vertical-align: middle;'><summary style='display: inline; cursor: pointer; color: blue; text-decoration: underline;'>Tabelle(n): {table_links}</summary><div style='margin-top: 5px; border: 1px solid #eee; padding: 5px; background: #f9f9f9;'><ul>"
-                    for item in sorted_content: details_fuer_bedingung += f"<li><b>{escape(item['Code'])}</b>: {escape(item['Code_Text'])}</li>"
-                    details_fuer_bedingung += "</ul></div></details>"
-                elif table_names: bedingung_beschreibung += f" Tabelle(n): {escape(werte_str)} (leer oder nicht gefunden)"
-                else: bedingung_beschreibung += " Tabelle: (Keine Angabe)"
-            elif bedingungstyp == "PATIENTENBEDINGUNG":
-                 min_val = cond.get(BED_MIN_KEY); max_val = cond.get(BED_MAX_KEY); wert_regel = cond.get(BED_WERTE_KEY)
-                 bedingung_beschreibung = f" - Patientenbedingung: Feld='{escape(feld_ref)}'"
-                 if feld_ref == "Alter": bedingung_beschreibung += f", Bereich/Wert='{min_val or '-'} bis {max_val or '-'} / {wert_regel or '-'}'"
-                 elif feld_ref == "Geschlecht": bedingung_beschreibung += f", Erwartet='{escape(wert_regel)}'"
-            elif bedingungstyp == "GESCHLECHT IN LISTE": # Beschreibung für HTML
-                 bedingung_beschreibung = f" - Geschlecht in Liste: {escape(werte_str)}"
-            else: # Unbekannter Typ
-                 bedingung_beschreibung = f" - Wert/Ref: {escape(werte_str or feld_ref or '-')}"
+        # Basis-HTML für den Listeneintrag (wird später in Gruppen eingefügt)
+        li_content = f"<div data-bedingung-id='{escape(str(bedingung_id))}' style='margin-bottom: 5px;'>" # Verwende div statt li für mehr Flexibilität
+        li_content += f"<span style='color:#666; font-size:0.9em;'>({escape(bedingungstyp)}):</span> " # Typ etwas dezenter
 
-            # Aktualisiere trigger_lkn_condition_met (nur für Rückgabewert)
-            if is_lkn_condition and condition_met_this_line:
-                trigger_lkn_condition_met = True
+        specific_description_html = ""
+        is_lkn_condition_type = False
 
-        except Exception as e_html: # Fehler bei HTML-Generierung abfangen
-             print(f"FEHLER bei HTML-Generierung für Bedingung {i+1} ({pauschale_code}): {e_html}")
-             bedingung_beschreibung = f" - FEHLER bei Detailgenerierung: {escape(str(e_html))}"
-             status_text = "FEHLER" # Status auf Fehler setzen
+        if "IN TABELLE" in bedingungstyp:
+            table_names_str = werte_aus_regel
+            table_names_list = [t.strip() for t in table_names_str.split(',') if t.strip()]
+            type_for_get_table_content = ""
+            type_prefix = "Code" # Standard-Präfix
 
-        # Füge Listeneintrag zum HTML hinzu
-        color = "green" if condition_met_this_line else "red" if not status_text.startswith("FEHLER") else "orange"
-        li_content += bedingung_beschreibung
-        # Füge Details nur hinzu, wenn sie nicht schon Teil der Beschreibung sind (für Tabellen)
-        if not ("IN TABELLE" in bedingungstyp and details_fuer_bedingung):
-             li_content += details_fuer_bedingung # Füge Tabellen-Details hinzu, falls vorhanden
-        li_content += f': <span style="color:{color}; font-weight:bold;">{status_text}</span></li>'
-        condition_details_html += li_content
+            if "LEISTUNGSPOSITIONEN" in bedingungstyp or "TARIFPOSITIONEN" in bedingungstyp:
+                type_prefix = "LKN"
+                type_for_get_table_content = "service_catalog"
+                is_lkn_condition_type = True
+            elif "HAUPTDIAGNOSE" in bedingungstyp or "ICD" in bedingungstyp :
+                type_prefix = "ICD"
+                type_for_get_table_content = "icd"
+            elif "GTIN" in bedingungstyp or "MEDIKAMENTE" in bedingungstyp:
+                type_prefix = "GTIN"
+                type_for_get_table_content = "gtin"
+            
+            specific_description_html += f"Erfordert {type_prefix} aus Tabelle(n): "
 
-        # Aktualisiere Gesamtstatus und Fehlerliste
+            if not table_names_list:
+                specific_description_html += "<i>Kein Tabellenname spezifiziert.</i>"
+            else:
+                table_links_html_parts = []
+                all_content_for_details = []
+
+                for table_name in table_names_list:
+                    table_content_entries = get_table_content(table_name, type_for_get_table_content, tabellen_dict_by_table)
+                    entry_count = len(table_content_entries)
+                    
+                    # Erzeuge Details-Inhalt
+                    details_content_html = ""
+                    if table_content_entries:
+                        all_content_for_details.extend(table_content_entries) # Sammeln für Gesamt-Details? Oder pro Tabelle? Pro Tabelle ist klarer.
+                        details_content_html = "<ul style='margin-top: 5px; font-size: 0.9em; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px;'>" # Scrollbar bei vielen Einträgen
+                        # Dedupliziere und sortiere für diese Tabelle
+                        unique_content_dict_table = {item['Code']: item for item in table_content_entries}
+                        sorted_content_table = sorted(unique_content_dict_table.values(), key=lambda x: x.get('Code', ''))
+                        for item in sorted_content_table:
+                            code_text = item.get('Code_Text', 'N/A')
+                            details_content_html += f"<li><b>{escape(item['Code'])}</b>: {escape(code_text)}</li>"
+                        details_content_html += "</ul>"
+
+                    # Erzeuge das kompakte <details>-Element für DIESE Tabelle
+                    table_detail_html = (
+                        f"<details style='display: inline-block; margin-left: 5px; vertical-align: middle;'>"
+                        f"<summary style='cursor:pointer; color:blue; text-decoration:underline; display: inline;'>"
+                        f"{escape(table_name)}"
+                        f"</summary>"
+                        f" ({entry_count} Einträge)" # Anzahl direkt dahinter
+                        f"{details_content_html}" # Inhalt direkt im <details>
+                        f"</details>"
+                    )
+                    table_links_html_parts.append(table_detail_html)
+
+                specific_description_html += ", ".join(table_links_html_parts) # Füge alle Details-Elemente hinzu
+
+        # ... (andere Bedingungstypen wie "IN LISTE", "PATIENTENBEDINGUNG" bleiben ähnlich,
+        #      können aber auch kompakter gestaltet werden, falls gewünscht) ...
+        elif "IN LISTE" in bedingungstyp:
+            # ... (wie vorher, aber vielleicht ohne `<code>` für Kompaktheit?)
+            items_in_list_str = werte_aus_regel
+            items_list = [item.strip() for item in items_in_list_str.split(',') if item.strip()]
+            list_type_name = "Elementen"
+            type_prefix = "Code"
+
+            if "LEISTUNGSPOSITIONEN" in bedingungstyp or "LKN" in bedingungstyp:
+                type_prefix = "LKN"
+                is_lkn_condition_type = True
+            elif "HAUPTDIAGNOSE" in bedingungstyp or "ICD" in bedingungstyp:
+                type_prefix = "ICD"
+            elif "GTIN" in bedingungstyp or "MEDIKAMENTE" in bedingungstyp:
+                type_prefix = "GTIN"
+            
+            specific_description_html += f"Erfordert {type_prefix} aus Liste: "
+            if not items_list:
+                specific_description_html += "<i>Keine Elemente spezifiziert.</i>"
+            else:
+                specific_description_html += f"{escape(', '.join(items_list))}"
+
+        elif bedingungstyp == "PATIENTENBEDINGUNG":
+            # ... (wie vorher, evtl. Kontextinfo weglassen für Kompaktheit?)
+            min_val = cond_definition.get('MinWert')
+            max_val = cond_definition.get('MaxWert')
+            feld_ref_patientenbed = cond_definition.get(BED_FELD_KEY)
+            werte_aus_regel = cond_definition.get(BED_WERTE_KEY, "")
+
+            specific_description_html += f"Patient: Feld='{escape(feld_ref_patientenbed)}'"
+            if feld_ref_patientenbed == "Alter":
+                age_req_parts = []
+                if min_val is not None: age_req_parts.append(f"min. {escape(str(min_val))}")
+                if max_val is not None: age_req_parts.append(f"max. {escape(str(max_val))}")
+                if not age_req_parts and werte_aus_regel: age_req_parts.append(f"exakt {escape(werte_aus_regel)}")
+                specific_description_html += f", Anforderung: {(' und '.join(age_req_parts) or 'N/A')}"
+                # Kontext weglassen: # + f" (Kontext: {escape(str(context.get('Alter', 'N/A')))})"
+            elif feld_ref_patientenbed == "Geschlecht":
+                specific_description_html += f", Erwartet='{escape(werte_aus_regel)}'"
+                # Kontext weglassen: # + f" (Kontext: {escape(str(context.get('Geschlecht', 'N/A')))})"
+            else:
+                specific_description_html += f", Wert/Ref='{escape(werte_aus_regel or feld_ref_patientenbed or '-')}'"
+
+        elif bedingungstyp == "GESCHLECHT IN LISTE":
+             specific_description_html += f"Geschlecht in Liste: {escape(werte_aus_regel)}"
+             # Kontext weglassen: # + f" (Kontext: {escape(str(context.get('Geschlecht', 'N/A')))})"
+
+        else:
+            specific_description_html += f"Detail: {escape(werte_aus_regel or feld_ref_patientenbed or 'N/A')}"
+
+
+        li_content += f"{specific_description_html} → <span style='color:{status_color}; font-weight:bold;'>{status_label}</span>"
+        li_content += "</div>" # Schließe div
+
+        # Füge das HTML zur richtigen Gruppe hinzu
+        if gruppe_id not in grouped_html_parts:
+            grouped_html_parts[gruppe_id] = []
+        grouped_html_parts[gruppe_id].append(li_content)
+
+        # Fehler und Trigger sammeln (unverändert)
         if not condition_met_this_line:
-            all_met_overall = False # Wenn eine Zeile nicht erfüllt ist, ist nicht alles erfüllt
-            if not status_text.startswith("FEHLER"):
-                 errors.append(f"Bedingung {i+1}: {escape(bedingungstyp)}{bedingung_beschreibung}")
-            else: # Füge auch explizite Fehler hinzu
-                 errors.append(f"Fehler bei Prüfung Bedingung {i+1}: {status_text.replace('FEHLER bei Prüfung: ','')}")
+            error_text = f"Bedingung {i+1} ({escape(bedingungstyp)}: {escape(werte_aus_regel or feld_ref_patientenbed or '')}) nicht erfüllt."
+            errors.append(error_text)
+        if is_lkn_condition_type and condition_met_this_line:
+            trigger_lkn_condition_met = True
 
-    condition_details_html += "</ul>"
-    print(f"--- DEBUG [check_pauschale_conditions HTML]: Abschluss Prüfung für {pauschale_code}: allMetOverall={all_met_overall}, triggerLKNMet={trigger_lkn_condition_met} ---")
+    # --- Baue das finale HTML mit Gruppen-Struktur zusammen ---
+    final_html_parts = []
+    # Sortiere Gruppen-IDs für konsistente Reihenfolge
+    sorted_group_ids = sorted(grouped_html_parts.keys())
 
-    # Gibt jetzt kein 'allMet' mehr zurück, da dies durch evaluate_structured_conditions bestimmt wird
+    for idx, group_id in enumerate(sorted_group_ids):
+        group_html_content = "".join(grouped_html_parts[group_id])
+        
+        # Erzeuge Rahmen um die Gruppe
+        group_wrapper_html = (
+            f"<div class='condition-group' style='border: 1px solid #ccc; border-radius: 4px; padding: 10px; margin-bottom: 10px;'>"
+            f"<div style='font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555;'>Logik-Gruppe {escape(str(group_id))} (Alle müssen erfüllt sein):</div>"
+            f"{group_html_content}"
+            f"</div>"
+        )
+        final_html_parts.append(group_wrapper_html)
+
+        # Füge "ODER" zwischen den Gruppen hinzu (außer nach der letzten)
+        if idx < len(sorted_group_ids) - 1:
+            final_html_parts.append("<div class='condition-separator'>ODER</div>")
+
+    final_html = "".join(final_html_parts)
+    
+    # Wenn es nur eine Gruppe gibt, ist das "ODER" nicht nötig und der Gruppentitel kann angepasst werden
+    if len(sorted_group_ids) == 1:
+         group_id = sorted_group_ids[0]
+         group_html_content = "".join(grouped_html_parts[group_id])
+         final_html = ( # Überschreibe final_html
+            f"<div class='condition-group' style='border: 1px solid #ccc; border-radius: 4px; padding: 10px; margin-bottom: 10px;'>"
+            f"<div style='font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555;'>Bedingungen (Alle müssen erfüllt sein):</div>"
+            f"{group_html_content}"
+            f"</div>"
+        )
+
+    # print(f"--- DEBUG [check_pauschale_conditions HTML]: Abschluss Prüfung für {pauschale_code}, triggerLKNMet={trigger_lkn_condition_met} ---")
+
     return {
-        "html": condition_details_html,
+        "html": final_html,
         "errors": errors,
         "trigger_lkn_condition_met": trigger_lkn_condition_met
     }
@@ -358,8 +434,8 @@ def check_pauschale_conditions(
 # --- Ausgelagerte Pauschalen-Ermittlung ---
 def determine_applicable_pauschale(
     user_input: str,
-    rule_checked_leistungen: list[dict],
-    context: dict,
+    rule_checked_leistungen: list[dict], # Wird nur noch für initiale Suche verwendet
+    context: dict, # Der VOLLE Kontext für die Bedingungsprüfung (inkl. gemappter LKNs!)
     pauschale_lp_data: List[Dict],
     pauschale_bedingungen_data: List[Dict],
     pauschalen_dict: Dict[str, Dict],
@@ -368,11 +444,12 @@ def determine_applicable_pauschale(
     ) -> dict:
     """
     Ermittelt die anwendbarste Pauschale durch Auswertung der strukturierten Bedingungen.
-    Wählt die niedrigste gültige aus (A vor B vor E...).
+    Wählt die "am wenigsten komplexe passende" Pauschale aus einer Gruppe (höchster Suffix-Buchstabe).
     Gibt entweder die Pauschale oder einen Error zurück.
     """
     print("INFO: Starte Pauschalenermittlung mit strukturierter Bedingungsprüfung...")
 
+    # --- Schlüsselkonstanten (wie in deiner Datei) ---
     PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'
     POTENTIAL_ICDS_KEY = 'potential_icds'
     LKN_KEY_IN_RULE_CHECKED = 'lkn'
@@ -381,23 +458,31 @@ def determine_applicable_pauschale(
     LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale' # In tblPauschaleLeistungsposition
     BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte' # In tblPauschaleBedingungen
     TAB_CODE_KEY = 'Code'; TAB_TYP_KEY = 'Tabelle_Typ'; TAB_TABELLE_KEY = 'Tabelle' # In tblTabellen
+    # --- Ende Schlüsselkonstanten ---
 
+    # --- 1. Potenzielle Pauschalen finden (wie in deiner Datei) ---
     potential_pauschale_codes = set()
-    rule_checked_lkns = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
-    print(f"DEBUG: Regelkonforme LKNs für Pauschalen-Suche: {rule_checked_lkns}")
-    lkns_in_tables = {} 
-    for lkn in rule_checked_lkns:
+    # Nutze rule_checked_leistungen für die initiale Suche
+    rule_checked_lkns_for_search = [l.get(LKN_KEY_IN_RULE_CHECKED) for l in rule_checked_leistungen if l.get(LKN_KEY_IN_RULE_CHECKED)]
+    # print(f"DEBUG: Regelkonforme LKNs für initiale Pauschalen-Suche: {rule_checked_lkns_for_search}")
+    lkns_in_tables = {}
+    # --- Korrektur: Iteriere über rule_checked_lkns_for_search statt rule_checked_leistungen ---
+    # (Obwohl es in diesem Fall dasselbe sein sollte, ist es sauberer)
+    for lkn in rule_checked_lkns_for_search:
         found_via_a = False; found_via_b = False; found_via_c = False
+        # Methode a) via tblPauschaleLeistungsposition
         for item in pauschale_lp_data:
             if item.get(LP_LKN_KEY) == lkn:
                 pauschale_code_a = item.get(LP_PAUSCHALE_KEY)
                 if pauschale_code_a and pauschale_code_a in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_a); found_via_a = True
+        # Methode b) via tblPauschaleBedingungen (LISTE)
         for cond in pauschale_bedingungen_data:
             if cond.get(BED_TYP_KEY) == "LEISTUNGSPOSITIONEN IN LISTE":
                 werte_liste = [w.strip() for w in str(cond.get(BED_WERTE_KEY, "")).split(',') if w.strip()]
                 if lkn in werte_liste:
                     pauschale_code_b = cond.get(BED_PAUSCHALE_KEY)
                     if pauschale_code_b and pauschale_code_b in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_b); found_via_b = True
+        # Methode c) via tblPauschaleBedingungen (TABELLE)
         if lkn not in lkns_in_tables:
              tables_for_lkn = set()
              for table_name_key in tabellen_dict_by_table.keys():
@@ -413,20 +498,23 @@ def determine_applicable_pauschale(
                     condition_tables_normalized = {t.strip().lower() for t in table_ref_in_cond_str.split(',') if t.strip()}
                     if not condition_tables_normalized.isdisjoint(tables_for_current_lkn_normalized):
                         if pauschale_code_c and pauschale_code_c in pauschalen_dict: potential_pauschale_codes.add(pauschale_code_c); found_via_c = True
-    
-    print(f"DEBUG: Finale potenzielle Pauschalen nach LKN-basierter Suche: {potential_pauschale_codes}")
+
+    # print(f"DEBUG: Finale potenzielle Pauschalen nach LKN-basierter Suche: {potential_pauschale_codes}")
 
     if not potential_pauschale_codes:
         print("INFO: Keine potenziellen Pauschalen-Codes für die erbrachten Leistungen gefunden.")
         return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
+    # --- Ende Potenzielle Pauschalen finden ---
 
+    # --- 2. Strukturierte Bedingungen prüfen (wie in deiner Datei) ---
     evaluated_candidates = []
     print(f"INFO: Werte strukturierte Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen aus...")
-    for code in potential_pauschale_codes:
+    for code in sorted(list(potential_pauschale_codes)): # Sortieren für konsistente Log-Reihenfolge
         if code not in pauschalen_dict: continue
-        bedingungs_context = context 
+        bedingungs_context = context
         is_pauschale_valid = False
         try:
+            # Ruft die korrigierte evaluate_structured_conditions auf
             is_pauschale_valid = evaluate_structured_conditions(
                 code,
                 bedingungs_context,
@@ -436,57 +524,95 @@ def determine_applicable_pauschale(
         except Exception as e_eval:
              print(f"FEHLER bei evaluate_structured_conditions für {code}: {e_eval}")
              is_pauschale_valid = False
-        # print(f"DEBUG: Strukturierte Prüfung für {code}: Gültig = {is_pauschale_valid}") # Weniger verbose hier
         evaluated_candidates.append({"code": code, "details": pauschalen_dict[code], "is_valid_structured": is_pauschale_valid})
 
     valid_candidates = [cand for cand in evaluated_candidates if cand["is_valid_structured"]]
-    print(f"DEBUG: Struktur-gültige Kandidaten nach Prüfung: {[c['code'] for c in valid_candidates]}")
+    # print(f"DEBUG: Struktur-gültige Kandidaten nach Prüfung: {[c['code'] for c in valid_candidates]}")
+    # --- Ende Strukturierte Bedingungen prüfen ---
 
-    # --- TEMPORÄRES DEBUGGING: Bedingungen der relevanten Kandidaten ausgeben ---
+    # --- Temporäres Debugging (aus deiner Datei, kann bleiben oder weg) ---
     debug_pauschalen_codes = ['C08.50A', 'C08.50B', 'C08.50E']
     for pc_debug_code in debug_pauschalen_codes:
-        if any(cand['code'] == pc_debug_code for cand in valid_candidates): # Nur wenn sie unter den gültigen sind
-            print(f"--- DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
+        if any(cand['code'] == pc_debug_code for cand in valid_candidates):
+            # print(f"--- DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
             conditions_for_pc = [
                 cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == pc_debug_code
             ]
             if conditions_for_pc:
+                # Sortiere Bedingungen für konsistente Debug-Ausgabe
+                conditions_for_pc.sort(key=lambda x: (x.get('Gruppe', 0), x.get('BedingungsID', 0)))
                 for cond_item in conditions_for_pc:
                     print(f"  Gruppe: {cond_item.get('Gruppe')}, Operator: {cond_item.get('Operator')}, Typ: {cond_item.get(BED_TYP_KEY)}, Werte: {cond_item.get(BED_WERTE_KEY)}, Feld: {cond_item.get('Feld')}")
             else:
                 print(f"  Keine Bedingungen für {pc_debug_code} in tblPauschaleBedingungen gefunden.")
-            print(f"--- ENDE DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
+            # print(f"--- ENDE DEBUG BEDINGUNGEN FÜR {pc_debug_code} ---")
     # --- ENDE TEMPORÄRES DEBUGGING ---
 
+    # --- 3. Auswahl der besten Pauschale (Logik korrigiert) ---
     selected_candidate_info = None
     if valid_candidates:
-        specific_valid = [c for c in valid_candidates if not c['code'].startswith('C9')]
-        fallback_valid = [c for c in valid_candidates if c['code'].startswith('C9')]
+        # Trenne spezifische und Fallback
+        specific_valid_candidates = [c for c in valid_candidates if not c['code'].startswith('C9')]
+        fallback_valid_candidates = [c for c in valid_candidates if c['code'].startswith('C9')]
 
-        if specific_valid:
-            specific_valid.sort(key=lambda x: x['code'], reverse=False) 
-            selected_candidate_info = specific_valid[0]
-            print(f"INFO: Spezifischste Pauschale ausgewählt (A-Z Sortierung der spezifischen), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
-        elif fallback_valid:
-            fallback_valid.sort(key=lambda x: x['code'], reverse=False) 
-            selected_candidate_info = fallback_valid[0]
-            print(f"INFO: Spezifischste Fallback-Pauschale ausgewählt (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind: {selected_candidate_info['code']}")
+        chosen_list_for_selection = []
+        selection_type_message = ""
+
+        # Bevorzuge spezifische Kandidaten
+        if specific_valid_candidates:
+            chosen_list_for_selection = specific_valid_candidates
+            selection_type_message = "spezifischen"
+            print(f"INFO: Auswahl aus {len(chosen_list_for_selection)} struktur-gültigen {selection_type_message} Kandidaten.")
+        elif fallback_valid_candidates:
+            chosen_list_for_selection = fallback_valid_candidates
+            selection_type_message = "Fallback (C9x)"
+            print(f"INFO: Keine spezifischen Kandidaten, Auswahl aus {len(chosen_list_for_selection)} struktur-gültigen {selection_type_message} Kandidaten.")
+
+        if chosen_list_for_selection:
+            # Sortierfunktion für "am wenigsten komplex zuerst" (höchster Suffix-Buchstabe)
+            def sort_key_most_complex(candidate):
+                code = candidate['code']
+                match = re.match(r"([A-Z0-9.]+)([A-Z])$", code)
+                if match:
+                    stamm = match.group(1)
+                    suffix_char = match.group(2)
+                    # Normale alphabetische Sortierung für Suffix (A=65, B=66, E=69)
+                    return (stamm, ord(suffix_char))
+                return (code, 0) # Fallback
+
+            chosen_list_for_selection.sort(key=sort_key_most_complex) # Sortiere A vor B vor E
+
+            selected_candidate_info = chosen_list_for_selection[0] # Nimm die erste (jetzt A)
+
+            # Korrigiertes Logging
+            print(f"INFO: Gewählte Pauschale nach Sortierung (Stamm A-Z, Suffix A-Z -> komplexeste zuerst): {selected_candidate_info['code']}")
+            # print(f"   DEBUG: Sortierte Kandidatenliste ({selection_type_message}): {[c['code'] for c in chosen_list_for_selection]}")
+
         else:
-             print("FEHLER: Gültige Kandidaten gefunden, aber weder spezifisch noch Fallback?") 
-             return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl."}
-    else:
+             print("FEHLER: Gültige Kandidaten vorhanden, aber weder spezifisch noch Fallback?")
+             return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl (Kategorisierung)."}
+
+    else: # Keine valid_candidates
         print("INFO: Keine Pauschale erfüllt die strukturierten Bedingungen.")
-        return {"type": "Error", "message": "Keine Pauschale gefunden, deren UND/ODER-Bedingungen vollständig erfüllt sind (Kontext prüfen!)."}
+        if potential_pauschale_codes:
+             return {"type": "Error", "message": "Potenzielle Pauschalen gefunden, aber keine erfüllte die UND/ODER-Bedingungen (Kontext prüfen!)."}
+        else:
+             return {"type": "Error", "message": "Keine passende Pauschale für die erbrachten Leistungen gefunden."}
 
+    if not selected_candidate_info:
+        print("FEHLER: selected_candidate_info ist None nach Auswahlprozess.")
+        return {"type": "Error", "message": "Interner Fehler: Keine Pauschale nach Auswahlprozess selektiert."}
+    # --- Ende Auswahl ---
+
+    # --- 4. Details für ausgewählte Pauschale vorbereiten ---
     best_pauschale_code = selected_candidate_info["code"]
-    best_pauschale_details = selected_candidate_info["details"].copy() # Wichtig .copy()
+    best_pauschale_details = selected_candidate_info["details"].copy()
 
-    # 5. Generiere das Detail-HTML für die ausgewählte Pauschale
+    # HTML für Bedingungsprüfung generieren
     bedingungs_pruef_html_result = "<p><i>Detail-HTML nicht generiert.</i></p>"
     condition_errors = []
-    bedingungs_context_html = context # Enthält useIcd
+    bedingungs_context_html = context # Übergib den vollen Kontext
     try:
-        # Direkter Aufruf der Funktion im selben Modul
         condition_result_html = check_pauschale_conditions(
             best_pauschale_code,
             bedingungs_context_html,
@@ -495,40 +621,45 @@ def determine_applicable_pauschale(
         )
         bedingungs_pruef_html_result = condition_result_html.get("html", "<p class='error'>Fehler bei HTML-Generierung.</p>")
         condition_errors = condition_result_html.get("errors", [])
-        # trigger_lkn_met = condition_result_html.get("trigger_lkn_condition_met", False) # Optional holen
     except Exception as e_html_gen:
          print(f"FEHLER bei check_pauschale_conditions (HTML-Generierung) für {best_pauschale_code}: {e_html_gen}")
          bedingungs_pruef_html_result = f"<p class='error'>Fehler bei HTML-Generierung: {e_html_gen}</p>"
          condition_errors = [f"Fehler HTML-Generierung: {e_html_gen}"]
 
-    # 6. Pauschalen-Begründung erstellen
-    rule_checked_lkns_str_list = [str(lkn) for lkn in rule_checked_lkns if lkn]
-    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden basierend auf den regelkonformen Leistungen ({}) geprüft:</p>".format(", ".join(rule_checked_lkns_str_list) or "keine")
+    # --- Pauschalen-Begründung erstellen (korrigiert) ---
+    # Verwende LKNs aus dem Kontext, der für die Prüfung verwendet wurde
+    lkns_used_for_check_str_list = [str(lkn) for lkn in context.get('LKN', []) if lkn]
+    pauschale_erklaerung_html = "<p>Folgende Pauschalen wurden geprüft basierend auf dem Kontext (regelkonforme & gemappte LKNs: {}):</p>".format(", ".join(lkns_used_for_check_str_list) or "keine")
     pauschale_erklaerung_html += "<p>Folgende Pauschalen erfüllten die strukturierten UND/ODER Bedingungen:</p><ul>"
-    for cand in sorted(valid_candidates, key=lambda x: x['code']): # Sortiere A-Z für die Anzeige
+    valid_candidates_sorted_for_display = sorted(valid_candidates, key=lambda x: x['code'])
+    for cand in valid_candidates_sorted_for_display:
          pauschale_text = cand["details"].get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')
-         pauschale_erklaerung_html += f"<li><b>{cand['code']}</b>: {pauschale_text}</li>"
+         pauschale_erklaerung_html += f"<li><b>{cand['code']}</b>: {escape(pauschale_text)}</li>"
     pauschale_erklaerung_html += "</ul>"
-    pauschale_erklaerung_html += f"<p><b>Ausgewählt wurde: {best_pauschale_code}</b> ({best_pauschale_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')}) - als <b>erste (spezifischste)</b> Pauschale (A-Z Sortierung), deren strukturierte Bedingungen erfüllt sind.</p>"
+    # --- Begründung der Auswahl anpassen ---
+    pauschale_erklaerung_html += f"<p><b>Ausgewählt wurde: {best_pauschale_code}</b> ({escape(best_pauschale_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A'))}) - als Pauschale mit dem niedrigsten Suffix-Buchstaben (am komplexesten) unter den gültigen Kandidaten der bevorzugten Kategorie (spezifisch vor Fallback).</p>"    # --- Ende Pauschalen-Begründung ---
 
-    # 7. Vergleich mit anderen Pauschalen
-    match = re.match(r"([A-Z0-9.]+)[A-Z]$", best_pauschale_code)
+    # --- Vergleich mit anderen Pauschalen (wie in deiner Datei) ---
+    match = re.match(r"([A-Z0-9.]+)([A-Z])$", best_pauschale_code)
     pauschalen_gruppe = match.group(1) if match else None
     if pauschalen_gruppe:
-        all_candidates_in_group = [
+        other_potential_codes_in_group = [
             cand_code for cand_code in potential_pauschale_codes
             if cand_code.startswith(pauschalen_gruppe) and cand_code != best_pauschale_code and cand_code in pauschalen_dict
         ]
-        if all_candidates_in_group:
+        if other_potential_codes_in_group:
              pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe)
              selected_conditions_repr = get_simplified_conditions(best_pauschale_code, pauschale_bedingungen_data)
-             for other_code in sorted(all_candidates_in_group):
+             for other_code in sorted(other_potential_codes_in_group):
                   other_details = pauschalen_dict[other_code]
+                  other_was_valid = any(vc['code'] == other_code for vc in valid_candidates)
+                  validity_info = '<span style="color:green;">(Auch gültig)</span>' if other_was_valid else '<span style="color:red;">(Nicht gültig)</span>'
+
                   other_conditions_repr = get_simplified_conditions(other_code, pauschale_bedingungen_data)
                   additional_conditions = other_conditions_repr - selected_conditions_repr
                   missing_conditions = selected_conditions_repr - other_conditions_repr
 
-                  pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary>Unterschiede zu <b>{other_code}</b> ({other_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A')})</summary>"
+                  pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary>Unterschiede zu <b>{other_code}</b> ({escape(other_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A'))}) {validity_info}</summary>"
                   if additional_conditions:
                       pauschale_erklaerung_html += "<p>Zusätzliche/Andere Anforderungen für {}:</p><ul>".format(other_code)
                       for cond_tuple in sorted(list(additional_conditions)):
@@ -545,8 +676,9 @@ def determine_applicable_pauschale(
                      pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden (basierend auf vereinfachter Prüfung).</i></p>"
                   pauschale_erklaerung_html += "</details>"
     best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
+    # --- Ende Vergleich ---
 
-    # 8. Potenzielle ICDs ermitteln
+    # --- Potenzielle ICDs ermitteln (wie in deiner Datei) ---
     potential_icds = []
     pauschale_conditions_selected = [cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == best_pauschale_code]
     for cond in pauschale_conditions_selected:
@@ -560,8 +692,9 @@ def determine_applicable_pauschale(
     unique_icds_dict = {icd['Code']: icd for icd in potential_icds if icd.get('Code')}
     sorted_unique_icds = sorted(unique_icds_dict.values(), key=lambda x: x['Code'])
     best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted_unique_icds
+    # --- Ende Potenzielle ICDs ---
 
-    # 9. Finale Pauschalen-Antwort erstellen
+    # --- Finale Pauschalen-Antwort erstellen ---
     final_result = {
         "type": "Pauschale",
         "details": best_pauschale_details,
@@ -569,6 +702,8 @@ def determine_applicable_pauschale(
         "bedingungs_fehler": condition_errors,
         "conditions_met": True # Da wir nur struktur-gültige auswählen
     }
+    # --- Ende Finale Antwort ---
+
     return final_result
 
 # --- HILFSFUNKTIONEN (auf Modulebene) ---

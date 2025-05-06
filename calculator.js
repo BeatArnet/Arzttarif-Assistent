@@ -229,6 +229,7 @@ async function getBillingAnalysis() {
         if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
         backendResponse = JSON.parse(rawResponseText);
         console.log("[getBillingAnalysis] Backend-Antwort geparst."); // Nicht die ganze Antwort loggen, kann sehr groß sein
+        console.log("[getBillingAnalysis] Empfangene Backend-Daten:", JSON.stringify(backendResponse, null, 2));
 
         // Strukturprüfung (minimal)
         if (!backendResponse || !backendResponse.llm_ergebnis_stufe1 || !backendResponse.abrechnung || !backendResponse.abrechnung.type) {
@@ -253,6 +254,8 @@ async function getBillingAnalysis() {
     try {
         console.log("[getBillingAnalysis] Starte Ergebnisverarbeitung.");
         const llmResultStufe1 = backendResponse.llm_ergebnis_stufe1;
+        const llmResultStufe2 = backendResponse.llm_ergebnis_stufe2;
+        console.log("[getBillingAnalysis] LLM Stufe 2 Daten für Anzeige:", llmResultStufe2); 
         const abrechnung = backendResponse.abrechnung;
         const regelErgebnisseDetails = backendResponse.regel_ergebnisse_details || [];
 
@@ -308,7 +311,12 @@ async function getBillingAnalysis() {
         // 3. LLM Stufe 1 Ergebnisse (immer anzeigen, einklappbar)
         htmlOutput += generateLlmStage1Details(llmResultStufe1);
 
-        // 4. Regelprüfungsdetails (immer anzeigen, einklappbar, besonders relevant bei Fehlern/Warnungen)
+        // 4. LLM Stufe 2 Ergebnisse (optional, nur wenn vorhanden)
+        const stage2Html = generateLlmStage2Details(llmResultStufe2); // Ergebnis zwischenspeichern
+        console.log("[getBillingAnalysis] Ergebnis von generateLlmStage2Details:", stage2Html.substring(0, 100) + "..."); // Logge das Ergebnis
+        htmlOutput += stage2Html; // Füge das Ergebnis hinzu
+
+        // 5. Regelprüfungsdetails (immer anzeigen, einklappbar, besonders relevant bei Fehlern/Warnungen)
         htmlOutput += generateRuleCheckDetails(regelErgebnisseDetails, abrechnung.type === "Error");
 
         // --- Finalen Output anzeigen ---
@@ -387,6 +395,44 @@ function generateLlmStage1Details(llmResult) {
     return detailsHtml;
 }
 
+function generateLlmStage2Details(llmResultStufe2) {
+    console.log("generateLlmStage2Details aufgerufen mit:", llmResultStufe2); // Beibehalten
+
+    if (!llmResultStufe2 || !llmResultStufe2.mapping_results || llmResultStufe2.mapping_results.length === 0) {
+        console.log("generateLlmStage2Details: Bedingung nicht erfüllt, gebe leeren String zurück.");
+        return "";
+    }
+
+    const mappingResults = llmResultStufe2.mapping_results;
+    let detailsHtml = `<details><summary>Details LLM-Analyse Stufe 2 (TARDOC-zu-Pauschalen-LKN Mapping)</summary>`;
+    detailsHtml += `<div>`;
+    detailsHtml += `<p>Folgende TARDOC LKNs wurden versucht, auf äquivalente Pauschalen-Bedingungs-LKNs zu mappen:</p><ul>`;
+
+    try { // Füge try-catch hinzu, falls Fehler beim Zugriff auf map.* auftreten
+        mappingResults.forEach(map => {
+            const tardocLkn = escapeHtml(map.tardoc_lkn || 'N/A');
+            const tardocDesc = escapeHtml(map.tardoc_desc || 'N/A');
+            const mappedLkn = map.mapped_lkn ? escapeHtml(map.mapped_lkn) : null;
+            const candidatesCount = map.candidates_considered_count || 0;
+
+            detailsHtml += `<li><b>TARDOC LKN: ${tardocLkn}</b> (${tardocDesc})`;
+            if (mappedLkn) {
+                detailsHtml += `<br>→ Gemappt auf: <b style="color:var(--accent);">${mappedLkn}</b>`;
+            } else {
+                detailsHtml += `<br>→ <i style="color:var(--danger);">Kein passendes Mapping gefunden.</i>`;
+            }
+            detailsHtml += `</li>`;
+        });
+    } catch (e) {
+        console.error("Fehler in generateLlmStage2Details forEach:", e);
+        detailsHtml += "<li>Fehler bei der Anzeige der Mapping-Details.</li>"; // Zeige Fehler im UI
+    }
+    detailsHtml += `</ul>`;
+    detailsHtml += `</div></details>`;
+    console.log("generateLlmStage2Details: Generiertes HTML (gekürzt):", detailsHtml.substring(0, 200) + "...");
+    return detailsHtml;
+}
+
 // NEU: Generiert den <details> Block für Regelprüfungsdetails
 function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
     if (!regelErgebnisse || regelErgebnisse.length === 0) return "";
@@ -453,17 +499,17 @@ function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
 // Funktion erhält jetzt das ganze Abrechnungs-Objekt
 function displayPauschale(abrechnungsObjekt) {
     const pauschaleDetails = abrechnungsObjekt.details;
-    const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || ""; // <<<< Erste und einzige Deklaration
+    const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || "";
     const bedingungsFehler = abrechnungsObjekt.bedingungs_fehler || [];
-    const conditions_met = abrechnungsObjekt.conditions_met === true;
-    const conditions_met_structured = abrechnungsObjekt.conditions_met === true; // Das Ergebnis der UND/ODER Logik
+    // conditions_met wird jetzt direkt vom Backend als boolscher Wert erwartet
+    const conditions_met_structured = abrechnungsObjekt.conditions_met === true;
 
     // Schlüssel für Pauschalen-Details
     const PAUSCHALE_KEY = 'Pauschale';
     const PAUSCHALE_TEXT_KEY = 'Pauschale_Text';
     const PAUSCHALE_TP_KEY = 'Taxpunkte';
     const PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html';
-    const POTENTIAL_ICDS_KEY = 'potential_icds';
+    // const POTENTIAL_ICDS_KEY = 'potential_icds'; // Nicht mehr benötigt
 
     if (!pauschaleDetails) return "<p class='error'>Pauschalendetails fehlen.</p>";
 
@@ -472,7 +518,7 @@ function displayPauschale(abrechnungsObjekt) {
     const pauschaleText = escapeHtml(pauschaleDetails[PAUSCHALE_TEXT_KEY] || 'N/A');
     const pauschaleTP = escapeHtml(pauschaleDetails[PAUSCHALE_TP_KEY] || 'N/A');
     const pauschaleErklaerung = pauschaleDetails[PAUSCHALE_ERKLAERUNG_KEY] || "";
-    const potentialICDs = pauschaleDetails[POTENTIAL_ICDS_KEY] || [];
+    // const potentialICDs = pauschaleDetails[POTENTIAL_ICDS_KEY] || []; // Nicht mehr benötigt
 
     // HTML-Struktur aufbauen
     let detailsContent = `
@@ -492,31 +538,21 @@ function displayPauschale(abrechnungsObjekt) {
 
     // 2. Details zur Bedingungsprüfung hinzufügen (verwende die Variable 'bedingungsHtml')
     if (bedingungsHtml) {
-        // Öffne Details immer, wenn die strukturierte Logik nicht erfüllt war ODER wenn es Einzelfehler gab
         const openAttr = !conditions_met_structured || (bedingungsFehler && bedingungsFehler.length > 0) ? 'open' : '';
-        // --- KORRIGIERTER TEXT ---
-        let summary_status_text = "";
-        if (conditions_met_structured) {
-            summary_status_text = "Gesamtlogik erfüllt";
-        } else {
-            // Prüfe, ob LKN-Trigger erfüllt war (optional, braucht Anpassung im Backend)
-            // const trigger_met = abrechnungsObjekt.trigger_lkn_condition_met === true;
-            // summary_status_text = trigger_met ? "Gesamtlogik NICHT erfüllt (aber LKN-Trigger OK)" : "Gesamtlogik NICHT erfüllt";
-            summary_status_text = "Gesamtlogik NICHT erfüllt"; // Einfacher
-        }
+        let summary_status_text = conditions_met_structured ? "Gesamtlogik erfüllt" : "Gesamtlogik NICHT erfüllt";
         detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>Details Pauschalen-Bedingungsprüfung (${summary_status_text})</summary>${bedingungsHtml}</details>`;
     }
 
-    // 3. Mögliche ICDs hinzufügen
+    // 3. Mögliche ICDs hinzufügen - DIESEN BLOCK ENTFERNEN/AUSKOMMENTIEREN
+    /*
     if (potentialICDs.length > 0) {
-        // Finde die Zeile mit "if (potentialICDs..." - das ist etwa Zeile 438 in deiner Datei
-        // Stelle sicher, dass hier KEINE zweite Deklaration von bedingungsHtml steht.
         detailsContent += `<details style="margin-top: 10px;"><summary>Mögliche zugehörige ICD-Diagnosen (gem. Bedingungen)</summary><ul>`;
         potentialICDs.forEach(icd => {
             detailsContent += `<li><b>${escapeHtml(icd.Code || 'N/A')}</b>: ${escapeHtml(icd.Code_Text || 'N/A')}</li>`;
         });
         detailsContent += `</ul></details>`;
     }
+    */
 
     // Haupt-Details-Block für die Pauschale erstellen
     let summary_main_status = conditions_met_structured ? '<span style="color:green;">(Logik erfüllt)</span>' : '<span style="color:red;">(Logik NICHT erfüllt)</span>';
@@ -601,7 +637,6 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
     html += `</details>`; // Schließe Haupt-Details
     return html;
 }
-
 
 // Hilfsfunktion: Sucht nur die TARDOC-Details lokal (unverändert)
 function processTardocLookup(lkn) {

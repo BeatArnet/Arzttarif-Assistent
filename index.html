@@ -105,6 +105,73 @@
         #output details table { margin-top: 8px; margin-bottom: 10px; }
         #output details th, #output details td { padding: 6px; font-size: 0.95em; }
 
+        /* Anpassung für das div, das jetzt statt li verwendet wird - mit Flexbox */
+        #output .condition-group {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px; /* Abstand zwischen Gruppen beibehalten */
+            background-color: #fdfdfd;
+        }
+
+        #output .condition-group-title { /* Titel für die Gruppe */
+            font-weight: bold;
+            margin-bottom: 8px; /* Mehr Abstand zum Inhalt */
+            font-size: 0.9em;
+            color: #555;
+            padding-bottom: 3px;
+            border-bottom: 1px dotted #eee; /* Leichte Trennlinie */
+        }
+
+        #output .condition-separator { /* Das "ODER" zwischen Gruppen */
+            /* text-align: center; */ /* Entfernt */
+            text-align: left;     /* NEU: Linksbündig */
+            font-weight: bold;
+            margin: -5px 0 5px 5px; /* Angepasster Margin für linksbündige Position */
+            color: var(--primary);
+            font-size: 0.9em;
+        }
+
+        #output details details { /* Verschachtelte Details (für Tabelleninhalte) */
+            margin-left: 0;
+            font-size: 1em;
+            border: none;
+            padding-left: 0;
+            margin-top: 0; /* Kein extra Abstand oben */
+            vertical-align: baseline; /* Versuchen, die Summary besser auszurichten */
+        }
+        #output details details summary { /* Summary für Tabellenname */
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+            display: inline;
+            font-weight: normal;
+        }
+        #output details details ul { /* Liste im aufklappbaren Teil */
+            margin-top: 5px;
+            font-size: 0.9em;
+            max-height: 150px;
+            overflow-y: auto;
+            border-top: 1px solid #eee;
+            padding-top: 5px;
+            padding-left: 15px;
+            list-style-position: inside;
+        }
+
+        #output details li code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        /* Status am Ende etwas absetzen */
+        #output .condition-group > div[data-bedingung-id] > span[style*="color"] {
+            margin-left: auto; /* Schiebt den Status nach rechts */
+            padding-left: 10px; /* Abstand zum vorherigen Element */
+            white-space: nowrap; /* Verhindert Umbruch des Status */
+        }
+
         .disclaimer {
             font-size: 0.8em;
             color: #666;
