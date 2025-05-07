@@ -1088,15 +1088,16 @@ def serve_static(filename):
 
 if __name__ == "__main__":
     load_data() # Lade Daten beim Start
-    print(f"🚀 Server läuft → http://127.0.0.1:8000")
-    print(f"   Regelprüfer LKN: {'Aktiv' if regelpruefer and hasattr(regelpruefer, 'pruefe_abrechnungsfaehigkeit') else 'Inaktiv'}")
-    print(f"   Regelprüfer Pauschale: {'Aktiv' if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions') else 'Inaktiv'}")
+    # print(f"🚀 Server läuft → http://127.0.0.1:8000")
+    # print(f"   Regelprüfer LKN: {'Aktiv' if regelpruefer and hasattr(regelpruefer, 'pruefe_abrechnungsfaehigkeit') else 'Inaktiv'}")
+    # print(f"   Regelprüfer Pauschale: {'Aktiv' if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions') else 'Inaktiv'}")
     # Wichtige Daten prüfen
-    if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
-    if not pauschalen_dict: print("   WARNUNG: Pauschalen nicht geladen!")
-    if not tardoc_data_dict: print("   WARNUNG: TARDOC-Daten nicht geladen!")
-    if not regelwerk_dict: print("   WARNUNG: LKN-Regelwerk nicht geladen!")
-    if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
-    if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
+    # if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
+    # if not pauschalen_dict: print("   WARNUNG: Pauschalen nicht geladen!")
+    # if not tardoc_data_dict: print("   WARNUNG: TARDOC-Daten nicht geladen!")
+    # if not regelwerk_dict: print("   WARNUNG: LKN-Regelwerk nicht geladen!")
+    # if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
+    # if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
 
-    app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
+    # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
