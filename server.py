@@ -13,6 +13,19 @@ from typing import Dict, List, Any, Set
 from utils import get_table_content
 import html
 
+# --- Konfiguration ---
+load_dotenv()
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
+DATA_DIR = Path("data")
+LEISTUNGSKATALOG_PATH = DATA_DIR / "tblLeistungskatalog.json"
+REGELWERK_PATH = DATA_DIR / "strukturierte_regeln_komplett.json" # Prüfe diesen Pfad!
+TARDOC_PATH = DATA_DIR / "TARDOCGesamt_optimiert_Tarifpositionen.json"
+PAUSCHALE_LP_PATH = DATA_DIR / "tblPauschaleLeistungsposition.json"
+PAUSCHALEN_PATH = DATA_DIR / "tblPauschalen.json"
+PAUSCHALE_BED_PATH = DATA_DIR / "tblPauschaleBedingungen.json"
+TABELLEN_PATH = DATA_DIR / "tblTabellen.json"
+
 # Importiere Regelprüfer-Module und setze Fallbacks
 try:
     import regelpruefer # Nur das Modul importieren
@@ -72,21 +85,8 @@ except ImportError:
     def get_simplified_conditions(pc, bed_data): return set()
     def generate_condition_detail_html(ct, lk_dict, tab_dict): return "<li>Detail-Generierung fehlgeschlagen</li>"
 
-# --- Konfiguration ---
-load_dotenv()
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
-DATA_DIR = Path("data")
-LEISTUNGSKATALOG_PATH = DATA_DIR / "tblLeistungskatalog.json"
-REGELWERK_PATH = DATA_DIR / "strukturierte_regeln_komplett.json" # Prüfe diesen Pfad!
-TARDOC_PATH = DATA_DIR / "TARDOCGesamt_optimiert_Tarifpositionen.json"
-PAUSCHALE_LP_PATH = DATA_DIR / "tblPauschaleLeistungsposition.json"
-PAUSCHALEN_PATH = DATA_DIR / "tblPauschalen.json"
-PAUSCHALE_BED_PATH = DATA_DIR / "tblPauschaleBedingungen.json"
-TABELLEN_PATH = DATA_DIR / "tblTabellen.json"
-
 # --- Globale Datencontainer ---
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__, static_folder='.', static_url_path='') # Flask App Instanz
 leistungskatalog_data: list[dict] = []
 leistungskatalog_dict: dict[str, dict] = {}
 regelwerk_dict: dict[str, dict] = {}
@@ -98,13 +98,12 @@ pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
 
-
 # --- Daten laden ---
 def load_data():
-    # ... (load_data Funktion bleibt unverändert wie im letzten Schritt) ...
+    print("--- DEBUG: load_data() WURDE AUFGERUFEN ---") # NEU
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
-    global tabellen_dict_by_table # NEU
+    global tabellen_dict_by_table
 
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
@@ -118,100 +117,128 @@ def load_data():
     # Reset all data containers
     leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_data_dict.clear()
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); tabellen_data.clear()
-    tabellen_dict_by_table.clear() # NEU
+    tabellen_dict_by_table.clear()
 
     all_loaded = True
     for name, (path, target_list, key_field, target_dict) in files_to_load.items():
         try:
+            print(f"  Versuche {name} von {path} zu laden...") # Log vor dem Laden
             if path.is_file():
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    if not isinstance(data, list):
-                         print(f"WARNUNG: {name}-Daten in '{path}' sind keine Liste, überspringe.")
-                         continue
+                
+                if not isinstance(data, list):
+                     print(f"  WARNUNG: {name}-Daten in '{path}' sind keine Liste, überspringe.")
+                     continue # Gehe zur nächsten Datei
 
-                    # Fülle das Dictionary, falls gewünscht
-                    if target_dict is not None and key_field is not None:
-                         current_key_field = key_field # Lokale Variable für Klarheit
-                         for item in data:
-                              if isinstance(item, dict):
-                                   key_value = item.get(current_key_field)
-                                   if key_value:
-                                       target_dict[str(key_value)] = item # Schlüssel immer als String
-                                   else:
-                                       print(f"WARNUNG: Eintrag in {name} ohne Schlüssel '{current_key_field}': {str(item)[:100]}...")
-                              else:
-                                   print(f"WARNUNG: Ungültiger Eintrag (kein Dict) in {name}: {str(item)[:100]}...")
-                         print(f"✓ {name}-Daten '{path}' geladen ({len(target_dict)} Einträge im Dict).")
-                    # Fülle die Liste, falls gewünscht
-                    if target_list is not None:
-                         target_list.extend(data)
-                         # Info nur wenn nicht schon Dict-Info kam
-                         if target_dict is None:
-                              print(f"✓ {name}-Daten '{path}' geladen ({len(target_list)} Einträge in Liste).")
+                # Fülle das Dictionary, falls gewünscht
+                if target_dict is not None and key_field is not None:
+                     target_dict.clear() # Stelle sicher, dass das Dict leer ist
+                     current_key_field = key_field
+                     items_in_dict = 0
+                     for item in data:
+                          if isinstance(item, dict):
+                               key_value = item.get(current_key_field)
+                               if key_value:
+                                   target_dict[str(key_value)] = item
+                                   items_in_dict += 1
+                               # else: # Weniger verbose
+                               #     print(f"  WARNUNG: Eintrag in {name} ohne Schlüssel '{current_key_field}': {str(item)[:100]}...")
+                          # else: # Weniger verbose
+                          #      print(f"  WARNUNG: Ungültiger Eintrag (kein Dict) in {name}: {str(item)[:100]}...")
+                     print(f"  ✓ {name}-Daten '{path}' geladen ({items_in_dict} Einträge im Dict).")
 
-                    # Fülle tabellen_dict_by_table
-                    if name == "Tabellen":
-                        TAB_KEY = "Tabelle" # <<< PRÜFEN: Ist dieser Schlüssel korrekt?
-                        # print(f"DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
-                        tabellen_dict_by_table.clear()
-                        items_processed = 0
-                        keys_created = set()
-                        for item_index, item in enumerate(data):
-                            items_processed += 1
-                            if isinstance(item, dict):
-                                table_name = item.get(TAB_KEY)
-                                if table_name:
-                                    normalized_key = str(table_name).lower()
-                                    if normalized_key not in tabellen_dict_by_table:
-                                        tabellen_dict_by_table[normalized_key] = []
-                                        keys_created.add(normalized_key)
-                                        # Logge nur, wenn ein *neuer* Key erstellt wird
-                                        # print(f"DEBUG (load_data): Neuer Key erstellt: '{normalized_key}' (Original: '{table_name}')")
-                                    tabellen_dict_by_table[normalized_key].append(item)
-                                else:
-                                    # Logge Items ohne den erwarteten Schlüssel
-                                    print(f"WARNUNG (load_data): Eintrag {item_index} in '{name}' fehlt Schlüssel '{TAB_KEY}'. Item: {str(item)[:100]}...")
-                            else:
-                                # Logge ungültige Items
-                                print(f"WARNUNG (load_data): Eintrag {item_index} in '{name}' ist kein Dictionary. Item: {str(item)[:100]}...")
+                # Fülle die Liste, falls gewünscht
+                if target_list is not None:
+                     target_list.clear() # Stelle sicher, dass die Liste leer ist
+                     target_list.extend(data)
+                     # Info nur wenn nicht schon Dict-Info kam
+                     if target_dict is None:
+                          print(f"  ✓ {name}-Daten '{path}' geladen ({len(target_list)} Einträge in Liste).")
 
-                        # print(f"DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
-                        print(f"✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen, {len(keys_created)} neue Schlüssel erstellt).")
-                        # Prüfe spezifische Schlüssel nach der Gruppierung
-                        missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz']
-                        found_keys_check = {k for k in missing_keys_check if k in tabellen_dict_by_table}
-                        not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
-                        # print(f"DEBUG (load_data): Prüfung spezifischer Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
-                        if not_found_keys_check:
-                             print(f"FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table!")
-                             # Optional: Zeige einige der tatsächlich vorhandenen Schlüssel zum Vergleich
-                             # print(f"DEBUG: Vorhandene Schlüssel (Auszug): {list(tabellen_dict_by_table.keys())[:50]}")              
+                # Fülle tabellen_dict_by_table (speziell für "Tabellen")
+                if name == "Tabellen":
+                    TAB_KEY = "Tabelle"
+                    print(f"  DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
+                    tabellen_dict_by_table.clear()
+                    items_processed = 0
+                    keys_created = set()
+                    for item_index, item in enumerate(data):
+                        items_processed += 1
+                        if isinstance(item, dict):
+                            table_name = item.get(TAB_KEY)
+                            if table_name:
+                                normalized_key = str(table_name).lower()
+                                if normalized_key not in tabellen_dict_by_table:
+                                    tabellen_dict_by_table[normalized_key] = []
+                                    keys_created.add(normalized_key)
+                                tabellen_dict_by_table[normalized_key].append(item)
+                            # else: # Weniger verbose
+                            #     print(f"  WARNUNG (load_data): Eintrag {item_index} in '{name}' fehlt Schlüssel '{TAB_KEY}'.")
+                        # else: # Weniger verbose
+                        #      print(f"  WARNUNG (load_data): Eintrag {item_index} in '{name}' ist kein Dictionary.")
+
+                    print(f"  DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
+                    print(f"  ✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen, {len(keys_created)} neue Schlüssel erstellt).")
+                    # Prüfe spezifische Schlüssel nach der Gruppierung
+                    missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz', 'anast', 'c08.50'] # Wichtige Tabellen hinzugefügt
+                    found_keys_check = {k for k in missing_keys_check if k in tabellen_dict_by_table}
+                    not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
+                    print(f"  DEBUG (load_data): Prüfung spezifischer Tabellen-Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
+                    if not_found_keys_check:
+                         print(f"  FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table!")
+
+                # print(f"  ✓ {name} erfolgreich geladen und verarbeitet.") # Redundante Meldung entfernt
+
             else:
-                print(f"FEHLER: {name}-Datei nicht gefunden: {path}")
-                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False # Kritische Daten fehlen
+                print(f"  FEHLER: {name}-Datei nicht gefunden: {path}")
+                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False
         except json.JSONDecodeError as e:
-             print(f"FEHLER beim Parsen der {name}-JSON-Datei ({path}): {e}")
+             print(f"  FEHLER beim Parsen der {name}-JSON-Datei ({path}): {e}")
              all_loaded = False
+             traceback.print_exc()
+        except IOError as e:
+             print(f"  FEHLER beim Öffnen/Lesen der {name}-Datei ({path}): {e}")
+             all_loaded = False
+             traceback.print_exc()
         except Exception as e:
-             print(f"FEHLER beim Laden der {name}-Daten ({path}): {e}")
+             print(f"  FEHLER beim Laden/Verarbeiten der {name}-Daten ({path}): {e}")
              all_loaded = False
+             traceback.print_exc()
 
-    # Lade Regelwerk LKN
-    if regelpruefer and hasattr(regelpruefer, 'lade_regelwerk'):
-        if REGELWERK_PATH.is_file():
-            regelwerk_dict = regelpruefer.lade_regelwerk(str(REGELWERK_PATH))
-            print(f"✓ Regelwerk (LKN) '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
+    # Lade Regelwerk LKN (mit Fehlerbehandlung)
+    try:
+        print(f"  Versuche Regelwerk (LKN) von {REGELWERK_PATH} zu laden...")
+        if regelpruefer and hasattr(regelpruefer, 'lade_regelwerk'):
+            if REGELWERK_PATH.is_file():
+                regelwerk_dict.clear() # Sicherstellen, dass leer
+                regelwerk_dict_loaded = regelpruefer.lade_regelwerk(str(REGELWERK_PATH))
+                if regelwerk_dict_loaded: # Nur zuweisen, wenn Laden erfolgreich war
+                    regelwerk_dict.update(regelwerk_dict_loaded)
+                    print(f"  ✓ Regelwerk (LKN) '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
+                else:
+                    print(f"  FEHLER: LKN-Regelwerk konnte nicht geladen werden (Funktion gab leeres Dict zurück).")
+                    all_loaded = False
+            else:
+                print(f"  FEHLER: Regelwerk (LKN) nicht gefunden: {REGELWERK_PATH}")
+                regelwerk_dict.clear()
+                all_loaded = False
         else:
-            print(f"FEHLER: Regelwerk (LKN) nicht gefunden: {REGELWERK_PATH}")
-            regelwerk_dict = {}
-            all_loaded = False # Regeln sind wichtig
-    else:
-        print("ℹ️ Regelprüfung (LKN) nicht verfügbar oder lade_regelwerk fehlt.")
-        regelwerk_dict = {}
+            print("  ℹ️ Regelprüfung (LKN) nicht verfügbar oder lade_regelwerk fehlt.")
+            regelwerk_dict.clear()
+    except Exception as e:
+        print(f"  FEHLER beim Laden des LKN-Regelwerks: {e}")
+        traceback.print_exc()
+        regelwerk_dict.clear()
+        all_loaded = False
 
     print("--- Daten laden abgeschlossen ---")
     if not all_loaded: print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
+    # Logge den Status nach dem Laden
+    print(f"DEBUG: load_data() beendet. leistungskatalog_dict leer? {not leistungskatalog_dict}")
+    print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
+    print(f"DEBUG: regelwerk_dict leer? {not regelwerk_dict}")
+    print(f"DEBUG: tabellen_dict_by_table leer? {not tabellen_dict_by_table}")
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
@@ -730,6 +757,13 @@ def analyze_billing():
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
 
+    if not leistungskatalog_dict or not pauschalen_dict: # etc.
+         print("FEHLER: Kritische Daten nicht geladen (trotz Aufruf). Analyse abgebrochen.")
+         # Logge den Status der globalen Variablen hier, um zu sehen, ob sie wirklich leer sind
+         print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
+         print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
+         return jsonify({"error": "Kritische Server-Daten nicht geladen. Bitte Administrator kontaktieren."}), 503
+
     # 1. Eingaben holen und Daten prüfen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
     data = request.get_json()
@@ -1130,7 +1164,10 @@ def serve_static(filename):
          abort(404)
 
 if __name__ == "__main__":
-    load_data() # Lade Daten beim Start
+    print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:8000")
+    # Stelle sicher, dass die globalen Daten hier auch geladen sind
+    load_data() # Lade Daten beim direkten Start für lokales Debugging
+    if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
     # print(f"🚀 Server läuft → http://127.0.0.1:8000")
     # print(f"   Regelprüfer LKN: {'Aktiv' if regelpruefer and hasattr(regelpruefer, 'pruefe_abrechnungsfaehigkeit') else 'Inaktiv'}")
     # print(f"   Regelprüfer Pauschale: {'Aktiv' if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions') else 'Inaktiv'}")
@@ -1142,5 +1179,5 @@ if __name__ == "__main__":
     # if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
     # if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
 
-    # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
+    # app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
