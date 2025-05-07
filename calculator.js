@@ -221,6 +221,8 @@ async function getBillingAnalysis() {
         if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
         backendResponse = JSON.parse(rawResponseText);
         console.log("[getBillingAnalysis] Backend-Antwort geparst.");
+        console.log("[getBillingAnalysis] Empfangene Backend-Daten (Ausschnitt):", {
+            begruendung_llm_stufe1: backendResponse?.llm_ergebnis_stufe1?.begruendung_llm}); // Logge spezifisch die Begründung       
         // console.log("[getBillingAnalysis] Empfangene Backend-Daten:", JSON.stringify(backendResponse, null, 2)); // Detailliertes Log
 
         // Strukturprüfung
