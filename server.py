@@ -117,22 +117,6 @@ def load_data():
                               else:
                                    print(f"WARNUNG: Ungültiger Eintrag (kein Dict) in {name}: {str(item)[:100]}...")
                          print(f"✓ {name}-Daten '{path}' geladen ({len(target_dict)} Einträge im Dict).")
-                         # if name == "Leistungskatalog":
-                            # print("--- DEBUG: Prüfung leistungskatalog_dict ---")
-                            # test_key_wrong = 'C08.AH.0010'
-                            # test_key_correct = 'C03.AH.0010'
-                            # if test_key_wrong in target_dict:
-                            #     print(f"FEHLER ALARM: Unerwarteter Schlüssel '{test_key_wrong}' in leistungskatalog_dict gefunden!")
-                            #     print(f"   -> Wert: {target_dict[test_key_wrong]}")
-                            # else:
-                            #     print(f"INFO: Korrekt - Schlüssel '{test_key_wrong}' NICHT in leistungskatalog_dict gefunden.")
-                            #
-                            # if test_key_correct in target_dict:
-                            #     print(f"INFO: Korrekt - Schlüssel '{test_key_correct}' in leistungskatalog_dict gefunden.")
-                            #     print(f"   -> Wert: {target_dict[test_key_correct]}")
-                            # else:
-                            #     print(f"FEHLER ALARM: Erwarteter Schlüssel '{test_key_correct}' NICHT in leistungskatalog_dict gefunden!")
-                            # print("--- ENDE DEBUG: Prüfung leistungskatalog_dict ---")
                     # Fülle die Liste, falls gewünscht
                     if target_list is not None:
                          target_list.extend(data)
@@ -375,24 +359,22 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
 
 
     # *** PROMPT STUFE 2 - MAPPING ***
-    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für eine gegebene TARDOC-Leistung die funktional **äquivalenten** Leistungen aus der "Kandidatenliste" zu finden und nach Passgenauigkeit zu priorisieren.
+    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für die gegebene TARDOC-Einzelleistung (Typ E/EZ) die funktional **äquivalente** Leistung aus der "Kandidatenliste" zu finden. Die Kandidatenliste enthält nur LKNs vom Typ P oder PZ, die als Bedingungen in Pauschalen vorkommen.
 
-**Gegebene TARDOC-Leistung:**
+**Gegebene TARDOC-Leistung (Typ E/EZ):**
 *   LKN: {tardoc_lkn}
 *   Beschreibung: {tardoc_desc}
-*   Kontext: Diese Leistung wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
 
-**Mögliche Äquivalente (Kandidatenliste aus Pauschalen-Kontext):**
-Dies sind LKNs, die oft Bedingungen für Pauschalen darstellen. Finde diejenigen, die die **gleiche Art von medizinischer Tätigkeit** wie die TARDOC-Leistung beschreiben.
+**Mögliche Äquivalente (Kandidatenliste - nur Typ P/PZ):**
+Finde die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die TARDOC-Leistung beschreibt.
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
 
 **Analyse & Entscheidung:**
-1.  Verstehe die **Kernfunktion** der TARDOC-Leistung (z.B. "Lokalanästhesie", "Bildgebung", "Laboranalyse").
-2.  Vergleiche diese Kernfunktion mit der Funktion jeder Kandidaten-LKN.
-3.  Identifiziere **alle** Kandidaten-LKNs, deren Funktion der TARDOC-Leistung nahekommt.
-4.  **Priorisiere** die gefundenen Kandidaten-LKNs nach der Ähnlichkeit ihrer Funktion zur TARDOC-Leistung. Die beste Übereinstimmung kommt zuerst.
+1.  Verstehe die **medizinische Kernfunktion** der gegebenen TARDOC-Leistung (z.B. "Anästhesie", "Bildgebung", "Laboranalyse").
+2.  Identifiziere die Kandidaten-LKN (Typ P/PZ) aus der Liste, die diese Kernfunktion am besten repräsentiert.
+3.  Priorisiere nach Passgenauigkeit, falls mehrere Kandidaten sehr ähnlich sind.
 
 **Antwort:**
 *   Gib eine **kommagetrennte, priorisierte Liste** der LKN-Codes der passenden Kandidaten zurück (z.B. `WA.10.0010,WA.10.0020`).
@@ -441,7 +423,8 @@ Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
 
     except requests.exceptions.RequestException as req_err: print(f"FEHLER: Netzwerkfehler bei Gemini Stufe 2 (Mapping): {req_err}"); return None
     except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e: print(f"FEHLER beim Verarbeiten der Mapping-Antwort: {e}"); return None
-    except Exception as e: print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2 (Mapping): {e}"); return None
+    except Exception as e: print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2 (Mapping): {e}"); 
+    return None
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
 def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
@@ -550,87 +533,226 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict]) -> dict:
         print(f"INFO: {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
         return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
 
-def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict):
-    """Sammelt alle LKNs, die in Pauschalenbedingungen vorkommen."""
-    candidate_lkns = set()
-    candidate_lkns = set()
-    BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte' # Anpassen!
-    for cond in pauschale_bedingungen_data:
-        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, "")
+def get_relevant_p_pz_condition_lkns(
+    potential_pauschale_codes: Set[str],
+    pauschale_bedingungen_data: List[Dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    leistungskatalog_dict: Dict[str, Dict]
+) -> Dict[str, str]:
+    """
+    Sammelt alle LKNs, die in den Bedingungen der potenziellen Pauschalen vorkommen
+    UND vom Typ P oder PZ sind.
+
+    Args:
+        potential_pauschale_codes: Set der Pauschalencodes, die potenziell anwendbar sind.
+        pauschale_bedingungen_data: Alle Pauschalenbedingungen.
+        tabellen_dict_by_table: Aufbereitete Tabellendaten.
+        leistungskatalog_dict: Leistungskatalog zum Prüfen des LKN-Typs.
+
+    Returns:
+        Dict[str, str]: Dictionary der relevanten P/PZ LKNs {lkn: beschreibung}.
+    """
+    relevant_lkn_codes = set()
+    BED_PAUSCHALE_KEY = 'Pauschale'
+    BED_TYP_KEY = 'Bedingungstyp'
+    BED_WERTE_KEY = 'Werte'
+
+    # Filtere Bedingungen für die potenziellen Pauschalen
+    relevant_conditions = [
+        cond for cond in pauschale_bedingungen_data
+        if cond.get(BED_PAUSCHALE_KEY) in potential_pauschale_codes
+    ]
+
+    for cond in relevant_conditions:
+        typ = cond.get(BED_TYP_KEY, "").upper()
+        wert = cond.get(BED_WERTE_KEY, "")
         if not wert: continue
+
         if typ == "LEISTUNGSPOSITIONEN IN LISTE" or typ == "LKN":
             lkns = [lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]
-            candidate_lkns.update(lkns)
+            relevant_lkn_codes.update(lkns)
         elif typ == "LEISTUNGSPOSITIONEN IN TABELLE" or typ == "TARIFPOSITIONEN IN TABELLE":
             table_names = [t.strip() for t in wert.split(',') if t.strip()]
             for table_name in table_names:
-                # Nutze utils.get_table_content (muss importiert sein oder hier definiert)
-                from utils import get_table_content # Import innerhalb der Funktion (alternativ global)
                 content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
                 for item in content:
-                    if item.get('Code'): candidate_lkns.add(item['Code'].upper())
-    valid_candidates = {}
-    for lkn in candidate_lkns:
-        lkn_details = leistungskatalog_dict.get(lkn) # Suche mit Upper Case
-        if lkn_details: valid_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
-    # print(f"DEBUG: {len(valid_candidates)} gültige Pauschalen-LKN-Kandidaten für Mapping gefunden.")
-    return valid_candidates
+                    if item.get('Code'): relevant_lkn_codes.add(item['Code'].upper())
+
+    # Filtere nach Typ P/PZ und hole Beschreibung
+    valid_p_pz_candidates = {}
+    for lkn in relevant_lkn_codes:
+        lkn_details = leistungskatalog_dict.get(lkn)
+        if lkn_details and lkn_details.get('Typ') in ['P', 'PZ']: # Filter nach Typ!
+            valid_p_pz_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
+
+    print(f"DEBUG: {len(valid_p_pz_candidates)} relevante P/PZ Bedingungs-LKNs für Mapping gefunden.")
+    return valid_p_pz_candidates
+
+def get_LKNs_from_pauschalen_conditions(
+    potential_pauschale_codes: Set[str],
+    pauschale_bedingungen_data: List[Dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    leistungskatalog_dict: Dict[str, Dict] # Wird für Beschreibungen benötigt
+) -> Dict[str, str]:
+    """
+    Sammelt ALLE LKNs (unabhängig vom Typ), die in den Bedingungen der
+    übergebenen potenziellen Pauschalencodes vorkommen.
+    Holt deren Beschreibungen aus dem Leistungskatalog oder tblTabellen.
+
+    Returns:
+        Dict[str, str]: Dictionary der Bedingungs-LKNs {lkn: beschreibung}.
+    """
+    print(f"--- DEBUG: Start get_LKNs_from_pauschalen_conditions ---")
+    print(f"  Suche Bedingungs-LKNs für potenzielle Pauschalen: {potential_pauschale_codes}")
+
+    condition_lkns_with_desc = {}
+    processed_lkn_codes = set() # Um doppelte Verarbeitung zu vermeiden
+
+    BED_PAUSCHALE_KEY = 'Pauschale'
+    BED_TYP_KEY = 'Bedingungstyp'
+    BED_WERTE_KEY = 'Werte'
+
+    relevant_conditions = [
+        cond for cond in pauschale_bedingungen_data
+        if cond.get(BED_PAUSCHALE_KEY) in potential_pauschale_codes and
+           (cond.get(BED_TYP_KEY, "").upper() in [
+               "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
+               "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"
+           ])
+    ]
+    print(f"  Anzahl LKN-relevanter Bedingungen für diese Pauschalen: {len(relevant_conditions)}")
+
+    for cond in relevant_conditions:
+        typ = cond.get(BED_TYP_KEY, "").upper()
+        wert = cond.get(BED_WERTE_KEY, "")
+        if not wert: continue
+
+        current_lkns_to_add = set()
+
+        if typ == "LEISTUNGSPOSITIONEN IN LISTE" or typ == "LKN":
+            lkns_in_list = [lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]
+            current_lkns_to_add.update(lkns_in_list)
+        elif typ == "LEISTUNGSPOSITIONEN IN TABELLE" or typ == "TARIFPOSITIONEN IN TABELLE":
+            table_names_list = [t.strip() for t in wert.split(',') if t.strip()]
+            for table_name in table_names_list:
+                # Hier holen wir den Code_Text direkt aus get_table_content, falls vorhanden
+                content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
+                for item in content:
+                    lkn_code = item.get('Code')
+                    if lkn_code:
+                        lkn_code_upper = lkn_code.upper()
+                        if lkn_code_upper not in processed_lkn_codes:
+                            desc = item.get('Code_Text') # Aus tblTabellen
+                            if not desc: # Fallback zum Hauptkatalog
+                                desc = leistungskatalog_dict.get(lkn_code_upper, {}).get('Beschreibung', 'N/A')
+                            condition_lkns_with_desc[lkn_code_upper] = desc
+                            processed_lkn_codes.add(lkn_code_upper)
+
+        # Für LKNs aus Listen, Beschreibungen separat holen
+        for lkn_code_upper in current_lkns_to_add:
+            if lkn_code_upper not in processed_lkn_codes:
+                desc = leistungskatalog_dict.get(lkn_code_upper, {}).get('Beschreibung', 'N/A')
+                condition_lkns_with_desc[lkn_code_upper] = desc
+                processed_lkn_codes.add(lkn_code_upper)
+
+    print(f"  DEBUG: {len(condition_lkns_with_desc)} einzigartige Bedingungs-LKNs (alle Typen) für Mapping-Kandidaten gefunden.")
+    # Spezifische Prüfung für WA-Codes, falls die Liste nicht zu lang ist
+    if len(condition_lkns_with_desc) < 100: # Nur loggen wenn übersichtlich
+        wa_codes_found = {k:v for k,v in condition_lkns_with_desc.items() if k.startswith("WA.")}
+        if wa_codes_found:
+            print(f"  INFO: WA.* Codes unter den Bedingungs-LKNs: {list(wa_codes_found.keys())}")
+        else:
+            print(f"  INFO: KEINE WA.* Codes unter den Bedingungs-LKNs gefunden.")
+    print(f"--- DEBUG: Ende get_LKNs_from_pauschalen_conditions ---")
+    return condition_lkns_with_desc
+
+def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict):
+    """
+    Sammelt alle LKNs, die in Pauschalenbedingungen vorkommen UND vom Typ P oder PZ sind.
+    Gibt ein Dictionary {lkn: beschreibung} zurück.
+    """
+    candidate_lkns_from_conditions = set()
+    BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
+
+    for cond in pauschale_bedingungen_data:
+        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, "")
+        if not wert: continue
+
+        if typ == "LEISTUNGSPOSITIONEN IN LISTE" or typ == "LKN":
+            lkns = [lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]
+            candidate_lkns_from_conditions.update(lkns)
+        elif typ == "LEISTUNGSPOSITIONEN IN TABELLE" or typ == "TARIFPOSITIONEN IN TABELLE":
+            table_names = [t.strip() for t in wert.split(',') if t.strip()]
+            for table_name in table_names:
+                # Nutze utils.get_table_content
+                content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
+                for item in content:
+                    if item.get('Code'): candidate_lkns_from_conditions.add(item['Code'].upper())
+
+    # Filtere nach Typ P/PZ und hole Beschreibung
+    valid_p_pz_candidates = {}
+    for lkn in candidate_lkns_from_conditions:
+        lkn_details = leistungskatalog_dict.get(lkn) # Suche mit Upper Case Key
+        if lkn_details and lkn_details.get('Typ') in ['P', 'PZ']: # Filter nach Typ!
+            valid_p_pz_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
+
+    print(f"DEBUG: {len(valid_p_pz_candidates)} gültige Pauschalen-LKN-Kandidaten (Typ P/PZ) für Mapping gefunden.")
+    return valid_p_pz_candidates
 
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
     print("\n--- Request an /api/analyze-billing erhalten ---")
-    start_time = time.time() # Zeitmessung starten
+    start_time = time.time()
 
-    # 1. Eingaben holen
+    # 1. Eingaben holen und Daten prüfen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
-    data = request.get_json(); 
-    user_input = data.get('inputText'); 
-    icd_input = data.get('icd', []); 
+    data = request.get_json()
+    user_input = data.get('inputText')
+    icd_input = data.get('icd', [])
     gtin_input = data.get('gtin', [])
-    use_icd_flag = data.get('useIcd', True) # Default True
-    age_input = data.get('age') 
-    gender_input = data.get('gender')   
+    use_icd_flag = data.get('useIcd', True)
+    age_input = data.get('age')
+    gender_input = data.get('gender')
 
     try:
-        alter_llm = int(age_input) if age_input is not None else None
+        alter_user = int(age_input) if age_input is not None else None
     except (ValueError, TypeError):
-        alter_llm = None 
-    
-    geschlecht_llm = str(gender_input) if isinstance(gender_input, str) and gender_input else None
+        alter_user = None
+    geschlecht_user = str(gender_input) if isinstance(gender_input, str) and gender_input else None
 
     if not user_input: return jsonify({"error": "'inputText' is required"}), 400
     print(f"Empfangener inputText: '{user_input[:100]}...'")
-    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_llm}, Gender: {geschlecht_llm}") 
-    
+    print(f"Empfangene ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_user}, Gender: {geschlecht_user}")
+
     if not leistungskatalog_dict or not pauschalen_dict or not tardoc_data_dict or not pauschale_bedingungen_data or not tabellen_data:
          print("FEHLER: Kritische Daten nicht geladen. Analyse abgebrochen.")
          return jsonify({"error": "Kritische Server-Daten nicht geladen. Bitte Administrator kontaktieren."}), 503
-    
+
+    # 2. LLM Stufe 1: LKNs identifizieren und validieren
     llm_stage1_result = None
     try:
         katalog_context = "\n".join([
-            f"LKN: {item.get('LKN', 'N/A')}, Typ: {item.get('Typ', 'N/A')}, Beschreibung: {html.escape(item.get('Beschreibung', 'N/A'))}" # Beschreibung escapen für Robustheit
-            for item in leistungskatalog_data 
-            if item.get('LKN') 
+            f"LKN: {item.get('LKN', 'N/A')}, Typ: {item.get('Typ', 'N/A')}, Beschreibung: {html.escape(item.get('Beschreibung', 'N/A'))}"
+            for item in leistungskatalog_data if item.get('LKN')
         ])
         if not katalog_context: raise ValueError("Leistungskatalog für LLM-Kontext ist leer.")
         llm_stage1_result = call_gemini_stage1(user_input, katalog_context)
-
     except ConnectionError as e:
          print(f"FEHLER: Verbindung zu LLM Stufe 1 fehlgeschlagen: {e}")
-         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504 
-    except ValueError as e: 
+         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
+    except ValueError as e:
          print(f"FEHLER: Verarbeitung LLM Stufe 1 fehlgeschlagen: {e}")
-         return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400 
+         return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400
     except Exception as e:
          print(f"FEHLER: Unerwarteter Fehler bei LLM Stufe 1: {e}")
-         traceback.print_exc() # Log full traceback for unexpected errors
-         return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500 
+         traceback.print_exc()
+         return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500
 
     llm1_time = time.time()
     print(f"Zeit nach LLM Stufe 1: {llm1_time - start_time:.2f}s")
 
+    # Validierung der LLM Stufe 1 Ergebnisse
     validated_leistungen_llm = []
     identified_leistungen_raw = llm_stage1_result.get("identified_leistungen", [])
     if not identified_leistungen_raw:
@@ -638,228 +760,294 @@ def analyze_billing():
     else:
         for leistung in identified_leistungen_raw:
             lkn = leistung.get("lkn")
-            menge_llm = leistung.get("menge", 1) 
-            llm_beschreibung = leistung.get("beschreibung", "N/A von LLM") # Hinzugefügt
-
-            local_data = leistungskatalog_dict.get(str(lkn).upper()) 
+            menge_llm = leistung.get("menge", 1)
+            llm_beschreibung = leistung.get("beschreibung", "N/A von LLM")
+            local_data = leistungskatalog_dict.get(str(lkn).upper())
             if local_data:
                  leistung["typ"] = local_data.get("Typ", leistung.get("typ"))
                  leistung["beschreibung"] = local_data.get("Beschreibung", leistung.get("beschreibung"))
-                 leistung["lkn"] = str(lkn).upper() 
-                 leistung["menge"] = max(1, int(menge_llm)) 
+                 leistung["lkn"] = str(lkn).upper()
+                 leistung["menge"] = max(1, int(menge_llm))
                  validated_leistungen_llm.append(leistung)
             else:
-                 # Geändertes Logging hier:
                  print(f"WARNUNG: Vom LLM identifizierte LKN '{lkn}' (LLM-Beschreibung: '{llm_beschreibung}') nicht im lokalen Katalog gefunden. Wird ignoriert.")
-
         identified_leistungen_llm = validated_leistungen_llm
         llm_stage1_result["identified_leistungen"] = identified_leistungen_llm
         print(f"INFO: {len(identified_leistungen_llm)} LKNs nach Validierung durch LLM Stufe 1 identifiziert.")
 
-    llm_stage2_results_for_frontend = {
-        "mapping_results": []
-        # "ranking_results": [] # Optionaler Platzhalter für später
-    }
-        
-    # 3. Regelprüfung für identifizierte LKNs
-    regel_ergebnisse_liste = [] # Wird an Frontend gesendet
-    rule_checked_leistungen = [] # Nur regelkonforme für Pauschalen-/TARDOC-Entscheid
+    # Check 1: Pauschalenpotenzial prüfen
+    nur_tardoc_identifiziert = False
+    hat_pauschalen_potential = False # Wird hier gesetzt
+    if not identified_leistungen_llm:
+        nur_tardoc_identifiziert = True
+        print("INFO: Keine LKNs von LLM Stufe 1 identifiziert. Gehe zu TARDOC/Error.")
+    else:
+        hat_pauschalen_potential = any(l.get('typ') in ['P', 'PZ'] for l in identified_leistungen_llm)
+        if not hat_pauschalen_potential:
+            nur_tardoc_identifiziert = True
+            print("INFO: LLM Stufe 1 fand nur LKNs vom Typ E/EZ. Keine Pauschale möglich.")
+
+    # Initialisiere Stufe 2 Ergebnisse (für Mapping)
+    llm_stage2_results_for_frontend = { "mapping_results": [] }
+
+    # 3. Regelprüfung (immer durchführen)
+    regel_ergebnisse_liste = []
+    rule_checked_leistungen = []
     extracted_info = llm_stage1_result.get("extracted_info", {})
-    alter_llm = extracted_info.get("alter"); geschlecht_llm = extracted_info.get("geschlecht")
-    # Liste aller validierten LKNs für den 'Begleit_LKNs'-Kontext
+    alter_context = alter_user if alter_user is not None else extracted_info.get("alter")
+    geschlecht_context = geschlecht_user if geschlecht_user is not None else extracted_info.get("geschlecht")
     alle_validen_lkn = [l.get("lkn") for l in identified_leistungen_llm if l.get("lkn")]
 
     if not identified_leistungen_llm:
-         # Spezieller Eintrag für Frontend, wenn LLM nichts fand
          regel_ergebnisse_liste.append({
-             "lkn": None,
-             "initiale_menge": 0,
-             "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine gültige LKN vom LLM identifiziert oder im Katalog gefunden."]},
+             "lkn": None, "initiale_menge": 0,
+             "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine gültige LKN vom LLM identifiziert."]},
              "finale_menge": 0
          })
     else:
         for leistung in identified_leistungen_llm:
             lkn = leistung.get("lkn")
-            menge_initial = leistung.get("menge", 1) # Bereits validierte Menge >= 1
-
+            menge_initial = leistung.get("menge", 1)
             print(f"INFO: Prüfe Regeln für LKN {lkn} (Initiale Menge: {menge_initial})")
             regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
-            angepasste_menge = 0 # Standard: Nicht abrechenbar
-
+            angepasste_menge = 0
             if regelpruefer and regelwerk_dict:
-                # Kontext für die Regelprüfung dieser LKN
                 abrechnungsfall = {
-                    "LKN": lkn,
-                    "Menge": menge_initial,
-                    # Begleitleistungen sind ALLE ANDEREN validierten LKNs aus Stufe 1
+                    "LKN": lkn, "Menge": menge_initial,
                     "Begleit_LKNs": [b_lkn for b_lkn in alle_validen_lkn if b_lkn != lkn],
-                    "ICD": icd_input,
-                    "Geschlecht": geschlecht_llm,
-                    "Alter": alter_llm,
-                    "Pauschalen": [], # Pauschalen werden hier noch nicht berücksichtigt
-                    "GTIN": gtin_input
+                    "ICD": icd_input, "Geschlecht": geschlecht_context, "Alter": alter_context,
+                    "Pauschalen": [], "GTIN": gtin_input
                 }
                 try:
                     regel_ergebnis = regelpruefer.pruefe_abrechnungsfaehigkeit(abrechnungsfall, regelwerk_dict)
-
                     if regel_ergebnis.get("abrechnungsfaehig"):
-                        angepasste_menge = menge_initial # Menge bleibt, wenn OK
-                    else:
-                        # Versuch, Menge anzupassen bei reinem Mengenfehler
+                        angepasste_menge = menge_initial
+                    else: # Mengen-Anpassungslogik
                         fehler_liste = regel_ergebnis.get("fehler", [])
                         fehler_ohne_menge = [f for f in fehler_liste if "Mengenbeschränkung" not in f and "reduziert" not in f]
                         mengen_fehler = [f for f in fehler_liste if "Mengenbeschränkung" in f]
-
-                        if not fehler_ohne_menge and mengen_fehler: # Nur Mengenfehler
+                        if not fehler_ohne_menge and mengen_fehler:
                             max_menge_match = None
-                            match = re.search(r'max\.\s*(\d+(\.\d+)?)', mengen_fehler[0]) # Sucht nach "max. Zahl"
+                            match = re.search(r'max\.\s*(\d+(\.\d+)?)', mengen_fehler[0])
                             if match:
-                                try: max_menge_match = int(float(match.group(1))) # Erst float, dann int
+                                try: max_menge_match = int(float(match.group(1)))
                                 except ValueError: pass
-
                             if max_menge_match is not None and menge_initial > max_menge_match:
                                 angepasste_menge = max_menge_match
                                 print(f"INFO: Menge für LKN {lkn} aufgrund Regel angepasst: {menge_initial} -> {angepasste_menge}.")
-                                # Formatiere Fehlermeldung für Frontend
                                 regel_ergebnis["fehler"] = [f"Menge auf {angepasste_menge} reduziert (Regel: max. {max_menge_match}, LLM-Vorschlag: {menge_initial})"]
-                                regel_ergebnis["abrechnungsfaehig"] = True # Gilt jetzt als abrechnungsfähig mit angepasster Menge
-                            else:
-                                angepasste_menge = 0 # Menge auf 0 setzen, wenn Anpassung nicht möglich/nötig
-                                print(f"INFO: LKN {lkn} nicht abrechnungsfähig wegen Mengenfehler (Anpassung nicht möglich/nötig).")
-                        else:
-                             angepasste_menge = 0 # Menge auf 0 bei anderen Fehlern
-                             print(f"INFO: LKN {lkn} nicht abrechnungsfähig wegen Regel: {fehler_ohne_menge or fehler_liste}")
-
+                                regel_ergebnis["abrechnungsfaehig"] = True
+                            else: angepasste_menge = 0
+                        else: angepasste_menge = 0
+                        if angepasste_menge == 0: print(f"INFO: LKN {lkn} nicht abrechnungsfähig wegen Regel: {fehler_ohne_menge or fehler_liste}")
                 except Exception as e_rule:
                     print(f"FEHLER bei Regelprüfung für LKN {lkn}: {e_rule}")
                     regel_ergebnis = {"abrechnungsfaehig": False, "fehler": [f"Interner Fehler bei Regelprüfung: {e_rule}"]}
                     angepasste_menge = 0
             else:
-                 # Keine Regelprüfung möglich
-                 print(f"WARNUNG: Keine Regelprüfung für LKN {lkn} durchgeführt (Regelprüfer/Regelwerk fehlt). Annahme: Nicht abrechnungsfähig.")
+                 print(f"WARNUNG: Keine Regelprüfung für LKN {lkn} durchgeführt.")
                  regel_ergebnis = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht verfügbar."]}
-                 angepasste_menge = 0 # Sicherheitshalber auf 0
+                 angepasste_menge = 0
 
-            # Ergebnis für Frontend speichern
             regel_ergebnisse_liste.append({
-                "lkn": lkn,
-                "initiale_menge": menge_initial, # Wichtig für Transparenz im Frontend
-                "regelpruefung": regel_ergebnis,
-                "finale_menge": angepasste_menge
+                "lkn": lkn, "initiale_menge": menge_initial,
+                "regelpruefung": regel_ergebnis, "finale_menge": angepasste_menge
             })
-
-            # Nur wenn abrechnungsfähig und Menge > 0 zur nächsten Stufe
             if regel_ergebnis.get("abrechnungsfaehig") and angepasste_menge > 0:
-                # Füge die *regelkonforme* Leistung zur Liste für die Pauschal/TARDOC-Entscheidung hinzu
-                rule_checked_leistungen.append({
-                    **leistung, # Nimm ursprüngliche Infos (Typ, Beschreibung)
-                    "menge": angepasste_menge # Aber mit der finalen Menge
-                })
+                rule_checked_leistungen.append({**leistung, "menge": angepasste_menge})
 
+    print(f"DEBUG: Inhalt von rule_checked_leistungen nach Regelprüfung: {[l.get('lkn') for l in rule_checked_leistungen]}")
     rule_time = time.time()
     print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
+    final_result = None
+    llm_stage2_results_for_frontend = { "mapping_results": [] }
 
-    # --- Kontextanreicherung ---
-    print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
-    pauschal_lkn_candidates = get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict)
-    tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
-    # print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
-    mapped_lkns = set()
-    if tardoc_lkns_to_map and pauschal_lkn_candidates:
-        for tardoc_leistung in tardoc_lkns_to_map:
-            # --- Variablen innerhalb der Schleife definieren ---
-            t_lkn = tardoc_leistung.get('lkn')
-            t_desc = tardoc_leistung.get('beschreibung')
-            relevant_candidates = pauschal_lkn_candidates # Start mit allen
+    if nur_tardoc_identifiziert:
+        # --- Fall 1: Direkt zu TARDOC ---
+        print("INFO: Bereite TARDOC-Abrechnung vor (da nur E/EZ von LLM1 gefunden).")
+        final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
 
-            # Optional: Filtern der Kandidaten
-            if t_lkn and t_lkn.startswith('AG.'):
-                 relevant_candidates = {k:v for k,v in pauschal_lkn_candidates.items() if k.startswith('WA.')}
-                 # print(f"DEBUG: Filtere Mapping-Kandidaten für {t_lkn} auf {len(relevant_candidates)} WA.* LKNs.")
-            # --- Ende Variablen Definition ---
-
-            # --- Prüfen, ob alle nötigen Infos vorhanden sind ---
-            if t_lkn and t_desc and relevant_candidates:
-                # Nur wenn LKN, Beschreibung und Kandidaten vorhanden sind, das Mapping versuchen
-                
-                mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, relevant_candidates)
-                if mapped_code:
-                    mapped_lkns.add(mapped_code)
-
-                # --- Ergebnis für Frontend speichern ---
-                # --->>> DIESER BLOCK MUSS HIER DRIN SEIN <<<---
-                llm_stage2_results_for_frontend["mapping_results"].append({
-                    "tardoc_lkn": t_lkn, # t_lkn ist hier definiert
-                    "tardoc_desc": t_desc, # t_desc ist hier definiert
-                    "mapped_lkn": mapped_code, # mapped_code ist hier definiert (kann None sein)
-                    "candidates_considered_count": len(relevant_candidates) # relevant_candidates ist hier definiert
-                })
-                # --- Ende Ergebnis speichern ---
-            
-            else:
-                # Optional: Loggen, wenn ein Schritt übersprungen wurde
-                print(f"WARNUNG: Mapping für Eintrag übersprungen, da LKN/Beschreibung/Kandidaten fehlen: {tardoc_leistung}")
-                
-    final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
-    final_pauschale_lkn_context_set.update(mapped_lkns)
-    final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set)
-    print(f"INFO: Finaler LKN-Kontext für Pauschalenprüfung: {final_pauschale_lkn_context_list}")
-    pauschale_context = {
-        "ICD": icd_input, "GTIN": gtin_input,
-        "Alter": alter_llm, # Verwende Wert aus Eingabe
-        "Geschlecht": geschlecht_llm, # Verwende Wert aus Eingabe
-        "useIcd": use_icd_flag,
-        "LKN": final_pauschale_lkn_context_list
-    }
-
-    # 4. ENTSCHEIDUNG Pauschale vs. TARDOC (nutzt jetzt angereicherten Kontext)
-    final_result = {"type": "Error", "message": "Abrechnungsentscheidung fehlgeschlagen."}
-    if not rule_checked_leistungen:
-         # ... (Fallback TARDOC wie vorher) ...
+    elif not rule_checked_leistungen:
+         # --- Fall 2: Nichts mehr übrig nach Regelprüfung ---
+         print("WARNUNG: Keine Leistungen nach Regelprüfung übrig. Versuche TARDOC/Error.")
          final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
-    else:
-        try:
-            print(f"INFO: Versuche, Pauschale für {len(rule_checked_leistungen)} Leistung(en) zu finden (useIcd={use_icd_flag}, angereicherter Kontext)...")
-            # Rufe Pauschalen-Ermittlung mit dem *angereicherten* Kontext auf
-            pauschale_pruef_ergebnis = regelpruefer_pauschale.determine_applicable_pauschale(
-                user_input, 
-                rule_checked_leistungen, 
-                pauschale_context, # pauschale_context enthält jetzt gemappte LKNs
-                pauschale_lp_data, 
-                pauschale_bedingungen_data, 
-                pauschalen_dict,
-                leistungskatalog_dict, 
-                tabellen_dict_by_table
-            )
-            # ... (Rest der Logik: Prüfe Ergebnis, ggf. TARDOC) ...
-            if pauschale_pruef_ergebnis.get("type") == "Pauschale":
-                print("INFO: Anwendbare Pauschale gefunden.")
-                final_result = pauschale_pruef_ergebnis
-            else:
-                print(f"INFO: Keine anwendbare Pauschale gefunden ({pauschale_pruef_ergebnis.get('message')}). Bereite TARDOC vor.")
-                final_result = regelpruefer.prepare_tardoc_abrechnung(
-                    regel_ergebnisse_liste, 
-                    leistungskatalog_dict
-                    )
-        except ConnectionError as e:
-             print(f"FEHLER: Verbindung zu LLM Stufe 2 fehlgeschlagen: {e}")
-             final_result = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2): {e}"}
-        except Exception as e:
-             print(f"FEHLER bei Pauschalen-/TARDOC-Entscheidung: {e}")
-             # Traceback loggen für Debugging
-             traceback.print_exc()
-             final_result = {"type": "Error", "message": f"Interner Fehler bei Abrechnungsentscheidung: {e}"}
 
+    if final_result is None: # Pauschale ist möglich UND Leistungen sind übrig
+        print("INFO: Pauschalenpotenzial vorhanden. Starte Mapping & Pauschalenprüfung.")
+
+        # --- Schritt 3a: Potenzielle Pauschalen finden ---
+        # (Dieser Schritt muss VOR dem Mapping passieren, um die relevanten Kandidaten zu kennen)
+        # --- Schritt 3a: Potenzielle Pauschalen finden ---
+        # (Dieser Schritt muss VOR dem Mapping passieren, um die relevanten Kandidaten zu kennen)
+        potential_pauschale_codes = set()
+        rule_checked_lkns_for_search = [l.get('lkn') for l in rule_checked_leistungen if l.get('lkn')]
+        lkns_in_tables = {} # Cache für Tabellenzugehörigkeit
+        for lkn in rule_checked_lkns_for_search:
+            for item in pauschale_lp_data: # a)
+                if item.get('Leistungsposition') == lkn:
+                    pc = item.get('Pauschale')
+                    if pc and pc in pauschalen_dict: potential_pauschale_codes.add(pc)
+            for cond in pauschale_bedingungen_data: # b)
+                if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN LISTE":
+                    werte_liste = [w.strip() for w in str(cond.get('Werte', "")).split(',') if w.strip()]
+                    if lkn in werte_liste:
+                        pc = cond.get('Pauschale')
+                        if pc and pc in pauschalen_dict: potential_pauschale_codes.add(pc)
+            if lkn not in lkns_in_tables: # c)
+                 tables_for_lkn = set()
+                 for table_name_key in tabellen_dict_by_table.keys():
+                      for entry in tabellen_dict_by_table[table_name_key]:
+                           if entry.get('Code') == lkn and entry.get('Tabelle_Typ') == "service_catalog": tables_for_lkn.add(table_name_key.lower())
+                 lkns_in_tables[lkn] = tables_for_lkn
+            tables_for_current_lkn_normalized = lkns_in_tables.get(lkn, set())
+            if tables_for_current_lkn_normalized:
+                for cond in pauschale_bedingungen_data:
+                    if cond.get('Bedingungstyp') == "LEISTUNGSPOSITIONEN IN TABELLE":
+                        table_ref_in_cond_str = cond.get('Werte', "")
+                        pc = cond.get('Pauschale')
+                        condition_tables_normalized = {t.strip().lower() for t in table_ref_in_cond_str.split(',') if t.strip()}
+                        if not condition_tables_normalized.isdisjoint(tables_for_current_lkn_normalized):
+                            if pc and pc in pauschalen_dict: potential_pauschale_codes.add(pc)
+        print(f"DEBUG: Potenzielle Pauschalen gefunden: {potential_pauschale_codes}")
+
+        if not potential_pauschale_codes:
+             print("INFO: Keine potenziellen Pauschalen gefunden. Bereite TARDOC vor.")
+             final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
+        else:
+            # --- Schritt 3b: Relevante Bedingungs-LKNs für Mapping holen ---
+            all_relevant_p_pz_candidates = get_LKNs_from_pauschalen_conditions(
+                potential_pauschale_codes,
+                pauschale_bedingungen_data,
+                tabellen_dict_by_table,
+                leistungskatalog_dict
+            )
+
+            # --- Schritt 3c: Kontextanreicherung (LKN-Mapping mit gefilterten Kandidaten) ---
+            print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
+            tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
+            print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
+            mapped_lkns = set()
+            mapping_error_occurred = False
+
+            if tardoc_lkns_to_map and all_relevant_p_pz_candidates:
+                for tardoc_leistung in tardoc_lkns_to_map:
+                    t_lkn = tardoc_leistung.get('lkn')
+                    t_desc = tardoc_leistung.get('beschreibung')
+
+                    # Initialisiere candidates_for_this_mapping mit allen relevanten Kandidaten
+                    candidates_for_this_mapping = all_relevant_p_pz_candidates
+
+                    # Optionale, feinere Filterung der Kandidaten für den LLM-Prompt:
+                    if t_lkn and t_lkn.startswith('AG.'):
+                        anast_table_content = get_table_content("ANAST", "service_catalog", tabellen_dict_by_table)
+                        anast_lkn_codes = {item['Code'].upper() for item in anast_table_content if item.get('Code')}
+                        
+                        filtered_for_anast = {
+                            k: v for k, v in all_relevant_p_pz_candidates.items()
+                            if k in anast_lkn_codes or k.startswith('WA.')
+                        }
+                        if filtered_for_anast:
+                            candidates_for_this_mapping = filtered_for_anast
+                            print(f"DEBUG: Für Mapping von {t_lkn}, spezifische Kandidaten (ANAST/WA.*) reduziert auf: {list(candidates_for_this_mapping.keys())}")
+                        else:
+                            print(f"WARNUNG: Für {t_lkn} keine spezifischen ANAST/WA.* Kandidaten in Bedingungs-LKNs gefunden. Verwende alle {len(candidates_for_this_mapping)} relevanten P/PZ-Kandidaten.")
+
+                    if t_lkn and t_desc and candidates_for_this_mapping:
+                        try:
+                            mapped_code = call_gemini_stage2_mapping(t_lkn, t_desc, candidates_for_this_mapping)
+                            if mapped_code:
+                                if mapped_code in candidates_for_this_mapping:
+                                    mapped_lkns.add(mapped_code)
+                                    print(f"INFO: {t_lkn} erfolgreich auf validen Kandidaten {mapped_code} gemappt.")
+                                else:
+                                    print(f"WARNUNG: LLM gab {mapped_code} zurück, was nicht in der gefilterten Kandidatenliste war. Ignoriere.")
+                                    mapped_code = None
+                            
+                            llm_stage2_results_for_frontend["mapping_results"].append({
+                                "tardoc_lkn": t_lkn, "tardoc_desc": t_desc,
+                                "mapped_lkn": mapped_code,
+                                "candidates_considered_count": len(candidates_for_this_mapping)
+                            })
+                        except ConnectionError as e:
+                             print(f"FEHLER: Verbindung zu LLM Stufe 2 (Mapping) fehlgeschlagen: {e}")
+                             final_result = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2): {e}"}
+                             mapping_error_occurred = True
+                             break 
+                        except Exception as e_map:
+                             print(f"FEHLER bei LLM Stufe 2 (Mapping) für {t_lkn}: {e_map}")
+                             traceback.print_exc()
+                             llm_stage2_results_for_frontend["mapping_results"].append({
+                                "tardoc_lkn": t_lkn, "tardoc_desc": t_desc,
+                                "mapped_lkn": None, "error": str(e_map),
+                                "candidates_considered_count": len(candidates_for_this_mapping)
+                             })
+                    else:
+                        if t_lkn and t_desc and not candidates_for_this_mapping:
+                            print(f"INFO: Mapping für {t_lkn} übersprungen, da nach Filterung keine relevanten P/PZ-Kandidaten übrig blieben.")
+                        elif not (t_lkn and t_desc):
+                              print(f"WARNUNG: Mapping für Eintrag übersprungen (LKN/Desc fehlen): {tardoc_leistung}")
+                        llm_stage2_results_for_frontend["mapping_results"].append({
+                            "tardoc_lkn": t_lkn or "N/A", "tardoc_desc": t_desc or "N/A",
+                            "mapped_lkn": None,
+                            "candidates_considered_count": 0,
+                            "info": "Mapping übersprungen (fehlende Daten oder keine Kandidaten nach Filter)"
+                        })
+            else:
+                 print("INFO: Überspringe Mapping (keine E/EZ LKNs oder keine relevanten P/PZ Kandidaten für Bedingungen).")
+            # --- Ende Kontextanreicherung ---
+
+            # --- Nur weitermachen, wenn kein schwerwiegender Mapping-Fehler ---
+            if not mapping_error_occurred:
+                # --- Finalen Kontext für Pauschalenprüfung erstellen ---
+                final_pauschale_lkn_context_set = set(l['lkn'] for l in rule_checked_leistungen if l.get('lkn'))
+                final_pauschale_lkn_context_set.update(mapped_lkns)
+                final_pauschale_lkn_context_list = list(final_pauschale_lkn_context_set)
+                print(f"INFO: Finaler LKN-Kontext für Pauschalenprüfung (inkl. Mapping): {final_pauschale_lkn_context_list}")
+                pauschale_context = {
+                    "ICD": icd_input, "GTIN": gtin_input,
+                    "Alter": alter_context, "Geschlecht": geschlecht_context,
+                    "useIcd": use_icd_flag, "LKN": final_pauschale_lkn_context_list
+                }
+
+                # --- Pauschalenprüfung durchführen ---
+                try:
+                    print(f"INFO: Versuche, Pauschale zu finden (useIcd={use_icd_flag}, gemappter Kontext)...")
+                    pauschale_pruef_ergebnis = regelpruefer_pauschale.determine_applicable_pauschale(
+                        user_input, rule_checked_leistungen, pauschale_context,
+                        pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                        leistungskatalog_dict, tabellen_dict_by_table,
+                        potential_pauschale_codes
+                    )
+                    final_result = pauschale_pruef_ergebnis
+                    if final_result.get("type") != "Pauschale":
+                         print(f"INFO: Keine anwendbare Pauschale gefunden ({final_result.get('message')}). Bereite TARDOC vor.")
+                         final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
+                    else:
+                         print("INFO: Anwendbare Pauschale gefunden.")
+                except Exception as e:
+                     print(f"FEHLER bei Pauschalen-/TARDOC-Entscheidung nach Mapping: {e}")
+                     traceback.print_exc()
+                     final_result = {"type": "Error", "message": f"Interner Fehler bei Abrechnungsentscheidung: {e}"}
+                # --- Ende Pauschalenprüfung ---
+
+    # Fallback
+    if final_result is None:
+        print("FEHLER: final_result wurde nicht gesetzt! Fallback zu TARDOC/Error.")
+        if rule_checked_leistungen:
+             final_result = regelpruefer.prepare_tardoc_abrechnung(regel_ergebnisse_liste, leistungskatalog_dict)
+        else:
+             final_result = {"type": "Error", "message": "Keine abrechenbaren Leistungen gefunden."}
+    # --- ENDE Entscheidung Pauschale vs. TARDOC ---
 
     decision_time = time.time()
     print(f"Zeit nach Entscheidung Pauschale/TARDOC: {decision_time - rule_time:.2f}s")
 
-    # 5. Kombiniertes Ergebnis an Frontend senden
+    # 5. Ergebnis an Frontend senden
     final_response = {
         "llm_ergebnis_stufe1": llm_stage1_result,
         "regel_ergebnisse_details": regel_ergebnisse_liste,
         "abrechnung": final_result,
-        "llm_ergebnis_stufe2": llm_stage2_results_for_frontend
+        "llm_ergebnis_stufe2": llm_stage2_results_for_frontend # Enthält jetzt mapping_results
     }
 
     end_time = time.time()
