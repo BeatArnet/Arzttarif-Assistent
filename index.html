@@ -13,12 +13,12 @@
             --primary: #005EB8;        /* Blau der FMH */
             --primary-light: #E6F0FA;
             --accent: #00856F;         /* dezent grün    */
-            --danger: #D80027;         /* Roter Hinweis (angepasst von C0002B für bessere Sichtbarkeit) */
+            --danger: #D80027;         /* Roter Hinweis */
             --text-color: #333;
             --border-color: #ccc;
-            --background-color: #f9f9f9; /* Heller Hintergrund für Output */
-            --details-bg: #fdfdfd;      /* Hintergrund für Details */
-            --details-border: #eee;     /* Rand für Details */
+            --background-color: #f9f9f9;
+            --details-bg: #fdfdfd;
+            --details-border: #eee;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -36,7 +36,6 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        /* --- Einheitliches Styling für Formularelemente & Tabelle --- */
         textarea, input[type="text"], select, button, table {
             font-family: inherit;
             font-size: 1em;
@@ -61,12 +60,14 @@
             border: 1px solid var(--primary-light);
             padding: 15px;
             background-color: var(--background-color);
-            white-space: pre-wrap; /* Zeilenumbrüche erhalten, aber nicht für alles */
-            word-wrap: break-word; /* Lange Wörter umbrechen */
+            white-space: normal;
+            word-wrap: break-word;
             border-radius: 4px;
             min-height: 50px;
         }
-        /* Prominenteres Hauptergebnis */
+        #output h2 {
+            white-space: pre-wrap;
+        }
         #output .final-result-header {
              font-size: 1.3em;
              font-weight: bold;
@@ -77,160 +78,201 @@
         #output .final-result-header.success { color: var(--accent); }
         #output .final-result-header.error { color: var(--danger); }
 
-        /* Styling für Details/Collapsibles */
+        /* Styling für Details/Collapsibles (Allgemein) */
         #output details {
-            margin-top: 10px; /* Etwas mehr Abstand zwischen Details-Blöcken */
-            font-size: 0.95em; /* Leicht verkleinert */
+            margin-top: 10px;
+            font-size: 0.95em;
             border: 1px solid var(--details-border);
-            padding: 8px 12px; /* Mehr Padding */
+            padding: 8px 12px;
             border-radius: 4px;
             background: var(--details-bg);
-            white-space: normal; /* Standard-Umbruch für Details-Inhalt */
         }
         #output details summary {
             cursor: pointer;
-            font-weight: bold; /* Summary fetter */
-            color: var(--primary); /* Primärfarbe für Summary */
-            margin-bottom: 5px; /* Kleiner Abstand zum Inhalt */
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+            list-style-position: inside;
         }
         #output details summary:hover {
             text-decoration: underline;
         }
-        #output details summary.rule-hint-trigger { /* Für TARDOC Regel-Hinweise */
+        #output details summary.rule-hint-trigger {
             color: var(--danger) !important;
             font-weight: bold !important;
         }
         #output details ul { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
-        #output details li { margin-bottom: 4px; } /* Etwas mehr Platz bei Listen */
+        #output details li { margin-bottom: 4px; }
         #output details table { margin-top: 8px; margin-bottom: 10px; }
         #output details th, #output details td { padding: 6px; font-size: 0.95em; }
 
-        /* Anpassung für das div, das jetzt statt li verwendet wird - mit Flexbox */
+        /* --- Spezifisches Styling für Bedingungsprüfung --- */
         #output .condition-group {
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 10px;
-            margin-bottom: 10px; /* Abstand zwischen Gruppen beibehalten */
+            padding: 12px;
+            margin-bottom: 12px;
             background-color: #fdfdfd;
         }
-
-        #output .condition-group-title { /* Titel für die Gruppe */
+        #output .condition-group-title {
             font-weight: bold;
-            margin-bottom: 8px; /* Mehr Abstand zum Inhalt */
-            font-size: 0.9em;
-            color: #555;
-            padding-bottom: 3px;
-            border-bottom: 1px dotted #eee; /* Leichte Trennlinie */
+            margin-bottom: 10px;
+            font-size: 0.95em;
+            color: #444;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
         }
-
         #output .condition-separator { /* Das "ODER" zwischen Gruppen */
-            /* text-align: center; */ /* Entfernt */
-            text-align: left;     /* NEU: Linksbündig */
+            text-align: left;
             font-weight: bold;
-            margin: -5px 0 5px 5px; /* Angepasster Margin für linksbündige Position */
+            margin: 8px 0 8px 5px;
             color: var(--primary);
             font-size: 0.9em;
         }
-
-        #output details details { /* Verschachtelte Details (für Tabelleninhalte) */
-            margin-left: 0;
-            font-size: 1em;
-            border: none;
-            padding-left: 0;
-            margin-top: 0; /* Kein extra Abstand oben */
-            vertical-align: baseline; /* Versuchen, die Summary besser auszurichten */
+        /* Styling für eine einzelne Bedingungszeile */
+        #output .condition-item-row {
+            display: flex;
+            align-items: baseline; /* Alternative zu flex-start oder center */
+            gap: 6px;
+            margin-bottom: 8px;
+            padding-left: 5px;
         }
-        #output details details summary { /* Summary für Tabellenname */
+        /* Styling für das Status-Icon (Container für SVG) */
+        #output .condition-status-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            margin-right: 4px;
+            margin-top: 3px; /* Beibehalt für vertikale Feinabstimmung */
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            line-height: 1; /* Kann helfen, das SVG innerhalb des Spans zu zentrieren */
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+        }
+        /* Styling für das SVG-Icon selbst */
+        #output .condition-status-icon svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Farben für die SVG-Icons setzen */
+        #output .condition-status-icon.condition-icon-fulfilled svg {
+            fill: var(--accent); /* Grüne Farbe */
+        }
+        #output .condition-status-icon.condition-icon-not-fulfilled svg {
+            fill: var(--danger); /* Rote Farbe */
+        }
+        /* Styling für den Bedingungstyp */
+        #output .condition-type-display {
+            color: #555;
+            font-size: 0.9em;
+            white-space: nowrap;
+            line-height: 1.5; /* An Haupttext anpassen */
+        }
+        /* Wrapper für den Haupttext der Bedingung */
+        #output .condition-text-wrapper {
+            flex-grow: 1;
+            line-height: 1.5;
+        }
+        /* Styling für die Kontext-Info (erfüllt durch...) */
+        #output .context-match-info {
+            font-size: 0.85em;
+            margin-left: 8px;
+            font-style: italic;
+        }
+        #output .context-match-info.fulfilled {
+            color: var(--accent);
+            font-style: normal;
+        }
+        #output .context-match-info.not-fulfilled {
+            color: var(--danger);
+        }
+        /* Styling für aufklappbare Tabellen-Details INNERHALB einer Bedingung */
+        #output .condition-text-wrapper details {
+            display: inline-block;
+            margin-left: 5px;
+            vertical-align: baseline;
+            border: none;
+            padding: 0;
+            background: transparent;
+            font-size: 1em;
+        }
+        #output .condition-text-wrapper details summary {
             cursor: pointer;
-            color: blue;
+            color: var(--primary);
             text-decoration: underline;
             display: inline;
             font-weight: normal;
+            margin-bottom: 0;
+            padding: 0;
         }
-        #output details details ul { /* Liste im aufklappbaren Teil */
+        #output .condition-text-wrapper details ul {
+            display: block;
             margin-top: 5px;
             font-size: 0.9em;
             max-height: 150px;
             overflow-y: auto;
-            border-top: 1px solid #eee;
-            padding-top: 5px;
-            padding-left: 15px;
-            list-style-position: inside;
-        }
-
-        #output details li code {
-            background-color: #f0f0f0;
-            padding: 2px 4px;
+            border: 1px solid #eee;
+            padding: 8px;
+            padding-left: 20px;
+            list-style-position: outside;
+            background-color: #fff;
             border-radius: 3px;
-            font-family: monospace;
+        }
+        #output .condition-text-wrapper details li b {
+            font-weight: 600;
         }
 
-        /* Status am Ende etwas absetzen */
-        #output .condition-group > div[data-bedingung-id] > span[style*="color"] {
-            margin-left: auto; /* Schiebt den Status nach rechts */
-            padding-left: 10px; /* Abstand zum vorherigen Element */
-            white-space: nowrap; /* Verhindert Umbruch des Status */
-        }
-
-        .disclaimer {
-            font-size: 0.8em;
-            color: #666;
-            margin-top: 30px;
-        }
-        /* Status-Klassen für Output (allgemein) */
+        .disclaimer { font-size: 0.8em; color: #666; margin-top: 30px; }
         #output .error { color: var(--danger); font-weight: bold; }
         #output .success { color: var(--accent); font-weight: bold; }
 
-        /* Styling für Lade-Indikator (Text-Version) */
         #spinner {
-            display: none; /* Standardmäßig ausgeblendet */
-            margin-top: 15px; padding: 10px;
+            display: none; margin-top: 15px; padding: 10px;
             background-color: #eee; border: 1px solid #ccc;
-            text-align: center; /* Zentriert */
-            font-style: italic; border-radius: 4px;
-            font-size: 0.9em;
-            color: #333;
+            text-align: center; font-style: italic; border-radius: 4px;
+            font-size: 0.9em; color: #333;
         }
-        /* --- NEU: Mouse Spinner --- */
         .mouse-spinner {
-            display: none; /* Standardmäßig versteckt */
-            position: fixed; /* Feste Position relativ zum Viewport */
-            z-index: 9999; /* Immer im Vordergrund */
-            width: 24px;   /* Größe des Spinners */
-            height: 24px;
-            /* Einfacher CSS-Spinner */
+            display: none; position: fixed; z-index: 9999;
+            width: 24px; height: 24px;
             border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: var(--primary); /* Hauptfarbe für Animation */
+            border-left-color: var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            /* Verhindert, dass der Spinner selbst Maus-Events abfängt */
-            pointer-events: none;
-            /* Standardmäßig unsichtbar, wird per JS positioniert */
-            left: -100px;
-            top: -100px;
+            pointer-events: none; left: -100px; top: -100px;
         }
-        /* CSS Animation für den Spinner */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <!-- NEU: Maus-Spinner Element -->
+    <!-- === SVG Sprite Definition (versteckt) === -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+        <symbol id="icon-check" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+        </symbol>
+        <symbol id="icon-cross" viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </symbol>
+    </svg>
+    <!-- === Ende SVG Sprite Definition === -->
+
     <div id="mouseSpinner" class="mouse-spinner"></div>
 
     <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
     <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
 
-    <!-- Dropdown für Beispiele -->
     <label for="beispielSelect">Beispiele auswählen:</label>
-    <select id="beispielSelect" onchange="beispielEinfuegen()"> <!-- Geändert zu onchange -->
-        <option value="" selected disabled>--- Bitte wählen ---</option> <!-- Platzhalter hinzugefügt -->
+    <select id="beispielSelect" onchange="beispielEinfuegen()">
+        <option value="" selected disabled>--- Bitte wählen ---</option>
         <option value="Hausärztliche Konsultation von 17 Minuten">Hausärztliche Konsultation 17 Min.</option>
         <option value="Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie">Konsultation 10 Min + Warzenentfernung Stamm</option>
         <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
         <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
-        <option value="Konsultation 25 Minuten Hausarzt">hausärztliche Konsultation 25 Minuten</option> <!-- Beispiel für Regelverletzung -->
+        <option value="Konsultation 25 Minuten Hausarzt">hausärztliche Konsultation 25 Minuten</option>
         <option value="Hausärztliche Konsultation 15 Minuten und 10 Minuten Beratung Kind">Hausärztliche Kons 15 Min + 10 Min. Beratung Kind</option>
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
         <option value="Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesist">Kiefergelenk, Luxation, Reposition, Anästhesie</option>
@@ -249,68 +291,38 @@
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
 
     <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; margin-bottom: 15px; max-width: 630px;">
-        <!--
-        Alter und Geschlecht wird vorerst nicht berücksichtigt
-        art, 05.05.2025
-        <div>
-            <label for="ageInput">Alter (Jahre):</label>
-            <input type="number" id="ageInput" min="0" max="150" step="1" style="width: 80px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;">
-        </div>
-        <div>
-            <label for="genderSelect">Geschlecht:</label>
-            <select id="genderSelect" style="padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
-                <option value="" selected>Unbekannt</option>
-                <option value="weiblich">Weiblich</option>
-                <option value="männlich">Männlich</option>
-                <option value="unbekannt">Divers</option>
-            </select>
-        </div>
-        -->
-        <div style="align-self: center;"> <!-- Checkbox vertikal zentrieren -->
+        <div style="align-self: center;">
             <input type="checkbox" id="useIcdCheckbox" checked style="margin-right: 5px;">
             <label for="useIcdCheckbox" style="display: inline; font-weight: normal;">ICD berücksichtigen</label>
         </div>
     </div>
 
     <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
-
-    <!-- Lade-Indikator (Text-Version) -->
     <div id="spinner">Wird geladen...</div>
-
-    <!-- Hauptausgabe -->
     <div id="output">Hier erscheinen die Ergebnisse...</div>
 
     <div class="disclaimer">
         <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">TARDOC Online-Portal</a>).
     </div>
 
-    <!-- JavaScript Einbindung -->
     <script src="calculator.js"></script>
-
-    <!-- Kleines Script für Dropdown-Funktionalität -->
     <script>
         function beispielEinfuegen() {
             const selectElement = document.getElementById('beispielSelect');
             const selectedValue = selectElement.value;
             const targetTextarea = document.getElementById('userInput');
-
             if (selectedValue && targetTextarea) {
                 targetTextarea.value = selectedValue;
                 const outputDiv = document.getElementById('output');
                 if (outputDiv) outputDiv.innerHTML = "<i>Bitte 'Tarifpositionen finden' klicken.</i>";
-                outputDiv.className = "info"; // Reset class
             }
         }
-        // Initial leeren Output setzen
         document.addEventListener('DOMContentLoaded', () => {
             const outputDiv = document.getElementById('output');
-            if (outputDiv) outputDiv.innerHTML = ""; // Leeren beim Laden
-            // Reset dropdown selection on load
+            if (outputDiv) outputDiv.innerHTML = "";
             const selectElement = document.getElementById('beispielSelect');
             if(selectElement) selectElement.selectedIndex = 0;
         });
-
     </script>
-
 </body>
 </html>
