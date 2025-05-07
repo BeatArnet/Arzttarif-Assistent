@@ -1,4 +1,4 @@
-Aufgabe: Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
+**Aufgabe:** Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
 
 Name: TARDOC und Pauschalen Assistent
 Beschreibung: Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen gemäss dem neuen Schweizer Arzttarif zu bieten. Die Anwendung nutzt einen zweistufigen LLM-Ansatz zur Leistungsidentifikation, kombiniert mit lokaler Regel- und **strukturierter** Bedingungsprüfung.
