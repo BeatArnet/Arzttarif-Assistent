@@ -440,28 +440,50 @@ def determine_applicable_pauschale(
     pauschale_erklaerung_html += "</ul>"
     pauschale_erklaerung_html += f"<p><b>Ausgewählt wurde: {best_pauschale_code}</b> ({escape(best_pauschale_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A'))}) - als Pauschale mit dem niedrigsten Suffix-Buchstaben (am komplexesten) unter den gültigen Kandidaten der bevorzugten Kategorie (spezifisch vor Fallback).</p>"
 
-    match = re.match(r"([A-Z0-9.]+)([A-Z])$", best_pauschale_code); pauschalen_gruppe = match.group(1) if match else None
-    if pauschalen_gruppe:
-        other_potential_codes_in_group = [c for c in potential_pauschale_codes if c.startswith(pauschalen_gruppe) and c != best_pauschale_code and c in pauschalen_dict]
+    match = re.match(r"([A-Z0-9.]+)([A-Z])$", best_pauschale_code)
+    pauschalen_gruppe_stamm = match.group(1) if match else None # Umbenannt für Klarheit
+    
+    if pauschalen_gruppe_stamm:
+        # Finde andere *potenzielle* Pauschalen in derselben Gruppe zum Vergleich
+        other_potential_codes_in_group = [
+            cand_code for cand_code in potential_pauschale_codes # Vergleiche mit allen potenziellen
+            if cand_code.startswith(pauschalen_gruppe_stamm) and cand_code != best_pauschale_code and cand_code in pauschalen_dict
+        ]
         if other_potential_codes_in_group:
-             pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe)
+             pauschale_erklaerung_html += "<hr><p><b>Vergleich mit anderen Pauschalen der Gruppe '{}':</b></p>".format(pauschalen_gruppe_stamm)
              selected_conditions_repr = get_simplified_conditions(best_pauschale_code, pauschale_bedingungen_data)
+             
              for other_code in sorted(other_potential_codes_in_group):
-                  other_details = pauschalen_dict[other_code]; other_was_valid = any(vc['code'] == other_code for vc in valid_candidates)
+                  other_details = pauschalen_dict[other_code]
+                  other_was_valid = any(vc['code'] == other_code for vc in valid_candidates)
                   validity_info = '<span style="color:green;">(Auch gültig)</span>' if other_was_valid else '<span style="color:red;">(Nicht gültig)</span>'
+
                   other_conditions_repr = get_simplified_conditions(other_code, pauschale_bedingungen_data)
-                  additional_conditions = other_conditions_repr - selected_conditions_repr; missing_conditions = selected_conditions_repr - other_conditions_repr
+                  additional_conditions = other_conditions_repr - selected_conditions_repr
+                  missing_conditions = selected_conditions_repr - other_conditions_repr
+
                   pauschale_erklaerung_html += f"<details style='margin-left: 15px; font-size: 0.9em;'><summary>Unterschiede zu <b>{other_code}</b> ({escape(other_details.get(PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, 'N/A'))}) {validity_info}</summary>"
+                  
                   if additional_conditions:
                       pauschale_erklaerung_html += "<p>Zusätzliche/Andere Anforderungen für {}:</p><ul>".format(other_code)
-                      for cond_tuple in sorted(list(additional_conditions)): pauschale_erklaerung_html += generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                      for cond_tuple in sorted(list(additional_conditions)):
+                            # ---> HIER IST DER AUFRUF VON generate_condition_detail_html <---
+                            condition_html_detail = generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                            pauschale_erklaerung_html += condition_html_detail
                       pauschale_erklaerung_html += "</ul>"
+                  
                   if missing_conditions:
                      pauschale_erklaerung_html += "<p>Folgende Anforderungen von {} fehlen bei {}:</p><ul>".format(best_pauschale_code, other_code)
-                     for cond_tuple in sorted(list(missing_conditions)): pauschale_erklaerung_html += generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                     for cond_tuple in sorted(list(missing_conditions)):
+                         # ---> HIER IST DER AUFRUF VON generate_condition_detail_html <---
+                         condition_html_detail = generate_condition_detail_html(cond_tuple, leistungskatalog_dict, tabellen_dict_by_table)
+                         pauschale_erklaerung_html += condition_html_detail
                      pauschale_erklaerung_html += "</ul>"
-                  if not additional_conditions and not missing_conditions: pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden.</i></p>"
+                  
+                  if not additional_conditions and not missing_conditions:
+                     pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Bedingungen gefunden (basierend auf vereinfachter Prüfung).</i></p>"
                   pauschale_erklaerung_html += "</details>"
+    
     best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
 
     potential_icds = []
@@ -483,82 +505,156 @@ def determine_applicable_pauschale(
 # --- HILFSFUNKTIONEN (auf Modulebene) ---
 def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set:
     """ Wandelt Bedingungen in eine strukturiertere, vergleichbare Darstellung um. """
+    print(f"--- DEBUG: get_simplified_conditions AUFGERUFEN für Pauschale: {pauschale_code} ---")
     simplified_set = set()
     PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
     BED_FELD_KEY = 'Feld'; BED_MIN_KEY = 'MinWert'; BED_MAX_KEY = 'MaxWert'
+    
     pauschale_conditions = [cond for cond in bedingungen_data if cond.get(PAUSCHALE_KEY) == pauschale_code]
-    for cond in pauschale_conditions:
-        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, ""); feld = cond.get(BED_FELD_KEY, "")
-        condition_tuple = None
-        if "IN TABELLE" in typ: condition_tuple = (typ.replace("LEISTUNGSPOSITIONEN", "LKN").replace("HAUPTDIAGNOSE","ICD").replace("TARIFPOSITIONEN","LKN"), wert) # Typ vereinfachen
-        elif "IN LISTE" in typ: condition_tuple = (typ.replace("LEISTUNGSPOSITIONEN", "LKN").replace("MEDIKAMENTE","GTIN"), wert)
-        elif typ == "ICD": condition_tuple = ('ICD_LIST', wert)
-        elif typ == "GTIN": condition_tuple = ('GTIN_LIST', wert)
-        elif typ == "LKN": condition_tuple = ('LKN_LIST', wert)
-        elif typ == "PATIENTENBEDINGUNG" and feld:
-             if cond.get(BED_MIN_KEY) is not None or cond.get(BED_MAX_KEY) is not None:
-                 bereich_text = f"({cond.get(BED_MIN_KEY, '-')}-{cond.get(BED_MAX_KEY, '-')})"
-                 condition_tuple = ('PATIENT', f"{feld} {bereich_text}")
-             else: condition_tuple = ('PATIENT', f"{feld}={wert}")
-        if condition_tuple: simplified_set.add(condition_tuple)
-    return simplified_set
 
+    for cond in pauschale_conditions:
+        typ_original = cond.get(BED_TYP_KEY, "").upper()
+        wert = cond.get(BED_WERTE_KEY, "")
+        feld = cond.get(BED_FELD_KEY, "")
+        condition_tuple = None
+        final_cond_type = None
+
+        if typ_original == "LEISTUNGSPOSITIONEN IN TABELLE" or typ_original == "TARIFPOSITIONEN IN TABELLE" or typ_original == "LKN IN TABELLE": # LKN IN TABELLE hinzugefügt
+            final_cond_type = 'LKN_TABLE'
+        elif typ_original == "HAUPTDIAGNOSE IN TABELLE" or typ_original == "ICD IN TABELLE": # ICD IN TABELLE hinzugefügt
+            final_cond_type = 'ICD_TABLE'
+        elif typ_original == "LEISTUNGSPOSITIONEN IN LISTE" or typ_original == "LKN":
+            final_cond_type = 'LKN_LIST'
+        elif typ_original == "HAUPTDIAGNOSE IN LISTE" or typ_original == "ICD": # HAUPTDIAGNOSE IN LISTE hinzugefügt
+             final_cond_type = 'ICD_LIST'
+        elif typ_original == "MEDIKAMENTE IN LISTE" or typ_original == "GTIN":
+            final_cond_type = 'GTIN_LIST'
+        elif typ_original == "PATIENTENBEDINGUNG" and feld:
+            final_cond_type = 'PATIENT' # Der Wert wird dann spezifisch formatiert
+        # Füge hier weitere explizite Mappings für andere Original-Typen hinzu, falls nötig
+
+        if final_cond_type == 'PATIENT':
+            if cond.get(BED_MIN_KEY) is not None or cond.get(BED_MAX_KEY) is not None:
+                bereich_text = f"({cond.get(BED_MIN_KEY, '-')}-{cond.get(BED_MAX_KEY, '-')})"
+                condition_tuple = (final_cond_type, f"{feld} {bereich_text}")
+            else:
+                condition_tuple = (final_cond_type, f"{feld}={wert}")
+        elif final_cond_type: # Für alle anderen gemappten Typen
+            condition_tuple = (final_cond_type, wert)
+        
+        if condition_tuple:
+            print(f"  DEBUG: get_simplified_conditions (Orig: '{typ_original}') erzeugt Tuple: {condition_tuple}")
+            simplified_set.add(condition_tuple)
+        else:
+            print(f"  WARNUNG: get_simplified_conditions konnte Typ '{typ_original}' nicht zuordnen.")
+            
+    return simplified_set
 
 def generate_condition_detail_html(
     condition_tuple: tuple,
-    leistungskatalog_dict: Dict, # Benötigt für LKN-Beschreibungen
-    tabellen_dict_by_table: Dict # Benötigt für Tabelleninhalte
+    leistungskatalog_dict: Dict,
+    tabellen_dict_by_table: Dict
     ) -> str:
-    """Generiert HTML für eine einzelne strukturierte Bedingung mit aufklappbaren Details."""
-
+    """
+    Generiert HTML für eine einzelne strukturierte Bedingung im Vergleichsabschnitt
+    mit aufklappbaren Details für Tabellen und Beschreibungen für Listen.
+    """
     cond_type, cond_value = condition_tuple
-    condition_html = "<li>"
-    nested_details_html = ""
-    description = f"{cond_type}: {html.escape(str(cond_value))}"
+    condition_html = "<li>" # Jede Bedingung ist ein Listeneintrag
+
     try:
         if cond_type == 'LKN_LIST':
-            description = f"Erfordert LKN aus Liste: {html.escape(cond_value)}"
-            lkns = [lkn.strip() for lkn in cond_value.split(',') if lkn.strip()]
-            if lkns:
-                nested_details_html += f"<details style='margin-left: 25px; font-size: 0.9em;'><summary>Zeige {len(lkns)} LKN(s)</summary><ul>"
-                for lkn in lkns: desc = leistungskatalog_dict.get(lkn, {}).get('Beschreibung', 'Beschreibung nicht gefunden'); nested_details_html += f"<li><b>{html.escape(lkn)}</b>: {html.escape(desc)}</li>"
-                nested_details_html += "</ul></details>"
+            condition_html += f"Erfordert LKN aus Liste: "
+            lkn_codes_in_list = [lkn.strip().upper() for lkn in cond_value.split(',') if lkn.strip()]
+            if not lkn_codes_in_list:
+                condition_html += "<i>(Keine LKNs spezifiziert)</i>"
+            else:
+                lkn_details_html_parts = []
+                for lkn_code in sorted(lkn_codes_in_list):
+                    beschreibung = get_beschreibung_fuer_lkn_im_backend(lkn_code, leistungskatalog_dict)
+                    lkn_details_html_parts.append(f"<b>{html.escape(lkn_code)}</b> ({html.escape(beschreibung)})")
+                condition_html += ", ".join(lkn_details_html_parts)
+
         elif cond_type == 'LKN_TABLE':
-            description = "Erfordert LKN aus "
-            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
-            all_content = []; valid_table_names = []
-            for table_name in table_names:
-                table_content = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
-                if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
-            if all_content:
-                 sorted_content = sorted({item['Code']: item for item in all_content}.values(), key=lambda x: x['Code'])
-                 table_links = ", ".join([f"'{html.escape(t)}'" for t in valid_table_names])
-                 nested_details_html += f"<details class='inline-details' style='display: inline-block; margin-left: 5px; vertical-align: middle;'><summary style='display: inline; cursor: pointer; color: blue; text-decoration: underline;'>Tabelle(n): {table_links}</summary><div style='margin-top: 5px; border: 1px solid #eee; padding: 5px; background: #f9f9f9;'><ul>"
-                 for item in sorted_content: nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
-                 nested_details_html += "</ul></div></details>"
-                 description += nested_details_html
-            elif table_names: description += f" Tabelle(n): {html.escape(cond_value)} (leer oder nicht gefunden)"
-            else: description += " Tabelle: (Keine Angabe)"
+            condition_html += f"Erfordert LKN aus Tabelle(n): "
+            table_names_str = cond_value
+            table_names_list = [t.strip() for t in table_names_str.split(',') if t.strip()]
+            if not table_names_list:
+                condition_html += "<i>(Kein Tabellenname spezifiziert)</i>"
+            else:
+                table_links_html_parts = []
+                for table_name in table_names_list:
+                    table_content_entries = get_table_content(table_name, "service_catalog", tabellen_dict_by_table)
+                    entry_count = len(table_content_entries)
+                    details_content_html = ""
+                    if table_content_entries:
+                        details_content_html = "<ul style='margin-top: 5px; font-size: 0.9em; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px; padding-left: 15px; list-style-position: inside;'>"
+                        for item in sorted(table_content_entries, key=lambda x: x.get('Code', '')):
+                            item_code = item.get('Code', 'N/A')
+                            item_text = item.get('Code_Text', 'N/A')
+                            details_content_html += f"<li><b>{html.escape(item_code)}</b>: {html.escape(item_text)}</li>"
+                        details_content_html += "</ul>"
+                    table_detail_html = (
+                        f"<details class='inline-table-details-comparison'>"
+                        f"<summary>{html.escape(table_name)}</summary> ({entry_count} Einträge)"
+                        f"{details_content_html}"
+                        f"</details>"
+                    )
+                    table_links_html_parts.append(table_detail_html)
+                condition_html += ", ".join(table_links_html_parts)
+
         elif cond_type == 'ICD_TABLE':
-            description = "Erfordert ICD aus "
-            table_names = [t.strip() for t in cond_value.split(',') if t.strip()]
-            all_content = []; valid_table_names = []
-            for table_name in table_names:
-                table_content = get_table_content(table_name, "icd", tabellen_dict_by_table)
-                if table_content: all_content.extend(table_content); valid_table_names.append(table_name)
-            if all_content:
-                 sorted_content = sorted({item['Code']: item for item in all_content}.values(), key=lambda x: x['Code'])
-                 table_links = ", ".join([f"'{html.escape(t)}'" for t in valid_table_names])
-                 nested_details_html += f"<details class='inline-details' style='display: inline-block; margin-left: 5px; vertical-align: middle;'><summary style='display: inline; cursor: pointer; color: blue; text-decoration: underline;'>Tabelle(n): {table_links}</summary><div style='margin-top: 5px; border: 1px solid #eee; padding: 5px; background: #f9f9f9;'><ul>"
-                 for item in sorted_content: nested_details_html += f"<li><b>{html.escape(item['Code'])}</b>: {html.escape(item['Code_Text'])}</li>"
-                 nested_details_html += "</ul></div></details>"
-                 description += nested_details_html
-            elif table_names: description += f" Tabelle(n): {html.escape(cond_value)} (leer oder nicht gefunden)"
-            else: description += " Tabelle: (Keine Angabe)"
-        elif cond_type == 'ICD_LIST': description = f"Erfordert ICD aus Liste: {html.escape(cond_value)}"
-        elif cond_type == 'GTIN_LIST': description = f"Erfordert GTIN aus Liste: {html.escape(cond_value)}"
-        elif cond_type == 'PATIENT': description = f"Patientenbedingung: {html.escape(cond_value)}"
-        condition_html += description
-    except Exception as e_detail: print(f"FEHLER beim Erstellen der Detailansicht für Bedingung '{condition_tuple}': {e_detail}"); condition_html += f"FEHLER bei Detailgenerierung: {html.escape(str(e_detail))}"
+            condition_html += f"Erfordert ICD aus Tabelle(n): "
+            table_names_str = cond_value
+            table_names_list = [t.strip() for t in table_names_str.split(',') if t.strip()]
+            if not table_names_list:
+                condition_html += "<i>(Kein Tabellenname spezifiziert)</i>"
+            else:
+                table_links_html_parts = []
+                for table_name in table_names_list:
+                    table_content_entries = get_table_content(table_name, "icd", tabellen_dict_by_table)
+                    entry_count = len(table_content_entries)
+                    details_content_html = ""
+                    if table_content_entries:
+                        details_content_html = "<ul style='margin-top: 5px; font-size: 0.9em; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px; padding-left: 15px; list-style-position: inside;'>"
+                        for item in sorted(table_content_entries, key=lambda x: x.get('Code', '')):
+                            item_code = item.get('Code', 'N/A')
+                            item_text = item.get('Code_Text', 'N/A')
+                            details_content_html += f"<li><b>{html.escape(item_code)}</b>: {html.escape(item_text)}</li>"
+                        details_content_html += "</ul>"
+                    table_detail_html = (
+                        f"<details class='inline-table-details-comparison'>"
+                        f"<summary>{html.escape(table_name)}</summary> ({entry_count} Einträge)"
+                        f"{details_content_html}"
+                        f"</details>"
+                    )
+                    table_links_html_parts.append(table_detail_html)
+                condition_html += ", ".join(table_links_html_parts)
+
+        elif cond_type == 'ICD_LIST':
+            condition_html += f"Erfordert ICD aus Liste: "
+            icd_codes_in_list = [icd.strip().upper() for icd in cond_value.split(',') if icd.strip()]
+            if not icd_codes_in_list:
+                condition_html += "<i>(Keine ICDs spezifiziert)</i>"
+            else:
+                icd_details_html_parts = []
+                for icd_code in sorted(icd_codes_in_list):
+                    beschreibung = get_beschreibung_fuer_icd_im_backend(icd_code, tabellen_dict_by_table) # Annahme
+                    icd_details_html_parts.append(f"<b>{html.escape(icd_code)}</b> ({html.escape(beschreibung)})")
+                condition_html += ", ".join(icd_details_html_parts)
+        
+        elif cond_type == 'GTIN_LIST':
+            condition_html += f"Erfordert GTIN aus Liste: {html.escape(cond_value)}"
+        
+        elif cond_type == 'PATIENT':
+            condition_html += f"Patientenbedingung: {html.escape(cond_value)}"
+        
+        else: # Fallback
+            condition_html += f"{html.escape(cond_type)}: {html.escape(str(cond_value))}"
+
+    except Exception as e_detail:
+        print(f"FEHLER beim Erstellen der Detailansicht für Vergleichs-Bedingung '{condition_tuple}': {e_detail}")
+        condition_html += f"<i>Fehler bei Detailgenerierung: {html.escape(str(e_detail))}</i>"
+    
     condition_html += "</li>"
     return condition_html

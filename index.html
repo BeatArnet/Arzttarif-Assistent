@@ -225,7 +225,38 @@
         #output .condition-text-wrapper details li b {
             font-weight: 600;
         }
-
+        /* Styling für die aufklappbaren Details im Vergleichsabschnitt */
+        #output details ul details.inline-table-details-comparison {
+            display: inline-block; /* Oder block, je nach gewünschtem Layout */
+            margin-left: 5px;
+            vertical-align: baseline;
+            border: none;
+            padding: 0;
+            background: transparent;
+            font-size: 1em; /* Erbt Schriftgröße */
+        }
+        #output details ul details.inline-table-details-comparison summary {
+            cursor: pointer;
+            color: var(--primary);
+            text-decoration: underline;
+            display: inline;
+            font-weight: normal;
+            margin-bottom: 0;
+            padding: 0;
+        }
+        #output details ul details.inline-table-details-comparison ul {
+            /* Styling für die Liste der LKNs/ICDs in diesen Details */
+            margin-top: 3px;
+            font-size: 0.95em; /* Etwas kleiner als der Haupttext der Bedingung */
+            max-height: 120px; /* Etwas weniger hoch */
+            overflow-y: auto;
+            border: 1px solid #f0f0f0; /* Hellerer Rand */
+            padding: 5px;
+            padding-left: 15px;
+            list-style-position: outside;
+            background-color: #fdfdfd; /* Leicht anderer Hintergrund */
+            border-radius: 3px;
+        }
         .disclaimer { font-size: 0.8em; color: #666; margin-top: 30px; }
         #output .error { color: var(--danger); font-weight: bold; }
         #output .success { color: var(--accent); font-weight: bold; }
