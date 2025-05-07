@@ -1179,5 +1179,5 @@ if __name__ == "__main__":
     # if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
     # if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
 
-    app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
-    # app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
