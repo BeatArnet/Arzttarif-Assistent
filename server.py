@@ -97,13 +97,18 @@ pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
+daten_geladen = False
 
-# --- Daten laden ---
+# --- Daten laden Funktion ---
 def load_data():
-    print("--- DEBUG: load_data() WURDE AUFGERUFEN ---") # NEU
+    # print("--- DEBUG: load_data() WURDE AUFGERUFEN ---")
+    # Deklariere ALLE globalen Variablen, die in dieser Funktion geändert werden
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
-    global tabellen_dict_by_table
+    global tabellen_dict_by_table, daten_geladen # daten_geladen hinzugefügt
+
+    # Lokales Flag für diesen Ladevorgang
+    all_loaded_successfully = True
 
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
@@ -119,22 +124,22 @@ def load_data():
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
 
-    all_loaded = True
+    # Lade JSON-Dateien
     for name, (path, target_list, key_field, target_dict) in files_to_load.items():
         try:
-            print(f"  Versuche {name} von {path} zu laden...") # Log vor dem Laden
+            print(f"  Versuche {name} von {path} zu laden...")
             if path.is_file():
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                
+
                 if not isinstance(data, list):
                      print(f"  WARNUNG: {name}-Daten in '{path}' sind keine Liste, überspringe.")
-                     continue # Gehe zur nächsten Datei
+                     continue
 
                 # Fülle das Dictionary, falls gewünscht
                 if target_dict is not None and key_field is not None:
-                     target_dict.clear() # Stelle sicher, dass das Dict leer ist
-                     current_key_field = key_field
+                     target_dict.clear()
+                     current_key_field = key_field # Lokale Variable für Klarheit
                      items_in_dict = 0
                      for item in data:
                           if isinstance(item, dict):
@@ -142,24 +147,21 @@ def load_data():
                                if key_value:
                                    target_dict[str(key_value)] = item
                                    items_in_dict += 1
-                               # else: # Weniger verbose
-                               #     print(f"  WARNUNG: Eintrag in {name} ohne Schlüssel '{current_key_field}': {str(item)[:100]}...")
                           # else: # Weniger verbose
                           #      print(f"  WARNUNG: Ungültiger Eintrag (kein Dict) in {name}: {str(item)[:100]}...")
                      print(f"  ✓ {name}-Daten '{path}' geladen ({items_in_dict} Einträge im Dict).")
 
                 # Fülle die Liste, falls gewünscht
                 if target_list is not None:
-                     target_list.clear() # Stelle sicher, dass die Liste leer ist
+                     target_list.clear()
                      target_list.extend(data)
-                     # Info nur wenn nicht schon Dict-Info kam
                      if target_dict is None:
                           print(f"  ✓ {name}-Daten '{path}' geladen ({len(target_list)} Einträge in Liste).")
 
                 # Fülle tabellen_dict_by_table (speziell für "Tabellen")
                 if name == "Tabellen":
                     TAB_KEY = "Tabelle"
-                    print(f"  DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
+                    # print(f"  DEBUG (load_data): Beginne Gruppierung für '{name}' mit Schlüssel '{TAB_KEY}'...")
                     tabellen_dict_by_table.clear()
                     items_processed = 0
                     keys_created = set()
@@ -178,80 +180,85 @@ def load_data():
                         # else: # Weniger verbose
                         #      print(f"  WARNUNG (load_data): Eintrag {item_index} in '{name}' ist kein Dictionary.")
 
-                    print(f"  DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
-                    print(f"  ✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen, {len(keys_created)} neue Schlüssel erstellt).")
+                    # print(f"  DEBUG (load_data): Gruppierung für '{name}' abgeschlossen. {items_processed} Items verarbeitet.")
+                    print(f"  ✓ Tabellen-Daten gruppiert nach Tabelle ({len(tabellen_dict_by_table)} Tabellen).")
                     # Prüfe spezifische Schlüssel nach der Gruppierung
-                    missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz', 'anast', 'c08.50'] # Wichtige Tabellen hinzugefügt
+                    missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz', 'anast', 'c08.50']
                     found_keys_check = {k for k in missing_keys_check if k in tabellen_dict_by_table}
                     not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
-                    print(f"  DEBUG (load_data): Prüfung spezifischer Tabellen-Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
+                    # print(f"  DEBUG (load_data): Prüfung spezifischer Tabellen-Schlüssel: Gefunden={found_keys_check}, Fehlend={not_found_keys_check}")
                     if not_found_keys_check:
                          print(f"  FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table!")
-
-                # print(f"  ✓ {name} erfolgreich geladen und verarbeitet.") # Redundante Meldung entfernt
+                         all_loaded_successfully = False # Kritischer Fehler
 
             else:
                 print(f"  FEHLER: {name}-Datei nicht gefunden: {path}")
-                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]: all_loaded = False
-        except json.JSONDecodeError as e:
-             print(f"  FEHLER beim Parsen der {name}-JSON-Datei ({path}): {e}")
-             all_loaded = False
-             traceback.print_exc()
-        except IOError as e:
-             print(f"  FEHLER beim Öffnen/Lesen der {name}-Datei ({path}): {e}")
-             all_loaded = False
-             traceback.print_exc()
-        except Exception as e:
-             print(f"  FEHLER beim Laden/Verarbeiten der {name}-Daten ({path}): {e}")
-             all_loaded = False
+                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]:
+                    all_loaded_successfully = False
+        except (json.JSONDecodeError, IOError, Exception) as e:
+             print(f"  FEHLER beim Laden/Verarbeiten von {name} ({path}): {e}")
+             all_loaded_successfully = False
              traceback.print_exc()
 
-    # Lade Regelwerk LKN (mit Fehlerbehandlung)
+    # Lade Regelwerk LKN
     try:
         print(f"  Versuche Regelwerk (LKN) von {REGELWERK_PATH} zu laden...")
         if regelpruefer and hasattr(regelpruefer, 'lade_regelwerk'):
             if REGELWERK_PATH.is_file():
-                regelwerk_dict.clear() # Sicherstellen, dass leer
+                regelwerk_dict.clear()
                 regelwerk_dict_loaded = regelpruefer.lade_regelwerk(str(REGELWERK_PATH))
-                if regelwerk_dict_loaded: # Nur zuweisen, wenn Laden erfolgreich war
+                if regelwerk_dict_loaded:
                     regelwerk_dict.update(regelwerk_dict_loaded)
                     print(f"  ✓ Regelwerk (LKN) '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
                 else:
                     print(f"  FEHLER: LKN-Regelwerk konnte nicht geladen werden (Funktion gab leeres Dict zurück).")
-                    all_loaded = False
+                    all_loaded_successfully = False
             else:
                 print(f"  FEHLER: Regelwerk (LKN) nicht gefunden: {REGELWERK_PATH}")
-                regelwerk_dict.clear()
-                all_loaded = False
+                regelwerk_dict.clear(); all_loaded_successfully = False
         else:
             print("  ℹ️ Regelprüfung (LKN) nicht verfügbar oder lade_regelwerk fehlt.")
-            regelwerk_dict.clear()
+            regelwerk_dict.clear() # Sicherstellen, dass es leer ist
     except Exception as e:
         print(f"  FEHLER beim Laden des LKN-Regelwerks: {e}")
-        traceback.print_exc()
-        regelwerk_dict.clear()
-        all_loaded = False
+        traceback.print_exc(); regelwerk_dict.clear(); all_loaded_successfully = False
 
     print("--- Daten laden abgeschlossen ---")
-    if not all_loaded: print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
-    # Logge den Status nach dem Laden
-    print(f"DEBUG: load_data() beendet. leistungskatalog_dict leer? {not leistungskatalog_dict}")
-    print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
-    print(f"DEBUG: regelwerk_dict leer? {not regelwerk_dict}")
-    print(f"DEBUG: tabellen_dict_by_table leer? {not tabellen_dict_by_table}")
+    if not all_loaded_successfully:
+        print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
+        daten_geladen = False # Setze globales Flag bei Fehler
+    else:
+        print("INFO: Alle Daten erfolgreich geladen.")
+        daten_geladen = True # Setze globales Flag bei Erfolg
+
+    # print(f"DEBUG: load_data() beendet. Flag daten_geladen={daten_geladen}")
+    # print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
+    # print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
+    # print(f"DEBUG: regelwerk_dict leer? {not regelwerk_dict}")
+    # print(f"DEBUG: tabellen_dict_by_table leer? {not tabellen_dict_by_table}")
+
+    # Gib den Erfolgsstatus zurück (wird von ensure_data_loaded verwendet)
+    # return all_loaded_successfully # Entfernt, da wir das globale Flag setzen
 
 def ensure_data_loaded():
     global daten_geladen
+    # Diese Funktion wird jetzt nur noch aufgerufen, wenn ein Request kommt.
+    # Sie prüft, ob die Daten für diesen Worker-Prozess/Thread geladen sind.
     if not daten_geladen:
-        # Daten sollten durch den Gunicorn Hook geladen worden sein.
-        # Wenn sie hier immer noch fehlen, ist etwas grundlegend schief.
-        print("FATAL: Daten sind nicht geladen, obwohl sie durch den Gunicorn Hook hätten geladen werden sollen!")
-        # Wir werfen einen Fehler, damit der Request fehlschlägt
-        raise RuntimeError("Kritische Serverdaten nicht initialisiert.")
+        print("INFO [ensure_data_loaded]: Daten noch nicht geladen für diesen Request/Worker. Rufe load_data() auf...")
+        load_data() # Versuche, die Daten zu laden
+        if not daten_geladen:
+             # Wenn das Laden immer noch fehlschlägt, ist etwas grundlegend falsch.
+             print("FATAL [ensure_data_loaded]: Daten konnten auch beim expliziten Aufruf nicht geladen werden!")
+             raise RuntimeError("Kritische Serverdaten konnten nicht initialisiert werden.")
+        else:
+             print("INFO [ensure_data_loaded]: Daten erfolgreich geladen.")
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
+# Innerhalb der Funktion call_gemini_stage1 in server.py
+
     prompt = f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine einzige Aufgabe ist die Identifikation relevanter Leistungs-Katalog-Nummern (LKN), deren Menge und die Extraktion spezifischer Kontextinformationen basierend **ausschließlich** auf dem bereitgestellten Leistungskatalog.
 
 **Kontext: Leistungskatalog (Dies ist die EINZIGE Quelle für gültige LKNs und deren Beschreibungen! Ignoriere jegliches anderes Wissen.)**
@@ -263,8 +270,9 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
 
 1.  **LKN Identifikation & STRIKTE Validierung:**
     *   Lies den "Behandlungstext" sorgfältig.
-    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
-    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Verwechsle nicht ähnliche Codes (z.B. C03.AH.0010 ist NICHT C08.AH.0010, es sei denn, beide stehen exakt so im Katalog und passen zur Beschreibung). Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zum Behandlungstext passt.
+    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten. Berücksichtige Hauptleistungen und explizit genannte, relevante Begleitleistungen (z.B. Anästhesie, spezifische Laboranalysen, Bildgebung).
+    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Verwechsle nicht ähnliche Codes (z.B. C03.AH.0010 ist NICHT C08.AH.0010, es sei denn, beide stehen exakt so im Katalog und passen zur Beschreibung). Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zur im Text genannten Tätigkeit passt.
+    *   **Beispiel:** Wenn der Text "Operation X mit Anästhesie Y durch Anästhesist" lautet, identifiziere sowohl die LKN für Operation X als auch die LKN für Anästhesie Y (z.B. eine AG.* LKN), sofern beide im Katalog exakt vorhanden sind und die Beschreibungen passen.
     *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben UND deren Beschreibung zum Text passt.
     *   **VERBOTEN:** Gib niemals LKNs aus, die nicht exakt im Katalog stehen oder deren Beschreibung nicht zur genannten Leistung passt. Erfinde keine LKNs.
     *   Wenn eine Dauer genannt wird, die Basis- und Zuschlagsleistung erfordert (primär bei Konsultationen), stelle sicher, dass **beide** LKNs (Basis + Zuschlag) identifiziert und **validiert** werden.
@@ -273,14 +281,16 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext für DIESE LKN** hinzu.
 
 3.  **Kontextinformationen extrahieren:**
-    *   Extrahiere **nur explizit genannte** Werte: `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
+    *   Extrahiere **nur explizit genannte** Werte aus dem "Behandlungstext": `dauer_minuten` (Zahl), `menge_allgemein` (Zahl), `alter` (Zahl), `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt'). Sonst `null`.
 
 4.  **Menge bestimmen (pro validierter LKN):**
     *   Standardmenge ist `1`.
-    *   (Logik für Zeit/Menge wie vorher)
+    *   **Zeitbasiert:** Wenn Katalog-Beschreibung "pro X Min" enthält UND `dauer_minuten` (Y) extrahiert wurde, setze `menge` = Y.
+    *   **Allgemein:** Wenn `menge_allgemein` (Z) extrahiert wurde UND LKN nicht zeitbasiert ist, setze `menge` = Z.
+    *   Sicherstellen: `menge` >= 1.
 
 5.  **Begründung:**
-    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden.
+    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden. Beziehe dich auf Text und **Katalog-Beschreibungen**. Verwende "Die LKN [Code]...".
 
 **Output-Format:** **NUR** valides JSON, **KEIN** anderer Text.
 ```json
@@ -724,7 +734,7 @@ def get_LKNs_from_pauschalen_conditions(
             print(f"  INFO: WA.* Codes unter den Bedingungs-LKNs: {list(wa_codes_found.keys())}")
         else:
             print(f"  INFO: KEINE WA.* Codes unter den Bedingungs-LKNs gefunden.")
-    print(f"--- DEBUG: Ende get_LKNs_from_pauschalen_conditions ---")
+    # print(f"--- DEBUG: Ende get_LKNs_from_pauschalen_conditions ---")
     return condition_lkns_with_desc
 
 def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_table, leistungskatalog_dict):
@@ -757,7 +767,7 @@ def get_pauschale_lkn_candidates(pauschale_bedingungen_data, tabellen_dict_by_ta
         if lkn_details and lkn_details.get('Typ') in ['P', 'PZ']: # Filter nach Typ!
             valid_p_pz_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
 
-    print(f"DEBUG: {len(valid_p_pz_candidates)} gültige Pauschalen-LKN-Kandidaten (Typ P/PZ) für Mapping gefunden.")
+    # print(f"DEBUG: {len(valid_p_pz_candidates)} gültige Pauschalen-LKN-Kandidaten (Typ P/PZ) für Mapping gefunden.")
     return valid_p_pz_candidates
 
 # --- API Endpunkt ---
@@ -772,12 +782,12 @@ def analyze_billing():
          print(f"FEHLER: {e}")
          return jsonify({"error": str(e)}), 503 # Service Unavailable
     
-    if not leistungskatalog_dict or not pauschalen_dict: # etc.
+    if not daten_geladen or not leistungskatalog_dict or not pauschalen_dict:
          print("FEHLER: Kritische Daten nicht geladen (trotz Aufruf). Analyse abgebrochen.")
          # Logge den Status der globalen Variablen hier, um zu sehen, ob sie wirklich leer sind
-         print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
-         print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
-         return jsonify({"error": "Kritische Server-Daten nicht geladen. Bitte Administrator kontaktieren."}), 503
+         # print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
+         # print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
+         return jsonify({"error": "Kritische Server-Daten nicht geladen."}), 500
 
     # 1. Eingaben holen und Daten prüfen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
@@ -785,7 +795,7 @@ def analyze_billing():
     user_input = data.get('inputText')
     icd_input = data.get('icd', [])
     gtin_input = data.get('gtin', [])
-    use_icd_flag = data.get('useIcd', True)
+    use_icd_flag = data.get('useIcd', False)
     age_input = data.get('age')
     gender_input = data.get('gender')
 
@@ -946,7 +956,7 @@ def analyze_billing():
             if regel_ergebnis.get("abrechnungsfaehig") and angepasste_menge > 0:
                 rule_checked_leistungen.append({**leistung, "menge": angepasste_menge})
 
-    print(f"DEBUG: Inhalt von rule_checked_leistungen nach Regelprüfung: {[l.get('lkn') for l in rule_checked_leistungen]}")
+    # print(f"DEBUG: Inhalt von rule_checked_leistungen nach Regelprüfung: {[l.get('lkn') for l in rule_checked_leistungen]}")
     rule_time = time.time()
     print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
     final_result = None
@@ -998,7 +1008,7 @@ def analyze_billing():
                         condition_tables_normalized = {t.strip().lower() for t in table_ref_in_cond_str.split(',') if t.strip()}
                         if not condition_tables_normalized.isdisjoint(tables_for_current_lkn_normalized):
                             if pc and pc in pauschalen_dict: potential_pauschale_codes.add(pc)
-        print(f"DEBUG: Potenzielle Pauschalen gefunden: {potential_pauschale_codes}")
+        # print(f"DEBUG: Potenzielle Pauschalen gefunden: {potential_pauschale_codes}")
 
         if not potential_pauschale_codes:
              print("INFO: Keine potenziellen Pauschalen gefunden. Bereite TARDOC vor.")
@@ -1015,7 +1025,7 @@ def analyze_billing():
             # --- Schritt 3c: Kontextanreicherung (LKN-Mapping mit gefilterten Kandidaten) ---
             print("INFO: Starte Kontextanreicherung durch LKN-Mapping...")
             tardoc_lkns_to_map = [l for l in rule_checked_leistungen if l.get('typ') in ['E', 'EZ']]
-            print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
+            # print(f"DEBUG: Gefundene TARDOC LKNs zum Mappen: {[l.get('lkn') for l in tardoc_lkns_to_map]}")
             mapped_lkns = set()
             mapping_error_occurred = False
 
@@ -1038,9 +1048,9 @@ def analyze_billing():
                         }
                         if filtered_for_anast:
                             candidates_for_this_mapping = filtered_for_anast
-                            print(f"DEBUG: Für Mapping von {t_lkn}, spezifische Kandidaten (ANAST/WA.*) reduziert auf: {list(candidates_for_this_mapping.keys())}")
-                        else:
-                            print(f"WARNUNG: Für {t_lkn} keine spezifischen ANAST/WA.* Kandidaten in Bedingungs-LKNs gefunden. Verwende alle {len(candidates_for_this_mapping)} relevanten P/PZ-Kandidaten.")
+                            # print(f"DEBUG: Für Mapping von {t_lkn}, spezifische Kandidaten (ANAST/WA.*) reduziert auf: {list(candidates_for_this_mapping.keys())}")
+                        # else:
+                            # print(f"WARNUNG: Für {t_lkn} keine spezifischen ANAST/WA.* Kandidaten in Bedingungs-LKNs gefunden. Verwende alle {len(candidates_for_this_mapping)} relevanten P/PZ-Kandidaten.")
 
                     if t_lkn and t_desc and candidates_for_this_mapping:
                         try:
@@ -1182,6 +1192,5 @@ if __name__ == "__main__":
     print("INFO: Starte Server direkt (lokales Debugging). Lade Daten initial...")
     load_data()
     print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:8000")
-    if not daten_geladen: print("   WARNUNG: Daten konnten beim initialen Start nicht geladen werden!")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), debug=True)
     # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung

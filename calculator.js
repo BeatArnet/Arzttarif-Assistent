@@ -329,7 +329,7 @@ function loadIcdCheckboxState() {
     const checkbox = $('useIcdCheckbox');
     if (checkbox) {
         const savedState = localStorage.getItem('useIcdRelevance');
-        checkbox.checked = (savedState === null || savedState === 'true');
+        checkbox.checked = (savedState === 'true'); // Nur 'true' setzt auf checked
         checkbox.addEventListener('change', saveIcdCheckboxState);
     }
 }
