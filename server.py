@@ -421,8 +421,8 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
 *   Beschreibung: {tardoc_desc}
 *   Kontext: Diese Leistung (z.B. eine spezifische Anästhesie) wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
 
-**Mögliche Äquivalente (Kandidatenliste - LKNs aus Pauschalen-Bedingungen):**
-Finde aus DIESER spezifischen Liste die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die gegebene TARDOC-Leistung beschreibt (z.B. `AG.00.0030` entspricht oft einer `WA.*`-LKN).
+**Mögliche Äquivalente (Kandidatenliste - LKNs für Pauschalen-Bedingungen):**
+Finde aus DIESER spezifischen Liste die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die gegebene TARDOC-Leistung beschreibt (z.B. `AG.*` entspricht oft einer `WA.*`-LKN).
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
