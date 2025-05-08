@@ -771,7 +771,7 @@ def analyze_billing():
     except RuntimeError as e:
          print(f"FEHLER: {e}")
          return jsonify({"error": str(e)}), 503 # Service Unavailable
-
+    
     if not leistungskatalog_dict or not pauschalen_dict: # etc.
          print("FEHLER: Kritische Daten nicht geladen (trotz Aufruf). Analyse abgebrochen.")
          # Logge den Status der globalen Variablen hier, um zu sehen, ob sie wirklich leer sind
@@ -1180,8 +1180,8 @@ def serve_static(filename):
 
 if __name__ == "__main__":
     print("INFO: Starte Server direkt (lokales Debugging). Lade Daten initial...")
-    load_data() # Lade Daten beim direkten Start für lokales Debugging
+    load_data()
     print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:8000")
-    if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
+    if not daten_geladen: print("   WARNUNG: Daten konnten beim initialen Start nicht geladen werden!")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), debug=True)
     # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
