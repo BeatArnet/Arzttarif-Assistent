@@ -9,30 +9,36 @@ import traceback # Für detaillierte Fehlermeldungen
 
 # Importiere die Ladefunktion und das Status-Flag aus deinem Server-Modul
 try:
-    # WICHTIG: Ersetze 'server' durch den tatsächlichen Namen deiner Python-Datei (ohne .py), falls er anders ist
-    from server import load_data, daten_geladen, leistungskatalog_dict 
+    from server import load_data, leistungskatalog_dict 
     print("INFO [Gunicorn Hook]: load_data und daten_geladen importiert.")
 except ImportError as e:
     print(f"FEHLER [Gunicorn Hook]: Konnte load_data/daten_geladen nicht importieren: {e}")
-    load_data = None # Setze Fallback
+    load_data = None
 
 def post_worker_init(worker):
     """ Wird nach dem Start eines Workers ausgeführt. """
     print(f"INFO [Gunicorn Hook]: Worker {worker.pid} initialisiert. Lade Daten...")
     if load_data:
         try:
-            load_data() # Ruft die Ladefunktion auf
-            # Überprüfe direkt nach dem Laden
-            if daten_geladen and leistungskatalog_dict:
-                 print(f"INFO [Gunicorn Hook]: Datenladung für Worker {worker.pid} erfolgreich abgeschlossen. Status: {daten_geladen}")
+            # Rufe load_data auf und speichere das Ergebnis
+            load_successful = load_data()
+
+            # Überprüfe den Rückgabewert UND ob ein kritisches Dict gefüllt ist
+            if load_successful and leistungskatalog_dict: # Prüfe Rückgabewert UND ein Dict
+                 print(f"INFO [Gunicorn Hook]: Datenladung für Worker {worker.pid} erfolgreich abgeschlossen.")
+                 # Setze hier optional ein globales Flag im Server-Modul, wenn du es brauchst
+                 # (Importiere 'daten_geladen' und setze server.daten_geladen = True)
+                 # from server import daten_geladen # Importiere das Flag
+                 # server.daten_geladen = True # Setze das Flag im Modul server
             else:
-                 print(f"FEHLER [Gunicorn Hook]: Datenladung für Worker {worker.pid} schlug fehl (Flag/Dict leer). Status: {daten_geladen}")
+                 print(f"FEHLER [Gunicorn Hook]: Datenladung für Worker {worker.pid} schlug fehl (load_data gab {load_successful} zurück oder Dict leer).")
+                 # Hier ggf. Worker beenden
+                 # sys.exit(1)
 
         except Exception as e:
             print(f"FEHLER [Gunicorn Hook]: Kritischer Fehler beim Laden der Daten im Worker {worker.pid}: {e}")
             traceback.print_exc()
-            # Hier könntest du den Worker beenden, um Fehler zu signalisieren
-            # sys.exit(1) 
+            # sys.exit(1)
     else:
          print("FEHLER [Gunicorn Hook]: load_data Funktion nicht verfügbar.")
 

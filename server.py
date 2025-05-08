@@ -97,7 +97,6 @@ pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
-daten_geladen = False
 
 # --- Daten laden Funktion ---
 def load_data():
@@ -105,7 +104,7 @@ def load_data():
     # Deklariere ALLE globalen Variablen, die in dieser Funktion geändert werden
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
-    global tabellen_dict_by_table, daten_geladen # daten_geladen hinzugefügt
+    global tabellen_dict_by_table, daten_geladen
 
     # Lokales Flag für diesen Ladevorgang
     all_loaded_successfully = True
@@ -226,33 +225,17 @@ def load_data():
     print("--- Daten laden abgeschlossen ---")
     if not all_loaded_successfully:
         print("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
-        daten_geladen = False # Setze globales Flag bei Fehler
     else:
         print("INFO: Alle Daten erfolgreich geladen.")
-        daten_geladen = True # Setze globales Flag bei Erfolg
 
     # print(f"DEBUG: load_data() beendet. Flag daten_geladen={daten_geladen}")
-    # print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
+    print(f"DEBUG: load_data() beendet. leistungskatalog_dict leer? {not leistungskatalog_dict}")
     # print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
     # print(f"DEBUG: regelwerk_dict leer? {not regelwerk_dict}")
     # print(f"DEBUG: tabellen_dict_by_table leer? {not tabellen_dict_by_table}")
 
     # Gib den Erfolgsstatus zurück (wird von ensure_data_loaded verwendet)
-    # return all_loaded_successfully # Entfernt, da wir das globale Flag setzen
-
-def ensure_data_loaded():
-    global daten_geladen
-    # Diese Funktion wird jetzt nur noch aufgerufen, wenn ein Request kommt.
-    # Sie prüft, ob die Daten für diesen Worker-Prozess/Thread geladen sind.
-    if not daten_geladen:
-        print("INFO [ensure_data_loaded]: Daten noch nicht geladen für diesen Request/Worker. Rufe load_data() auf...")
-        load_data() # Versuche, die Daten zu laden
-        if not daten_geladen:
-             # Wenn das Laden immer noch fehlschlägt, ist etwas grundlegend falsch.
-             print("FATAL [ensure_data_loaded]: Daten konnten auch beim expliziten Aufruf nicht geladen werden!")
-             raise RuntimeError("Kritische Serverdaten konnten nicht initialisiert werden.")
-        else:
-             print("INFO [ensure_data_loaded]: Daten erfolgreich geladen.")
+    return all_loaded_successfully
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
@@ -778,18 +761,14 @@ def analyze_billing():
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
 
-    try:
-        ensure_data_loaded()
-    except RuntimeError as e:
-         print(f"FEHLER: {e}")
-         return jsonify({"error": str(e)}), 503 # Service Unavailable
-    
-    if not daten_geladen or not leistungskatalog_dict or not pauschalen_dict:
-         print("FEHLER: Kritische Daten nicht geladen (trotz Aufruf). Analyse abgebrochen.")
-         # Logge den Status der globalen Variablen hier, um zu sehen, ob sie wirklich leer sind
-         # print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
-         # print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
-         return jsonify({"error": "Kritische Server-Daten nicht geladen."}), 500
+    # Prüfe, ob die globalen Dictionaries (die vom Hook befüllt sein sollten) leer sind
+    if not leistungskatalog_dict or not pauschalen_dict or not pauschale_bedingungen_data or not tabellen_dict_by_table or not regelwerk_dict:
+        print("FEHLER: Kritische Daten sind nicht geladen (Prüfung in analyze_billing).")
+        # Logge den Status zur Sicherheit
+        print(f"DEBUG: leistungskatalog_dict leer? {not leistungskatalog_dict}")
+        print(f"DEBUG: pauschalen_dict leer? {not pauschalen_dict}")
+        # ... (ggf. weitere Dictionaries loggen) ...
+        return jsonify({"error": "Kritische Server-Daten nicht initialisiert. Bitte kurz warten oder Administrator kontaktieren."}), 503
 
     # 1. Eingaben holen und Daten prüfen
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
