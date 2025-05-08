@@ -240,6 +240,15 @@ def load_data():
     print(f"DEBUG: regelwerk_dict leer? {not regelwerk_dict}")
     print(f"DEBUG: tabellen_dict_by_table leer? {not tabellen_dict_by_table}")
 
+def ensure_data_loaded():
+    global daten_geladen
+    if not daten_geladen:
+        # Daten sollten durch den Gunicorn Hook geladen worden sein.
+        # Wenn sie hier immer noch fehlen, ist etwas grundlegend schief.
+        print("FATAL: Daten sind nicht geladen, obwohl sie durch den Gunicorn Hook hätten geladen werden sollen!")
+        # Wir werfen einen Fehler, damit der Request fehlschlägt
+        raise RuntimeError("Kritische Serverdaten nicht initialisiert.")
+
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
@@ -757,6 +766,12 @@ def analyze_billing():
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
 
+    try:
+        ensure_data_loaded()
+    except RuntimeError as e:
+         print(f"FEHLER: {e}")
+         return jsonify({"error": str(e)}), 503 # Service Unavailable
+
     if not leistungskatalog_dict or not pauschalen_dict: # etc.
          print("FEHLER: Kritische Daten nicht geladen (trotz Aufruf). Analyse abgebrochen.")
          # Logge den Status der globalen Variablen hier, um zu sehen, ob sie wirklich leer sind
@@ -1164,20 +1179,9 @@ def serve_static(filename):
          abort(404)
 
 if __name__ == "__main__":
-    print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:8000")
-    # Stelle sicher, dass die globalen Daten hier auch geladen sind
+    print("INFO: Starte Server direkt (lokales Debugging). Lade Daten initial...")
     load_data() # Lade Daten beim direkten Start für lokales Debugging
+    print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:8000")
     if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
-    # print(f"🚀 Server läuft → http://127.0.0.1:8000")
-    # print(f"   Regelprüfer LKN: {'Aktiv' if regelpruefer and hasattr(regelpruefer, 'pruefe_abrechnungsfaehigkeit') else 'Inaktiv'}")
-    # print(f"   Regelprüfer Pauschale: {'Aktiv' if regelpruefer_pauschale and hasattr(regelpruefer_pauschale, 'check_pauschale_conditions') else 'Inaktiv'}")
-    # Wichtige Daten prüfen
-    # if not leistungskatalog_dict: print("   WARNUNG: Leistungskatalog nicht geladen!")
-    # if not pauschalen_dict: print("   WARNUNG: Pauschalen nicht geladen!")
-    # if not tardoc_data_dict: print("   WARNUNG: TARDOC-Daten nicht geladen!")
-    # if not regelwerk_dict: print("   WARNUNG: LKN-Regelwerk nicht geladen!")
-    # if not pauschale_bedingungen_data: print("   WARNUNG: Pauschalen-Bedingungen nicht geladen!")
-    # if not tabellen_dict_by_table: print("   WARNUNG: Referenz-Tabellen nicht geladen/gruppiert!")
-
     # app.run(host="127.0.0.1", port=8000, debug=True) # Debug=True für Entwicklung
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
