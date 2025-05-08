@@ -1,146 +1,96 @@
 # TARDOC und Pauschalen Assistent
 
-Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung medizinischer Leistungen nach dem neuen Schweizer Arzttarif (TARDOC und Pauschalen). Die Anwendung nimmt eine Freitextbeschreibung einer medizinischen Leistung entgegen und schlägt die optimale Abrechnungsart (Pauschale oder TARDOC-Einzelleistung) vor. Sie kombiniert eine KI-basierte Leistungsidentifikation mit detaillierter lokaler Regel- und Bedingungsprüfung.
+Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung medizinischer Leistungen nach dem neuen Schweizer Arzttarif (TARDOC und Pauschalen). Die Anwendung nimmt eine Freitextbeschreibung einer medizinischen Leistung entgegen, analysiert diese mithilfe von KI und lokalen Regelwerken und schlägt die optimale Abrechnungsart (Pauschale oder TARDOC-Einzelleistung) vor.
 
-## Beschreibung
+## Projektziel und Funktionalität
 
-Der Assistent analysiert die eingegebene Leistungsbeschreibung mithilfe eines Large Language Models (Google Gemini), um relevante Leistungspositionen (LKNs) zu identifizieren. Ein Backend-Regelwerk prüft die Konformität dieser LKNs (Mengen, Kumulationen etc.). Die Kernlogik entscheidet dann, ob eine Pauschale für die (regelkonformen) Leistungen anwendbar ist. Falls ja, wird die passendste Pauschale ausgewählt und deren Bedingungen detailliert geprüft. Falls keine Pauschale greift, wird eine Abrechnung nach TARDOC-Einzelleistungen vorbereitet.
+Der "TARDOC und Pauschalen Assistent" zielt darauf ab, medizinischem Fachpersonal eine intuitive Hilfestellung bei der komplexen Aufgabe der korrekten Tarifanwendung im neuen Schweizer System zu bieten.
 
-Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-Analyse, der Regelprüfung und zur finalen Abrechnungsempfehlung (inklusive Pauschalenbegründung und detaillierter Bedingungsprüfung).
+**Kernfunktionen:**
 
-## Kernlogik / Architektur
+1.  **Leistungsidentifikation:**
+    *   Eine Freitexteingabe der erbrachten medizinischen Leistung wird von einem Large Language Model (Google Gemini) analysiert.
+    *   Das LLM identifiziert potenziell relevante Leistungskatalog-Nummern (LKNs) und extrahiert wichtige Kontextinformationen (z.B. Dauer, Menge).
+    *   Die vom LLM vorgeschlagenen LKNs werden gegen einen lokalen Leistungskatalog validiert.
 
-1.  **Frontend (`index.html`, `calculator.js`):**
-    *   Nimmt Benutzereingaben (Text, optionale ICDs, GTINs, Kontext wie Alter/Geschlecht) entgegen.
-    *   Sendet die Anfrage an das Backend.
-    *   Empfängt das strukturierte Ergebnis vom Backend.
-    *   Stellt die Ergebnisse benutzerfreundlich dar:
-        *   Prominentes Hauptergebnis (Pauschale oder TARDOC).
-        *   Aufklappbare Details für:
-            *   KI-Analyse (Stufe 1: LKN-Identifikation).
-            *   KI-Analyse (Stufe 2: Mapping von TARDOC E/EZ-LKNs auf Pauschalen-Bedingungs-LKNs, falls relevant).
-            *   Regelprüfung der Einzelleistungen.
-            *   Details zur ausgewählten Pauschale (inkl. Begründung der Auswahl und detaillierter, gruppierter Bedingungsprüfung mit visuellen Statusindikatoren).
-            *   Details zur TARDOC-Abrechnung (falls zutreffend).
-    *   Zeigt Ladeindikatoren (Text und Maus-Spinner).
+2.  **Regelbasierte Prüfung:**
+    *   Die validierten LKNs durchlaufen eine detaillierte lokale Regelprüfung (basierend auf `strukturierte_regeln_komplett.json`).
+    *   Diese Prüfung berücksichtigt TARDOC-spezifische Regeln wie Mengenbeschränkungen, Kumulationsverbote, Alters- und Geschlechtsrestriktionen etc.
+    *   Das Ergebnis ist eine Liste regelkonformer Leistungen mit potenziell angepassten Mengen.
 
-2.  **Backend (Python/Flask - `server.py`):**
-    *   Empfängt Anfragen vom Frontend.
-    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini und dem lokalen `tblLeistungskatalog.json`. Validiert LKNs gegen den lokalen Katalog.
-    *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln (Menge, Kumulation etc.) basierend auf `strukturierte_regeln_komplett.json`.
-    *   **Pauschalenpotenzial-Prüfung:** Stellt frühzeitig fest, ob aufgrund der von LLM Stufe 1 gefundenen LKN-Typen überhaupt eine Pauschale in Frage kommt.
-    *   **Kontextanreicherung (LKN-Mapping - `call_gemini_stage2_mapping`):**
-        *   Wird nur ausgeführt, wenn Pauschalenpotenzial besteht und TARDOC E/EZ-LKNs vorhanden sind, die potenziell durch Pauschalen-Komponenten abgedeckt sein könnten.
-        *   Versucht, TARDOC E/EZ-LKNs auf funktional äquivalente LKNs (oft Typ P/PZ) zu mappen, die als Bedingungen in den potenziellen Pauschalen vorkommen. Die Kandidatenliste für das Mapping wird dynamisch aus den Bedingungen der potenziell relevanten Pauschalen generiert.
-    *   **Pauschalen-Anwendbarkeitsprüfung (`regelpruefer_pauschale.py`):**
-        *   **Potenzielle Pauschalen finden:** Identifiziert mögliche Pauschalen basierend auf den regelkonformen LKNs (aus `rule_checked_leistungen`) unter Verwendung von `tblPauschaleLeistungsposition.json` und den LKN-Bedingungen in `tblPauschaleBedingungen.json`.
-        *   **Strukturierte Bedingungsprüfung (`evaluate_structured_conditions`):** Prüft für jede potenzielle Pauschale, ob ihre Bedingungsgruppen erfüllt sind (ODER zwischen Gruppen, UND innerhalb einer Gruppe). Berücksichtigt das `useIcd`-Flag.
-        *   **Auswahl der besten Pauschale (`determine_applicable_pauschale`):** Wählt aus den struktur-gültigen Pauschalen die "komplexeste passende" (niedrigster Suffix-Buchstabe, z.B. A vor B vor E) aus der bevorzugten Kategorie (spezifisch vor Fallback).
-        *   Generiert detailliertes HTML für die Bedingungsprüfung und eine Begründung der Auswahl.
-    *   **Entscheidung & TARDOC-Vorbereitung:** Entscheidet "Pauschale vor TARDOC". Wenn keine Pauschale anwendbar ist, bereitet es die TARDOC-Liste (`regelpruefer.prepare_tardoc_abrechnung`) vor.
-    *   Sendet das Gesamtergebnis (inkl. aller Detailstufen) zurück an das Frontend.
+3.  **Pauschalen-Analyse und -Auswahl:**
+    *   **Potenzialprüfung:** Es wird frühzeitig geprüft, ob die identifizierten LKNs überhaupt eine Pauschalenabrechnung nahelegen.
+    *   **Kontextanreicherung (Mapping):** Falls TARDOC-Einzelleistungen (Typ E/EZ) vorliegen, die potenziell durch Pauschalenkomponenten abgedeckt sein könnten, versucht ein zweiter LLM-Schritt, diese auf funktional äquivalente LKNs zu mappen, die typischerweise in Pauschalenbedingungen vorkommen (z.B. Anästhesie-LKNs).
+    *   **Strukturierte Bedingungsprüfung:** Für alle potenziellen Pauschalen (identifiziert über direkte LKN-Verknüpfungen oder LKNs in Bedingungslisten/-tabellen) werden die detaillierten, strukturierten Bedingungen (`tblPauschaleBedingungen.json`) ausgewertet. Dies beinhaltet UND/ODER-Logiken zwischen Bedingungsgruppen und die Prüfung einzelner Kriterien (ICD, GTIN, LKN, Alter, Geschlecht etc.). Das `useIcd`-Flag aus dem Frontend beeinflusst die ICD-Prüfung.
+    *   **Auswahl der besten Pauschale:** Aus allen Pauschalen, die ihre strukturierten Bedingungen erfüllen, wird die "komplexeste passende" ausgewählt (Priorisierung spezifischer Pauschalen, dann Sortierung nach Suffix).
 
-3.  **Daten (`./data` Verzeichnis):** Lokale JSON-Dateien als Wissensbasis.
-    *   `tblLeistungskatalog.json`: LKNs, Typen, Beschreibungen.
-    *   `tblPauschaleLeistungsposition.json`: Direkte LKN-zu-Pauschale-Links.
-    *   `tblPauschalen.json`: Pauschalendefinitionen.
-    *   `tblPauschaleBedingungen.json`: Strukturierte Bedingungen für Pauschalen.
-    *   `tblTabellen.json`: Nachschlagetabellen für Codes in Bedingungen.
-    *   `TARDOCGesamt_optimiert_Tarifpositionen.json`: Details für TARDOC-Einzelleistungen.
-    *   `strukturierte_regeln_komplett.json`: TARDOC-Regelwerk.
+4.  **Entscheidung und Ergebnisdarstellung:**
+    *   Die Logik folgt dem Grundsatz "Pauschale vor TARDOC".
+    *   Ist eine Pauschale anwendbar, wird diese als Ergebnis präsentiert.
+    *   Andernfalls wird eine Abrechnung nach TARDOC-Einzelleistungen vorbereitet.
+    *   Das Frontend (`index.html`, `calculator.js`) stellt das Ergebnis übersichtlich dar, inklusive:
+        *   Hauptergebnis (Pauschale oder TARDOC).
+        *   Aufklappbare Details zur LLM-Analyse (Stufe 1 und ggf. Stufe 2 Mapping).
+        *   Details zur Regelprüfung jeder Einzelleistung.
+        *   Bei Pauschalen: Begründung der Auswahl und eine detaillierte, gruppierte Ansicht der erfüllten/nicht erfüllten Bedingungen mit visuellen Indikatoren.
+        *   Bei TARDOC: Eine Liste der abrechenbaren Positionen.
+
+## Architekturübersicht
+
+Die Anwendung ist als Client-Server-Architektur aufgebaut:
+
+*   **Frontend (Client):**
+    *   `index.html`: Struktur der Benutzeroberfläche.
+    *   `calculator.js`: JavaScript-Logik für Benutzereingaben, API-Kommunikation mit dem Backend und dynamische Darstellung der Ergebnisse. Lädt lokale JSON-Daten für Frontend-spezifische Anzeigen (z.B. LKN-Beschreibungen).
+
+*   **Backend (Server - Python/Flask mit Gunicorn):**
+    *   `server.py`: Hauptanwendung, die API-Endpunkte bereitstellt, Anfragen verarbeitet und die Kernlogik orchestriert.
+    *   `regelpruefer.py`: Modul für die Regelprüfung von TARDOC-Einzelleistungen.
+    *   `regelpruefer_pauschale.py`: Modul für die komplexe Logik der Pauschalenfindung und -bedingungsprüfung.
+    *   `utils.py`: Allgemeine Hilfsfunktionen.
+    *   `gunicorn_config.py`: Stellt sicher, dass beim Start von Gunicorn-Workern (im Produktivbetrieb) die notwendigen Daten geladen werden.
+
+*   **Datenbasis (`./data` Verzeichnis):**
+    Eine Sammlung von JSON-Dateien dient als lokale Wissensbasis für Tarife, Regeln und Bedingungen:
+    *   `tblLeistungskatalog.json`: Katalog aller LKNs mit Typen und Beschreibungen.
+    *   `tblPauschaleLeistungsposition.json`: Direkte Zuordnungen von LKNs zu Pauschalen.
+    *   `tblPauschalen.json`: Definitionen der Pauschalen (Code, Text, Taxpunkte).
+    *   `tblPauschaleBedingungen.json`: Detaillierte, strukturierte Bedingungen für jede Pauschale (inkl. UND/ODER-Logik).
+    *   `tblTabellen.json`: Nachschlagetabellen (z.B. für ICD-Codes, spezifische LKN-Listen), die in Pauschalenbedingungen referenziert werden.
+    *   `TARDOCGesamt_optimiert_Tarifpositionen.json`: Details zu TARDOC-Einzelleistungen (AL, IPL, etc.).
+    *   `strukturierte_regeln_komplett.json`: Das Regelwerk für die TARDOC-Einzelleistungsprüfung.
+
+*   **Externe Services:**
+    *   **Google Gemini API:** Wird für die KI-gestützte Analyse des Freitextes (Stufe 1) und das Mapping von TARDOC-LKNs auf Pauschalen-Bedingungs-LKNs (Stufe 2) verwendet.
 
 ## Technologie-Stack
 
-*   **Backend:** Python 3, Flask, Gunicorn (für Produktion)
+*   **Backend:** Python 3, Flask, Gunicorn
 *   **Frontend:** HTML5, CSS3, Vanilla JavaScript
 *   **KI-Service:** Google Gemini API (via REST)
 *   **Daten:** JSON
 *   **Versionierung großer Dateien:** Git LFS
 
-## Setup und Installation (Lokal)
+## Setup und Ausführung
 
-1.  **Voraussetzungen:**
-    *   Python (z.B. 3.11.x)
-    *   `pip` (Python Package Installer)
-    *   Git
-    *   Git LFS ([https://git-lfs.com](https://git-lfs.com))
-2.  **Repository klonen:**
-    ```bash
-    git clone <repository_url>
-    cd <repository_directory>
-    ```
-3.  **Git LFS Dateien holen (falls noch nicht geschehen):**
-    ```bash
-    git lfs pull
-    ```
-4.  **Virtuelle Umgebung (Empfohlen):**
-    ```bash
-    python -m venv venv
-    # Windows:
-    venv\Scripts\activate
-    # macOS/Linux:
-    source venv/bin/activate
-    ```
-5.  **Abhängigkeiten installieren:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-6.  **API-Schlüssel konfigurieren:**
-    *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
-    *   Füge deinen Google Gemini API-Schlüssel hinzu:
-        ```env
-        GEMINI_API_KEY="DEIN_API_SCHLUESSEL_HIER"
-        # Optional: GEMINI_MODEL="gemini-1.5-pro-latest"
-        ```
-7.  **Anwendung starten:**
-    ```bash
-    python server.py
-    ```
-    Öffne `http://127.0.0.1:8000` im Browser.
+Für detaillierte Anweisungen zur lokalen Einrichtung und zum Deployment auf Plattformen wie Render.com, siehe die Datei `INSTALLATION.md`.
 
-## Deployment auf Render.com
-
-1.  **Vorbereitung:**
-    *   Stelle sicher, dass `requirements.txt` existiert und `Flask`, `requests`, `python-dotenv`, `gunicorn` enthält.
-    *   Erstelle eine `Procfile`-Datei im Stammverzeichnis:
-        ```
-        web: gunicorn server:app --timeout 120
-        ```
-    *   Initialisiere Git LFS im Repository, falls noch nicht geschehen (`git lfs install`), und verfolge die JSON-Dateien im `data`-Ordner (`git lfs track "data/*.json"`). Committe `.gitattributes` und die Pointer-Dateien.
-    *   Stelle sicher, dass `.env` in `.gitignore` ist.
-2.  **Render.com Setup:**
-    *   Erstelle einen neuen "Web Service" auf Render.com und verbinde dein Git-Repository.
-    *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `gunicorn server:app --timeout 120`
-    *   **Environment Variables:** Setze `GEMINI_API_KEY` (und optional `PYTHON_VERSION`, `GEMINI_MODEL`) im Render.com Dashboard.
-3.  **Deployment:** Pushe deine Änderungen. Render.com sollte automatisch deployen und Git LFS-Dateien korrekt behandeln.
-
-## Benötigte Dateien (Struktur)
+## Verzeichnisstruktur (Wichtige Dateien)
 
 ```
 .
-├── .env                   # API Schlüssel (lokal, nicht versionieren!)
-├── .gitattributes         # Konfiguration für Git LFS
-├── .gitignore             # Ignoriert .env, __pycache__ etc.
-├── data/                  # Verzeichnis für alle JSON Daten
-│   ├── tblLeistungskatalog.json
-│   ├── tblPauschaleLeistungsposition.json
-│   ├── tblPauschalen.json
-│   ├── tblPauschaleBedingungen.json
-│   ├── TARDOCGesamt_optimiert_Tarifpositionen.json
-│   ├── tblTabellen.json
-│   └── strukturierte_regeln_komplett.json
-├── server.py              # Flask Backend Logik
-├── calculator.js          # Frontend JavaScript Logik
-├── index.html             # Haupt-HTML-Datei
-├── regelpruefer.py        # Backend Modul für TARDOC LKN Regelprüfung
-├── regelpruefer_pauschale.py # Backend Modul für Pauschalen Bedingungsprüfung
-├── utils.py               # Hilfsfunktionen (z.B. escape)
-├── PRD.txt                # Product Requirements Document
-├── README.md              # Dieses README
+├── data/                  # JSON-Datenbasis
+├── server.py              # Flask Backend
+├── calculator.js          # Frontend JavaScript
+├── index.html             # Haupt-HTML
+├── regelpruefer.py        # Modul Regelprüfung LKN
+├── regelpruefer_pauschale.py # Modul Regelprüfung Pauschalen
+├── utils.py               # Hilfsfunktionen
+├── gunicorn_config.py     # Gunicorn Konfiguration
 ├── requirements.txt       # Python Abhängigkeiten
 ├── Procfile               # Für Render.com
-└── favicon.ico / .svg     # Favicons
+├── INSTALLATION.md        # Technische Installationsanleitung
+└── README.md              # Diese Datei
 ```
 
 ## Disclaimer

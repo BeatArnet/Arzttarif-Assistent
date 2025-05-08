@@ -1,5 +1,3 @@
-Dokumentation für die Einrichtung, das Deployment und den Betrieb deines "TARDOC und Pauschalen Assistenten", sowohl lokal als auch auf Render.com.
-
 **Dokumentation: TARDOC und Pauschalen Assistent**
 
 **Inhaltsverzeichnis:**
@@ -23,7 +21,7 @@ Dokumentation für die Einrichtung, das Deployment und den Betrieb deines "TARDO
     *   Datenaktualisierung
     *   Log-Überwachung
     *   Abhängigkeiten aktualisieren
-6.  Integration in deine Webseite
+6.  Integration in deine Webseite (arkons.ch via Localsearch)
 
 ---
 
@@ -33,10 +31,11 @@ Der "TARDOC und Pauschalen Assistent" ist eine Webanwendung, die medizinische Le
 
 **Architektur:**
 
-*   **Backend:** Flask (Python) Anwendung (`server.py`), die die Hauptlogik, Datenverarbeitung und API-Aufrufe handhabt.
+*   **Backend:** Flask (Python) Anwendung (`server.py`), die die Hauptlogik, Datenverarbeitung und API-Aufrufe handhabt. Wird mit Gunicorn betrieben.
 *   **Frontend:** HTML, CSS und JavaScript (`index.html`, `calculator.js`) für die Benutzeroberfläche.
 *   **Daten:** Lokale JSON-Dateien im `./data`-Verzeichnis, verwaltet mit Git LFS.
 *   **KI-Service:** Google Gemini API für die Verarbeitung von Freitext-Eingaben.
+*   **Datenlade-Hook:** `gunicorn_config.py` stellt sicher, dass Daten beim Start jedes Gunicorn-Workers geladen werden.
 
 **2. Voraussetzungen**
 
@@ -70,7 +69,7 @@ source venv/bin/activate
 ```
 
 **3.3. Abhängigkeiten installieren**
-Erstelle eine Datei `requirements.txt` im Stammverzeichnis deines Projekts mit folgendem Inhalt:
+Die Datei `requirements.txt` im Stammverzeichnis deines Projekts sollte folgenden Inhalt haben:
 ```txt
 Flask
 requests
@@ -113,33 +112,34 @@ Erstelle eine Datei namens `.env` im Stammverzeichnis deines Projekts (diese Dat
 Inhalt der `.env`-Datei:
 ```env
 GEMINI_API_KEY="DEIN_TATSÄCHLICHER_GEMINI_API_KEY"
-# Optional, wenn du vom Default in server.py abweichen willst:
-# GEMINI_MODEL="gemini-1.5-pro-latest" 
+GEMINI_MODEL="gemini-1.5-flash-latest" # Oder dein bevorzugtes Modell, z.B. gemini-1.5-pro-latest
 ```
-Ersetze `DEIN_TATSÄCHLICHER_GEMINI_API_KEY` durch deinen Schlüssel.
+Ersetze `DEIN_TATSÄCHLICHER_GEMINI_API_KEY` durch deinen Schlüssel. Es ist wichtig, `GEMINI_MODEL` hier (und auf Render.com) konsistent zu halten, da unterschiedliche Modelle leicht abweichendes Verhalten zeigen können.
 
 **3.6. Daten laden (Initial)**
-Der Python-Server (`server.py`) enthält eine `load_data()`-Funktion, die beim Start aufgerufen wird und die JSON-Dateien aus dem `./data`-Verzeichnis lädt. Stelle sicher, dass das `data`-Verzeichnis mit allen benötigten JSON-Dateien vorhanden ist.
+Der Python-Server (`server.py`) enthält eine `load_data()`-Funktion. Diese wird lokal beim direkten Start von `server.py` aufgerufen und auf Render.com durch den Gunicorn-Hook in `gunicorn_config.py` beim Start der Worker. Stelle sicher, dass das `data`-Verzeichnis mit allen benötigten JSON-Dateien vorhanden ist.
 
 **3.7. Anwendung lokal starten**
 Führe das Backend aus:
 ```bash
 python server.py
 ```
-Der Server sollte starten (standardmäßig auf `http://127.0.0.1:8000`). Öffne diese Adresse in deinem Webbrowser, um die Anwendung zu sehen. Die Konsole zeigt Log-Ausgaben.
+Der Server sollte starten (standardmäßig auf `http://127.0.0.1:8000`). Öffne diese Adresse in deinem Webbrowser, um die Anwendung zu sehen. Die Konsole zeigt Log-Ausgaben, inklusive des Datenladevorgangs.
 
 **4. Deployment auf Render.com**
 
 **4.1. Vorbereitung des Git-Repositories**
 1.  **`.gitignore`:** Stelle sicher, dass `.env`, `__pycache__/`, `*.pyc` und andere lokale/sensible Dateien in deiner `.gitignore`-Datei aufgeführt sind.
 2.  **`requirements.txt`:** Muss wie oben beschrieben vorhanden sein.
-3.  **`Procfile`:** Erstelle eine Datei namens `Procfile` (ohne Dateiendung) im Stammverzeichnis mit folgendem Inhalt:
+3.  **`gunicorn_config.py`:** Diese Datei ist für das korrekte Laden der Daten in jeder Worker-Instanz auf Render.com zuständig. Stelle sicher, dass sie im Stammverzeichnis deines Repositories liegt und korrekt funktioniert.
+4.  **`Procfile`:** Erstelle eine Datei namens `Procfile` (ohne Dateiendung) im Stammverzeichnis mit folgendem Inhalt:
+    ```Procfile
+    web: gunicorn -c gunicorn_config.py server:app --timeout 120
     ```
-    web: gunicorn server:app --timeout 120
-    ```
-    *   `server:app` geht davon aus, dass deine Flask-App-Instanz in `server.py` den Namen `app` hat (also `app = Flask(__name__)`).
-    *   `--timeout 120` erhöht das Timeout für Worker auf 120 Sekunden, was bei längeren LLM-Aufrufen hilfreich sein kann. Passe dies bei Bedarf an.
-4.  **Git LFS:** Stelle sicher, dass `.gitattributes` committet ist und du deine Änderungen (inklusive der LFS-Pointer) zu deinem Git-Provider (z.B. GitHub) gepusht hast.
+    *   `server:app` geht davon aus, dass deine Flask-App-Instanz in `server.py` den Namen `app` hat.
+    *   `-c gunicorn_config.py` weist Gunicorn an, deine Konfigurationsdatei zu verwenden.
+    *   `--timeout 120` erhöht das Timeout für Worker auf 120 Sekunden.
+5.  **Git LFS:** Stelle sicher, dass `.gitattributes` committet ist und du deine Änderungen (inklusive der LFS-Pointer und der `gunicorn_config.py` sowie `Procfile`) zu deinem Git-Provider (z.B. GitHub) gepusht hast.
 
 **4.2. Neuen Web Service auf Render.com erstellen**
 1.  Logge dich in dein Render.com Dashboard ein.
@@ -147,7 +147,7 @@ Der Server sollte starten (standardmäßig auf `http://127.0.0.1:8000`). Öffne 
 3.  Verbinde dein Git-Repository (z.B. GitHub). Wähle das korrekte Repository aus.
 
 **4.3. Konfiguration auf Render.com**
-Fülle die Felder wie folgt aus (siehe auch deinen Screenshot):
+Fülle die Felder wie folgt aus:
 
 *   **Name:** Ein eindeutiger Name für deinen Service (z.B. `arzttarif-assistent`).
 *   **Region:** Wähle eine passende Region (z.B. "Frankfurt (EU Central)").
@@ -155,26 +155,23 @@ Fülle die Felder wie folgt aus (siehe auch deinen Screenshot):
 *   **Root Directory:** Leer lassen (wenn sich `requirements.txt`, `Procfile` etc. im Stammverzeichnis befinden).
 *   **Runtime/Language:** Sollte automatisch als "Python" erkannt werden.
 *   **Build Command:**
-    ```
+    ```bash
     pip install -r requirements.txt
     ```
 *   **Start Command:**
-    ```
-    gunicorn server:app --timeout 120
-    ```
-    (Render.com sollte dies auch aus der `Procfile` übernehmen, aber es explizit zu setzen schadet nicht).
+    Render.com sollte den Startbefehl aus deiner `Procfile` (`gunicorn -c gunicorn_config.py server:app --timeout 120`) automatisch erkennen und verwenden. Du kannst es hier zur Sicherheit auch explizit eintragen.
 *   **Instance Type:** Wähle einen passenden Plan (z.B. "Free" zum Testen, später ggf. upgraden).
 *   **Environment Variables:**
-    *   Klicke auf "Add Environment Variable".
+    *   Klicke auf "Add Environment Variable" oder "Add Secret File" für den API Key.
     *   **Key:** `GEMINI_API_KEY`, **Value:** `DEIN_TATSÄCHLICHER_GEMINI_API_KEY`
-    *   (Optional) **Key:** `PYTHON_VERSION`, **Value:** `3.11.4` (oder deine spezifische Version)
-    *   (Optional) **Key:** `GEMINI_MODEL`, **Value:** `gemini-1.5-flash-latest` (oder dein gewünschtes Modell)
+    *   **Key:** `GEMINI_MODEL`, **Value:** `gemini-1.5-flash-latest` (oder das Modell, das du konsistent verwenden möchtest, z.B. `gemini-1.5-pro-latest`. **Wichtig:** Halte dies konsistent mit deiner lokalen `.env`-Datei, um unterschiedliches LLM-Verhalten zu minimieren.)
+    *   (Optional) **Key:** `PYTHON_VERSION`, **Value:** `3.11.4` (oder deine spezifische Python-Version, die Render.com verwenden soll).
 
 **4.4. Deployment und Überprüfung**
 1.  Klicke auf "Create Web Service".
-2.  Render.com wird nun dein Repository klonen (inklusive Auflösung der Git LFS-Dateien), die Abhängigkeiten installieren und die Anwendung starten.
-3.  Du kannst den Fortschritt im "Events"-Tab und die Logs im "Logs"-Tab verfolgen.
-4.  Nach erfolgreichem Deployment stellt Render.com dir eine URL zur Verfügung (z.B. `https://dein-service-name.onrender.com`). Rufe diese URL im Browser auf, um deine Anwendung zu testen.
+2.  Render.com wird nun dein Repository klonen (inklusive Auflösung der Git LFS-Dateien), die Abhängigkeiten installieren und die Anwendung gemäß deiner `Procfile` starten.
+3.  Du kannst den Fortschritt im "Events"-Tab und die Logs im "Logs"-Tab verfolgen. Achte hier besonders auf die Ausgaben von `gunicorn_config.py` bezüglich des Datenladens.
+4.  Nach erfolgreichem Deployment stellt Render.com dir eine URL zur Verfügung (z.B. `https://arzttarif-assistent.onrender.com`). Rufe diese URL im Browser auf, um deine Anwendung zu testen.
 
 **5. Betrieb und Wartung**
 
@@ -183,25 +180,48 @@ Fülle die Felder wie folgt aus (siehe auch deinen Screenshot):
         1.  Füge die geänderten Dateien zu Git hinzu (`git add data/deine_datei.json`).
         2.  Committe die Änderungen (`git commit -m "Datenaktualisierung für XYZ"`).
         3.  Pushe die Änderungen zu deinem Git-Provider (`git push`).
-        4.  Render.com sollte (je nach Einstellung) automatisch ein neues Deployment mit den aktualisierten Daten starten. Da die Daten via Git LFS verwaltet werden, werden die neuen Versionen heruntergeladen.
-*   **Log-Überwachung:** Überprüfe regelmäßig die Logs deiner Anwendung auf Render.com ("Logs"-Tab), um Fehler oder unerwartetes Verhalten zu erkennen.
+        4.  Render.com sollte (je nach Einstellung für "Auto-Deploy") automatisch ein neues Deployment mit den aktualisierten Daten starten. Die `gunicorn_config.py` sorgt dafür, dass die neuen Daten von den Workern geladen werden.
+*   **Log-Überwachung:** Überprüfe regelmäßig die Logs deiner Anwendung auf Render.com ("Logs"-Tab), um Fehler oder unerwartetes Verhalten zu erkennen, insbesondere nach Änderungen oder bei gemeldeten Problemen.
 *   **Abhängigkeiten aktualisieren:** Halte deine `requirements.txt` aktuell und deploye neu, wenn du Bibliotheken aktualisierst.
 
-**6. Integration in deine Webseite (arkons.ch)**
+**6. Integration in deine Webseite (arkons.ch via Localsearch)**
 
-Sobald dein Assistent auf Render.com läuft und über eine öffentliche URL (z.B. `https://arzttarif-assistent.onrender.com`) erreichbar ist, hast du mehrere Möglichkeiten zur Integration:
+Dein Assistent ist auf Render.com unter einer URL wie `https://arzttarif-assistent.onrender.com` (ersetze dies mit deiner tatsächlichen Render-URL) erreichbar. Für die Integration in deine arkons.ch-Webseite, die über Localsearch (`mywebsite.localsearch.ch`) verwaltet wird, ist die gängigste Methode die Einbettung mittels eines **iFrames**.
 
-*   **Einfacher Link:** Du kannst einfach einen Link von arkons.ch auf die Render.com-URL setzen.
+Deine spezifische Seite für den Assistenten ist:
+`https://mywebsite.localsearch.ch/home/site/6feb9afb9e5240df962f60f1082e85a0/assistent--neuer-arzttarif-ab-2026`
+
+**Schritte zur Integration über Localsearch (Allgemein):**
+
+1.  **Localsearch Website-Editor öffnen:** Logge dich in das Backend deines Localsearch Website-Builders ein.
+2.  **Seite bearbeiten:** Navigiere zu der Seite, auf der der Assistent angezeigt werden soll (die oben genannte URL).
+3.  **HTML/Embed-Widget hinzufügen:** Die meisten Website-Builder bieten ein Widget oder Element an, um eigenen HTML-Code oder eine externe Webseite einzubetten (oft "HTML-Code", "Embed", "iFrame" oder ähnlich genannt). Füge ein solches Element an der gewünschten Stelle auf deiner Seite ein.
+4.  **iFrame-Code einfügen:** In das HTML/Embed-Widget fügst du den folgenden iFrame-Code ein, wobei du `DEINE_RENDER_APP_URL` durch die tatsächliche URL deiner auf Render.com gehosteten Anwendung ersetzt:
+
     ```html
-    <a href="https://arzttarif-assistent.onrender.com" target="_blank">Zum TARDOC/Pauschalen Assistent</a>
+    <iframe 
+        src="DEINE_RENDER_APP_URL" 
+        width="100%" 
+        height="1000px" 
+        style="border:none;"
+        title="TARDOC und Pauschalen Assistent">
+    </iframe>
     ```
-*   **iFrame:** Du kannst den Assistenten als iFrame in eine Seite auf arkons.ch einbetten.
-    ```html
-    <iframe src="https://arzttarif-assistent.onrender.com" width="100%" height="800px" style="border:none;"></iframe>
-    ```
-    Beachte, dass iFrames manchmal Einschränkungen bezüglich Styling und Interaktion haben können. Stelle sicher, dass deine Anwendung so gestaltet ist, dass sie gut in einem iFrame funktioniert.
-*   **Custom Domain (Empfohlen für professionelles Aussehen):**
-    Du kannst auf Render.com eine Custom Domain für deinen Web Service konfigurieren (z.B. `assistent.arkons.ch`). Dafür musst du DNS-Einträge bei deinem Domain-Registrar (wo arkons.ch gehostet wird) anpassen. Render.com stellt dafür Anleitungen bereit. Dies ist die sauberste Methode für eine nahtlose Integration.
-*   **Reverse Proxy (Fortgeschritten):** Wenn arkons.ch auf einem eigenen Server läuft, könntest du einen Reverse Proxy (z.B. mit Nginx oder Apache) einrichten, der Anfragen an z.B. `arkons.ch/assistent` intern an deine Render.com-Anwendung weiterleitet. Das erfordert Serverkonfiguration.
+    *   **`src`**: Ersetze `DEINE_RENDER_APP_URL` mit der URL deiner Anwendung auf Render.com (z.B. `https://arzttarif-assistent.onrender.com`).
+    *   **`width="100%"`**: Lässt den iFrame die volle Breite des verfügbaren Containers einnehmen.
+    *   **`height="1000px"`**: Setzt eine feste Höhe. Du musst diesen Wert eventuell anpassen, damit der gesamte Inhalt des Assistenten ohne Scrollbalken *im iFrame* sichtbar ist, oder zumindest eine angenehme Starthöhe hat. Teste dies auf verschiedenen Bildschirmgrößen.
+    *   **`style="border:none;"`**: Entfernt den Standardrahmen des iFrames.
+    *   **`title`**: Wichtig für Barrierefreiheit.
 
-Für die meisten Anwendungsfälle ist eine **Custom Domain** die beste Lösung für eine professionelle Integration. Ein einfacher Link oder iFrame ist für den Anfang auch möglich.
+5.  **Speichern und Veröffentlichen:** Speichere die Änderungen in deinem Localsearch-Editor und veröffentliche deine Webseite neu.
+6.  **Testen:** Überprüfe die Seite `https://mywebsite.localsearch.ch/.../assistent--neuer-arzttarif-ab-2026` auf verschiedenen Geräten, um sicherzustellen, dass der Assistent korrekt angezeigt wird und benutzbar ist. Achte auf doppelte Scrollbalken (einer vom Browser, einer vom iFrame) und passe die `height` des iFrames bei Bedarf an.
+
+**Alternative Integrationsmethoden (Allgemein):**
+
+*   **Einfacher Link:** Du könntest auch einfach einen prominenten Link von deiner arkons.ch-Seite auf die Render.com-URL des Assistenten setzen. Dies ist die einfachste Methode, aber der Benutzer verlässt dann deine Hauptseite.
+    ```html
+    <a href="DEINE_RENDER_APP_URL" target="_blank">Zum TARDOC & Pauschalen Assistenten</a>
+    ```
+*   **Custom Domain für die Render-App (Fortgeschritten):** Für ein professionelleres Aussehen könntest du deiner Render-App eine Subdomain deiner Hauptdomain zuweisen (z.B. `assistent.arkons.ch`). Dies erfordert DNS-Anpassungen bei deinem Domain-Registrar und die Konfiguration der Custom Domain in Render.com. Anschließend könntest du diese Custom Domain im iFrame verwenden oder direkt darauf verlinken.
+
+Für die Einbindung über Plattformen wie Localsearch ist der iFrame-Ansatz in der Regel der praktikabelste Weg, um externe Anwendungen darzustellen.
