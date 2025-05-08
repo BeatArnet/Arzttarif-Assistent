@@ -428,23 +428,26 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
         candidates_text = candidates_text[:15000] + "\n..."
 
 
-    # *** PROMPT STUFE 2 - MAPPING ***
-    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für die gegebene TARDOC-Einzelleistung (Typ E/EZ) die funktional **äquivalente** Leistung aus der "Kandidatenliste" zu finden. Die Kandidatenliste enthält nur LKNs vom Typ P oder PZ, die als Bedingungen in Pauschalen vorkommen.
+# Innerhalb der Funktion call_gemini_stage2_mapping in server.py
+
+    # *** PROMPT STUFE 2 - MAPPING (Aktualisiert) ***
+    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für die gegebene TARDOC-Einzelleistung (Typ E/EZ) die funktional **äquivalente** Leistung aus der "Kandidatenliste" zu finden. Die Kandidatenliste enthält LKNs (aller Typen, oft P/PZ), die als Bedingungen in potenziell relevanten Pauschalen vorkommen.
 
 **Gegebene TARDOC-Leistung (Typ E/EZ):**
 *   LKN: {tardoc_lkn}
 *   Beschreibung: {tardoc_desc}
+*   Kontext: Diese Leistung (z.B. eine spezifische Anästhesie) wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
 
-**Mögliche Äquivalente (Kandidatenliste - nur Typ P/PZ):**
-Finde die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die TARDOC-Leistung beschreibt.
+**Mögliche Äquivalente (Kandidatenliste - LKNs aus Pauschalen-Bedingungen):**
+Finde aus DIESER spezifischen Liste die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die gegebene TARDOC-Leistung beschreibt (z.B. `AG.00.0030` entspricht oft einer `WA.*`-LKN).
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
 
 **Analyse & Entscheidung:**
 1.  Verstehe die **medizinische Kernfunktion** der gegebenen TARDOC-Leistung (z.B. "Anästhesie", "Bildgebung", "Laboranalyse").
-2.  Identifiziere die Kandidaten-LKN (Typ P/PZ) aus der Liste, die diese Kernfunktion am besten repräsentiert.
-3.  Priorisiere nach Passgenauigkeit, falls mehrere Kandidaten sehr ähnlich sind.
+2.  Identifiziere die Kandidaten-LKN aus der Liste, die diese Kernfunktion am besten repräsentiert. Achte auf spezifische Übereinstimmungen (z.B. Anästhesie-Typ).
+3.  Priorisiere nach Passgenauigkeit, falls mehrere Kandidaten sehr ähnlich sind. Die spezifischste Übereinstimmung zuerst.
 
 **Antwort:**
 *   Gib eine **kommagetrennte, priorisierte Liste** der LKN-Codes der passenden Kandidaten zurück (z.B. `WA.10.0010,WA.10.0020`).
@@ -453,7 +456,6 @@ Finde die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** w
 
 Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
     # *** ENDE PROMPT ***
-
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
