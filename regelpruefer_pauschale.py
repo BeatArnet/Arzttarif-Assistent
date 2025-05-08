@@ -53,7 +53,7 @@ def check_single_condition(
             # print(f"    Kontext ICDs: {provided_icds_upper}")
             # print(f"    useIcd Flag im Kontext: {check_icd_conditions_at_all}")
             if not check_icd_conditions_at_all:
-                print(f"    -> Ergebnis: True (ICD Check deaktiviert)")
+                # print(f"    -> Ergebnis: True (ICD Check deaktiviert)")
                 return True
             table_ref = werte_str
             icd_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "icd", tabellen_dict_by_table) if entry.get('Code')}

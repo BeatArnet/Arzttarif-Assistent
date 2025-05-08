@@ -433,11 +433,11 @@ Finde aus DIESER spezifischen Liste die Kandidaten-LKN, die die **gleiche Art vo
 3.  Priorisiere nach Passgenauigkeit, falls mehrere Kandidaten sehr ähnlich sind. Die spezifischste Übereinstimmung zuerst.
 
 **Antwort:**
-*   Gib eine **kommagetrennte, priorisierte Liste** der LKN-Codes der passenden Kandidaten zurück (z.B. `WA.10.0010,WA.10.0020`).
+*   Gib eine **reine, kommagetrennte Liste** der LKN-Codes der passenden Kandidaten zurück. Beispiel: `WA.10.0010,WA.10.0020,WA.10.0030`
 *   Wenn **keine** der Kandidaten-LKNs funktional passt, gib exakt das Wort `NONE` zurück.
-*   Gib **keine** Erklärungen, Begründungen oder sonstigen Text aus.
+*   Gib **absolut keinen anderen Text, keine Erklärungen, keine JSON-Formatierung oder Markdown** aus. NUR die reine Code-Liste (z.B. `CODE1,CODE2`) oder das Wort `NONE`.
 
-Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
+Priorisierte Liste der besten Kandidaten-LKNs (nur reine kommagetrennte Liste oder NONE):"""
     # *** ENDE PROMPT ***
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
@@ -451,36 +451,104 @@ Priorisierte Liste der besten Kandidaten-LKNs (kommagetrennt oder NONE):"""
     }
     print(f"Sende Anfrage Stufe 2 (Mapping) für {tardoc_lkn} an Gemini Model: {GEMINI_MODEL}...")
     try:
-        response = requests.post(gemini_url, json=payload, timeout=60) # Etwas mehr Zeit
+        response = requests.post(gemini_url, json=payload, timeout=60)
         print(f"Gemini Stufe 2 (Mapping) Antwort Status Code: {response.status_code}")
         response.raise_for_status()
         gemini_data = response.json()
 
-        if not gemini_data.get('candidates'): raise ValueError("Keine Kandidaten in Stufe 2 (Mapping) Antwort.")
-        mapped_lkn_text = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
-        # print(f"DEBUG: Roher Text von LLM Stufe 2 (Mapping) für {tardoc_lkn}: '{mapped_lkn_text}'")
+        if not gemini_data.get('candidates'):
+            raise ValueError("Keine Kandidaten in Stufe 2 (Mapping) Antwort.")
+        
+        raw_text_response_part = gemini_data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print(f"DEBUG: Roher Text von LLM Stufe 2 (Mapping) für {tardoc_lkn}: '{raw_text_response_part}'")
 
-        if mapped_lkn_text.upper() == "NONE":
-             print(f"INFO: Kein passendes Mapping für {tardoc_lkn} gefunden (LLM sagte NONE).")
-             return None # Gib None zurück, wenn LLM explizit NONE sagt
+        extracted_codes_from_llm = []
 
-        # Parse die kommagetrennte Liste
-        ranked_mapped_codes = [code.strip().upper() for code in mapped_lkn_text.split(',') if code.strip()]
+        # VERSUCH 1: Ist der Output ein JSON-String, der eine Liste von LKNs enthält?
+        try:
+            parsed_json = json.loads(raw_text_response_part)
+            if isinstance(parsed_json, dict) and "EQUIVALENT_LKNS" in parsed_json:
+                if isinstance(parsed_json["EQUIVALENT_LKNS"], list):
+                    extracted_codes_from_llm = [str(code).strip().upper().replace('"', '') for code in parsed_json["EQUIVALENT_LKNS"] if str(code).strip()]
+                    print(f"INFO: Mapping-Antwort als JSON-Dict mit 'EQUIVALENT_LKNS' geparst: {extracted_codes_from_llm}")
+            elif isinstance(parsed_json, list): # Falls es direkt eine Liste von Strings ist
+                 extracted_codes_from_llm = [str(code).strip().upper().replace('"', '') for code in parsed_json if str(code).strip()]
+                 print(f"INFO: Mapping-Antwort als JSON-Liste geparst: {extracted_codes_from_llm}")
+            
+        except json.JSONDecodeError:
+            # Wenn kein valides JSON, weiter mit Komma-Splitting
+            pass # Fehler wird unten behandelt, wenn extracted_codes_from_llm leer bleibt
 
-        # Finde den ersten validen Code aus der Liste
-        for code in ranked_mapped_codes:
+        # VERSUCH 2: Wenn oben nichts extrahiert wurde, als kommagetrennte Liste behandeln
+        if not extracted_codes_from_llm:
+            if raw_text_response_part.upper() == "NONE":
+                print(f"INFO: Kein passendes Mapping für {tardoc_lkn} gefunden (LLM sagte explizit NONE).")
+                return None
+            
+            # Bereinige von eventuellen Markdown-Wrappern, bevor gesplittet wird
+            match_markdown = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_text_response_part, re.IGNORECASE)
+            text_to_split = raw_text_response_part
+            if match_markdown:
+                print("INFO: Markdown im Mapping-LLM-Output gefunden, extrahiere Inhalt für Split.")
+                text_to_split = match_markdown.group(1).strip()
+                # Erneuter JSON-Check nach Markdown-Extraktion
+                try:
+                    parsed_json_after_md = json.loads(text_to_split)
+                    if isinstance(parsed_json_after_md, dict) and "EQUIVALENT_LKNS" in parsed_json_after_md:
+                         if isinstance(parsed_json_after_md["EQUIVALENT_LKNS"], list):
+                            extracted_codes_from_llm = [str(code).strip().upper().replace('"', '') for code in parsed_json_after_md["EQUIVALENT_LKNS"] if str(code).strip()]
+                            print(f"INFO: Mapping-Antwort nach MD-Extraktion als JSON-Dict geparst: {extracted_codes_from_llm}")
+                    elif isinstance(parsed_json_after_md, list):
+                        extracted_codes_from_llm = [str(code).strip().upper().replace('"', '') for code in parsed_json_after_md if str(code).strip()]
+                        print(f"INFO: Mapping-Antwort nach MD-Extraktion als JSON-Liste geparst: {extracted_codes_from_llm}")
+                except json.JSONDecodeError:
+                    pass # Bleibt bei Text-Split
+
+
+            if not extracted_codes_from_llm: # Wenn immer noch nicht als JSON geparst
+                extracted_codes_from_llm = [
+                    code.strip().upper().replace('"', '') 
+                    for code in text_to_split.split(',') 
+                    if code.strip() and code.strip().upper() != "NONE" # NONE nicht als Code nehmen
+                ]
+                print(f"INFO: Mapping-Antwort als kommagetrennte Liste geparst: {extracted_codes_from_llm}")
+
+
+        if not extracted_codes_from_llm:
+            # Wenn nach allen Versuchen immer noch keine Codes da sind (und nicht explizit NONE)
+            # könnte der LLM-Output komplett leer oder unbrauchbar sein.
+            if raw_text_response_part and raw_text_response_part.upper() != "NONE":
+                print(f"WARNUNG: Konnte keine LKNs aus der LLM-Antwort '{raw_text_response_part}' extrahieren.")
+            # Wenn raw_text_response_part leer war, ist das okay, wird unten als "kein Mapping" behandelt.
+            # Ansonsten, wenn es Text gab, der nicht NONE war, aber nicht geparsed werden konnte, ist es ein Warnhinweis.
+
+
+        # Finde den ersten validen Code aus der extrahierten und bereinigten Liste
+        for code in extracted_codes_from_llm:
             if code in candidate_pauschal_lkns: # Prüfe gegen die ursprünglichen Kandidaten
                 print(f"INFO: Mapping erfolgreich (aus Liste): {tardoc_lkn} -> {code}")
                 return code # Gib den ersten validen Code zurück
 
-        # Wenn keiner der zurückgegebenen Codes valide war
-        print(f"WARNUNG: Keiner der vom Mapping-LLM zurückgegebenen Codes ({ranked_mapped_codes}) war valide für {tardoc_lkn}.")
+        # Wenn keiner der zurückgegebenen Codes valide war oder keine Codes extrahiert wurden
+        # (und nicht explizit NONE vom LLM kam)
+        if extracted_codes_from_llm: # Nur loggen, wenn LLM was zurückgab, das nicht passte
+            print(f"WARNUNG: Keiner der vom Mapping-LLM zurückgegebenen/extrahierten Codes ({extracted_codes_from_llm}) war valide für {tardoc_lkn}.")
+        elif not raw_text_response_part or raw_text_response_part.upper() == "NONE":
+             print(f"INFO: Kein passendes Mapping für {tardoc_lkn} gefunden (LLM-Antwort war leer, NONE oder konnte nicht geparst werden).")
+
         return None
 
-    except requests.exceptions.RequestException as req_err: print(f"FEHLER: Netzwerkfehler bei Gemini Stufe 2 (Mapping): {req_err}"); return None
-    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e: print(f"FEHLER beim Verarbeiten der Mapping-Antwort: {e}"); return None
-    except Exception as e: print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2 (Mapping): {e}"); 
-    return None
+    except requests.exceptions.RequestException as req_err:
+        print(f"FEHLER: Netzwerkfehler bei Gemini Stufe 2 (Mapping): {req_err}")
+        return None
+    except (KeyError, IndexError, TypeError, ValueError) as e: # JSONDecodeError wird oben gefangen
+        print(f"FEHLER beim Verarbeiten der Mapping-Antwort: {e}")
+        traceback.print_exc() # Für mehr Details
+        return None
+    except Exception as e:
+        print(f"FEHLER: Unerwarteter Fehler im LLM Stufe 2 (Mapping): {e}")
+        traceback.print_exc()
+        return None
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
 def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
