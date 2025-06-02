@@ -37,7 +37,6 @@ DetermineApplicablePauschaleType = Callable[
 ]
 PrepareTardocAbrechnungType = Callable[[List[Dict[Any,Any]], Dict[str, Dict[Any,Any]]], Dict[str,Any]]
 
-
 # --- Standard-Fallbacks für Funktionen aus regelpruefer_pauschale ---
 def default_evaluate_fallback( # Matches: evaluate_structured_conditions(pauschale_code: str, context: Dict, pauschale_bedingungen_data: List[Dict], tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool
     pauschale_code: str,
@@ -166,6 +165,23 @@ tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
 daten_geladen: bool = False
 
+def create_app() -> Flask:
+    """
+    Erstellt die Flask-Instanz.  
+    Render (bzw. Gunicorn) ruft diese Factory einmal pro Worker auf
+    und bekommt das WSGI-Objekt zurück.
+    """
+    app = Flask(__name__, static_folder='.', static_url_path='')
+
+    # Daten nur einmal laden – egal ob lokal oder Render-Worker
+    global daten_geladen
+    if not daten_geladen:
+        print("INFO: Initialer Daten-Load beim App-Start …")
+        if not load_data():
+            raise RuntimeError("Kritische Daten konnten nicht geladen werden.")
+
+    # Ab hier bleiben alle @app.route-Dekorationen unverändert
+    return app
 
 # --- Daten laden Funktion ---
 def load_data() -> bool:
@@ -276,6 +292,11 @@ def load_data() -> bool:
         daten_geladen = True
     print(f"DEBUG: load_data() beendet. leistungskatalog_dict leer? {not leistungskatalog_dict}")
     return all_loaded_successfully
+
+# Einsatz von Flask
+app = Flask(__name__, static_folder='.', static_url_path='') # Flask App Instanz
+# Die App-Instanz, auf die Gunicorn zugreift
+app: Flask = create_app()
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
@@ -1128,10 +1149,13 @@ def serve_static(filename: str): # Typ hinzugefügt
          print(f"WARNUNG: Zugriff verweigert (nicht erlaubt): {filename}")
          abort(404)
 
-if __name__ == "__main__":
-    print("INFO: Starte Server direkt (lokales Debugging). Lade Daten initial...")
-    if load_data(): # Nur starten, wenn Daten erfolgreich geladen wurden
-        print(f"🚀 Server läuft lokal für Debugging → http://127.0.0.1:{os.environ.get('PORT', 8000)}")
-        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), debug=True)
-    else:
-        print("FEHLER: Server konnte nicht gestartet werden, da kritische Daten nicht geladen werden konnten.")
+def _run_local() -> None:
+    """Lokaler Debug-Server (wird von Render **nicht** aufgerufen)."""
+    port = int(os.environ.get("PORT", 8000))
+    print(f"🚀  Lokal verfügbar auf http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
+
+
+if __name__ == "__main__" and os.getenv("RENDER_SERVICE_TYPE") is None:
+    # Nur wenn das Skript direkt gestartet wird – nicht in der Render-Runtime
+    _run_local()
