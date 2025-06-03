@@ -13,10 +13,20 @@ from typing import Dict, List, Any, Set, Tuple, Callable # Tuple und Callable hi
 from utils import get_table_content # Angenommen, diese Funktion existiert in utils.py
 import html
 
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    stream=sys.stdout) # Log to stdout
+logger = logging.getLogger('app') # Create a logger instance
+
 # --- Konfiguration ---
 load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
+# GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.0-flash")
 DATA_DIR = Path("data")
 LEISTUNGSKATALOG_PATH = DATA_DIR / "tblLeistungskatalog.json"
 REGELWERK_PATH = DATA_DIR / "strukturierte_regeln_komplett.json" # Prüfe diesen Pfad!
@@ -317,6 +327,7 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     *   Bedenke, dass im Text mehrere Leistungen dokumentiert  mehrere LKNs gültig sein können (z.B. chirurgischer Eingriff PLUS/und/mit/;/./, Anästhesie). 
     *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zur im Text genannten Tätigkeit passt.
     *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben UND deren Beschreibung zum Text passt.
+    *   Erkenne, ob es sich um hausärztliche Leistungen im Kapitel CA handelt.
 
 2.  **Typ & Beschreibung hinzufügen:**
     *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext für DIESE LKN** hinzu.
@@ -545,6 +556,7 @@ JSON-Antwort:"""
             validated_identified_leistungen.append(item)
         llm_response_json["identified_leistungen"] = validated_identified_leistungen
         print("INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
+        logger.info(f"LLM Stage 1 response: {json.dumps(llm_response_json, ensure_ascii=False)}")
         return llm_response_json
 
     except requests.exceptions.RequestException as req_err:
@@ -648,6 +660,8 @@ Priorisierte Liste der besten Kandidaten-LKNs (nur reine kommagetrennte Liste od
                 if code.strip() and code.strip().upper() != "NONE"
             ]
         
+        logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Raw response: '{raw_text_response_part}'")
+        logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Extracted codes: {extracted_codes_from_llm}")
         print(f"INFO: Mapping-Antwort ({'JSON' if isinstance(extracted_codes_from_llm, list) and raw_text_response_part.startswith('[') or raw_text_response_part.startswith('{') else 'Text'}) geparst: {extracted_codes_from_llm}")
 
         for code in extracted_codes_from_llm:
@@ -719,6 +733,8 @@ Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
         seen = set()
         ranked_codes = [x for x in ranked_codes if not (x in seen or seen.add(x))]
 
+        logger.info(f"LLM Stage 2 (Ranking) - Raw response: '{ranked_text}'")
+        logger.info(f"LLM Stage 2 (Ranking) - Extracted and cleaned codes: {ranked_codes}")
         print(f"LLM Stufe 2 Gerankte Codes nach Filter: {ranked_codes} (aus Rohtext: '{ranked_text}')")
         if not ranked_codes and ranked_text: # Nur warnen, wenn Text da war, aber keine Codes extrahiert wurden
             print(f"WARNUNG: LLM Stufe 2 (Ranking) hat keine gültigen Codes aus '{ranked_text}' zurückgegeben.")
@@ -835,6 +851,16 @@ def get_LKNs_from_pauschalen_conditions(
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
+    # Basic request data for logging before full parsing
+    data_for_log = request.get_json(silent=True) or {}
+    user_input_log = data_for_log.get('inputText', '')[:100]
+    icd_input_log = data_for_log.get('icd', [])
+    gtin_input_log = data_for_log.get('gtin', [])
+    use_icd_flag_log = data_for_log.get('useIcd', True)
+    age_input_log = data_for_log.get('age')
+    gender_input_log = data_for_log.get('gender')
+
+    logger.info(f"Received request for /api/analyze-billing. InputText: '{user_input_log}...', ICDs: {icd_input_log}, GTINs: {gtin_input_log}, useIcd: {use_icd_flag_log}, Age: {age_input_log}, Gender: {gender_input_log}")
     print("\n--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
 
@@ -845,13 +871,13 @@ def analyze_billing():
             return jsonify({"error": "Kritische Server-Daten nicht initialisiert. Administrator kontaktieren."}), 503
 
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
-    data = request.get_json()
+    data = request.get_json() # This is fine now, as we've logged the rawish data already
     user_input = data.get('inputText', "") # Default zu leerem String
     icd_input_raw = data.get('icd', [])
     gtin_input_raw = data.get('gtin', [])
     use_icd_flag = data.get('useIcd', True)
-    age_input = data.get('age')
-    gender_input = data.get('gender')
+    age_input = data.get('age') # Will be used for alter_user
+    gender_input = data.get('gender') # Will be used for geschlecht_user
 
     # Bereinige ICD und GTIN Eingaben
     icd_input = [str(i).strip().upper() for i in icd_input_raw if isinstance(i, str) and str(i).strip()]
@@ -859,16 +885,19 @@ def analyze_billing():
 
 
     try: alter_user = int(age_input) if age_input is not None and str(age_input).strip() else None
-    except (ValueError, TypeError): alter_user = None; print(f"WARNUNG: Ungültiger Alterswert '{age_input}'.")
+    except (ValueError, TypeError): alter_user = None; logger.warning(f"Ungültiger Alterswert '{age_input}'.") # Logged
     
     geschlecht_user_raw = str(gender_input).lower().strip() if isinstance(gender_input, str) else None
     if geschlecht_user_raw and geschlecht_user_raw in ['männlich', 'weiblich', 'divers', 'unbekannt']:
         geschlecht_user = geschlecht_user_raw
     else:
-        if geschlecht_user_raw: print(f"WARNUNG: Ungültiger Geschlechtswert '{gender_input}'.")
+        if geschlecht_user_raw: logger.warning(f"Ungültiger Geschlechtswert '{gender_input}'.") # Logged
         geschlecht_user = None # Wird später zu 'unbekannt' wenn nötig
 
     if not user_input.strip(): return jsonify({"error": "'inputText' darf nicht leer sein"}), 400 # Prüfe auf leeren String
+    # The detailed print below can be removed or kept based on preference, as logger.info now captures it.
+    # For this exercise, I'll keep it to exactly match the prompt's request of adding the logger line,
+    # but in a real scenario, one might remove the print now.
     print(f"Input: '{user_input[:100]}...', ICDs: {icd_input}, GTINs: {gtin_input}, useIcd: {use_icd_flag}, Age: {alter_user}, Gender: {geschlecht_user}")
 
     llm_stage1_result: Dict[str, Any] = {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": ""}
@@ -1114,6 +1143,7 @@ def analyze_billing():
     end_time = time.time(); total_time = end_time - start_time
     print(f"Gesamtverarbeitungszeit Backend: {total_time:.2f}s")
     print(f"INFO: Sende finale Antwort Typ '{finale_abrechnung_obj.get('type') if finale_abrechnung_obj else 'None'}' an Frontend.")
+    logger.info(f"Final response payload for /api/analyze-billing: {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}")
     return jsonify(final_response_payload)
 
 # --- Static‑Routes & Start ---
