@@ -9,7 +9,7 @@ def escape(text: Any) -> str:
 def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict) -> list[dict]:
     """Holt Einträge für eine Tabelle und einen Typ (Case-Insensitive)."""
     content = []
-    # Schlüssel für tblTabellen - anpassen falls nötig!
+    # Schlüssel für PAUSCHALEN_Tabellen - anpassen falls nötig!
     TAB_CODE_KEY = 'Code'; TAB_TEXT_KEY = 'Code_Text'; TAB_TYP_KEY = 'Tabelle_Typ'
 
     table_names = [t.strip() for t in table_ref.split(',') if t.strip()]
