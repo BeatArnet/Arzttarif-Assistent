@@ -28,13 +28,13 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
 # GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.0-flash")
 DATA_DIR = Path("data")
-LEISTUNGSKATALOG_PATH = DATA_DIR / "tblLeistungskatalog.json"
-REGELWERK_PATH = DATA_DIR / "strukturierte_regeln_komplett.json" # Prüfe diesen Pfad!
-TARDOC_PATH = DATA_DIR / "TARDOCGesamt_optimiert_Tarifpositionen.json"
-PAUSCHALE_LP_PATH = DATA_DIR / "tblPauschaleLeistungsposition.json"
-PAUSCHALEN_PATH = DATA_DIR / "tblPauschalen.json"
-PAUSCHALE_BED_PATH = DATA_DIR / "tblPauschaleBedingungen.json"
-TABELLEN_PATH = DATA_DIR / "tblTabellen.json"
+LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
+TARDOC_TARIF_PATH = DATA_DIR / "TARDOC_Tarifpositionen.json"
+TARDOC_INTERP_PATH = DATA_DIR / "TARDOC_Interpretationen.json"
+PAUSCHALE_LP_PATH = DATA_DIR / "PAUSCHALEN_Leistungspositionen.json"
+PAUSCHALEN_PATH = DATA_DIR / "PAUSCHALEN_Pauschalen.json"
+PAUSCHALE_BED_PATH = DATA_DIR / "PAUSCHALEN_Bedingungen.json"
+TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 
 # --- Typ-Aliase für Klarheit ---
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
@@ -166,7 +166,8 @@ app = Flask(__name__, static_folder='.', static_url_path='') # Flask App Instanz
 leistungskatalog_data: list[dict] = []
 leistungskatalog_dict: dict[str, dict] = {}
 regelwerk_dict: dict[str, list] = {} # Annahme: lade_regelwerk gibt List[RegelDict] pro LKN
-tardoc_data_dict: dict[str, dict] = {}
+tardoc_tarif_dict: dict[str, dict] = {}
+tardoc_interp_dict: dict[str, dict] = {}
 pauschale_lp_data: list[dict] = []
 pauschalen_data: list[dict] = []
 pauschalen_dict: dict[str, dict] = {}
@@ -195,14 +196,14 @@ def create_app() -> Flask:
 
 # --- Daten laden Funktion ---
 def load_data() -> bool:
-    global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_data_dict
+    global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, tabellen_data
     global tabellen_dict_by_table, daten_geladen
 
     all_loaded_successfully = True
     print("--- Lade Daten ---")
     # Reset all data containers
-    leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_data_dict.clear()
+    leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_tarif_dict.clear(); tardoc_interp_dict.clear()
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
 
@@ -211,8 +212,9 @@ def load_data() -> bool:
         "PauschaleLP": (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None),
         "Pauschalen": (PAUSCHALEN_PATH, pauschalen_data, 'Pauschale', pauschalen_dict),
         "PauschaleBedingungen": (PAUSCHALE_BED_PATH, pauschale_bedingungen_data, None, None),
-        "TARDOC": (TARDOC_PATH, [], 'LKN', tardoc_data_dict), # TARDOC nur ins Dict
-        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None) # Tabellen nur in Liste (vorerst)
+        "TARDOC_TARIF": (TARDOC_TARIF_PATH, [], 'LKN', tardoc_tarif_dict),  # Tarifpositionen
+        "TARDOC_INTERP": (TARDOC_INTERP_PATH, [], 'LKN', tardoc_interp_dict),  # Interpretationen
+        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None)  # Tabellen nur in Liste (vorerst)
     }
 
     for name, (path, target_list_ref, key_field, target_dict_ref) in files_to_load.items():
@@ -246,7 +248,7 @@ def load_data() -> bool:
                 if name == "Tabellen": # Spezifische Behandlung für 'Tabellen'
                     TAB_KEY = "Tabelle"
                     tabellen_dict_by_table.clear()
-                    for item in data_from_file: # data_from_file ist hier der Inhalt von tblTabellen.json
+                    for item in data_from_file: # data_from_file ist hier der Inhalt von PAUSCHALEN_Tabellen.json
                         if isinstance(item, dict):
                             table_name = item.get(TAB_KEY)
                             if table_name: # Stelle sicher, dass table_name nicht None ist
@@ -262,35 +264,23 @@ def load_data() -> bool:
                          all_loaded_successfully = False
             else:
                 print(f"  FEHLER: {name}-Datei nicht gefunden: {path}")
-                if name in ["Leistungskatalog", "Pauschalen", "TARDOC", "PauschaleBedingungen", "Tabellen"]:
+                if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "PauschaleBedingungen", "Tabellen"]:
                     all_loaded_successfully = False
         except (json.JSONDecodeError, IOError, Exception) as e:
              print(f"  FEHLER beim Laden/Verarbeiten von {name} ({path}): {e}")
              all_loaded_successfully = False
              traceback.print_exc()
 
-    # Lade Regelwerk LKN
+    # Regelwerk direkt aus TARDOC_Tarifpositionen extrahieren
     try:
-        print(f"  Versuche Regelwerk (LKN) von {REGELWERK_PATH} zu laden...")
-        # rp_lkn_module wurde oben importiert
-        if rp_lkn_module and hasattr(rp_lkn_module, 'lade_regelwerk'):
-            if REGELWERK_PATH.is_file():
-                regelwerk_dict.clear()
-                regelwerk_dict_loaded = rp_lkn_module.lade_regelwerk(str(REGELWERK_PATH))
-                if regelwerk_dict_loaded: # Annahme: Gibt Dict[str, List[Regel]] zurück
-                    regelwerk_dict.update(regelwerk_dict_loaded)
-                    print(f"  ✓ Regelwerk (LKN) '{REGELWERK_PATH}' geladen ({len(regelwerk_dict)} LKNs).")
-                else:
-                    print(f"  FEHLER: LKN-Regelwerk konnte nicht geladen werden (Funktion gab leeres Dict zurück).")
-                    all_loaded_successfully = False
-            else:
-                print(f"  FEHLER: Regelwerk (LKN) nicht gefunden: {REGELWERK_PATH}")
-                regelwerk_dict.clear(); all_loaded_successfully = False
-        else:
-            print("  ℹ️ Regelprüfung (LKN) nicht verfügbar oder lade_regelwerk fehlt im Modul regelpruefer.")
-            regelwerk_dict.clear()
+        regelwerk_dict.clear()
+        for lkn, info in tardoc_tarif_dict.items():
+            rules = info.get("Regeln")
+            if rules:
+                regelwerk_dict[lkn] = rules
+        print(f"  ✓ Regelwerk aus TARDOC geladen ({len(regelwerk_dict)} LKNs mit Regeln).")
     except Exception as e:
-        print(f"  FEHLER beim Laden des LKN-Regelwerks: {e}")
+        print(f"  FEHLER beim Extrahieren des Regelwerks aus TARDOC: {e}")
         traceback.print_exc(); regelwerk_dict.clear(); all_loaded_successfully = False
 
     print("--- Daten laden abgeschlossen ---")
@@ -312,9 +302,9 @@ app: Flask = create_app()
 def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
 
-    prompt = f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine Aufgabe ist die Identifikation relevanter Leistungs-Katalog-Nummern (LKN), deren Menge und die Extraktion spezifischer Kontextinformationen basierend **ausschließlich** auf dem bereitgestellten Leistungskatalog.
+    prompt = f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine Aufgabe ist die Identifikation relevanter Leistungs-Katalog-Nummern (LKN), deren Menge und die Extraktion spezifischer Kontextinformationen basierend **ausschließlich** auf dem bereitgestellten LKAAT_Leistungskatalog.
 
-**Kontext: Leistungskatalog (Dies ist die EINZIGE Quelle für gültige LKNs und deren Beschreibungen! Ignoriere jegliches anderes Wissen.)**
+**Kontext: LKAAT_Leistungskatalog (Dies ist die EINZIGE Quelle für gültige LKNs und deren Beschreibungen! Ignoriere jegliches anderes Wissen.)**
 --- Leistungskatalog Start ---
 {katalog_context}
 --- Leistungskatalog Ende ---
@@ -324,7 +314,8 @@ def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
 1.  **LKN Identifikation & STRIKTE Validierung:**
     *   Lies den "Behandlungstext" sorgfältig.
     *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
-    *   Bedenke, dass im Text mehrere Leistungen dokumentiert  mehrere LKNs gültig sein können (z.B. chirurgischer Eingriff PLUS/und/mit/;/./, Anästhesie). 
+    *   Bedenke, dass im Text mehrere Leistungen dokumentiert  mehrere LKNs gültig sein können (z.B. chirurgischer Eingriff PLUS/und/mit/;/./, Anästhesie).
+    *   Wird eine Anästhesie oder Narkose durch einen Anästhesisten erwähnt, aber es fehlen genaue Angaben zur Aufwandklasse oder Dauer, darfst du eine generische Anästhesie‑LKN wählen. Nutze hierfür in der Regel `WA.05.0020`. Wenn eine konkrete Anästhesiezeit in Minuten genannt wird, verwende stattdessen die entsprechende `WA.10.00x0`‑LKN.
     *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zur im Text genannten Tätigkeit passt.
     *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben UND deren Beschreibung zum Text passt.
     *   Erkenne, ob es sich um hausärztliche Leistungen im Kapitel CA handelt.
@@ -981,14 +972,34 @@ def analyze_billing():
                         fehler_liste_regel = regel_ergebnis_dict.get("fehler", [])
                         mengen_reduktions_fehler = next((f for f in fehler_liste_regel if "Menge auf" in f and "reduziert" in f), None)
                         if mengen_reduktions_fehler:
-                            match_menge = re.search(r'Menge auf (\d+)', mengen_reduktions_fehler)
+                            match_menge = re.search(r"Menge auf (\d+)", mengen_reduktions_fehler)
                             if match_menge:
                                 try:
                                     finale_menge_nach_regeln = int(match_menge.group(1))
                                     regel_ergebnis_dict["abrechnungsfaehig"] = True
                                     print(f"INFO: Menge für LKN {lkn_code} durch Regelprüfer auf {finale_menge_nach_regeln} angepasst.")
-                                except ValueError: finale_menge_nach_regeln = 0 # Fallback
-                        if finale_menge_nach_regeln == 0: print(f"INFO: LKN {lkn_code} nicht abrechnungsfähig wegen Regel(n): {regel_ergebnis_dict.get('fehler', [])}")
+                                except ValueError:
+                                    finale_menge_nach_regeln = 0  # Fallback
+                        else:
+                            mengenbesch_fehler = next((f for f in fehler_liste_regel if "Mengenbeschränkung überschritten" in f and "max." in f), None)
+                            if mengenbesch_fehler:
+                                match_max = re.search(r"max\.\s*(\d+)", mengenbesch_fehler)
+                                if match_max:
+                                    try:
+                                        finale_menge_nach_regeln = int(match_max.group(1))
+                                        regel_ergebnis_dict["abrechnungsfaehig"] = True
+                                        regel_ergebnis_dict.setdefault("fehler", []).append(
+                                            f"Menge auf {finale_menge_nach_regeln} reduziert (Mengenbeschränkung)"
+                                        )
+                                        print(
+                                            f"INFO: Menge für LKN {lkn_code} automatisch auf {finale_menge_nach_regeln} reduziert wegen Mengenbeschränkung."
+                                        )
+                                    except ValueError:
+                                        finale_menge_nach_regeln = 0
+                        if finale_menge_nach_regeln == 0:
+                            print(
+                                f"INFO: LKN {lkn_code} nicht abrechnungsfähig wegen Regel(n): {regel_ergebnis_dict.get('fehler', [])}"
+                            )
                 except Exception as e_rule: print(f"FEHLER bei Regelprüfung für LKN {lkn_code}: {e_rule}"); traceback.print_exc(); regel_ergebnis_dict = {"abrechnungsfaehig": False, "fehler": [f"Interner Fehler bei Regelprüfung: {e_rule}"]}
             else: print(f"WARNUNG: Keine Regelprüfung für LKN {lkn_code} durchgeführt (Regelprüfer oder Regelwerk fehlt)."); regel_ergebnis_dict = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht verfügbar."]}
             

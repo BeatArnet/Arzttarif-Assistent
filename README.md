@@ -26,14 +26,14 @@ Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-
 
 2.  **Backend (Python/Flask - `server.py`):**
     *   Empfängt Anfragen vom Frontend.
-    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini und dem lokalen `tblLeistungskatalog.json`. Validiert LKNs gegen den lokalen Katalog.
-    *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln (Menge, Kumulation etc.) basierend auf `strukturierte_regeln_komplett.json`.
+    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini und dem lokalen `LKAAT_Leistungskatalog.json`. Validiert LKNs gegen den lokalen Katalog.
+    *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln (Menge, Kumulation etc.) basierend auf den im TARDOC-Datensatz eingebetteten Regeldefinitionen.
     *   **Pauschalenpotenzial-Prüfung:** Stellt frühzeitig fest, ob aufgrund der von LLM Stufe 1 gefundenen LKN-Typen überhaupt eine Pauschale in Frage kommt.
     *   **Kontextanreicherung (LKN-Mapping - `call_gemini_stage2_mapping`):**
         *   Wird nur ausgeführt, wenn Pauschalenpotenzial besteht und TARDOC E/EZ-LKNs vorhanden sind, die potenziell durch Pauschalen-Komponenten abgedeckt sein könnten.
         *   Versucht, TARDOC E/EZ-LKNs auf funktional äquivalente LKNs (oft Typ P/PZ) zu mappen, die als Bedingungen in den potenziellen Pauschalen vorkommen. Die Kandidatenliste für das Mapping wird dynamisch aus den Bedingungen der potenziell relevanten Pauschalen generiert.
     *   **Pauschalen-Anwendbarkeitsprüfung (`regelpruefer_pauschale.py`):**
-        *   **Potenzielle Pauschalen finden:** Identifiziert mögliche Pauschalen basierend auf den regelkonformen LKNs (aus `rule_checked_leistungen`) unter Verwendung von `tblPauschaleLeistungsposition.json` und den LKN-Bedingungen in `tblPauschaleBedingungen.json`.
+        *   **Potenzielle Pauschalen finden:** Identifiziert mögliche Pauschalen basierend auf den regelkonformen LKNs (aus `rule_checked_leistungen`) unter Verwendung von `PAUSCHALEN_Leistungspositionen.json` und den LKN-Bedingungen in `PAUSCHALEN_Bedingungen.json`.
         *   **Strukturierte Bedingungsprüfung (`evaluate_structured_conditions`):** Prüft für jede potenzielle Pauschale, ob ihre Bedingungsgruppen erfüllt sind (ODER zwischen Gruppen, UND innerhalb einer Gruppe). Berücksichtigt das `useIcd`-Flag.
         *   **Auswahl der besten Pauschale (`determine_applicable_pauschale`):** Wählt aus den struktur-gültigen Pauschalen die "komplexeste passende" (niedrigster Suffix-Buchstabe, z.B. A vor B vor E) aus der bevorzugten Kategorie (spezifisch vor Fallback).
         *   Generiert detailliertes HTML für die Bedingungsprüfung und eine Begründung der Auswahl.
@@ -41,13 +41,13 @@ Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-
     *   Sendet das Gesamtergebnis (inkl. aller Detailstufen) zurück an das Frontend.
 
 3.  **Daten (`./data` Verzeichnis):** Lokale JSON-Dateien als Wissensbasis.
-    *   `tblLeistungskatalog.json`: LKNs, Typen, Beschreibungen.
-    *   `tblPauschaleLeistungsposition.json`: Direkte LKN-zu-Pauschale-Links.
-    *   `tblPauschalen.json`: Pauschalendefinitionen.
-    *   `tblPauschaleBedingungen.json`: Strukturierte Bedingungen für Pauschalen.
-    *   `tblTabellen.json`: Nachschlagetabellen für Codes in Bedingungen.
-    *   `TARDOCGesamt_optimiert_Tarifpositionen.json`: Details für TARDOC-Einzelleistungen.
-    *   `strukturierte_regeln_komplett.json`: TARDOC-Regelwerk.
+    *   `LKAAT_Leistungskatalog.json`: LKNs, Typen, Beschreibungen.
+    *   `PAUSCHALEN_Leistungspositionen.json`: Direkte LKN-zu-Pauschale-Links.
+    *   `PAUSCHALEN_Pauschalen.json`: Pauschalendefinitionen.
+    *   `PAUSCHALEN_Bedingungen.json`: Strukturierte Bedingungen für Pauschalen.
+    *   `PAUSCHALEN_Tabellen.json`: Nachschlagetabellen für Codes in Bedingungen.
+    *   `TARDOC_Tarifpositionen.json`: Details und Regeldefinitionen für TARDOC-Einzelleistungen.
+    *   `TARDOC_Interpretationen.json`: Erläuterungen und Kapiteltexte zu TARDOC-Positionen.
 
 ## Technologie-Stack
 
@@ -85,14 +85,22 @@ Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-
     ```bash
     pip install -r requirements.txt
     ```
-6.  **API-Schlüssel konfigurieren:**
+6.  **(Optional) JSON-Daten bereinigen:**
+    Einige Datendateien enthalten Steuerzeichen, die beim Parsen Fehler
+    verursachen können. Bereinige eine Datei mit:
+    ```bash
+    python clean_json.py data/TARDOC_Interpretationen.json
+    ```
+    Es entsteht eine `*.clean.json`-Datei, die zum Testen verwendet werden kann.
+
+7.  **API-Schlüssel konfigurieren:**
     *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
     *   Füge deinen Google Gemini API-Schlüssel hinzu:
         ```env
         GEMINI_API_KEY="DEIN_API_SCHLUESSEL_HIER"
         # Optional: GEMINI_MODEL="gemini-1.5-pro-latest"
         ```
-7.  **Anwendung starten:**
+8.  **Anwendung starten:**
     ```bash
     python server.py
     ```
@@ -123,13 +131,13 @@ Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-
 ├── .gitattributes         # Konfiguration für Git LFS
 ├── .gitignore             # Ignoriert .env, __pycache__ etc.
 ├── data/                  # Verzeichnis für alle JSON Daten
-│   ├── tblLeistungskatalog.json
-│   ├── tblPauschaleLeistungsposition.json
-│   ├── tblPauschalen.json
-│   ├── tblPauschaleBedingungen.json
-│   ├── TARDOCGesamt_optimiert_Tarifpositionen.json
-│   ├── tblTabellen.json
-│   └── strukturierte_regeln_komplett.json
+│   ├── LKAAT_Leistungskatalog.json
+│   ├── PAUSCHALEN_Leistungspositionen.json
+│   ├── PAUSCHALEN_Pauschalen.json
+│   ├── PAUSCHALEN_Bedingungen.json
+│   ├── TARDOC_Tarifpositionen.json
+│   ├── TARDOC_Interpretationen.json
+│   ├── PAUSCHALEN_Tabellen.json
 ├── server.py              # Flask Backend Logik
 ├── calculator.js          # Frontend JavaScript Logik
 ├── index.html             # Haupt-HTML-Datei

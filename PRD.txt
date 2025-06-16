@@ -1,23 +1,23 @@
 **Aufgabe:** Den Assistenten für die Bereitstellung auf meiner Webseite arkons.ch erstellen. Den Zugriff auf ein LLM optimieren (Anforderungen erfüllen und kostengünstig). Die Berechnungen und Datenbankzugriffe soweit möglich lokal. Die Datenbasis im Verzeichnis ./data ausnützen für maximale Funktionalität und korrekte Abrechnungslogik (Pauschale vor TARDOC).
 
-Name: TARDOC und Pauschalen Assistent
+Name: Assistent Neuer Arzttarif
 Beschreibung: Als TARDOC und Pauschalen Assistent bin ich darauf spezialisiert, akkurate Hinweise zur Abrechnung und Überprüfung ambulanter medizinischer Leistungen gemäss dem neuen Schweizer Arzttarif zu bieten. Die Anwendung nutzt einen zweistufigen LLM-Ansatz zur Leistungsidentifikation, kombiniert mit lokaler Regel- und **strukturierter** Bedingungsprüfung.
 
 Hinweise:
 1. Allgemeine Struktur der Tabellen (Wichtige für die Logik)
-   - tblLeistungskatalog: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sind), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird.
-   - tblPauschaleLeistungsposition: Verknüpft *direkt* bestimmte LKNs mit Pauschalencodes. Eine Methode, um potenzielle Pauschalen zu finden.
-   - tblPauschalen: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte). Dient als Nachschlagetabelle für Pauschalendetails.
-   - tblPauschaleBedingungen: Enthält **strukturierte** Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen, **inklusive `Gruppe` und `Operator` (UND/ODER)**. Entscheidend für die korrekte *logische Auswertung* der Anwendbarkeit einer Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
-   - tblTabellen: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `tblPauschaleBedingungen` über Tabellenreferenzen (z.B. "CAP08", "C08.50") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen. **Case-Insensitive Behandlung** der Tabellennamen ist wichtig.
-   - TARDOCGesamt_optimiert...: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
-   - strukturierte_regeln_komplett.json (oder ähnlich): Enthält TARDOC-spezifische Regeln (Menge, Kumulation, Alter etc.) für die lokale Regelprüfung von Einzelleistungen.
+   - LKAAT_Leistungskatalog: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung gemäss TARDOC, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sind), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird.
+   - PAUSCHALEN_Leistungspositionen: Verknüpft *direkt* bestimmte LKNs mit Pauschalencodes. Eine Methode, um potenzielle Pauschalen zu finden.
+   - PAUSCHALEN_Pauschalen: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte). Dient als Nachschlagetabelle für Pauschalendetails.
+   - PAUSCHALEN_Bedingungen: Enthält **strukturierte** Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen, **inklusive `Gruppe` und `Operator` (UND/ODER)**. Entscheidend für die korrekte *logische Auswertung* der Anwendbarkeit einer Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
+   - PAUSCHALEN_Tabellen: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `PAUSCHALEN_Bedingungen` über Tabellenreferenzen (z.B. "CAP08", "C08.50") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen. **Case-Insensitive Behandlung** der Tabellennamen ist wichtig.
+   - TARDOC_Interpretationen.json und TARDOC_Tarifpositionen.json: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
+   - Die Regeldefinitionen für TARDOC-Einzelleistungen sind direkt im File `TARDOC_Tarifpositionen.json` enthalten.
 
 2. Strukturierte Vorgehensweise (Backend - server.py)
    Schritt 1: Identifikation der Leistungspositionen (LLM Stufe 1 & Validierung)
      - Eingabe: Freitext des Benutzers (+ optionale ICD/GTIN, Alter, Geschlecht, ICD-Checkbox-Status).
-     - Aktion: LLM Stufe 1 analysiert den Text und identifiziert potenzielle LKNs, Mengen und extrahiert Kontext basierend auf `tblLeistungskatalog`. **Prompt ist gehärtet**, um Validierung gegen Katalog zu betonen.
-     - Aktion: Backend validiert die vom LLM vorgeschlagenen LKNs gegen den lokalen `tblLeistungskatalog`. Nur valide LKNs werden weiterverwendet.
+     - Aktion: LLM Stufe 1 analysiert den Text und identifiziert potenzielle LKNs, Mengen und extrahiert Kontext basierend auf `LKAAT_Leistungskatalog`. **Prompt ist gehärtet**, um Validierung gegen Katalog zu betonen.
+     - Aktion: Backend validiert die vom LLM vorgeschlagenen LKNs gegen den lokalen `LKAAT_Leistungskatalog`. Nur valide LKNs werden weiterverwendet.
      - Ergebnis: Liste validierter LKNs mit initialer Menge (`llm_stage1_result`). Bei leerem Ergebnis werden nachfolgende Schritte angepasst.
 
    Schritt 2: Regelprüfung der Einzelleistungen (Regelprüfer LKN)
@@ -35,7 +35,7 @@ Hinweise:
      - **Aktion (Potenzielle finden):** Suche nach potenziellen Pauschalencodes, die durch die LKNs in `final_pauschale_lkn_context_list` ausgelöst werden könnten (Methoden a, b, c wie zuvor beschrieben).
      - **Aktion (Strukturierte Prüfung):** Wenn potenzielle Pauschalen gefunden wurden: Rufe für **jeden** potenziellen Code die Funktion `regelpruefer_pauschale.evaluate_structured_conditions` auf. Diese Funktion:
          - Nutzt `regelpruefer_pauschale.check_single_condition`, um jede einzelne Bedingungszeile zu prüfen (berücksichtigt `useIcd`-Flag: ICD-Bedingungen werden bei `useIcd=False` als `True` gewertet).
-         - Wertet die **UND/ODER-Logik** basierend auf `Gruppe` und `Operator` aus `tblPauschaleBedingungen.json` aus.
+         - Wertet die **UND/ODER-Logik** basierend auf `Gruppe` und `Operator` aus `PAUSCHALEN_Bedingungen.json` aus.
          - Gibt `True` zurück, wenn die **gesamte strukturierte Logik** für die Pauschale im gegebenen Kontext erfüllt ist, sonst `False`.
      - **Aktion (Filtern & Priorisierte Auswahl):**
          - Filtere alle Kandidaten, für die `evaluate_structured_conditions` `True` zurückgegeben hat (`valid_candidates`).

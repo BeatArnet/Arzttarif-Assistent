@@ -536,10 +536,10 @@ def determine_applicable_pauschale(
     """
     print("INFO: Starte Pauschalenermittlung mit strukturierter Bedingungsprüfung...")
     PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html'; POTENTIAL_ICDS_KEY = 'potential_icds'
-    LKN_KEY_IN_RULE_CHECKED = 'lkn'; PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale' # In tblPauschalen
+    LKN_KEY_IN_RULE_CHECKED = 'lkn'; PAUSCHALE_KEY_IN_PAUSCHALEN = 'Pauschale' # In PAUSCHALEN_Pauschalen
     PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN = 'Pauschale_Text'
-    LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale' # In tblPauschaleLeistungsposition
-    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp' # In tblPauschaleBedingungen
+    LP_LKN_KEY = 'Leistungsposition'; LP_PAUSCHALE_KEY = 'Pauschale' # In PAUSCHALEN_Leistungspositionen
+    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp' # In PAUSCHALEN_Bedingungen
     BED_WERTE_KEY = 'Werte'
 
     potential_pauschale_codes: Set[str] = set()
@@ -552,7 +552,7 @@ def determine_applicable_pauschale(
         context_lkns_for_search = {str(lkn).upper() for lkn in context.get("LKN", []) if lkn}
         # print(f"  Kontext-LKNs für Suche: {context_lkns_for_search}")
 
-        # Methode a: Direkte Links aus tblPauschaleLeistungsposition
+        # Methode a: Direkte Links aus PAUSCHALEN_Leistungspositionen
         for item in pauschale_lp_data:
             lkn_in_lp = item.get(LP_LKN_KEY)
             if lkn_in_lp and lkn_in_lp.upper() in context_lkns_for_search:
