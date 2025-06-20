@@ -6,7 +6,8 @@ und der Bedingungen für Pauschalen.
 """
 import json
 import re # Importiere Regex für Mengenanpassung
-from typing import Dict, List 
+from typing import Dict, List
+from utils import get_lang_field
 
 # --- Konstanten für Regeltypen (zur besseren Lesbarkeit) ---
 REGEL_MENGE = "Mengenbeschränkung"
@@ -184,7 +185,8 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
 
     return {"abrechnungsfaehig": allowed, "fehler": errors}
 
-def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict) -> dict: # Argument hinzugefügt
+
+def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict, lang: str = 'de') -> dict:
     """
     Filtert regelkonforme TARDOC-Leistungen (Typ E/EZ) aus den Regelergebnissen
     und bereitet die Liste für die Frontend-Antwort vor.
@@ -205,9 +207,10 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatal
 
         if lkn_info and lkn_info.get("Typ") in ['E', 'EZ']:
             tardoc_leistungen_final.append({
-                "lkn": lkn, "menge": menge,
+                "lkn": lkn,
+                "menge": menge,
                 "typ": lkn_info.get("Typ"),
-                "beschreibung": lkn_info.get("Beschreibung", "")
+                "beschreibung": get_lang_field(lkn_info, "Beschreibung", lang) or ""
             })
         elif not lkn_info:
              print(f"WARNUNG (prepare_tardoc): Details für LKN {lkn} nicht im Leistungskatalog gefunden.")
