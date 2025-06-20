@@ -42,10 +42,18 @@
             box-sizing: border-box;
         }
         textarea, input[type="text"], select {
-            width: 90%; max-width: 618px; margin-bottom: 15px; padding: 8px;
-            border: 1px solid var(--border-color); border-radius: 4px;
+            width: 90%;
+            max-width: 618px;
+            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
         }
-        select { cursor: pointer; width: 90%; max-width: 618px; }
+        select { cursor: pointer; }
+        .language-select { text-align: right; margin: 0; }
+        .language-select label { display: inline-block; margin-right: 5px; font-weight: bold; }
+        #languageSelect { width: auto; margin-bottom: 0; }
+        #beispielSelect { width: 90%; max-width: 618px; }
         button {
             padding: 10px 15px; cursor: pointer; margin-top: 10px;
             background: var(--primary); color: #fff; border: none;
@@ -286,10 +294,13 @@
         overflow-y:auto; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.3);
     }
     .modal-close { float:right; background:none; border:none; font-size:1.2em; cursor:pointer; }
-    .version-info {
+    .top-info {
         position: absolute;
         top: 10px;
         right: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-size: 0.75em;
         color: #555;
     }
@@ -316,44 +327,42 @@
         </div>
     </div>
 
-    <div class="version-info">
-        V1.0, Arnet Konsilium,
-        <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>,
-        2025
+    <div class="top-info">
+        <div class="language-select">
+            <label id="langLabel" for="languageSelect">Sprache:</label>
+            <select id="languageSelect">
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="it">Italiano</option>
+            </select>
+        </div>
+        <div class="version-info">
+            V1.1, Arnet Konsilium,
+            <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>,
+            2025
+        </div>
     </div>
 
-    <h1>Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
-    <p>Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
+    <h1 id="mainHeader">Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
+    <p id="intro">Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
 
-    <label for="beispielSelect">Beispiele auswählen:</label>
+    <label id="exampleLabel" for="beispielSelect">Beispiele auswählen:</label>
     <select id="beispielSelect" onchange="beispielEinfuegen()">
         <option value="" selected disabled>--- Bitte wählen ---</option>
-        <option value="Hausärztliche Konsultation von 17 Minuten">Hausärztliche Konsultation 17 Min.</option>
-        <option value="Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie">Konsultation 10 Min + Warzenentfernung Stamm</option>
-        <option value="Konsultation 25 Minuten, grosser rheumatologischer Untersuch">Konsultation 25 Min, rheumatol. Untersuch</option>
-        <option value="Konsultation 15 Minuten">Konsultation 15 Minuten</option>
-        <option value="Konsultation 25 Minuten Hausarzt">hausärztliche Konsultation 25 Minuten</option>
-        <option value="Hausärztliche Konsultation 15 Minuten und 10 Minuten Beratung Kind">Hausärztliche Kons 15 Min + 10 Min. Beratung Kind</option>
-        <option value="Kiefergelenk, Luxation. Geschlossene Reposition">Kiefergelenk, Luxation, Reposition</option>
-        <option value="Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesist">Kiefergelenk, Luxation, Reposition, Anästhesie</option>
-        <option value="Aufklärung des Patienten und Leberbiopsie durch die Haut">Aufklärung + Leberbiopsie (Haut)</option>
-        <option value="Blinddarmentfernung als alleinige Leistung">Blinddarmentfernung (alleinig)</option>
-        <option value="Korrektur eines Hallux valgus rechts">Korrektur Hallux valgus rechts</option>
-        <option value="Bronchoskopie mit Lavage">Bronchoskopie mit Lavage</option>
     </select>
 
-    <label for="userInput">Leistungsbeschreibung / LKN:</label>
+    <label id="userLabel" for="userInput">Leistungsbeschreibung / LKN:</label>
     <textarea id="userInput" rows="4" placeholder="z.B. Hausärztliche Konsultation von 17 Minuten..."></textarea>
 
-    <label for="icdInput">Zusätzliche ICD-Codes (kommagetrennt, optional):</label>
+    <label id="icdLabel" for="icdInput">Zusätzliche ICD-Codes (kommagetrennt, optional):</label>
     <input type="text" id="icdInput" placeholder="z.B. K35.8, J45.9">
-    <label for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
+    <label id="gtinLabel" for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
 
     <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; margin-bottom: 15px; max-width: 630px;">
         <div style="align-self: center;">
             <input type="checkbox" id="useIcdCheckbox" checked style="margin-right: 5px;">
-            <label for="useIcdCheckbox" style="display: inline; font-weight: normal;">ICD berücksichtigen</label>
+            <label id="useIcdLabel" for="useIcdCheckbox" style="display: inline; font-weight: normal;">ICD berücksichtigen</label>
         </div>
     </div>
 
@@ -361,28 +370,155 @@
     <div id="spinner">Wird geladen...</div>
     <div id="output">Hier erscheinen die Ergebnisse...</div>
 
-    <div class="disclaimer">
-        <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">TARDOC Online-Portal</a>).
+    <div class="disclaimer" id="disclaimer">
+        <strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">OAAT-OTMA Online-Portal</a>).
     </div>
 
     <script src="calculator.js"></script>
     <script>
-        function beispielEinfuegen() {
-            const selectElement = document.getElementById('beispielSelect');
-            const selectedValue = selectElement.value;
-            const targetTextarea = document.getElementById('userInput');
-            if (selectedValue && targetTextarea) {
-                targetTextarea.value = selectedValue;
-                const outputDiv = document.getElementById('output');
-                if (outputDiv) outputDiv.innerHTML = "<i>Bitte 'Tarifpositionen finden' klicken.</i>";
+        const translations = {
+            de: {
+                langLabel: 'Sprache:',
+                title: 'TARDOC / Pauschalen Rechner Prototyp',
+                header: 'Neuer Arzttarif Schweiz: TARDOC und Pauschalen',
+                intro: 'Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.',
+                exampleLabel: 'Beispiele auswählen:',
+                selectPlaceholder: '--- Bitte wählen ---',
+                userLabel: 'Leistungsbeschreibung / LKN:',
+                userPlaceholder: 'z.B. Hausärztliche Konsultation von 17 Minuten...',
+                icdLabel: 'Zusätzliche ICD-Codes (kommagetrennt, optional):',
+                icdPlaceholder: 'z.B. K35.8, J45.9',
+                gtinLabel: 'Medikamenten-GTINs (kommagetrennt, optional):',
+                gtinPlaceholder: 'z.B. 7680664950014, 1234567890123',
+                useIcd: 'ICD berücksichtigen',
+                analyzeButton: 'Tarifpositionen finden',
+                loading: 'Wird geladen...',
+                resultsPlaceholder: 'Hier erscheinen die Ergebnisse...',
+                disclaimer: '<strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">OAAT-OTMA Online-Portal</a>).',
+                clickFind: "<i>Bitte 'Tarifpositionen finden' klicken.</i>"
+            },
+            fr: {
+                langLabel: 'Langue :',
+                title: 'Prototype du calculateur de forfaits / TARDOC',
+                header: 'Nouveau tarif médical suisse : TARDOC et forfaits',
+                intro: "Saisissez la prestation médicale ou le NPL (y compris les détails pertinents tels que durée, âge, sexe, le cas échéant). L'assistant vérifie la facturation optimale.",
+                exampleLabel: 'Sélectionner un exemple :',
+                selectPlaceholder: '--- Veuillez choisir ---',
+
+                userLabel: 'Description de la prestation / NPL :',
+                userPlaceholder: 'p. ex. consultation de médecine de famille de 17 minutes...',
+                icdLabel: 'Codes CIM supplémentaires (séparés par des virgules, optionnel) :',
+                icdPlaceholder: 'p. ex. K35.8, J45.9',
+                gtinLabel: 'GTIN des médicaments (séparées par des virgules, optionnel) :',
+                gtinPlaceholder: 'p. ex. 7680664950014, 1234567890123',
+                useIcd: 'Prendre en compte la CIM',
+                analyzeButton: 'Trouver les positions tarifaires',
+                loading: 'Chargement...',
+                resultsPlaceholder: "Les résultats s'affichent ici...",
+                disclaimer: '<strong>Clause de non-responsabilité :</strong> Toutes les informations sont fournies sans garantie... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">Portail en ligne OAAT-OTMA</a>).',
+                clickFind: "<i>Veuillez cliquer sur 'Trouver les positions tarifaires'.</i>"
+            },
+            it: {
+                langLabel: 'Lingua:',
+                title: 'Prototipo calcolatore di forfait / TARDOC',
+                header: 'Nuova tariffa medica svizzera: TARDOC e forfait',
+                intro: "Inserisci la prestazione medica o il NPL (compresi i dettagli rilevanti come durata, età, sesso, se applicabile). L'assistente verifica la fatturazione ottimale.",
+                exampleLabel: 'Seleziona un esempio:',
+                selectPlaceholder: '--- Si prega di scegliere ---',
+                userLabel: 'Descrizione della prestazione / NPL:',
+                userPlaceholder: 'es. consultazione di base di 17 minuti...',
+                icdLabel: 'Codici ICD aggiuntivi (separati da virgole, opzionale):',
+                icdPlaceholder: 'es. K35.8, J45.9',
+                gtinLabel: 'GTIN dei medicamenti (separate da virgole, opzionale):',
+                gtinPlaceholder: 'es. 7680664950014, 1234567890123',
+                useIcd: 'Considera ICD',
+                analyzeButton: 'Trova le posizioni tariffarie',
+                loading: 'Caricamento...',
+                resultsPlaceholder: 'Qui verranno visualizzati i risultati...',
+                disclaimer: '<strong>Clausola di esclusione della responsabilità:</strong> tutte le informazioni sono fornite senza garanzia... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">Portale online OAAT-OTMA</a>).',
+                clickFind: "<i>Fare clic su 'Trova le posizioni tariffarie'.</i>"
+            }
+        };
+        let examplesData = [];
+        fetch("data/beispiele.json")
+            .then(r => r.json())
+            .then(d => { examplesData = d; populateExamples(currentLang); });
+        function populateExamples(lang){
+            const select = document.getElementById("beispielSelect");
+            if(!select || !examplesData.length) return;
+
+            const shortKey = "value_" + lang.toUpperCase();
+            const extKey = "extendedValue_" + lang.toUpperCase();
+            select.innerHTML = "";
+            examplesData.forEach((e,i)=>{
+                const opt = document.createElement("option");
+                if(i===0){
+                    opt.textContent = translations[lang].selectPlaceholder || e.label;
+                    opt.selected = true;
+                    opt.disabled = true;
+                } else {
+                    opt.textContent = e[shortKey] || e.label;
+                }
+                opt.value = e[extKey] || e[shortKey] || "";
+                select.appendChild(opt);
+            });
+        }
+
+        let currentLang = 'de';
+        function applyLanguage(lang){
+            const prevLang = currentLang;
+            currentLang = lang;
+            localStorage.setItem('language', lang);
+            document.documentElement.lang = lang;
+            const t = translations[lang];
+            document.getElementById('langLabel').textContent = t.langLabel;
+            document.title = t.title;
+            document.getElementById('mainHeader').textContent = t.header;
+            document.getElementById('intro').textContent = t.intro;
+            document.getElementById('exampleLabel').textContent = t.exampleLabel;
+            populateExamples(lang);
+            document.getElementById('userInput').placeholder = t.userPlaceholder;
+            document.getElementById('icdLabel').textContent = t.icdLabel;
+            document.getElementById('icdInput').placeholder = t.icdPlaceholder;
+            document.getElementById('gtinLabel').textContent = t.gtinLabel;
+            document.getElementById('gtinInput').placeholder = t.gtinPlaceholder;
+            document.getElementById('useIcdLabel').textContent = t.useIcd;
+            document.getElementById('analyzeButton').textContent = t.analyzeButton;
+            document.getElementById('spinner').textContent = t.loading;
+            const out = document.getElementById('output');
+            if(out){
+                const prev = translations[prevLang];
+                const content = out.innerHTML.trim();
+                if(!content || content === prev.resultsPlaceholder || content === prev.clickFind){
+                    out.textContent = t.resultsPlaceholder;
+                }
+            }
+            document.getElementById('disclaimer').innerHTML = t.disclaimer;
+        }
+        function beispielEinfuegen(){
+            const sel=document.getElementById('beispielSelect');
+            const val=sel.value;
+            const ta=document.getElementById('userInput');
+            if(val && ta){
+                ta.value=val;
+                const out=document.getElementById('output');
+                if(out) out.innerHTML=translations[currentLang].clickFind;
             }
         }
-        document.addEventListener('DOMContentLoaded', () => {
-            const outputDiv = document.getElementById('output');
-            if (outputDiv) outputDiv.innerHTML = "";
-            const selectElement = document.getElementById('beispielSelect');
-            if(selectElement) selectElement.selectedIndex = 0;
-        });
+        function initLanguage(){
+            const stored=localStorage.getItem('language');
+            let lang=stored||navigator.language.slice(0,2).toLowerCase();
+            if(!['de','fr','it'].includes(lang)) lang='de';
+            const sel=document.getElementById('languageSelect');
+            if(sel) sel.value=lang;
+            applyLanguage(lang);
+            const out=document.getElementById('output');
+            if(out) out.innerHTML='';
+            const selB=document.getElementById('beispielSelect');
+            if(selB) selB.selectedIndex=0;
+        }
+        document.getElementById('languageSelect').addEventListener('change',e=>applyLanguage(e.target.value));
+        document.addEventListener('DOMContentLoaded',initLanguage);
     </script>
 </body>
 </html>

@@ -10,8 +10,13 @@ import requests
 from dotenv import load_dotenv
 import regelpruefer # Dein Modul
 from typing import Dict, List, Any, Set, Tuple, Callable # Tuple und Callable hinzugefügt
-from utils import get_table_content # Angenommen, diese Funktion existiert in utils.py
+from utils import (
+    get_table_content,
+    translate_rule_error_message,
+    expand_compound_words,
+)
 import html
+from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
 
 import logging
 import sys
@@ -26,7 +31,8 @@ logger = logging.getLogger('app') # Create a logger instance
 load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
-# GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.0-flash")
+# Wollen wir später testen
+# GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.5-flash-lite-preview-06-17")
 DATA_DIR = Path("data")
 LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
 TARDOC_TARIF_PATH = DATA_DIR / "TARDOC_Tarifpositionen.json"
@@ -38,14 +44,20 @@ TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 
 # --- Typ-Aliase für Klarheit ---
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
-CheckPauschaleConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]], Dict[str, Dict[Any, Any]]], Dict[str, Any]]
-GetSimplifiedConditionsType = Callable[[str, List[Dict[Any, Any]]], Set[Any]]
-GenerateConditionDetailHtmlType = Callable[[Tuple[Any, ...], Dict[Any, Any], Dict[Any, Any]], str]
-DetermineApplicablePauschaleType = Callable[
-    [str, List[Dict[str, Any]], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[str, List[Dict[str, Any]]], Set[str]],
+CheckPauschaleConditionsType = Callable[
+    [str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]], Dict[str, Dict[Any, Any]], str],
     Dict[str, Any]
 ]
-PrepareTardocAbrechnungType = Callable[[List[Dict[Any,Any]], Dict[str, Dict[Any,Any]]], Dict[str,Any]]
+GetSimplifiedConditionsType = Callable[[str, List[Dict[Any, Any]]], Set[Any]]
+GenerateConditionDetailHtmlType = Callable[
+    [Tuple[Any, ...], Dict[Any, Any], Dict[Any, Any], str],
+    str,
+]
+DetermineApplicablePauschaleType = Callable[
+    [str, List[Dict[str, Any]], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[str, List[Dict[str, Any]]], Set[str], str],
+    Dict[str, Any]
+]
+PrepareTardocAbrechnungType = Callable[[List[Dict[Any,Any]], Dict[str, Dict[Any,Any]], str], Dict[str,Any]]
 
 # --- Standard-Fallbacks für Funktionen aus regelpruefer_pauschale ---
 def default_evaluate_fallback( # Matches: evaluate_structured_conditions(pauschale_code: str, context: Dict, pauschale_bedingungen_data: List[Dict], tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool
@@ -57,12 +69,13 @@ def default_evaluate_fallback( # Matches: evaluate_structured_conditions(pauscha
     print("WARNUNG: Fallback für 'evaluate_structured_conditions' aktiv.")
     return False
 
-def default_check_html_fallback( # Matches: check_pauschale_conditions(pauschale_code: str, context: dict, pauschale_bedingungen_data: list[dict], tabellen_dict_by_table: Dict[str, List[Dict]], leistungskatalog_dict: Dict[str, Dict]) -> dict
+def default_check_html_fallback(
     pauschale_code: str,
     context: Dict[Any, Any],
     pauschale_bedingungen_data: List[Dict[Any, Any]],
     tabellen_dict_by_table: Dict[str, List[Dict[Any, Any]]],
-    leistungskatalog_dict: Dict[str, Dict[Any, Any]]
+    leistungskatalog_dict: Dict[str, Dict[Any, Any]],
+    lang: str = 'de'
 ) -> Dict[str, Any]:
     print("WARNUNG: Fallback für 'check_pauschale_conditions' aktiv.")
     return {"html": "HTML-Prüfung nicht verfügbar (Fallback)", "errors": ["Fallback aktiv"], "trigger_lkn_condition_met": False}
@@ -75,9 +88,10 @@ def default_get_simplified_conditions_fallback( # Matches: get_simplified_condit
     return set()
 
 def default_generate_condition_detail_html_fallback(
-    condition_tuple: Tuple[Any, ...], # Name aus Pylance-Fehler
-    leistungskatalog_dict: Dict[Any, Any], # Name aus Pylance-Fehler
-    tabellen_dict_by_table: Dict[Any, Any] # Name aus Pylance-Fehler
+    condition_tuple: Tuple[Any, ...],
+    leistungskatalog_dict: Dict[Any, Any],
+    tabellen_dict_by_table: Dict[Any, Any],
+    lang: str = 'de',
 ) -> str:
     print("WARNUNG: Fallback für 'generate_condition_detail_html' aktiv.")
     return "<li>Detail-Generierung fehlgeschlagen (Fallback)</li>"
@@ -90,7 +104,8 @@ def default_determine_applicable_pauschale_fallback(
     pauschalen_dict_param: Dict[str, Any],
     leistungskatalog_dict_param: Dict[str, Any],
     tabellen_dict_by_table_param: Dict[str, List[Dict[str, Any]]],
-    potential_pauschale_codes_set_param: Set[str]
+    potential_pauschale_codes_set_param: Set[str],
+    lang_param: str = 'de'
 ) -> Dict[str, Any]:
     print("WARNUNG: Fallback für 'determine_applicable_pauschale' aktiv.")
     return {"type": "Error", "message": "Pauschalen-Hauptprüfung nicht verfügbar (Fallback)"}
@@ -114,12 +129,12 @@ try:
         print("DEBUG: 'prepare_tardoc_abrechnung' aus regelpruefer.py zugewiesen.")
     else:
         print("FEHLER: 'prepare_tardoc_abrechnung' NICHT in regelpruefer.py gefunden! Verwende Fallback.")
-        def prepare_tardoc_lkn_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]]) -> Dict[str,Any]:
+        def prepare_tardoc_lkn_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
             return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Funktion fehlt)"}
         prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_fb
 except ImportError:
     print("FEHLER: regelpruefer.py nicht gefunden! Verwende Fallbacks für LKN-Regelprüfung.")
-    def prepare_tardoc_lkn_import_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]]) -> Dict[str,Any]:
+    def prepare_tardoc_lkn_import_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
         return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Modulimportfehler)"}
     prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_import_fb
 
@@ -298,78 +313,13 @@ app = Flask(__name__, static_folder='.', static_url_path='') # Flask App Instanz
 # Die App-Instanz, auf die Gunicorn zugreift
 app: Flask = create_app()
 
+
+
 # --- LLM Stufe 1: LKN Identifikation ---
-def call_gemini_stage1(user_input: str, katalog_context: str) -> dict:
+def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") -> dict:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
+    prompt = get_stage1_prompt(user_input, katalog_context, lang)
 
-    prompt = f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine Aufgabe ist die Identifikation relevanter Leistungs-Katalog-Nummern (LKN), deren Menge und die Extraktion spezifischer Kontextinformationen basierend **ausschließlich** auf dem bereitgestellten LKAAT_Leistungskatalog.
-
-**Kontext: LKAAT_Leistungskatalog (Dies ist die EINZIGE Quelle für gültige LKNs und deren Beschreibungen! Ignoriere jegliches anderes Wissen.)**
---- Leistungskatalog Start ---
-{katalog_context}
---- Leistungskatalog Ende ---
-
-**Anweisungen:** Führe die folgenden Schritte exakt aus:
-
-1.  **LKN Identifikation & STRIKTE Validierung:**
-    *   Lies den "Behandlungstext" sorgfältig.
-    *   Identifiziere **alle** potenziellen LKN-Codes (Format `XX.##.####`), die die beschriebenen Tätigkeiten repräsentieren könnten.
-    *   Bedenke, dass im Text mehrere Leistungen dokumentiert  mehrere LKNs gültig sein können (z.B. chirurgischer Eingriff PLUS/und/mit/;/./, Anästhesie).
-    *   Wird eine Anästhesie oder Narkose durch einen Anästhesisten erwähnt, aber es fehlen genaue Angaben zur Aufwandklasse oder Dauer, darfst du eine generische Anästhesie‑LKN wählen. Nutze hierfür in der Regel `WA.05.0020`. Wenn eine konkrete Anästhesiezeit in Minuten genannt wird, verwende stattdessen die entsprechende `WA.10.00x0`‑LKN.
-    *   **ABSOLUT KRITISCH:** Für JEDEN potenziellen LKN-Code: Überprüfe **BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER**, ob dieser Code **EXAKT** so im obigen "Leistungskatalog" als 'LKN:' vorkommt. Nur wenn der LKN-Code exakt existiert, prüfe, ob die **zugehörige Katalog-Beschreibung** zur im Text genannten Tätigkeit passt.
-    *   Erstelle eine Liste (`identified_leistungen`) **AUSSCHLIESSLICH** mit den LKNs, die diese **exakte** Prüfung im Katalog bestanden haben UND deren Beschreibung zum Text passt.
-    *   Erkenne, ob es sich um hausärztliche Leistungen im Kapitel CA handelt.
-
-2.  **Typ & Beschreibung hinzufügen:**
-    *   Füge für jede **validierte** LKN in der `identified_leistungen`-Liste den korrekten `typ` und die `beschreibung` **direkt und unverändert aus dem bereitgestellten Katalogkontext für DIESE LKN** hinzu.
-
-3.  **Kontextinformationen extrahieren (KRITISCH für Zusatzbedingungen):**
-    *   Extrahiere **nur explizit genannte** Werte aus dem "Behandlungstext":
-        *   `dauer_minuten` (Zahl, z.B. für Konsultationen)
-        *   `menge_allgemein` (Zahl, z.B. "3 Warzen entfernt")
-        *   `alter` (Zahl, Alter des Patienten)
-        *   `geschlecht` ('weiblich', 'männlich', 'divers', 'unbekannt')
-        *   `seitigkeit` (String: 'einseitig', 'beidseits', 'links', 'rechts', 'unbekannt'. Leite 'beidseits' auch von "bds." oder "beide Augen" etc. ab. Wenn keine Angabe, dann 'unbekannt'.)
-        *   `anzahl_prozeduren` (Zahl: Falls eine Anzahl von Eingriffen genannt wird, die nicht direkt die Menge einer einzelnen LKN ist, z.B. "zwei Injektionen". Wenn nicht explizit genannt, dann `null`.)
-    *   Wenn ein Wert nicht explizit genannt wird, setze ihn auf `null` (außer `seitigkeit`, die 'unbekannt' sein kann).
-
-4.  **Menge bestimmen (pro validierter LKN):**
-    *   Standardmenge ist `1`.
-    *   **Zeitbasiert:** Wenn Katalog-Beschreibung "pro X Min" enthält UND `dauer_minuten` (Y) extrahiert wurde, setze `menge` = Y.
-    *   **Allgemein:** Wenn `menge_allgemein` (Z) extrahiert wurde UND LKN nicht zeitbasiert ist UND `anzahl_prozeduren` `null` ist (oder nicht passt), setze `menge` = Z.
-    *   **Spezifische Anzahl Prozeduren:** Wenn `anzahl_prozeduren` extrahiert wurde und sich klar auf die aktuelle LKN bezieht (z.B. "zwei Injektionen" und LKN ist Injektion), setze `menge` = `anzahl_prozeduren`. Dies hat Vorrang vor `menge_allgemein` für diese LKN.
-    *   Sicherstellen: `menge` >= 1.
-
-5.  **Begründung:**
-    *   **Kurze** `begruendung_llm`, warum die **validierten** LKNs gewählt wurden. Beziehe dich auf Text und **Katalog-Beschreibungen**.
-
-**Output-Format:** **NUR** valides JSON, **KEIN** anderer Text.
-```json
-{{
-  "identified_leistungen": [
-    {{
-      "lkn": "VALIDIERTE_LKN_1",
-      "typ": "TYP_AUS_KATALOG_1",
-      "beschreibung": "BESCHREIBUNG_AUS_KATALOG_1",
-      "menge": MENGE_ZAHL_LKN_1
-    }}
-  ],
-  "extracted_info": {{
-    "dauer_minuten": null,
-    "menge_allgemein": null,
-    "alter": null,
-    "geschlecht": null,
-    "seitigkeit": "unbekannt",
-    "anzahl_prozeduren": null
-  }},
-  "begruendung_llm": "<Begründung>"
-}}
-
-Wenn absolut keine passende LKN aus dem Katalog gefunden wird, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
-
-Behandlungstext: "{user_input}"
-
-JSON-Antwort:"""
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
@@ -562,7 +512,7 @@ JSON-Antwort:"""
         traceback.print_exc()
         raise e
 
-def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_pauschal_lkns: Dict[str, str]) -> str | None:
+def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_pauschal_lkns: Dict[str, str], lang: str = "de") -> str | None:
     if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
     if not candidate_pauschal_lkns:
         print(f"WARNUNG (Mapping): Keine Kandidaten-LKNs für Mapping von {tardoc_lkn} übergeben.")
@@ -573,30 +523,7 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
         print(f"WARNUNG (Mapping): Kandidatenliste für {tardoc_lkn} zu lang ({len(candidates_text)} Zeichen), wird gekürzt.")
         candidates_text = candidates_text[:15000] + "\n..." # Einfache Kürzung
 
-    prompt = f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für die gegebene TARDOC-Einzelleistung (Typ E/EZ) die funktional **äquivalente** Leistung aus der "Kandidatenliste" zu finden. Die Kandidatenliste enthält LKNs (aller Typen, oft P/PZ), die als Bedingungen in potenziell relevanten Pauschalen vorkommen.
-
-**Gegebene TARDOC-Leistung (Typ E/EZ):**
-*   LKN: {tardoc_lkn}
-*   Beschreibung: {tardoc_desc}
-*   Kontext: Diese Leistung (z.B. eine spezifische Anästhesie) wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
-
-**Mögliche Äquivalente (Kandidatenliste - LKNs für Pauschalen-Bedingungen):**
-Finde aus DIESER spezifischen Liste die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** wie die gegebene TARDOC-Leistung beschreibt (z.B. `AG.*` entspricht oft einer `WA.*`-LKN).
---- Kandidaten Start ---
-{candidates_text}
---- Kandidaten Ende ---
-
-**Analyse & Entscheidung:**
-1.  Verstehe die **medizinische Kernfunktion** der gegebenen TARDOC-Leistung (z.B. "Anästhesie", "Bildgebung", "Laboranalyse").
-2.  Identifiziere die Kandidaten-LKN aus der Liste, die diese Kernfunktion am besten repräsentiert. Achte auf spezifische Übereinstimmungen (z.B. Anästhesie-Typ).
-3.  Priorisiere nach Passgenauigkeit, falls mehrere Kandidaten sehr ähnlich sind. Die spezifischste Übereinstimmung zuerst.
-
-**Antwort:**
-*   Gib eine **reine, kommagetrennte Liste** der LKN-Codes der passenden Kandidaten zurück. Beispiel: `WA.10.0010,WA.10.0020,WA.10.0030`
-*   Wenn **keine** der Kandidaten-LKNs funktional passt, gib exakt das Wort `NONE` zurück.
-*   Gib **absolut keinen anderen Text, keine Erklärungen, keine JSON-Formatierung oder Markdown** aus. NUR die reine Code-Liste (z.B. `CODE1,CODE2`) oder das Wort `NONE`.
-
-Priorisierte Liste der besten Kandidaten-LKNs (nur reine kommagetrennte Liste oder NONE):"""
+    prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
@@ -679,24 +606,14 @@ Priorisierte Liste der besten Kandidaten-LKNs (nur reine kommagetrennte Liste od
         return None
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
-def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str) -> list[str]:
-    if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
-    prompt = f"""Basierend auf dem folgenden Behandlungstext, welche der unten aufgeführten Pauschalen passt inhaltlich am besten?
-Berücksichtige die Beschreibung der Pauschale ('Pauschale_Text').
-Gib eine priorisierte Liste der Pauschalen-Codes zurück, beginnend mit der besten Übereinstimmung.
-Gib NUR die Pauschalen-Codes als kommagetrennte Liste zurück (z.B. "CODE1,CODE2,CODE3"). KEINE Begründung oder anderen Text.
+def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, lang: str = "de") -> list[str]:
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
 
-Behandlungstext: "{user_input}"
-
-Potenzielle Pauschalen:
---- Pauschalen Start ---
-{potential_pauschalen_text}
---- Pauschalen Ende ---
-
-Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
+    prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    payload = { "contents": [{"parts": [{"text": prompt}]}], "generationConfig": { "temperature": 0.1, "maxOutputTokens": 500 } }
+    payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500}}
     print(f"Sende Anfrage Stufe 2 (Ranking) an Gemini Model: {GEMINI_MODEL}...")
     try:
         response = requests.post(gemini_url, json=payload, timeout=45)
@@ -839,6 +756,41 @@ def get_LKNs_from_pauschalen_conditions(
 # Falls sie eine andere Logik hatte (z.B. alle Pauschalen durchsucht, nicht nur die potenziellen),
 # müsste sie wiederhergestellt und angepasst werden.
 
+def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
+    """Suche in den Pauschalen nach dem Stichwort und liefere Code + LKNs."""
+    if not keyword:
+        return []
+
+    pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+    results: List[Dict[str, Any]] = []
+    for code, data in pauschalen_dict.items():
+        text_de = data.get("Pauschale_Text", "")
+        text_fr = data.get("Pauschale_Text_f", "")
+        text_it = data.get("Pauschale_Text_i", "")
+        if any(pattern.search(str(t) or "") for t in [text_de, text_fr, text_it]):
+            lkns: Set[str] = set()
+            for cond in pauschale_bedingungen_data:
+                if cond.get("Pauschale") != code:
+                    continue
+                typ = str(cond.get("Bedingungstyp", "")).upper()
+                werte = cond.get("Werte", "")
+                if not werte:
+                    continue
+                if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+                    lkns.update(l.strip().upper() for l in str(werte).split(',') if l.strip())
+                elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+                    for table_name in (t.strip() for t in str(werte).split(',') if t.strip()):
+                        for item in get_table_content(table_name, "service_catalog", tabellen_dict_by_table):
+                            code_item = item.get('Code')
+                            if code_item:
+                                lkns.add(str(code_item).upper())
+            results.append({
+                "code": code,
+                "text": text_de,
+                "lkns": sorted(lkns)
+            })
+    return results
+
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
@@ -864,6 +816,9 @@ def analyze_billing():
     if not request.is_json: return jsonify({"error": "Request must be JSON"}), 400
     data = request.get_json() # This is fine now, as we've logged the rawish data already
     user_input = data.get('inputText', "") # Default zu leerem String
+    lang = data.get('lang', 'de')
+    if lang not in ['de', 'fr', 'it']:
+        lang = 'de'
     icd_input_raw = data.get('icd', [])
     gtin_input_raw = data.get('gtin', [])
     use_icd_flag = data.get('useIcd', True)
@@ -893,13 +848,19 @@ def analyze_billing():
 
     llm_stage1_result: Dict[str, Any] = {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": ""}
     try:
-        katalog_context_parts = [
-            f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {html.escape(str(details.get('Beschreibung', 'N/A')))}" # str() für Beschreibung
-            for lkn_code, details in leistungskatalog_dict.items() # Globale Variable hier OK
-        ]
+        katalog_context_parts = []
+        for lkn_code, details in leistungskatalog_dict.items():
+            raw_desc = str(details.get("Beschreibung", "N/A"))
+            expanded_desc = expand_compound_words(raw_desc)
+            katalog_context_parts.append(
+                f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {html.escape(expanded_desc)}"
+            )
         katalog_context_str = "\n".join(katalog_context_parts)
-        if not katalog_context_str: raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
-        llm_stage1_result = call_gemini_stage1(user_input, katalog_context_str)
+        if not katalog_context_str:
+            raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
+
+        preprocessed_input = expand_compound_words(user_input)
+        llm_stage1_result = call_gemini_stage1(preprocessed_input, katalog_context_str, lang)
     except ConnectionError as e: print(f"FEHLER: Verbindung zu LLM1 fehlgeschlagen: {e}"); return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
     except ValueError as e: print(f"FEHLER: Verarbeitung LLM1 fehlgeschlagen: {e}"); return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400
     except Exception as e: print(f"FEHLER: Unerwarteter Fehler bei LLM1: {e}"); traceback.print_exc(); return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500
@@ -941,10 +902,70 @@ def analyze_billing():
         elif any(l.get('lkn') == "C02.CP.0100" and l.get('menge') == 1 for l in final_validated_llm_leistungen):
              anzahl_fuer_pauschale_context = 2; print(f"INFO (Heuristik C02.CP.0100): 'Anzahl' für Pauschale auf 2 gesetzt.")
 
+    finale_abrechnung_obj: Dict[str, Any] | None = None
+    fallback_pauschale_search = False
+
+    if not final_validated_llm_leistungen:
+        fallback_pauschale_search = True
+        try:
+            kandidaten_liste = search_pauschalen(user_input)
+
+            kandidaten_text = "\n".join(
+                f"{k['code']}: {k['text']}" for k in kandidaten_liste
+            )
+            ranking_codes = call_gemini_stage2_ranking(user_input, kandidaten_text, lang)
+        except ConnectionError as e_rank:
+            print(f"FEHLER: Verbindung zu LLM Stufe 2 (Ranking) im Fallback: {e_rank}")
+            ranking_codes = []
+        except Exception as e_rank_gen:
+            print(f"FEHLER beim Fallback-Ranking: {e_rank_gen}")
+            traceback.print_exc()
+            ranking_codes = []
+
+        potential_pauschale_codes_set: Set[str] = set(ranking_codes)
+        if potential_pauschale_codes_set:
+            pauschale_haupt_pruef_kontext = {
+                "ICD": icd_input,
+                "GTIN": gtin_input,
+                "Alter": alter_context_val,
+                "Geschlecht": geschlecht_context_val,
+                "useIcd": use_icd_flag,
+                "LKN": [],
+                "Seitigkeit": seitigkeit_context_val,
+                "Anzahl": anzahl_fuer_pauschale_context,
+            }
+            try:
+                pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
+                    user_input,
+                    [],
+                    pauschale_haupt_pruef_kontext,
+                    pauschale_lp_data,
+                    pauschale_bedingungen_data,
+                    pauschalen_dict,
+                    leistungskatalog_dict,
+                    tabellen_dict_by_table,
+                    potential_pauschale_codes_set,
+                    lang,
+                )
+                finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
+                if finale_abrechnung_obj.get("type") == "Pauschale":
+                    print(
+                        f"INFO: Fallback-Pauschale gefunden: {finale_abrechnung_obj.get('details', {}).get('Pauschale')}"
+                    )
+                else:
+                    print(
+                        f"INFO: Fallback-Pauschalenprüfung ohne Treffer. Grund: {finale_abrechnung_obj.get('message', 'Unbekannt')}"
+                    )
+            except Exception as e_pausch_fb:
+                print(f"FEHLER bei Pauschalen-Fallback-Prüfung: {e_pausch_fb}")
+                traceback.print_exc()
+                finale_abrechnung_obj = None
+
     regel_ergebnisse_details_list: List[Dict[str, Any]] = []
     rule_checked_leistungen_list: List[Dict[str, Any]] = []
     if not final_validated_llm_leistungen:
-         regel_ergebnisse_details_list.append({"lkn": None, "initiale_menge": 0, "regelpruefung": {"abrechnungsfaehig": False, "fehler": ["Keine LKN vom LLM identifiziert/validiert."]}, "finale_menge": 0})
+         msg_none = translate_rule_error_message("Keine LKN vom LLM identifiziert/validiert.", lang)
+         regel_ergebnisse_details_list.append({"lkn": None, "initiale_menge": 0, "regelpruefung": {"abrechnungsfaehig": False, "fehler": [msg_none]}, "finale_menge": 0})
     else:
         alle_lkn_codes_fuer_regelpruefung = [str(l.get("lkn")) for l in final_validated_llm_leistungen if l.get("lkn")] # Sicherstellen, dass es Strings sind
         for leistung_data in final_validated_llm_leistungen:
@@ -1003,13 +1024,15 @@ def analyze_billing():
                 except Exception as e_rule: print(f"FEHLER bei Regelprüfung für LKN {lkn_code}: {e_rule}"); traceback.print_exc(); regel_ergebnis_dict = {"abrechnungsfaehig": False, "fehler": [f"Interner Fehler bei Regelprüfung: {e_rule}"]}
             else: print(f"WARNUNG: Keine Regelprüfung für LKN {lkn_code} durchgeführt (Regelprüfer oder Regelwerk fehlt)."); regel_ergebnis_dict = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht verfügbar."]}
             
+            if lang in ["fr", "it"]:
+                regel_ergebnis_dict["fehler"] = [translate_rule_error_message(m, lang) for m in regel_ergebnis_dict.get("fehler", [])]
+
             regel_ergebnisse_details_list.append({"lkn": lkn_code, "initiale_menge": menge_initial_val, "regelpruefung": regel_ergebnis_dict, "finale_menge": finale_menge_nach_regeln})
             if regel_ergebnis_dict.get("abrechnungsfaehig") and finale_menge_nach_regeln > 0:
                 rule_checked_leistungen_list.append({**leistung_data, "menge": finale_menge_nach_regeln})
     rule_time = time.time(); print(f"Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
     print(f"Regelkonforme Leistungen für Pauschalenprüfung: {[l['lkn']+' (Menge '+str(l['menge'])+')' for l in rule_checked_leistungen_list]}")
 
-    finale_abrechnung_obj: Dict[str, Any] | None = None # Kann None sein
     llm_stage2_mapping_results: Dict[str, Any] = { "mapping_results": [] }
 
     hat_pauschalen_potential_nach_regeln = any(l.get('typ') in ['P', 'PZ'] for l in rule_checked_leistungen_list)
@@ -1091,7 +1114,7 @@ def analyze_billing():
 
                     if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
                         try:
-                            mapped_target_lkn_code = call_gemini_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm)
+                            mapped_target_lkn_code = call_gemini_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
                             if mapped_target_lkn_code:
                                 mapped_lkn_codes_set.add(mapped_target_lkn_code)
                                 # print(f"INFO: LKN-Mapping: {t_lkn_code} -> {mapped_target_lkn_code}")
@@ -1129,8 +1152,9 @@ def analyze_billing():
                     # KORREKTUR: Aufruf über die Funktionsvariable determine_applicable_pauschale_func
                     pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
                         user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
-                        pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict, # Globale Variablen
-                        leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set # Globale Variablen
+                        pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                        leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set,
+                        lang
                     )
                     finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
                     if finale_abrechnung_obj.get("type") == "Pauschale": print(f"INFO: Anwendbare Pauschale gefunden: {finale_abrechnung_obj.get('details',{}).get('Pauschale')}")
@@ -1142,7 +1166,7 @@ def analyze_billing():
     if finale_abrechnung_obj is None or finale_abrechnung_obj.get("type") != "Pauschale":
         print("INFO: Keine gültige Pauschale ausgewählt oder Prüfung übersprungen. Bereite TARDOC-Abrechnung vor.")
         # prepare_tardoc_abrechnung_func wurde oben initialisiert (entweder echt oder Fallback)
-        finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict) # Globale Variable
+        finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
 
     decision_time = time.time(); print(f"Zeit nach finaler Entscheidung: {decision_time - start_time:.2f}s (seit Start)")
     final_response_payload = {
@@ -1151,6 +1175,8 @@ def analyze_billing():
         "abrechnung": finale_abrechnung_obj,
         "llm_ergebnis_stufe2": llm_stage2_mapping_results
     }
+    if fallback_pauschale_search:
+        final_response_payload["fallback_pauschale_search"] = True
     end_time = time.time(); total_time = end_time - start_time
     print(f"Gesamtverarbeitungszeit Backend: {total_time:.2f}s")
     print(f"INFO: Sende finale Antwort Typ '{finale_abrechnung_obj.get('type') if finale_abrechnung_obj else 'None'}' an Frontend.")
