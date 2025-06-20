@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-.env
-*.zip 
-*.tar.gz 
-# Andere temporäre oder lokale Dateien/Ordner
