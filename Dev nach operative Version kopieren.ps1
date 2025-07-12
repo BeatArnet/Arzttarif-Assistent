@@ -7,12 +7,12 @@
 
 param(
     [string]$DevPath  = $PSScriptRoot,
-    [string]$ProdPath = "C:\Repos\Arzttarif-Assistent",
+    [string]$ProdPath = "C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent",
     [string]$Branch   = "main"
 )
 
 $RepoUrl = "https://github.com/BeatArnet/Arzttarif-Assistent"
-$Version = "v1.2"
+$Version = "v2.0"
 
 if (-not (Test-Path $DevPath)) {
     Write-Error "Entwicklungsverzeichnis '$DevPath' wurde nicht gefunden."
