@@ -159,14 +159,14 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
     *   Stelle sicher, dass `requirements.txt` existiert und `Flask`, `requests`, `python-dotenv`, `gunicorn` enthält.
     *   Erstelle eine `Procfile`-Datei im Stammverzeichnis:
         ```
-        web: gunicorn server:app --timeout 120
+        web: gunicorn server:app --timeout 120 --workers 1
         ```
     *   Initialisiere Git LFS im Repository, falls noch nicht geschehen (`git lfs install`), und verfolge die JSON-Dateien im `data`-Ordner (`git lfs track "data/*.json"`). Committe `.gitattributes` und die Pointer-Dateien.
     *   Stelle sicher, dass `.env` in `.gitignore` ist.
 2.  **Render.com Setup:**
     *   Erstelle einen neuen "Web Service" auf Render.com und verbinde dein Git-Repository.
     *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `gunicorn server:app --timeout 120`
+    *   **Start Command:** `gunicorn server:app --timeout 120 --workers 1` 
     *   **Environment Variables:** Setze `GEMINI_API_KEY` (und optional `PYTHON_VERSION`, `GEMINI_MODEL`) im Render.com Dashboard.
 3.  **Deployment:** Pushe deine Änderungen. Render.com sollte automatisch deployen und Git LFS-Dateien korrekt behandeln.
 
