@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qualitätskontrolle</title>
+    <link rel="icon" href="favicon-32.png" type="image/png">
+    <style>
+        body {font-family: sans-serif; padding:20px; background:#E6F0FA; color:#333;}
+        table {border-collapse: collapse; width:100%; max-width:900px; margin-bottom:20px;}
+        th, td {border:1px solid #ccc; padding:8px;}
+        th {background:#f0f0f0;}
+        button {padding:6px 10px; cursor:pointer;}
+    </style>
+</head>
+<body>
+    <h1 id="qcHeader">Qualitätskontrolle</h1>
+    <table id="exampleTable">
+        <thead>
+            <tr><th>ID</th><th>Beispiel</th><th>Aktion</th><th>Ergebnis DE</th><th>Ergebnis FR</th><th>Ergebnis IT</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <button id="testAllBtn">Alle Beispiele testen</button>
+    <div id="overallSummary"></div>
+
+    <script src="quality.js"></script>
+</body>
+</html>

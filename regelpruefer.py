@@ -5,9 +5,12 @@ Modul zur Prüfung der Abrechnungsregeln (Regelwerk) für TARDOC-Leistungen
 und der Bedingungen für Pauschalen.
 """
 import json
-import re # Importiere Regex für Mengenanpassung
+import logging
+import re  # Importiere Regex für Mengenanpassung
 from typing import Dict, List
 from utils import get_lang_field
+
+logger = logging.getLogger(__name__)
 
 # --- Konstanten für Regeltypen (zur besseren Lesbarkeit) ---
 REGEL_MENGE = "Mengenbeschränkung"
@@ -38,19 +41,27 @@ def lade_regelwerk(path: str) -> dict:
         for entry in data:
             lkn = entry.get("LKN")
             if not lkn:
-                print(f"WARNUNG: Regelobjekt ohne LKN gefunden: {entry}")
+                logger.warning("WARNUNG: Regelobjekt ohne LKN gefunden: %s", entry)
                 continue
             rules = entry.get("Regeln") or []
             mapping[lkn] = rules
         return mapping
     except FileNotFoundError:
-        print(f"FEHLER: Regelwerk-Datei nicht gefunden: {path}")
+        logger.error("FEHLER: Regelwerk-Datei nicht gefunden: %s", path)
         return {}
     except json.JSONDecodeError as e:
-        print(f"FEHLER: Fehler beim Parsen der Regelwerk-JSON-Datei '{path}': {e}")
+        logger.error(
+            "FEHLER: Fehler beim Parsen der Regelwerk-JSON-Datei '%s': %s",
+            path,
+            e,
+        )
         return {}
     except Exception as e:
-        print(f"FEHLER: Unerwarteter Fehler beim Laden des Regelwerks '{path}': {e}")
+        logger.error(
+            "FEHLER: Unerwarteter Fehler beim Laden des Regelwerks '%s': %s",
+            path,
+            e,
+        )
         return {}
 
 # --- Hauptfunktion zur Regelprüfung für LKNs ---
@@ -151,8 +162,12 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
                  condition_met = any(req in provided_gtins_str for req in required_gtins)
                  if not condition_met: errors.append(f"{bedingung_text}: Erwartet einen von {required_gtins}, nicht gefunden")
             else:
-                 print(f"WARNUNG: Unbekanntes Feld '{field}' für Patientenbedingung bei LKN {lkn}.")
-                 condition_met = True # Unbekannte Felder ignorieren? Oder Fehler? Hier: Ignorieren
+                logger.warning(
+                    "WARNUNG: Unbekanntes Feld '%s' für Patientenbedingung bei LKN %s.",
+                    field,
+                    lkn,
+                )
+                condition_met = True  # Unbekannte Felder ignorieren? Oder Fehler? Hier: Ignorieren
 
             if not condition_met: allowed = False
 
@@ -180,18 +195,24 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
 
         # --- Unbekannter Regeltyp ---
         else:
-            print(f"WARNUNG: Unbekannter Regeltyp '{typ}' für LKN {lkn} ignoriert.")
+            logger.warning(
+                "WARNUNG: Unbekannter Regeltyp '%s' für LKN %s ignoriert.",
+                typ,
+                lkn,
+            )
             continue
 
     return {"abrechnungsfaehig": allowed, "fehler": errors}
 
 
-def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict, lang: str = 'de') -> dict:
+def prepare_tardoc_abrechnung(
+    regel_ergebnisse_liste: list[dict], leistungskatalog_dict: dict, lang: str = 'de'
+) -> dict:
     """
     Filtert regelkonforme TARDOC-Leistungen (Typ E/EZ) aus den Regelergebnissen
     und bereitet die Liste für die Frontend-Antwort vor.
     """
-    print("INFO (regelpruefer): TARDOC-Abrechnung wird vorbereitet...")
+    logger.info("INFO (regelpruefer): TARDOC-Abrechnung wird vorbereitet...")
     tardoc_leistungen_final = []
     LKN_KEY = 'lkn'; MENGE_KEY = 'finale_menge'
 
@@ -213,11 +234,16 @@ def prepare_tardoc_abrechnung(regel_ergebnisse_liste: list[dict], leistungskatal
                 "beschreibung": get_lang_field(lkn_info, "Beschreibung", lang) or ""
             })
         elif not lkn_info:
-             print(f"WARNUNG (prepare_tardoc): Details für LKN {lkn} nicht im Leistungskatalog gefunden.")
+            logger.warning(
+                "WARNUNG (prepare_tardoc): Details für LKN %s nicht im Leistungskatalog gefunden.",
+                lkn,
+            )
 
     if not tardoc_leistungen_final:
         return {"type": "Error", "message": "Keine abrechenbaren TARDOC-Leistungen nach Regelprüfung gefunden."}
     else:
-        print(f"INFO (regelpruefer): {len(tardoc_leistungen_final)} TARDOC-Positionen zur Abrechnung vorbereitet.")
-        return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }
-    
+        logger.info(
+            "INFO (regelpruefer): %s TARDOC-Positionen zur Abrechnung vorbereitet.",
+            len(tardoc_leistungen_final),
+        )
+        return { "type": "TARDOC", "leistungen": tardoc_leistungen_final }    

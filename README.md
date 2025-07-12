@@ -9,6 +9,14 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 - `server.py` sowie das README verwenden diese neuen Namen; `index.html` weist nun die Version "V1.1" aus.
 - `utils.py` bietet ein Übersetzungssystem für Regelmeldungen und Condition-Typen in Deutsch, Französisch und Italienisch.
 - In `regelpruefer_pauschale.py` sorgt eine Operator-Präzedenzlogik für korrektes "UND vor ODER" bei strukturierten Bedingungen.
+- `evaluate_structured_conditions` unterstützt einen konfigurierbaren
+  `GruppenOperator` (Standard `UND`, einstellbar über
+  `DEFAULT_GROUP_OPERATOR` in `regelpruefer_pauschale.py`) für die Verknüpfung
+  der Bedingungsgruppen. Fehlt diese Spalte, wird der Operator heuristisch
+  bestimmt: Wenn mehrere Gruppen vorhanden sind und in der ersten Gruppe
+  mindestens eine Zeile den Operator `ODER` nutzt, gilt `ODER` global.
+- Optional kann ein `debug`-Flag genutzt werden, um die pro Gruppe erzeugten
+  Booleschen Ausdrücke samt Ergebnis auszugeben.
 - Die mehrsprachigen Prompts für LLM Stufe 1 und Stufe wurden in  `prompts.py` ausgelagert
 - Funktionale Erweiterung umfassen:
     - interaktive Info-Pop-ups, 
@@ -50,7 +58,7 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
 
 2.  **Backend (Python/Flask - `server.py`):**
     *   Empfängt Anfragen vom Frontend.
-    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini und dem lokalen `LKAAT_Leistungskatalog.json`. Validiert LKNs gegen den lokalen Katalog.
+    *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini. Der übergebene Ausschnitt aus `LKAAT_Leistungskatalog.json` wird nun anhand der Benutzereingabe gefiltert (max. 200 Treffer). Sehr häufige Wörter werden dabei ignoriert.
     *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln (Menge, Kumulation etc.) basierend auf den im TARDOC-Datensatz eingebetteten Regeldefinitionen.
     *   **Pauschalenpotenzial-Prüfung:** Stellt frühzeitig fest, ob aufgrund der von LLM Stufe 1 gefundenen LKN-Typen überhaupt eine Pauschale in Frage kommt.
     *   **Kontextanreicherung (LKN-Mapping - `call_gemini_stage2_mapping`):**
@@ -58,7 +66,12 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
         *   Versucht, TARDOC E/EZ-LKNs auf funktional äquivalente LKNs (oft Typ P/PZ) zu mappen, die als Bedingungen in den potenziellen Pauschalen vorkommen. Die Kandidatenliste für das Mapping wird dynamisch aus den Bedingungen der potenziell relevanten Pauschalen generiert.
     *   **Pauschalen-Anwendbarkeitsprüfung (`regelpruefer_pauschale.py`):**
         *   **Potenzielle Pauschalen finden:** Identifiziert mögliche Pauschalen basierend auf den regelkonformen LKNs (aus `rule_checked_leistungen`) unter Verwendung von `PAUSCHALEN_Leistungspositionen.json` und den LKN-Bedingungen in `PAUSCHALEN_Bedingungen.json`.
-        *   **Strukturierte Bedingungsprüfung (`evaluate_structured_conditions`):** Prüft für jede potenzielle Pauschale, ob ihre Bedingungsgruppen erfüllt sind (ODER zwischen Gruppen, innerhalb einer Gruppe gemäß dem `Operator` jeder Zeile mit `UND`-Vorrang). Berücksichtigt das `useIcd`-Flag.
+        *   **Strukturierte Bedingungsprüfung (`evaluate_structured_conditions`):** Prüft für jede potenzielle Pauschale, ob ihre Bedingungsgruppen erfüllt sind. Zwischen den Gruppen gilt ein konfigurierbarer `GruppenOperator` (Standard `UND`, siehe `DEFAULT_GROUP_OPERATOR`). Innerhalb einer Gruppe wird die Spalte `Operator` (`UND`/`ODER`) jeder Zeile beachtet und mit "UND vor ODER" ausgewertet. So lässt sich aus einer Zeilenfolge wie
+          1. `SEITIGKEIT = B` (Operator `ODER`)
+          2. `ANZAHL >= 2`  (Operator `UND`)
+          3. `LKN IN LISTE OP`
+          der Ausdruck `(SEITIGKEIT = B ODER ANZAHL >= 2) UND LKN IN LISTE OP` ableiten. Berücksichtigt wird zudem das `useIcd`-Flag.
+        *   Bei gesetztem `debug=True` gibt die Funktion die pro Gruppe generierten Booleschen Ausdrücke samt Ergebnis aus.
         *   **Auswahl der besten Pauschale (`determine_applicable_pauschale`):** Wählt aus den struktur-gültigen Pauschalen die "komplexeste passende" (niedrigster Suffix-Buchstabe, z.B. A vor B vor E) aus der bevorzugten Kategorie (spezifisch vor Fallback).
         *   Generiert detailliertes HTML für die Bedingungsprüfung und eine Begründung der Auswahl.
     *   **Entscheidung & TARDOC-Vorbereitung:** Entscheidet "Pauschale vor TARDOC". Wenn keine Pauschale anwendbar ist, bereitet es die TARDOC-Liste (`regelpruefer.prepare_tardoc_abrechnung`) vor.
@@ -69,6 +82,9 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
     *   `PAUSCHALEN_Leistungspositionen.json`: Direkte LKN-zu-Pauschale-Links.
     *   `PAUSCHALEN_Pauschalen.json`: Pauschalendefinitionen.
     *   `PAUSCHALEN_Bedingungen.json`: Strukturierte Bedingungen für Pauschalen.
+        Das Feld `BedingungsID` ist **nicht eindeutig**. Es dient lediglich als
+        Kennzeichen einer gemeinsamen Bedingungsvorlage, die in mehreren
+        Pauschalen verwendet wird.
     *   `PAUSCHALEN_Tabellen.json`: Nachschlagetabellen für Codes in Bedingungen.
     *   `TARDOC_Tarifpositionen.json`: Details und Regeldefinitionen für TARDOC-Einzelleistungen.
     *   `TARDOC_Interpretationen.json`: Erläuterungen und Kapiteltexte zu TARDOC-Positionen.
@@ -117,14 +133,21 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
     ```
     Es entsteht eine `*.clean.json`-Datei, die zum Testen verwendet werden kann.
 
-7.  **API-Schlüssel konfigurieren:**
+7.  **(Optional) Pauschalen-Tabellen exportieren:**
+    Nutze `export_pauschalen_table.py`, um binäre Werte in den Feldern
+    `Ebene` und `Gruppe` zu bereinigen.
+    ```bash
+    python export_pauschalen_table.py data/PAUSCHALEN_Bedingungen.json \
+        data/PAUSCHALEN_Bedingungen.clean.json
+    ```
+8.  **API-Schlüssel konfigurieren:**
     *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
     *   Füge deinen Google Gemini API-Schlüssel hinzu:
         ```env
         GEMINI_API_KEY="DEIN_API_SCHLUESSEL_HIER"
         # Optional: GEMINI_MODEL="gemini-1.5-pro-latest"
         ```
-8.  **Anwendung starten:**
+9.  **Anwendung starten:**
     ```bash
     python server.py
     ```
@@ -174,6 +197,36 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
 ├── Procfile               # Für Render.com
 └── favicon.ico / .svg     # Favicons
 ```
+
+## Qualitätstests
+
+Die Datei `data/beispiele.json` enthält fünfzehn Beispielabfragen in Deutsch,
+Französisch und Italienisch. Für jede Abfrage sind im
+`data/baseline_results.json` die erwarteten Tarife hinterlegt. Dort ist nun auch
+der Klartext der jeweiligen Frage gespeichert, sodass die passenden Baselines
+einfach gefunden werden können. Über `quality.html` lassen sich diese Beispiele
+gegen die Baselines testen. Die gleichen Tests können alternativ auf der
+Kommandozeile gestartet werden:
+
+```bash
+python run_quality_tests.py
+```
+Das Skript ruft für jedes Beispiel das Backend-Endpunkt `/api/test-example` auf
+und zeigt an, ob das Ergebnis mit dem Baseline-Wert übereinstimmt.
+
+## Unittests mit `pytest`
+
+Die Python-Tests liegen im Verzeichnis `tests/` und werden mit `pytest`
+ausgeführt. Vor dem Start der Tests müssen sämtliche Abhängigkeiten installiert
+sein:
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+Die Tests setzen unter anderem Flask und weitere Pakete aus der
+`requirements.txt` voraus.
 
 ## Disclaimer
 
