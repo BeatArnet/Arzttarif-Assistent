@@ -10,8 +10,14 @@ let data_pauschaleBedingungen = [];
 let data_tardocGesamt = [];
 let data_tabellen = [];
 let data_interpretationen = {};
+let data_dignitaeten = []; // For DIGNITAETEN.json
 let interpretationMap = {};
 let groupInfoMap = {};
+let dignitaetenMap = {}; // For mapping dignity codes to text
+
+// Zusätzliche Pauschalen-Infos
+let selectedPauschaleDetails = null;
+let evaluatedPauschalenList = [];
 
 // Dynamische Übersetzungen
 const DYN_TEXT = {
@@ -32,20 +38,20 @@ const DYN_TEXT = {
         thLkn: 'LKN', thLeistung: 'Leistung', thAl: 'AL', thIpl: 'IPL',
         thAnzahl: 'Anzahl', thTotal: 'Total TP', thRegeln: 'Regeln/Hinweise',
         none: 'Keine', gesamtTp: 'Gesamt TARDOC TP:',
-        llmDetails1: 'Details LLM-Analyse (Stufe 1)',
-        llmIdent: 'Die vom LLM identifizierte(n) LKN(s):',
-        llmNoneIdent: 'Keine LKN durch LLM identifiziert.',
-        llmExtr: 'Vom LLM extrahierte Details:',
-        llmNoneExtr: 'Keine zusätzlichen Details vom LLM extrahiert.',
-        llmReason: 'Begründung LLM (Stufe 1):',
-        llmDetails2: 'Details LLM-Analyse Stufe 2 (TARDOC-zu-Pauschalen-LKN Mapping)',
+        llmDetails1: 'Details KI-Analyse (Stufe 1)',
+        llmIdent: 'Die von der KI identifizierte(n) LKN(s):',
+        llmNoneIdent: 'Keine LKN durch KI identifiziert.',
+        llmExtr: 'Vom KI extrahierte Details:',
+        llmNoneExtr: 'Keine zusätzlichen Details von der KI extrahiert.',
+        llmReason: 'Begründung KI (Stufe 1):',
+        llmDetails2: 'Details KI-Analyse Stufe 2 (TARDOC-zu-Pauschalen-LKN Mapping)',
         mappingIntro: 'Folgende TARDOC LKNs wurden versucht, auf äquivalente Pauschalen-Bedingungs-LKNs zu mappen:',
         ruleDetails: 'Details Regelprüfung',
         ruleNotBill: 'Nicht abrechnungsfähig.',
         ruleHints: 'Hinweise / Anpassungen:',
         ruleOk: 'Regelprüfung OK.',
         ruleNone: 'Kein Regelprüfungsergebnis vorhanden.',
-        pauschaleCode: 'Pauschale Code',
+        pauschaleCode: 'Pauschale',
         description: 'Beschreibung',
         taxpoints: 'Taxpunkte',
         reasonPauschale: 'Begründung Pauschalenauswahl',
@@ -60,7 +66,11 @@ const DYN_TEXT = {
         groupNoData: 'Keine Daten zur Leistungsgruppe {code}.',
         potentialIcds: 'Mögliche ICD-Diagnosen',
         thIcdCode: 'ICD Code',
-        thIcdText: 'Beschreibung'
+        thIcdText: 'Beschreibung',
+        diffTaxpoints: 'Differenz Taxpunkte',
+        implantsIncluded: 'Implantate inbegriffen',
+        dignitiesLabel: 'Dignitäten',
+        descriptionNotFound: 'Beschreibung nicht gefunden'
     },
     fr: {
         spinnerWorking: 'Vérification en cours...',
@@ -79,13 +89,13 @@ const DYN_TEXT = {
         thLkn: 'NPL', thLeistung: 'Prestation', thAl: 'AL', thIpl: 'IPL',
         thAnzahl: 'Quantité', thTotal: 'Total PT', thRegeln: 'Règles/Remarques',
         none: 'Aucun', gesamtTp: 'Total TP TARDOC:',
-        llmDetails1: 'Détails analyse LLM (Niveau 1)',
-        llmIdent: 'NPL identifié(s) par le LLM :',
-        llmNoneIdent: 'Aucun NPL identifié par le LLM.',
-        llmExtr: 'Détails extraits par le LLM :',
-        llmNoneExtr: 'Aucun détail supplémentaire extrait par le LLM.',
-        llmReason: 'Justification LLM (Niveau 1) :',
-        llmDetails2: 'Détails analyse LLM niveau 2 (mappage TARDOC vers forfaits)',
+        llmDetails1: 'Détails analyse IA (Niveau 1)',
+        llmIdent: 'NPL identifié(s) par IA :',
+        llmNoneIdent: 'Aucun NPL identifié par IA.',
+        llmExtr: 'Détails extraits par IA :',
+        llmNoneExtr: 'Aucun détail supplémentaire extrait par IA.',
+        llmReason: 'Justification IA (Niveau 1) :',
+        llmDetails2: 'Détails analyse IA niveau 2 (mappage TARDOC vers forfaits)',
         mappingIntro: 'Les NPL TARDOC suivants ont été mis en correspondance avec des NPL de conditions de forfait :',
         ruleDetails: 'Détails contrôle des règles',
         ruleNotBill: 'Non facturable.',
@@ -107,7 +117,11 @@ const DYN_TEXT = {
         groupNoData: 'Aucune donnée pour le groupe de prestations {code}.',
         potentialIcds: 'Diagnostics ICD possibles',
         thIcdCode: 'Code ICD',
-        thIcdText: 'Description'
+        thIcdText: 'Description',
+        diffTaxpoints: 'Différence points tarifaires',
+        implantsIncluded: 'Implants inclus',
+        dignitiesLabel: 'Dignités',
+        descriptionNotFound: 'Description non trouvée'
     },
     it: {
         spinnerWorking: 'Verifica in corso...',
@@ -126,13 +140,13 @@ const DYN_TEXT = {
         thLkn: 'NPL', thLeistung: 'Prestazione', thAl: 'AL', thIpl: 'IPL',
         thAnzahl: 'Quantità', thTotal: 'Totale PT', thRegeln: 'Regole/Note',
         none: 'Nessuno', gesamtTp: 'Totale TP TARDOC:',
-        llmDetails1: 'Dettagli analisi LLM (Livello 1)',
-        llmIdent: 'NPL identificato/i dal LLM:',
-        llmNoneIdent: 'Nessun NPL identificato dal LLM.',
-        llmExtr: 'Dettagli estratti dal LLM:',
-        llmNoneExtr: 'Nessun dettaglio aggiuntivo estratto dal LLM.',
-        llmReason: 'Motivazione LLM (Livello 1):',
-        llmDetails2: 'Dettagli analisi LLM livello 2 (mappatura TARDOC a forfait)',
+        llmDetails1: 'Dettagli analisi IA (Livello 1)',
+        llmIdent: 'NPL identificato/i dal IA:',
+        llmNoneIdent: 'Nessun NPL identificato dal IA.',
+        llmExtr: 'Dettagli estratti dal IA:',
+        llmNoneExtr: 'Nessun dettaglio aggiuntivo estratto dal IA.',
+        llmReason: 'Motivazione IA (Livello 1):',
+        llmDetails2: 'Dettagli analisi IA livello 2 (mappatura TARDOC a forfait)',
         mappingIntro: 'I seguenti NPL TARDOC sono stati mappati su NPL di condizioni forfait:',
         ruleDetails: 'Dettagli verifica regole',
         ruleNotBill: 'Non fatturabile.',
@@ -154,8 +168,12 @@ const DYN_TEXT = {
         groupNoData: 'Nessun dato per il gruppo di prestazioni {code}.',
         potentialIcds: 'Possibili diagnosi ICD',
         thIcdCode: 'Codice ICD',
-        thIcdText: 'Descrizione'
-    } 
+        thIcdText: 'Descrizione',
+        diffTaxpoints: 'Differenza punti tariffari',
+        implantsIncluded: 'Impianti inclusi',
+        dignitiesLabel: 'Dignità',
+        descriptionNotFound: 'Descrizione non trovata'
+    }
 };
 
 const RULE_TRANSLATIONS = {
@@ -254,7 +272,8 @@ const DATA_PATHS = {
     pauschaleBedingungen: 'data/PAUSCHALEN_Bedingungen.json',
     tardocGesamt: 'data/TARDOC_Tarifpositionen.json',
     tabellen: 'data/PAUSCHALEN_Tabellen.json',
-    interpretationen: 'data/TARDOC_Interpretationen.json'
+    interpretationen: 'data/TARDOC_Interpretationen.json',
+    dignitaeten: 'data/DIGNITAETEN.json' // Path for the new dignities file
 };
 
 // Referenz zum Mouse Spinner
@@ -278,17 +297,145 @@ function createInfoLink(code, type) {
     return `<a href="#" class="info-link" data-type="${type}" data-code="${escapeHtml(code)}">${escapeHtml(code)}</a>`;
 }
 
-function showInfoModal(html) {
-    const modal = $('infoModal');
-    const content = $('infoModalContent');
-    if (!modal || !content) return;
-    content.innerHTML = html;
-    modal.style.display = 'flex';
+function showModal(modalOverlayId, htmlContent) {
+    const modalOverlay = $(modalOverlayId);
+    if (!modalOverlay) {
+        console.error(`Modal overlay with ID ${modalOverlayId} not found.`);
+        return;
+    }
+    const contentDiv = modalOverlay.querySelector('.info-modal > div[id$="Content"]');
+    if (!contentDiv) {
+        console.error(`Content div not found within ${modalOverlayId}.`);
+        return;
+    }
+    contentDiv.innerHTML = htmlContent;
+    modalOverlay.style.display = 'block';
+
+    const modalDialog = modalOverlay.querySelector('.info-modal');
+    if (modalDialog) {
+        // Reset transform property to ensure it opens at the CSS-defined position
+        modalDialog.style.transform = 'translate(0px, 0px)';
+        if (!modalDialog.classList.contains('draggable-initialized')) {
+            makeModalDraggable(modalDialog);
+            modalDialog.classList.add('draggable-initialized');
+        }
+    }
 }
 
-function hideInfoModal() {
-    const modal = $('infoModal');
-    if (modal) modal.style.display = 'none';
+function hideModal(modalOverlayId) {
+    const modalOverlay = $(modalOverlayId);
+    if (modalOverlay) {
+        modalOverlay.style.display = 'none';
+    }
+}
+
+// Globale Variable zur Verfolgung des Resize-Zustands
+let isResizing = false;
+
+function makeModalDraggable(modalElement) {
+    let isDragging = false;
+    let startX, startY;
+    let x = 0, y = 0; // To store the current translation
+
+    function getCurrentTransform() {
+        const style = window.getComputedStyle(modalElement);
+        const matrix = new DOMMatrix(style.transform);
+        x = matrix.m41;
+        y = matrix.m42;
+    }
+
+    modalElement.addEventListener('mousedown', (e) => {
+        const rect = modalElement.getBoundingClientRect();
+        const resizeHandleSize = 20;
+        
+        // Prüfen, ob der Klick im Resize-Bereich (unten rechts) ist
+        if (e.clientX > rect.right - resizeHandleSize && e.clientY > rect.bottom - resizeHandleSize) {
+            isResizing = true;
+            // Verhindern, dass das Dragging startet
+            return;
+        }
+
+        // Interaktive Elemente oder Modal-Body sollen kein Dragging auslösen
+        if (e.target.closest('button, a, input, select, textarea, details, summary, .info-modal-body')) {
+            return;
+        }
+
+        isDragging = true;
+        getCurrentTransform();
+        startX = e.clientX;
+        startY = e.clientY;
+        modalElement.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            modalElement.style.transform = `translate(${x + dx}px, ${y + dy}px)`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            modalElement.style.cursor = 'grab';
+        }
+        // WICHTIG: Setze isResizing nach einer kurzen Verzögerung zurück,
+        // damit der Click-Handler des Overlays es zuerst prüfen kann.
+        if (isResizing) {
+            setTimeout(() => {
+                isResizing = false;
+            }, 0);
+        }
+    });
+
+    modalElement.style.cursor = 'grab';
+}
+
+function buildDiagnosisInfoHtmlFromCode(code) {
+    const normCode = String(code || '').trim().toUpperCase();
+    let description = '';
+    let found = false;
+
+    // Attempt to find description in data_tabellen (assuming some tables might be ICD catalogs)
+    // This is a simplified search. A dedicated ICD data structure would be better.
+    if (Array.isArray(data_tabellen)) {
+        for (const tableName in data_tabellen) { // data_tabellen is an object with table names as keys
+            if (Object.hasOwnProperty.call(data_tabellen, tableName)) {
+                const tableEntries = data_tabellen[tableName];
+                if (Array.isArray(tableEntries)) {
+                    const entry = tableEntries.find(item => item && typeof item.Code === 'string' && item.Code.toUpperCase() === normCode && item.Tabelle_Typ === 'icd');
+                    if (entry) {
+                        description = getLangField(entry, 'Code_Text') || getLangField(entry, 'Beschreibung'); // Check common fields
+                        if (description) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!found) {
+        // Fallback: try to find in data_leistungskatalog if it happens to have ICDs (less likely structured this way)
+        // This part is less likely to yield results for pure ICD codes but included for broader search
+        const catEntry = findCatalogEntry(normCode); // findCatalogEntry searches data_leistungskatalog
+        if (catEntry && (catEntry.KapitelNummer === normCode || catEntry.LKN === normCode)) { // Heuristic: check if it's a chapter or LKN that might be an ICD
+            description = getLangField(catEntry, 'Beschreibung');
+             if (description) found = true;
+        }
+    }
+
+    let html = `<h3>${tDyn('thIcdCode')}: ${escapeHtml(normCode)}</h3>`;
+    if (description) {
+        html += `<p><b>${tDyn('description')}</b>: ${escapeHtml(description)}</p>`;
+    } else {
+        html += `<p><i>${tDyn('descriptionNotFound')}</i></p>`;
+    }
+    // Potential further details: "Part of table X", "Related LKNs", etc. - requires more complex data linking.
+    return html;
 }
 
 function getLangSuffix() {
@@ -484,6 +631,54 @@ function buildGroupInfoHtml(code) {
 }
 
 
+function buildPauschaleInfoHtml(idx) {
+    if (!evaluatedPauschalenList[idx]) return '';
+    const p = evaluatedPauschalenList[idx];
+    const parse = v => parseFloat(String(v).replace(',', '.')) || 0;
+    const selTp = parse(selectedPauschaleDetails?.Taxpunkte);
+    const otherTp = parse(p.details?.Taxpunkte);
+    const diff = otherTp - selTp;
+    const diffTxt = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
+    let html = `<h4>${escapeHtml(p.details?.Pauschale || '')} <small>${tDyn('diffTaxpoints')}: ${diffTxt}</small></h4>`;
+    html += displayPauschale(p);
+    return html;
+}
+
+function showPauschaleInfoByCode(code) {
+    const norm = String(code || '').toUpperCase();
+    const idx = evaluatedPauschalenList.findIndex(p => String(p.details?.Pauschale || '').toUpperCase() === norm);
+    if (idx === -1) return;
+    const html = buildPauschaleInfoHtml(idx);
+    showInfoModal(html);
+}
+
+function buildTablePopup(data, tableName) {
+    let tableHtml = `<div class="info-modal-header" style="cursor: grab;"><h2>Tabelle: ${escapeHtml(tableName)}</h2></div>`;
+    tableHtml += `<div class="info-modal-body" style="max-height: calc(0.75 * 100vh); overflow-y: auto;">`;
+    tableHtml += '<table><thead><tr><th>Code</th><th>Text</th></tr></thead><tbody>';
+    data.forEach(row => {
+        const code = row.Code || '';
+        const text = row.Code_Text || '';
+        const isServiceCatalog = row.Tabelle_Typ === 'service_catalog';
+        const isMedication = row.Tabelle_Typ === 402;
+        const isIcd = row.Tabelle_Typ === 'icd';
+
+        let style = '';
+        let codeDisplay = escapeHtml(code);
+
+        if (isServiceCatalog) {
+            style = 'font-weight: bold;';
+        } else {
+            codeDisplay = `<a href="#" class="info-link" data-type="${isIcd ? 'diagnosis' : 'lkn'}" data-code="${escapeHtml(code)}">${escapeHtml(code)}</a>`;
+        }
+        
+        tableHtml += `<tr><td style="${style}">${codeDisplay}</td><td>${escapeHtml(text)}</td></tr>`;
+    });
+    tableHtml += '</tbody></table></div>';
+    return tableHtml;
+}
+
+
 function displayOutput(html, type = "info") {
     const out = $("output");
     if (!out) { console.error("Output element not found!"); return; }
@@ -577,12 +772,13 @@ async function loadData() {
             fetchJSON(DATA_PATHS.pauschaleBedingungen),
             fetchJSON(DATA_PATHS.tardocGesamt),
             fetchJSON(DATA_PATHS.tabellen),
-            fetchJSON(DATA_PATHS.interpretationen)
+            fetchJSON(DATA_PATHS.interpretationen),
+            fetchJSON(DATA_PATHS.dignitaeten) // Fetch dignities
         ]);
 
         [ data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
           data_pauschaleBedingungen, data_tardocGesamt, data_tabellen,
-          data_interpretationen ] = loadedDataArray;
+          data_interpretationen, data_dignitaeten ] = loadedDataArray; // Assign dignities data
 
         interpretationMap = {};
         if (data_interpretationen) {
@@ -612,10 +808,26 @@ async function loadData() {
         if (!Array.isArray(data_pauschaleBedingungen) || data_pauschaleBedingungen.length === 0) missingDataErrors.push("Pauschalen-Bedingungen");
         if (!Array.isArray(data_tabellen) || data_tabellen.length === 0) missingDataErrors.push("Referenz-Tabellen");
         if (!interpretationMap || Object.keys(interpretationMap).length === 0) missingDataErrors.push("Interpretationen");
+        if (!Array.isArray(data_dignitaeten) || data_dignitaeten.length === 0) missingDataErrors.push("Dignitäten"); // Check dignities data
         if (missingDataErrors.length > 0) {
              throw new Error(`Folgende kritische Daten fehlen oder konnten nicht geladen werden: ${missingDataErrors.join(', ')}.`);
         }
 
+        // DignitaetenMap aufbauen
+        dignitaetenMap = {};
+        if (Array.isArray(data_dignitaeten) && data_dignitaeten.length > 0) {
+            data_dignitaeten.forEach(dignity => {
+                if (dignity && dignity.DignitaetCode) {
+                    dignitaetenMap[String(dignity.DignitaetCode).trim()] = dignity;
+                }
+            });
+            if (Object.keys(dignitaetenMap).length === 0) {
+                console.warn("DignitaetenMap is empty after processing data_dignitaeten. Check DignitaetCode fields in the JSON.");
+            }
+        } else {
+            // This warning will now also catch the case where data_dignitaeten is an empty array.
+            console.warn("data_dignitaeten is not a non-empty array. DignitaetenMap will be empty. Ensure 'data/DIGNITAETEN.json' is loaded correctly and contains data.");
+        }
         // Leistungsgruppen-Übersicht aufbauen
         groupInfoMap = {};
         data_tardocGesamt.forEach(item => {
@@ -655,13 +867,40 @@ document.addEventListener("DOMContentLoaded", () => {
     loadIcdCheckboxState();
     loadData();
 
-    const modalClose = $('infoModalClose');
-    const modalOverlay = $('infoModal');
-    if (modalClose) modalClose.addEventListener('click', hideInfoModal);
-    if (modalOverlay) modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) hideInfoModal();
+    // --- Modal Close Handlers ---
+    const modals = [
+        { id: 'infoModalMain', overlayId: 'infoModalMainOverlay', closeId: 'infoModalMainClose' },
+        { id: 'infoModalDetail', overlayId: 'infoModalDetailOverlay', closeId: 'infoModalDetailClose' },
+        { id: 'infoModalNested', overlayId: 'infoModalNestedOverlay', closeId: 'infoModalNestedClose' }
+    ];
+
+    modals.forEach(modal => {
+        const closeButton = $(modal.closeId);
+        const overlay = $(modal.overlayId);
+        if (closeButton) closeButton.addEventListener('click', () => hideModal(modal.overlayId));
+        if (overlay) overlay.addEventListener('click', (e) => {
+            // Verhindere das Schliessen, wenn gerade die Grösse geändert wurde.
+            if (e.target === overlay && !isResizing) {
+                hideModal(modal.overlayId);
+            }
+        });
     });
 
+    // --- ESC Key to close top-most modal ---
+    document.addEventListener('keydown', (e) => {
+        if (e.key === "Escape") {
+            if ($('infoModalNestedOverlay').style.display !== 'none') {
+                hideModal('infoModalNestedOverlay');
+            } else if ($('infoModalDetailOverlay').style.display !== 'none') {
+                hideModal('infoModalDetailOverlay');
+            } else if ($('infoModalMainOverlay').style.display !== 'none') {
+                hideModal('infoModalMainOverlay');
+            }
+        }
+    });
+
+
+    // --- General Click Handler for Info Links ---
     document.addEventListener('click', (e) => {
         const link = e.target.closest('a.info-link');
         if (link) {
@@ -669,10 +908,59 @@ document.addEventListener("DOMContentLoaded", () => {
             const code = (link.dataset.code || '').trim();
             const type = link.dataset.type;
             let html = '';
+
+            // --- Build HTML content based on link type ---
             if (type === 'lkn') html = buildLknInfoHtmlFromCode(code);
             else if (type === 'chapter') html = buildChapterInfoHtml(code);
             else if (type === 'group') html = buildGroupInfoHtml(code);
-            showInfoModal(html);
+            else if (type === 'diagnosis') html = buildDiagnosisInfoHtmlFromCode(code);
+            else if (type === 'lkn_table' || type === 'icd_table') {
+                const dataContent = link.dataset.content;
+                if (dataContent) {
+                    try {
+                        const jsonData = JSON.parse(dataContent);
+                        html = buildTablePopup(jsonData, code);
+                    } catch (err) {
+                        console.error("Error parsing JSON data for popup: ", err);
+                        html = `<p>Error loading table data.</p>`;
+                    }
+                } else {
+                    html = `<p>No data available for this table.</p>`;
+                }
+            } else {
+                console.warn(`Unknown info-link type: ${type} for code: ${code}`);
+                html = `<p>Information for code ${escapeHtml(code)} (type: ${escapeHtml(type)}) not available.</p>`;
+            }
+
+            // --- Decide which modal to show ---
+            const isInsideModal = e.target.closest('.info-modal');
+            if (isInsideModal) {
+                // If the click is inside any modal, open the nested one
+                showModal('infoModalNestedOverlay', html);
+            } else {
+                // Otherwise, open the first-level detail modal
+                showModal('infoModalDetailOverlay', html);
+            }
+        }
+
+        const pLink = e.target.closest('a.pauschale-exp-link');
+        if (pLink) {
+            e.preventDefault();
+            const code = (pLink.dataset.code || '').trim();
+            // Find the pauschale in evaluatedPauschalenList and show its bedingungs_pruef_html in the detail modal
+            const pauschaleEntry = evaluatedPauschalenList.find(p => String(p.code).toUpperCase() === code.toUpperCase() || String(p.details?.Pauschale).toUpperCase() === code.toUpperCase());
+            if (pauschaleEntry && pauschaleEntry.bedingungs_pruef_html) {
+                let headerHtml = `<h2>${tDyn('condDetails')} (${escapeHtml(code)})</h2>`;
+                // Add overall logic status to the header of the detail modal
+                const logicStatusKey = pauschaleEntry.is_valid_structured ? 'logicOk' : 'logicNotOk';
+                const logicStatusText = tDyn(logicStatusKey);
+                const logicStatusColor = pauschaleEntry.is_valid_structured ? 'var(--accent)' : 'var(--danger)';
+                headerHtml += `<p style="font-weight:bold; color:${logicStatusColor}; margin-top:-10px; margin-bottom:15px;">${escapeHtml(logicStatusText)}</p>`;
+
+                showModal('infoModalDetailOverlay', headerHtml + pauschaleEntry.bedingungs_pruef_html);
+            } else {
+                showModal('infoModalDetailOverlay', `<p>Details für Pauschale ${escapeHtml(code)} nicht gefunden oder keine Bedingungs-HTML vorhanden.</p>`);
+            }
         }
     });
 });
@@ -775,8 +1063,12 @@ async function getBillingAnalysis() {
                 finalResultHeader = `<p class="final-result-header success"><b>${tDyn('billingPauschale')}</b></p>`;
                 if (abrechnung.details) {
                     finalResultDetailsHtml = displayPauschale(abrechnung);
+                    selectedPauschaleDetails = abrechnung.details;
+                    evaluatedPauschalenList = Array.isArray(abrechnung.evaluated_pauschalen) ? abrechnung.evaluated_pauschalen : [];
                 } else {
                     finalResultDetailsHtml = `<p class='error'>${tDyn('errorPauschaleMissing')}</p>`;
+                    selectedPauschaleDetails = null;
+                    evaluatedPauschalenList = [];
                 }
                 break;
             case "TARDOC":
@@ -787,8 +1079,8 @@ async function getBillingAnalysis() {
                  } else {
                      finalResultDetailsHtml = `<p><i>${tDyn('noTardoc')}</i></p>`;
                  }
-                 break;
-             case "Error":
+                break;
+            case "Error":
                 console.error("[getBillingAnalysis] Abrechnungstyp: Error", abrechnung.message);
                 finalResultHeader = `<p class="final-result-header error"><b>${tDyn('billingError')}</b></p>`;
                 finalResultDetailsHtml = `<p><i>Grund: ${escapeHtml(abrechnung.message || 'Unbekannter Fehler')}</i></p>`;
@@ -968,7 +1260,9 @@ function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
             } else if (regelpruefung.fehler && regelpruefung.fehler.length > 0) {
                  detailsHtml += `<p><b>${tDyn('ruleHints')}</b></p><ul>`;
                  regelpruefung.fehler.forEach(hinweis => {
-                      const style = hinweis.includes("Menge auf") ? "color: var(--danger); font-weight: bold;" : "";
+                      const lcHint = hinweis.toLowerCase();
+                      const isReduction = lcHint.includes("menge auf") || lcHint.includes("quantité réduite") || lcHint.includes("quantità ridotta");
+                      const style = isReduction ? "color: var(--danger); font-weight: bold;" : "";
                       detailsHtml += `<li style="${style}">${escapeHtml(hinweis)}</li>`;
                  });
                  detailsHtml += `</ul>`;
@@ -990,7 +1284,8 @@ function displayPauschale(abrechnungsObjekt) {
     const pauschaleDetails = abrechnungsObjekt.details;
     const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || "";
     const bedingungsFehler = abrechnungsObjekt.bedingungs_fehler || [];
-    const conditions_met_structured = abrechnungsObjekt.conditions_met === true;
+    // MODIFIED: Check both conditions_met (for main object) and is_valid_structured (for items from evaluated_pauschalen list)
+    const conditions_met_structured = (abrechnungsObjekt.conditions_met === true) || (abrechnungsObjekt.is_valid_structured === true);
 
     const PAUSCHALE_KEY = 'Pauschale';
     const PAUSCHALE_TEXT_KEY = 'Pauschale_Text';
@@ -1004,14 +1299,69 @@ function displayPauschale(abrechnungsObjekt) {
     const pauschaleTP = escapeHtml(pauschaleDetails[PAUSCHALE_TP_KEY] || 'N/A');
     const pauschaleErklaerung = pauschaleDetails[PAUSCHALE_ERKLAERUNG_KEY] || "";
 
+    let tableRowsHtml = `
+        <tr>
+            <td><b>${pauschaleCode}</b></td>
+            <td>${pauschaleText}</td>
+            <td>${pauschaleTP}</td>
+        </tr>`;
+
+    let implantsHtml = '';
+    if (pauschaleDetails.Implantate_inbegriffen === true) {
+        implantsHtml = escapeHtml(tDyn('implantsIncluded'));
+    }
+
+    let dignitiesHtml = '';
+    const dignitaetenString = pauschaleDetails.Dignitaeten;
+    if (dignitaetenString && typeof dignitaetenString === 'string' && dignitaetenString.trim() !== "") {
+        const dignityCodes = dignitaetenString.split('|').map(code => String(code).trim()).filter(Boolean);
+        if (dignityCodes.length > 0) {
+            if (Object.keys(dignitaetenMap).length === 0) {
+                console.warn("DignitaetenMap is empty when trying to display dignities. Dignities will show 'Beschreibung nicht gefunden'. Check data loading for 'data/DIGNITAETEN.json'.");
+            }
+
+            let dignitiesDisplayList = [];
+            dignityCodes.forEach(code => {
+                const dignityDetail = dignitaetenMap[code];
+                let description;
+                if (dignityDetail) {
+                    const lang = (typeof currentLang === 'undefined') ? 'de' : currentLang;
+                    if (lang === 'fr') {
+                        description = dignityDetail.DignitaetText_f || dignityDetail.DignitaetText || code;
+                    } else if (lang === 'it') {
+                        description = dignityDetail.DignitaetText_i || dignityDetail.DignitaetText || code;
+                    } else {
+                        description = dignityDetail.DignitaetText || code;
+                    }
+                    dignitiesDisplayList.push(`${escapeHtml(code)}, ${escapeHtml(description)}`);
+                } else {
+                    if (Object.keys(dignitaetenMap).length > 0) {
+                        console.warn(`No dignityDetail found in dignitaetenMap for code '${code}'.`);
+                    }
+                    dignitiesDisplayList.push(`${escapeHtml(code)}, ${escapeHtml(tDyn('descriptionNotFound', {code: code}))}`);
+                }
+            });
+
+            if (dignitiesDisplayList.length > 0) {
+                dignitiesHtml = `<b>${escapeHtml(tDyn('dignitiesLabel'))}:</b><br>${dignitiesDisplayList.join('<br>')}`;
+            }
+        }
+    }
+
+    if (implantsHtml || dignitiesHtml) {
+        tableRowsHtml += `
+            <tr>
+                <td></td>
+                <td>${implantsHtml}</td>
+                <td>${dignitiesHtml}</td>
+            </tr>`;
+    }
+
+
     let detailsContent = `
         <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
             <thead><tr><th>${tDyn('pauschaleCode')}</th><th>${tDyn('description')}</th><th>${tDyn('taxpoints')}</th></tr></thead>
-            <tbody><tr>
-                <td>${pauschaleCode}</td>
-                <td>${pauschaleText}</td>
-                <td>${pauschaleTP}</td>
-            </tr></tbody>
+            <tbody>${tableRowsHtml}</tbody>
         </table>`;
 
     if (pauschaleErklaerung) {
@@ -1058,7 +1408,9 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
     let gesamtTP = 0;
     let hasHintsOverall = false;
 
-    for (const leistung of tardocLeistungen) {
+    const sortedLeistungen = [...tardocLeistungen].sort((a, b) => String(a.lkn).localeCompare(String(b.lkn)));
+
+    for (const leistung of sortedLeistungen) {
         const lkn = leistung.lkn;
         const anzahl = leistung.menge;
         const tardocDetails = processTardocLookup(lkn); // Lokale Suche
@@ -1084,7 +1436,8 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
              if (regelnHtml) regelnHtml += "<hr style='margin: 5px 0; border-color: #eee;'>";
              regelnHtml += `<p><b>${tDyn('ruleHints')}</b></p><ul>`;
              ruleResult.regelpruefung.fehler.forEach(hinweis => {
-                  const isReduction = hinweis.includes("Menge auf");
+                  const lcHint = hinweis.toLowerCase();
+                  const isReduction = lcHint.includes("menge auf") || lcHint.includes("quantité réduite") || lcHint.includes("quantità ridotta");
                   const style = isReduction ? "color: var(--danger); font-weight: bold;" : "";
                   if (isReduction) {
                       hasHintForThisLKN = true;

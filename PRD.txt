@@ -8,7 +8,7 @@ Hinweise:
    - LKAAT_Leistungskatalog: Enthält LKN, Typ ('E'/'EZ' für Einzelleistung gemäss TARDOC, 'P'/'PZ' für Leistungen, die *Teil* einer Pauschale sind), Beschreibung. Wird vom LLM Stufe 1 als Referenz genutzt und zur Validierung der LKNs. **Wichtig:** Typ 'P'/'PZ' bedeutet nicht, dass die LKN selbst die Pauschale ist, sondern dass sie potenziell durch eine Pauschale abgedeckt wird.
    - PAUSCHALEN_Leistungspositionen: Verknüpft *direkt* bestimmte LKNs mit Pauschalencodes. Eine Methode, um potenzielle Pauschalen zu finden.
    - PAUSCHALEN_Pauschalen: Definiert die eigentlichen Pauschalen (Code, Text, Taxpunkte). Dient als Nachschlagetabelle für Pauschalendetails.
-   - PAUSCHALEN_Bedingungen: Enthält **strukturierte** Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen, **inklusive `Gruppe` und `Operator` (UND/ODER)**. Entscheidend für die korrekte *logische Auswertung* der Anwendbarkeit einer Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
+  - PAUSCHALEN_Bedingungen: Enthält **strukturierte** Bedingungen (ICD, GTIN, LKN in Liste/Tabelle, Alter, Geschlecht etc.) für spezifische Pauschalen, **inklusive `Gruppe`, `Operator` (UND/ODER) und optional `GruppenOperator` für die Verknüpfung der Gruppen (Standard UND)**. Entscheidend für die korrekte *logische Auswertung* der Anwendbarkeit einer Pauschale und eine weitere Methode, um potenzielle Pauschalen basierend auf enthaltenen LKNs (in Liste/Tabelle) zu finden.
    - PAUSCHALEN_Tabellen: Nachschlagetabelle für Codes (ICD, GTIN, LKN), die in `PAUSCHALEN_Bedingungen` über Tabellenreferenzen (z.B. "CAP08", "C08.50") verlinkt sind. Wird genutzt, um Bedingungen des Typs "... IN TABELLE" aufzulösen. **Case-Insensitive Behandlung** der Tabellennamen ist wichtig.
    - TARDOC_Interpretationen.json und TARDOC_Tarifpositionen.json: Enthält Details zu TARDOC-Einzelleistungen (AL, IPL, Regeln). Wird für die TARDOC-Abrechnung genutzt, *falls keine Pauschale anwendbar ist*.
    - Die Regeldefinitionen für TARDOC-Einzelleistungen sind direkt im File `TARDOC_Tarifpositionen.json` enthalten.
@@ -34,28 +34,28 @@ Hinweise:
      - Eingabe: Angereicherte LKN-Liste (`final_pauschale_lkn_context_list`), Kontext (ICD, GTIN, Alter, Geschlecht, **useIcd-Flag**), Benutzer-Freitext.
      - **Aktion (Potenzielle finden):** Suche nach potenziellen Pauschalencodes, die durch die LKNs in `final_pauschale_lkn_context_list` ausgelöst werden könnten (Methoden a, b, c wie zuvor beschrieben).
      - **Aktion (Strukturierte Prüfung):** Wenn potenzielle Pauschalen gefunden wurden: Rufe für **jeden** potenziellen Code die Funktion `regelpruefer_pauschale.evaluate_structured_conditions` auf. Diese Funktion:
-         - Nutzt `regelpruefer_pauschale.check_single_condition`, um jede einzelne Bedingungszeile zu prüfen (berücksichtigt `useIcd`-Flag: ICD-Bedingungen werden bei `useIcd=False` als `True` gewertet).
-        - Wertet die **UND/ODER-Logik** basierend auf `Gruppe` und dem `Operator` jeder Bedingungszeile aus `PAUSCHALEN_Bedingungen.json` aus. `UND` hat Vorrang vor `ODER` innerhalb einer Gruppe.
+        - Nutzt `regelpruefer_pauschale.check_single_condition`, um jede einzelne Bedingungszeile zu prüfen (berücksichtigt `useIcd`-Flag: ICD-Bedingungen werden bei `useIcd=False` als `True` gewertet).
+        - Wertet die **UND/ODER-Logik** basierend auf `Gruppe` und dem `Operator` jeder Bedingungszeile aus `PAUSCHALEN_Bedingungen.json` aus. Zwischen den Gruppen wird der optionale `GruppenOperator` berücksichtigt (Standard `UND`). `UND` hat Vorrang vor `ODER` innerhalb einer Gruppe.
         - Gibt `True` zurück, wenn die **gesamte strukturierte Logik** für die Pauschale im gegebenen Kontext erfüllt ist, sonst `False`.
      - **Aktion (Filtern & Priorisierte Auswahl):**
-         - Filtere alle Kandidaten, für die `evaluate_structured_conditions` `True` zurückgegeben hat (`valid_candidates`).
-         - Wenn `valid_candidates` leer ist -> **Fehler** (keine voll erfüllte Pauschale).
-         - Teile `valid_candidates` in spezifische (C00-C89) und Fallback (C90-C99) Pauschalen.
-         - **Priorisiere** spezifische Pauschalen. Wenn vorhanden, sortiere sie **absteigend** nach Code (E vor B vor A) und wähle die erste aus.
-         - Wenn keine spezifischen gültig sind, aber Fallback-Pauschalen, sortiere diese (aktuell absteigend Z-A) und wähle die erste aus.
+        - Filtere alle Kandidaten, für die `evaluate_structured_conditions` `True` zurückgegeben hat (`valid_candidates`).
+        - Wenn `valid_candidates` leer ist -> **Fehler** (keine voll erfüllte Pauschale).
+        - Teile `valid_candidates` in spezifische (C00-C89) und Fallback (C90-C99) Pauschalen.
+        - **Priorisiere** spezifische Pauschalen. Wenn vorhanden, sortiere sie **absteigend** nach Code (E vor B vor A) und wähle die erste aus.
+        - Wenn keine spezifischen gültig sind, aber Fallback-Pauschalen, sortiere diese (aktuell absteigend Z-A) und wähle die erste aus.
      - **Aktion (HTML & Zusatzinfos generieren):** Rufe *nur für die ausgewählte* Pauschale `regelpruefer_pauschale.check_pauschale_conditions` auf, um das detaillierte HTML (mit Einzelstatus und klickbaren Tabellen) für die Anzeige zu generieren. Sammle Begründung und potenzielle ICDs.
      - Ergebnis: Entweder ein Objekt mit `type: "Pauschale"` und allen Details ODER ein Objekt mit `type: "Error"`, falls keine potenzielle Pauschale gefunden wurde ODER keine die strukturierte Prüfung bestanden hat.
 
    Schritt 5: Finale Abrechnungsart bestimmen & TARDOC-Vorbereitung
-     - Eingabe: Ergebnis aus Schritt 4, `regel_ergebnisse_details` aus Schritt 2.
-     - Entscheidung:
+    - Eingabe: Ergebnis aus Schritt 4, `regel_ergebnisse_details` aus Schritt 2.
+    - Entscheidung:
          - **Wenn** Schritt 4 eine Pauschale (`type: "Pauschale"`) zurückgibt -> Finale Abrechnung ist diese Pauschale.
          - **Wenn** Schritt 4 einen Error (`type: "Error"`) zurückgibt -> Keine Pauschale anwendbar.
-     - Aktion (nur bei keiner Pauschale): Bereite die TARDOC-Abrechnung vor (`prepare_tardoc_abrechnung`). Filtert aus `regel_ergebnisse_details` alle abrechnungsfähigen Leistungen vom Typ 'E' oder 'EZ' heraus.
-     - Ergebnis: Das finale Abrechnungsobjekt (`abrechnung`) mit entweder `type: "Pauschale"`, `type: "TARDOC"` oder `type: "Error"` (wenn auch TARDOC fehlschlägt).
+    - Aktion (nur bei keiner Pauschale): Bereite die TARDOC-Abrechnung vor (`prepare_tardoc_abrechnung`). Filtert aus `regel_ergebnisse_details` alle abrechnungsfähigen Leistungen vom Typ 'E' oder 'EZ' heraus.
+    - Ergebnis: Das finale Abrechnungsobjekt (`abrechnung`) mit entweder `type: "Pauschale"`, `type: "TARDOC"` oder `type: "Error"` (wenn auch TARDOC fehlschlägt).
 
    Schritt 6: Ergebnis an Frontend senden
-     - Aktion: Sende ein JSON-Objekt mit `llm_ergebnis_stufe1`, `regel_ergebnisse_details` und dem finalen `abrechnung`-Objekt an das Frontend (`calculator.js`).
+    - Aktion: Sende ein JSON-Objekt mit `llm_ergebnis_stufe1`, `regel_ergebnisse_details` und dem finalen `abrechnung`-Objekt an das Frontend (`calculator.js`).
 
 3. Besondere Hinweise
    - Pauschale vor TARDOC: Die Logik prüft immer zuerst, ob eine Pauschale gemäss ihrer **vollständigen strukturierten UND/ODER-Bedingungen** anwendbar ist. Nur wenn keine solche Pauschale gefunden wird, erfolgt die Abrechnung nach TARDOC.
