@@ -783,7 +783,12 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
             
             # Typ und Beschreibung sind optional vom LLM, werden eh aus lokalem Katalog genommen
             item.setdefault("typ", "N/A")
-            item.setdefault("beschreibung", "N/A")
+            # item.setdefault("beschreibung", "N/A")
+            lkn_key = item.get("lkn")
+            if leistungskatalog_dict and lkn_key and lkn_key in leistungskatalog_dict:
+                item["beschreibung"] = leistungskatalog_dict[lkn_key].get("Beschreibung", "N/A")
+            else:
+                item.setdefault("beschreibung", "N/A")
             validated_identified_leistungen.append(item)
         llm_response_json["identified_leistungen"] = validated_identified_leistungen
         # print("INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
