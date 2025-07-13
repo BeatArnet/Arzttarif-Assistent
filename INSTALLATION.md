@@ -168,7 +168,7 @@ Fülle die Felder wie folgt aus (siehe auch deinen Screenshot):
     *   Klicke auf "Add Environment Variable".
     *   **Key:** `GEMINI_API_KEY`, **Value:** `DEIN_TATSÄCHLICHER_GEMINI_API_KEY`
     *   (Optional) **Key:** `PYTHON_VERSION`, **Value:** `3.11.4` (oder deine spezifische Version)
-    *   (Optional) **Key:** `GEMINI_MODEL`, **Value:** `gemini-1.5-flash-latest` (oder dein gewünschtes Modell)
+    *   (Optional) **Key:** `GEMINI_MODEL`, **Value:** `gemini-2.5-flash` (oder dein gewünschtes Modell)
 
 **4.4. Deployment und Überprüfung**
 1.  Klicke auf "Create Web Service".
