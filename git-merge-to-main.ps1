@@ -9,7 +9,8 @@ Write-Host "Verfuegbare lokale Branches:"
 git branch
 
 # Benutzer nach Branch fragen
-$branchName = Read-Host "Welchen Branch moechten Sie in 'main' mergen?"
+# Eingabe von moeglichen Leerzeichen befreien
+$branchName = (Read-Host "Welchen Branch moechten Sie in 'main' mergen?").Trim()
 
 # Prüfen, ob Branch existiert
 if (-not (git show-ref --verify --quiet "refs/heads/$branchName")) {
@@ -33,7 +34,6 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "Fehler beim Pushen zu 'main'." -ForegroundColor Red
     exit 1
 }
-
 # Optionales Löschen des Branches
 $delete = Read-Host "Moechten Sie den Branch '$branchName' lokal loeschen? (j/n)"
 if ($delete -eq 'j') {
