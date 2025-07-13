@@ -140,9 +140,9 @@
     "value_DE": "Fingerfraktur, Nagelung mit Anästhesie",
     "extendedValue_DE": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
     "value_FR": "Fracture du doigt, enclouage avec anesthésie",
-    "extendedValue_FR": "Fracture du doigt, enclouage avec anesthésie",
+    "extendedValue_FR": "Fracture du doigt, enclouage avec anesthésie par l'anesthésiste",
     "value_IT": "Frattura del dito, chiodaggio con anestesia",
-    "extendedValue_IT": "Frattura del dito, inchiodamento con anestesia da parte dell'anestesista"
+    "extendedValue_IT": " Frattura di un dito della mano, chiodaggio, inchiodamento con anestesia da parte dell'anestesista"
   },
   {
     "label": "Hypoglossusstimulator",
