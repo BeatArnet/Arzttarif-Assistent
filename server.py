@@ -120,6 +120,7 @@ from utils import (
 )
 import html
 from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
+from selector import compute_token_doc_freq, rank_leistungskatalog_entries
 
 import logging
 import sys
@@ -338,26 +339,6 @@ baseline_results: dict[str, dict] = {}
 examples_data: list[dict] = []
 token_doc_freq: dict[str, int] = {}
 
-def compute_token_doc_freq() -> None:
-    """Compute document frequency for tokens across the Leistungskatalog."""
-    token_doc_freq.clear()
-    for details in leistungskatalog_dict.values():
-        texts = []
-        for base in [
-            "Beschreibung",
-            "Beschreibung_f",
-            "Beschreibung_i",
-            "MedizinischeInterpretation",
-            "MedizinischeInterpretation_f",
-            "MedizinischeInterpretation_i",
-        ]:
-            val = details.get(base)
-            if val:
-                texts.append(str(val))
-        combined = " ".join(texts)
-        tokens = extract_keywords(combined)
-        for t in tokens:
-            token_doc_freq[t] = token_doc_freq.get(t, 0) + 1
 
 def create_app() -> FlaskType:
     """
@@ -486,7 +467,7 @@ def load_data() -> bool:
         traceback.print_exc(); regelwerk_dict.clear(); all_loaded_successfully = False
 
     # Compute document frequencies for ranking
-    compute_token_doc_freq()
+    compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
     logger.info("  ✓ Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
 
     # NEU: Indexiere und sortiere Pauschalbedingungen
@@ -1128,34 +1109,6 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
             })
     return results
 
-def rank_leistungskatalog_entries(tokens: Set[str], limit: int = 200) -> List[str]:
-    """Return LKN codes ranked by weighted token occurrences."""
-    scored: List[Tuple[float, str]] = []
-    for lkn_code, details in leistungskatalog_dict.items():
-        texts = []
-        for base in [
-            "Beschreibung",
-            "Beschreibung_f",
-            "Beschreibung_i",
-            "MedizinischeInterpretation",
-            "MedizinischeInterpretation_f",
-            "MedizinischeInterpretation_i",
-        ]:
-            val = details.get(base)
-            if val:
-                texts.append(str(val))
-        combined = expand_compound_words(" ".join(texts)).lower()
-        score = 0.0
-        for t in tokens:
-            occ = combined.count(t.lower())
-            if occ:
-                df = token_doc_freq.get(t, len(leistungskatalog_dict))
-                if df:
-                    score += occ * (1.0 / df)
-        if score > 0:
-            scored.append((score, lkn_code))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [code for _, code in scored[:limit]]
 
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
@@ -1238,7 +1191,7 @@ def analyze_billing():
             logger.info(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
         # --- DEBUGGING END ---
 
-        ranked_codes = rank_leistungskatalog_entries(tokens, 200)
+        ranked_codes = rank_leistungskatalog_entries(tokens, leistungskatalog_dict, token_doc_freq, 200)
         # --- DEBUGGING START ---
         logger.info(f"DEBUG: ranked_codes: {ranked_codes[:10]}") # Logge die ersten 10 gerankten Codes
         # --- DEBUGGING END ---
