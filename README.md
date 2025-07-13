@@ -168,6 +168,7 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
     *   **Build Command:** `pip install -r requirements.txt`
     *   **Start Command:** `gunicorn server:app --timeout 120 --workers 1` 
     *   **Environment Variables:** Setze `GEMINI_API_KEY` (und optional `PYTHON_VERSION`, `GEMINI_MODEL`) im Render.com Dashboard.
+    *   **Wichtiger Hinweis:** Für den Betrieb ist mindestens das **Standard-Paket** erforderlich, da die Anwendung aufgrund der geladenen Daten mehr als die im kostenlosen Plan verfügbaren 512MB RAM benötigt. Es müssen mindestens 2GB RAM zur Verfügung stehen.
 3.  **Deployment:** Pushe deine Änderungen. Render.com sollte automatisch deployen und Git LFS-Dateien korrekt behandeln.
 
 ## Benötigte Dateien (Struktur)

@@ -163,12 +163,12 @@ Fülle die Felder wie folgt aus (siehe auch deinen Screenshot):
     gunicorn server:app --timeout 120
     ```
     (Render.com sollte dies auch aus der `Procfile` übernehmen, aber es explizit zu setzen schadet nicht).
-*   **Instance Type:** Wähle einen passenden Plan (z.B. "Free" zum Testen, später ggf. upgraden).
+*   **Instance Type:** Wähle einen passenden Plan. **Wichtig:** Für den Betrieb ist mindestens das **Standard-Paket** erforderlich, da die Anwendung aufgrund der geladenen Daten mehr als die im kostenlosen Plan verfügbaren 512MB RAM benötigt. Es müssen mindestens 2GB RAM zur Verfügung stehen.
 *   **Environment Variables:**
     *   Klicke auf "Add Environment Variable".
     *   **Key:** `GEMINI_API_KEY`, **Value:** `DEIN_TATSÄCHLICHER_GEMINI_API_KEY`
     *   (Optional) **Key:** `PYTHON_VERSION`, **Value:** `3.11.4` (oder deine spezifische Version)
-    *   (Optional) **Key:** `GEMINI_MODEL`, **Value:** `gemini-2.5-flash` (oder dein gewünschtes Modell)
+    *   (Optional) **Key:** `GEMINI_MODEL`, **Value:** `gemini-1.5-flash` (oder dein gewünschtes Modell). Im Setting muss das Modell und der API-Key angegeben werden.
 
 **4.4. Deployment und Überprüfung**
 1.  Klicke auf "Create Web Service".
