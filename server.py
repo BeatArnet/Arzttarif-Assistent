@@ -389,6 +389,16 @@ def load_data() -> bool:
                 with open(path, 'r', encoding='utf-8') as f:
                     data_from_file = json.load(f)
 
+                if name == "TARDOC_INTERP" and isinstance(data_from_file, dict):
+                    # Spezifische Behandlung für TARDOC_Interpretationen.json
+                    logger.info("  Spezialbehandlung für TARDOC_INTERP: Extrahiere Listen aus dem Wörterbuch.")
+                    combined_list = []
+                    for key, value in data_from_file.items():
+                        if isinstance(value, list):
+                            combined_list.extend(value)
+                    data_from_file = combined_list
+                    logger.info("  Kombinierte Liste für TARDOC_INTERP enthält %d Einträge.", len(data_from_file))
+
                 if not isinstance(data_from_file, list):
                      logger.warning("  WARNUNG: %s-Daten in '%s' sind keine Liste, überspringe.", name, path)
                      continue
