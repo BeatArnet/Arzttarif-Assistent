@@ -171,6 +171,12 @@ TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
 BEISPIELE_PATH = DATA_DIR / "beispiele.json"
 
+# Retry configuration for Gemini API calls
+# Bei HTTP 429 (Rate Limit) wird nach dem Exponential-Backoff-Schema erneut
+# versucht. Die Wartezeit berechnet sich als GEMINI_BACKOFF_SECONDS * (2**Versuch).
+GEMINI_MAX_RETRIES = 3
+GEMINI_BACKOFF_SECONDS = 1.0
+
 # --- Typ-Aliase für Klarheit ---
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
 CheckPauschaleConditionsType = Callable[
@@ -536,8 +542,6 @@ def load_data() -> bool:
 # Die App-Instanz, auf die Gunicorn zugreift
 app: FlaskType = create_app()
 
-
-
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") -> dict:
     logger.info(f"LLM_S1_INIT: Aufruf von call_gemini_stage1. GEMINI_API_KEY vorhanden: {bool(GEMINI_API_KEY)}")
@@ -546,23 +550,47 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         return {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": "Fehler: API Key nicht konfiguriert."}
     prompt = get_stage1_prompt(user_input, katalog_context, lang)
 
-
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "response_mime_type": "application/json",
             "temperature": 0.05,
-            "maxOutputTokens": 8192
+            "maxOutputTokens": 65536
         }
     }
     logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", GEMINI_MODEL)
+    logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
     try:
-        response = requests.post(gemini_url, json=payload, timeout=90)
-        logger.info("Gemini Stufe 1 Antwort Status Code: %s", response.status_code)
-        response.raise_for_status()
+        response = None
+        for attempt in range(GEMINI_MAX_RETRIES):
+            try:
+                response = requests.post(gemini_url, json=payload, timeout=90)
+                logger.info("Gemini Stufe 1 Antwort Status Code: %s", response.status_code)
+                if response.status_code == 429:
+                    raise requests.exceptions.HTTPError(response=response)
+                response.raise_for_status()
+                break
+            except requests.exceptions.RequestException as e:
+                if attempt < GEMINI_MAX_RETRIES - 1:
+                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
+                    logger.warning(
+                        "Gemini Stufe 1 Netzwerkfehler: %s. Neuer Versuch in %s Sekunden.",
+                        e,
+                        wait_time,
+                    )
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Netzwerkfehler bei Gemini Stufe 1 nach %s Versuchen: %s", GEMINI_MAX_RETRIES, e)
+                    raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 1: {e}") from e
+        if response is None:
+            raise ConnectionError("Keine Antwort von Gemini Stufe 1 erhalten")
         gemini_data = response.json()
-        logger.info(f"LLM_S1_RAW_GEMINI_DATA: {json.dumps(gemini_data, ensure_ascii=False)}")
+        logger.debug(f"LLM_S1_RAW_GEMINI_RESPONSE: {json.dumps(gemini_data, ensure_ascii=False)}")
+        logger.info(
+            f"LLM_S1_RAW_GEMINI_DATA: {json.dumps(gemini_data, ensure_ascii=False)}"
+        )
 
 
         candidate: Dict[str, Any] | None = None
@@ -639,27 +667,24 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                 raise ValueError(f"Unerwarteter Zustand: Candidate is not a dict ({type(candidate)}) and no text response.")
 
         try:
-            llm_response_json = json.loads(raw_text_response)
+            # Attempt to find JSON within ```json ... ``` blocks first
+            match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
+            if match:
+                json_text = match.group(1)
+                logger.info("JSON aus Markdown extrahiert.")
+            else:
+                json_text = raw_text_response
+
+            llm_response_json = json.loads(json_text)
             logger.info(f"LLM_S1_PARSED_JSON_INITIAL: {json.dumps(llm_response_json, ensure_ascii=False)}")
         except json.JSONDecodeError as json_err:
-            if not raw_text_response.strip():
-                logger.warning("LLM_S1_WARN: LLM Stufe 1 lieferte leeren String, der nicht als JSON geparst werden kann. Erstelle leeres Ergebnis.")
-                llm_response_json = {
-                    "identified_leistungen": [],
-                    "extracted_info": {
-                        "dauer_minuten": None, "menge_allgemein": None, "alter": None,
-                        "geschlecht": None, "seitigkeit": "unbekannt", "anzahl_prozeduren": None
-                    },
-                    "begruendung_llm": "LLM lieferte leere Antwort."
-                }
-            else: # Es gab Text, aber er war kein valides JSON
-                match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
-                if match:
-                    try:
-                        llm_response_json = json.loads(match.group(1))
-                        logger.info("JSON aus Markdown extrahiert.")
-                    except json.JSONDecodeError: raise ValueError(f"JSONDecodeError auch nach Markdown-Extraktion: {json_err}. Rohtext: {raw_text_response[:500]}...")
-                else: raise ValueError(f"JSONDecodeError: {json_err}. Rohtext: {raw_text_response[:500]}...")
+            logger.error(f"Fehler beim Parsen der LLM Stufe 1 Antwort: {json_err}. Rohtext: {raw_text_response[:500]}...")
+            # Return a default error structure if JSON parsing fails completely
+            llm_response_json = {
+                "identified_leistungen": [],
+                "extracted_info": {},
+                "begruendung_llm": f"Fehler: Ungültiges JSON vom LLM erhalten. {json_err}"
+            }
 
         # print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
         logger.info(f"LLM_S1_PARSED_JSON_BEFORE_VALIDATION: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
@@ -847,9 +872,34 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
     }
     logger.info("Sende Anfrage Stufe 2 (Mapping) für %s an Gemini Model: %s...", tardoc_lkn, GEMINI_MODEL)
     try:
-        response = requests.post(gemini_url, json=payload, timeout=60)
-        logger.info("Gemini Stufe 2 (Mapping) Antwort Status Code: %s", response.status_code)
-        response.raise_for_status()
+        response = None
+        for attempt in range(GEMINI_MAX_RETRIES):
+            try:
+                response = requests.post(gemini_url, json=payload, timeout=60)
+                logger.info(
+                    "Gemini Stufe 2 (Mapping) Antwort Status Code: %s",
+                    response.status_code,
+                )
+                if response.status_code == 429:
+                    raise requests.exceptions.HTTPError(response=response)
+                response.raise_for_status()
+                break
+            except requests.exceptions.HTTPError as http_err:
+                if (
+                    http_err.response is not None
+                    and http_err.response.status_code == 429
+                    and attempt < GEMINI_MAX_RETRIES - 1
+                ):
+                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
+                    logger.warning(
+                        "Gemini Stufe 2 (Mapping) Rate Limit erreicht. Neuer Versuch in %s Sekunden.",
+                        wait_time,
+                    )
+                    time.sleep(wait_time)
+                    continue
+                raise
+        if response is None:
+            return None
         gemini_data = response.json()
 
         raw_text_response_part = ""
@@ -939,9 +989,34 @@ def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, 
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500}}
     logger.info("Sende Anfrage Stufe 2 (Ranking) an Gemini Model: %s...", GEMINI_MODEL)
     try:
-        response = requests.post(gemini_url, json=payload, timeout=45)
-        logger.info("Gemini Stufe 2 (Ranking) Antwort Status Code: %s", response.status_code)
-        response.raise_for_status()
+        response = None
+        for attempt in range(GEMINI_MAX_RETRIES):
+            try:
+                response = requests.post(gemini_url, json=payload, timeout=45)
+                logger.info(
+                    "Gemini Stufe 2 (Ranking) Antwort Status Code: %s",
+                    response.status_code,
+                )
+                if response.status_code == 429:
+                    raise requests.exceptions.HTTPError(response=response)
+                response.raise_for_status()
+                break
+            except requests.exceptions.HTTPError as http_err:
+                if (
+                    http_err.response is not None
+                    and http_err.response.status_code == 429
+                    and attempt < GEMINI_MAX_RETRIES - 1
+                ):
+                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
+                    logger.warning(
+                        "Gemini Stufe 2 (Ranking) Rate Limit erreicht. Neuer Versuch in %s Sekunden.",
+                        wait_time,
+                    )
+                    time.sleep(wait_time)
+                    continue
+                raise
+        if response is None:
+            return []
         gemini_data = response.json()
 
         ranked_text = ""
@@ -1125,12 +1200,18 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
     return results
 
 
+import threading
+
+# Lock for sequential processing
+processing_lock = threading.Lock()
+
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
-    # Basic request data for logging before full parsing
-    data_for_log = request.get_json(silent=True) or {}
-    user_input_log = data_for_log.get('inputText', '')[:100]
+    with processing_lock:
+        # Basic request data for logging before full parsing
+        data_for_log = request.get_json(silent=True) or {}
+        user_input_log = data_for_log.get('inputText', '')[:100]
     icd_input_log = data_for_log.get('icd', [])
     gtin_input_log = data_for_log.get('gtin', [])
     use_icd_flag_log = data_for_log.get('useIcd', True)
@@ -1206,7 +1287,7 @@ def analyze_billing():
             logger.info(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
         # --- DEBUGGING END ---
 
-        ranked_codes = rank_leistungskatalog_entries(tokens, leistungskatalog_dict, token_doc_freq, 200)
+        ranked_codes = rank_leistungskatalog_entries(tokens, leistungskatalog_dict, token_doc_freq, 500)
         # --- DEBUGGING START ---
         logger.info(f"DEBUG: ranked_codes: {ranked_codes[:10]}") # Logge die ersten 10 gerankten Codes
         # --- DEBUGGING END ---
@@ -1764,9 +1845,9 @@ def test_example():
     if not baseline_entry:
         return jsonify({'error': 'Baseline not found'}), 404
 
-    baseline = baseline_entry.get('baseline', {}).get(lang)
+    baseline = baseline_entry.get('baseline')
     if baseline is None:
-        return jsonify({'error': 'Baseline missing for language'}), 404
+        return jsonify({'error': 'Baseline missing for example'}), 404
 
     query_text = baseline_entry.get('query', {}).get(lang)
     if not query_text:
@@ -1777,7 +1858,7 @@ def test_example():
         # Wenn eine Pauschale erwartet wird, versuchen wir es erstmal ohne strikte ICD-Prüfung,
         # da die baseline_results.json keine ICDs pro Testfall spezifiziert.
         # Langfristig sollten Testfälle spezifische ICDs und useIcd-Flags haben können.
-        expected_pauschale = baseline_entry.get('baseline', {}).get(lang, {}).get('pauschale')
+        expected_pauschale = baseline.get('pauschale')
         test_use_icd = True
         test_icd_codes = [] # Standardmäßig keine ICDs für Tests, es sei denn, sie wären in baseline_results definiert
 
