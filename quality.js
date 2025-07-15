@@ -16,7 +16,7 @@ function applyLanguage(lang){
 }
 
 function loadExamples(){
-    fetch('data/beispiele.json')
+    fetch('data/baseline_results.json')
         .then(r=>r.json())
         .then(d=>{ examplesData=d; buildTable(); });
 }
@@ -26,29 +26,22 @@ let passedTests = 0;
 
 function buildTable(){
     const tbody = document.querySelector('#exampleTable tbody');
-    if(!tbody || !examplesData.length) return;
+    if(!tbody || !Object.keys(examplesData).length) return;
     tbody.innerHTML='';
     const t = qcTranslations[currentLang]; // For button text, example text uses specific lang
 
-    for(let i=1;i<examplesData.length;i++){ // Assuming example 0 is header or metadata
-        const ex=examplesData[i];
+    for(const [id, ex] of Object.entries(examplesData)){
         // Try to get example text in current language, fallback to DE, then first available
-        const exampleTextKey = 'value_' + currentLang.toUpperCase();
-        const exampleTextKeyExtended = 'extendedValue_' + currentLang.toUpperCase();
-        let text = ex[exampleTextKeyExtended] || ex[exampleTextKey] || ex['extendedValue_DE'] || ex['value_DE'] || '';
-        if (!text) { // Fallback to first available text if DE is also empty
-            const firstValKey = Object.keys(ex).find(k => k.startsWith('value_') || k.startsWith('extendedValue_'));
-            if (firstValKey) text = ex[firstValKey];
-        }
+        let text = ex.query[currentLang] || ex.query['de'] || Object.values(ex.query)[0] || '';
 
         const tr=document.createElement('tr');
-        tr.setAttribute('data-example-id', i);
-        tr.innerHTML=`<td>${i}</td>
+        tr.setAttribute('data-example-id', id);
+        tr.innerHTML=`<td>${id}</td>
                       <td>${text}</td>
-                      <td><button class="single-test-all-langs" data-id="${i}">${t.testExample}</button></td>
-                      <td id="res-${i}-de"></td>
-                      <td id="res-${i}-fr"></td>
-                      <td id="res-${i}-it"></td>`;
+                      <td><button class="single-test-all-langs" data-id="${id}">${t.testExample}</button></td>
+                      <td id="res-${id}-de"></td>
+                      <td id="res-${id}-fr"></td>
+                      <td id="res-${id}-it"></td>`;
         tbody.appendChild(tr);
     }
     document.querySelectorAll('.single-test-all-langs').forEach(btn => {
@@ -99,43 +92,81 @@ function runTest(id, lang) {
     });
 }
 
-async function runTestsForRow(id) {
-    // Clear previous results for this row
-    document.getElementById(`res-${id}-de`).textContent = '...';
-    document.getElementById(`res-${id}-fr`).textContent = '...';
-    document.getElementById(`res-${id}-it`).textContent = '...';
+let testQueue = [];
+let isTesting = false;
 
-    const langs = ['de', 'fr', 'it'];
-    for (const lang of langs) {
-        await runTest(id, lang); // Wait for each test to complete before starting the next
-    }
-    // Note: Overall summary is not updated per row, only for testAll
+async function runTestsForRow(id) {
+    testQueue.push(id);
+    processTestQueue();
+}
+
+function processTestQueue(isTestAll = false) {
+    return new Promise(resolve => {
+        if (isTesting || testQueue.length === 0) {
+            if (!isTesting && testQueue.length === 0) {
+                document.body.style.cursor = 'default';
+                if (isTestAll) {
+                    const testAllBtn = document.getElementById('testAllBtn');
+                    const singleTestBtns = document.querySelectorAll('.single-test-all-langs');
+                    testAllBtn.disabled = false;
+                    singleTestBtns.forEach(btn => btn.disabled = false);
+                }
+            }
+            resolve();
+            return;
+        }
+        isTesting = true;
+        document.body.style.cursor = 'wait';
+
+        const id = testQueue.shift();
+
+        const singleTestBtn = document.querySelector(`.single-test-all-langs[data-id="${id}"]`);
+        if(singleTestBtn) singleTestBtn.disabled = true;
+
+        // Clear previous results for this row
+        document.getElementById(`res-${id}-de`).textContent = '...';
+        document.getElementById(`res-${id}-fr`).textContent = '...';
+        document.getElementById(`res-${id}-it`).textContent = '...';
+
+        const langs = ['de', 'fr', 'it'];
+        (async () => {
+            for (const lang of langs) {
+                const cell = document.getElementById(`res-${id}-${lang}`);
+                if(cell) cell.textContent = `testing ${lang}...`;
+                await runTest(id, lang); // Wait for each test to complete before starting the next
+            }
+
+            if(singleTestBtn && !isTestAll) singleTestBtn.disabled = false;
+
+            isTesting = false;
+            await processTestQueue(isTestAll);
+            resolve();
+        })();
+    });
 }
 
 async function testAll() {
+    const testAllBtn = document.getElementById('testAllBtn');
+    const singleTestBtns = document.querySelectorAll('.single-test-all-langs');
+
+    testAllBtn.disabled = true;
+    singleTestBtns.forEach(btn => btn.disabled = true);
+
     totalTests = 0;
     passedTests = 0;
-    const testPromises = [];
-    // examplesData[0] is often metadata or headers, actual examples start from index 1
-    // or ensure examplesData is filtered to only contain actual examples.
-    // Assuming examplesData[0] might be an issue if it's not a valid example.
-    // Let's iterate from 1, or adjust if examplesData is 0-indexed for actual examples.
-    const numExamples = examplesData.length -1; // if examples start from 1
-    totalTests = numExamples * 3; // DE, FR, IT for each example
 
-    for (let i = 1; i < examplesData.length; i++) {
-        const exampleId = i; // Or examplesData[i].id if available and more robust
-        document.getElementById(`res-${exampleId}-de`).textContent = '...';
-        document.getElementById(`res-${exampleId}-fr`).textContent = '...';
-        document.getElementById(`res-${exampleId}-it`).textContent = '...';
+    const exampleIds = Object.keys(examplesData);
+    totalTests = exampleIds.length * 3;
 
-        testPromises.push(runTest(exampleId, 'de'));
-        testPromises.push(runTest(exampleId, 'fr'));
-        testPromises.push(runTest(exampleId, 'it'));
+    for (const exampleId of exampleIds) {
+        testQueue.push(exampleId);
     }
+    await processTestQueue(true);
 
-    const results = await Promise.all(testPromises);
-    passedTests = results.filter(r => r.passed).length;
+    // After all tests are run, count the passed tests
+    const results = document.querySelectorAll('td[id^="res-"]');
+    passedTests = Array.from(results).filter(cell => cell.style.color === 'green').length;
+
     updateOverallSummary();
 }
 

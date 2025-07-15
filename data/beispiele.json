@@ -1,15 +1,5 @@
 [
   {
-    "label": "--- Bitte wählen ---",
-    "value_DE": "",
-    "extendedValue_DE": "",
-    "value_FR": "",
-    "extendedValue_FR": "",
-    "value_IT": "",
-    "extendedValue_IT": ""
-  },
-  {
-
     "label": "Konsultation HAz, 17 Minuten",
     "value_DE": "Konsultation HAz, 17 Minuten",
     "extendedValue_DE": "Hausärztliche Konsultation von 17 Minuten",
@@ -25,7 +15,7 @@
     "value_FR": "Consultation 10 min, ablation verrue 5 min, passage en dermatologie",
     "extendedValue_FR": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes), y compris temps de changement vers la salle traitement dermatologique",
     "value_IT": "Consultazione 10 minuti, rimozione di una verruca 5 minuti, passaggio a dermatologia",
-    "extendedValue_IT": "Consulta médica de 10 minutos y rimozione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
+    "extendedValue_IT": "Consulta specialistica dermatologica  de 10 minutos y rimozione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
   },
   {
     "label": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
@@ -57,11 +47,11 @@
   {
     "label": "Konsultation HAz 15 Min + 10 Min Beratung Kind",
     "value_DE": "Konsultation HAz 15 Min + 10 Min Beratung Kind",
-    "extendedValue_DE": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind",
+    "extendedValue_DE": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind 8 jährig",
     "value_FR": "Consultation de MF 15 min + 10 min conseil enfant",
-    "extendedValue_FR": "Consultation du médecin de famille 15 min plus 10 min de consultation enfant",
+    "extendedValue_FR": "Consultation du médecin de famille 15 min plus 10 min de consultation enfant de 8 ans",
     "value_IT": "Consultazione MF 15 min + 10 min consulenza bambino",
-    "extendedValue_IT": "Consultazione del medico di famiglia di 15 minuti e 10 minuti consulenza bambino"
+    "extendedValue_IT": "Consultazione del medico di famiglia di 15 minuti per un bambino di 8 anni (incluso supplemento). Inoltre, 10 minuti di consulenza supplementare specifica ai genitori, separata dalla consultazione (ad es. educazione sanitaria, spiegazione dettagliata, colloquio di supporto)."
   },
   {
     "label": "Kiefergelenk, Luxation. Geschlossene Reposition",
@@ -152,5 +142,14 @@
     "extendedValue_FR": "Implantation stimulateur du nerf hypoglosse",
     "value_IT": "stimolatore del nervo ipoglosso",
     "extendedValue_IT": "Impianto stimolatore del nervo ipoglosso"
+  },
+  {
+    "label": "MPK Diabetesberatung, 20 Minuten",
+    "value_DE": "MPK: Diabetes Betreuung 20 Minuten",
+    "extendedValue_DE": "Diabetes Betreuung MPK 20 Minuten",
+    "value_FR": "Suivi du diabète CMA 20 minutes",
+    "extendedValue_FR": "Suivi du diabète CMA 20 minutes",
+    "value_IT": "Cura del diabete CMA 20 minuti",
+    "extendedValue_IT": "Cura del diabete CMA 20 minuti"
   }
 ]

@@ -1,4 +1,3 @@
-# --- Prompt-Übersetzungen ---
 def get_stage1_prompt(user_input: str, katalog_context: str, lang: str) -> str:
     """Return the Stage 1 prompt in the requested language."""
     if lang == "fr":
@@ -211,65 +210,70 @@ Se nessuna LKN appropriata viene trovata, restituisci un oggetto JSON con una li
 Behandlungstext: "{user_input}"
 
 Risposta JSON:"""
-    else:
-        return f"""**Aufgabe:** Analysiere den folgenden medizinischen Behandlungstext aus der Schweiz äußerst präzise. Deine Aufgabe ist es, relevante Leistungs-Katalog-Nummern (LKN) samt Menge und Kontextinformationen zu bestimmen. Nutze primär den bereitgestellten LKAAT_Leistungskatalog, darfst aber auch medizinische Synonyme oder übliche Begriffe berücksichtigen und die Pauschalen-Tabelle hinzuziehen.
+    else: # DE (German) - OPTIMIZED PROMPT
+        return f"""**Rolle:** Du bist ein KI-Experte für Schweizer Arzttarife (TARDOC/Pauschalen).
+**Aufgabe:** Extrahiere aus dem "Behandlungstext" die korrekten LKNs (Leistungs-Katalog-Nummern), berechne ihre Menge und gib das Ergebnis exakt im geforderten JSON-Format aus.
 
-**Kontext: LKAAT_Leistungskatalog (maßgebliche Quelle für gültige LKNs, deren Beschreibungen und etwaige "MedizinischeInterpretation"-Abschnitte mit zusätzlichen Begriffen; ergänzend kann die Pauschalen-Tabelle verwendet werden.)
+**Kontext: LKAAT_Leistungskatalog**
+(Dies ist die einzige Quelle für gültige LKNs, ihre Beschreibungen und Typen)
 --- Leistungskatalog Start ---
 {katalog_context}
 --- Leistungskatalog Ende ---
-Rolle: Du bist ein Experte für den Schweizer Arzttarif TARDOC. Deine einzige Aufgabe ist es, aus einem Behandlungstext die korrekten Einzelleistungen (LKNs) zu identifizieren und zu kodieren. Pauschalen werden ignoriert.
 
-Anweisungen: Führe die folgenden Schritte exakt aus:
+**ANWEISUNGEN - Folge diesen Schritten exakt:**
 
-1. Textanalyse & Aufgabenzerlegung:
-    Lies den Behandlungstext sorgfältig.
-    KRITISCH: Wenn der Text mehrere, voneinander getrennte Tätigkeiten beschreibt (getrennt durch  Satzzeichen oder Wörter wie "plus", "und", "sowie", "gefolgt von"), behandle jede Tätigkeit als eigene Aufgabe.
-    Beispiel: "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind"
-    Aufgabe 1: "Hausärztliche Konsultation 15 Min"
-    Aufgabe 2: "10 Minuten Beratung Kind"
-    Weise Zeitangaben und andere Details immer der korrekten Aufgabe zu.
-2. LKN-Identifikation (pro Aufgabe):
-    Medizinische Interpretation: Verstehe die medizinische Absicht, nicht nur die exakten Worte. Nutze dein Wissen über Synonyme, Fachbegriffe und Umschreibungen.
-    Beispiele: "Entfernung" ist gleichbedeutend mit "Abtragen". Eine "Warze" ist eine "benigne Hautläsion". "Linksherzkatheter" ist "Koronarographie".
-    Wenn eine Anästhesie durch Anästhesisten beschrieben wird, dann halte Di an das KApitel WA.10 (Anästhesie). Wenn keine Dauer angegeben ist, nimm standardmässig `WA.10.0010`. Bei Angabe einer Dauer in Minuten, nutze den entsprechenden Code `WA.10.00x0`.
-    WICHTIG: Wenn eine Prozedur im Katalog nur als Pauschale existiert (z.B. viele grosse chirurgische Eingriffe), wirst du keine passenden LKNs finden. In diesem Fall ist eine leere identified_leistungen-Liste die korrekte Antwort.
-3. SPEZIALREGELN für LKNs und Mengenberechnung:
-    A) Logik für Konsultationen (Kapitel AA & CA):
-        Diese Logik gilt nur für Tätigkeiten wie "Konsultation", "Sprechstunde", "hausärztliche Konsultation".
-        Schritt 1: Extrahiere die Gesamtdauer dieser Konsultation in Minuten (z.B. "15 Minuten").
-        Schritt 2: Wähle das Kapitel:
-        CA (Hausarzt): Wenn der Text "Hausarzt" oder "hausärztlich" enthält.
-        AA (Allgemein): In ALLEN ANDEREN FÄLLEN von allgemeiner Konsultation.
-        Schritt 3: Wende die folgende Aufteilungsregel strikt an:
-        Basis-LKN: AA.00.0010 oder CA.00.0010 ("erste 5 Min."). Die Menge ist IMMER 1.
-        Zusatz-LKN: Nur wenn die Dauer über 5 Minuten liegt, füge AA.00.0020 oder CA.00.0020 ("jede weitere Min.") hinzu.
-        Menge der Zusatz-LKN: Die Menge ist EXAKT (Dauer in Minuten - 5).
-        Beispiel "Konsultation 15 Minuten": -> AA.00.0010 (Menge 1) + AA.00.0020 (Menge 10).
-    B) Logik für andere zeitbasierte Leistungen:
-        Dies gilt für alle anderen LKNs mit Zeitangabe (z.B. "pro 1 Min.", "pro 5 Min.").
-        Beispiel: "...Abtragen Warze... 5 Minuten" findet die LKN MK.05.0070 ("...pro 1 Min.").
-        Mengenberechnung: Die Menge ist EXAKT (Dauer der Tätigkeit / Zeiteinheit der LKN).
-        Beispiel: 5 Minuten für eine "pro 1 Min."-LKN -> menge = 5 / 1 = 5.
-        Beispiel: 10 Minuten für eine "pro 5 Min."-LKN -> menge = 10 / 5 = 2.
-4. Strikte Validierung:
-    Für JEDE identifizierte LKN: Prüfe BUCHSTABE FÜR BUCHSTABE und ZIFFER FÜR ZIFFER, dass der Code im Katalog existiert.
-    Nur LKNs, die diese Prüfung bestehen, kommen in die finale Liste.
-5. Kontextinformationen extrahieren:
-    Extrahiere die im Text genannten Werte (dauer_minuten, menge_allgemein, alter, etc.).
-    Wenn es mehrere Zeitangaben gibt, extrahiere die Dauer der Hauptleistung oder die Gesamtdauer.
-6. Begründung:
-    Fasse kurz zusammen, warum du die LKNs gewählt hast und wie du die Mengen berechnet hast. Beziehe dich dabei auf deine Analyse aus den vorherigen Schritten.
+**Schritt 1: Analyse & Zerlegung**
+*   Lies den gesamten "Behandlungstext".
+*   Identifiziere alle einzelnen, abrechenbaren Tätigkeiten. Oft sind sie durch Wörter wie "plus", "und", "danach" oder Satzzeichen getrennt.
+    *   Beispiel A: "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind" -> Tätigkeit 1: "Hausärztliche Konsultation 15 Min", Tätigkeit 2: "10 Minuten Beratung Kind".
+    *   Beispiel B: "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin" -> Tätigkeit 1: "Geschlossene Reposition Kiefergelenk", Tätigkeit 2: "Anästhesie durch Anästhesistin".
+*   Beziehe Details wie Zeitangaben immer auf die korrekte Tätigkeit.
 
-Output-Format: NUR valides JSON, KEIN anderer Text.
+**Schritt 2: LKN-Identifikation (pro Tätigkeit)**
+*   Finde für jede Tätigkeit die passende LKN im Katalog.
+*   **Nutze medizinisches Wissen:** Verstehe Synonyme und Umschreibungen (z.B. "Warzenentfernung" = "Abtragung benigne Hautläsion", "Linksherzkatheter" = "Koronarographie").
+*   **Anästhesie-Regel:** Wenn eine Anästhesie durch einen Anästhesisten beschrieben wird, MUSS ein Code aus Kapitel WA.10 verwendet werden. Ohne Zeitangabe -> `WA.10.0010`. Mit Zeitangabe -> der passende `WA.10.00x0` Code.
 
+**Schritt 3: ANWENDUNG DER MENGENREGELN (KRITISCH!)**
+Wende für jede gefundene LKN EINE der folgenden Regeln an:
+
+*   **REGEL A: Konsultationen (Kapitel AA & CA)**
+    *   **Bedingung:** Die Tätigkeit ist eine "Konsultation", "Sprechstunde", "Gespräch" mit Zeitangabe.
+    *   **Kapitelwahl:** Wähle Kapitel `CA` wenn der Text "Hausarzt" oder "hausärztlich" erwähnt, sonst immer Kapitel `AA`.
+    *   **Berechnung:**
+        1.  **Basis-LKN** (`AA.00.0010` oder `CA.00.0010` "erste 5 Min"): `menge` ist IMMER `1`.
+        2.  **Zusatz-LKN** (`AA.00.0020` oder `CA.00.0020` "jede weitere Min"): NUR hinzufügen, wenn Dauer > 5 Min. Die `menge` ist dann exakt: `(Gesamtdauer in Minuten - 5)`.
+    *   _Beispiel "Konsultation 15 Min": 1x AA.00.0010 + 10x AA.00.0020_
+
+*   **REGEL B: Andere zeitbasierte Leistungen**
+    *   **Bedingung:** Die LKN-Beschreibung im Katalog enthält eine Zeiteinheit (z.B. "pro 1 Min", "pro 5 Min") UND es ist KEINE Konsultation nach Regel A.
+    *   **Berechnung:** Die `menge` ist exakt: `Dauer der Tätigkeit / Zeiteinheit der LKN`.
+    *   _Beispiel: Tätigkeit dauert 10 Min, LKN ist "pro 5 Min" -> menge = 10 / 5 = 2._
+
+*   **REGEL C: Andere Leistungen (Default)**
+    *   **Bedingung:** Regeln A und B treffen nicht zu.
+    *   **Berechnung:** Die `menge` ist `1`. Ausnahme: Wenn der Text eine klare Anzahl nennt (z.B. "drei Injektionen", "zwei Läsionen"), verwende diese Zahl. Bei "beidseits" ist die `menge` `2`, wenn die LKN einseitig definiert ist.
+
+**Schritt 4: Strikte Validierung**
+*   **ABSOLUT KRITISCH:** Prüfe für JEDE potentielle LKN, ob der Code **exakt (Zeichen für Zeichen)** im Katalog-Kontext existiert. Verwirf alle LKNs, die nicht gefunden werden.
+*   Übernehme `typ` und `beschreibung` **ohne Änderung** aus dem Katalog.
+
+**Schritt 5: Extraktion der Kontextinformationen**
+*   Extrahiere die Werte `dauer_minuten`, `menge_allgemein`, `alter`, etc. NUR wenn sie explizit im Text stehen. Sonst `null`.
+
+**Schritt 6: JSON-Output erstellen**
+*   Stelle alle validierten LKNs und extrahierten Infos im JSON-Format zusammen.
+*   `begruendung_llm`: Fasse kurz zusammen, warum du die LKNs gewählt und wie du die Mengen berechnet hast.
+*   **WICHTIG:** Wenn keine LKN passt (z.B. bei grossen chirurgischen Eingriffen, die nur als Pauschale existieren), gib eine leere `identified_leistungen`-Liste zurück.
+
+**Output-Format: NUR valides JSON, KEIN anderer Text.**
 ```json
 {{
   "identified_leistungen": [
     {{
       "lkn": "VALIDIERTE_LKN_1",
       "typ": "TYP_AUS_KATALOG_1",
-      "menge": MENGE_ZAHL_LKN_1
+      "menge": BERECHNETE_MENGE_1
     }}
   ],
   "extracted_info": {{
@@ -280,93 +284,72 @@ Output-Format: NUR valides JSON, KEIN anderer Text.
     "seitigkeit": "unbekannt",
     "anzahl_prozeduren": null
   }},
-  "begruendung_llm": "<Begründung>"
+  "begruendung_llm": "<Kurze, präzise Begründung basierend auf den Regeln>"
 }}
-
-Wenn absolut keine passende LKN aus dem Katalog gefunden wird, gib ein JSON-Objekt mit einer leeren "identified_leistungen"-Liste zurück.
-
 Behandlungstext: "{user_input}"
-
 JSON-Antwort:"""
-
 def get_stage2_mapping_prompt(tardoc_lkn: str, tardoc_desc: str, candidates_text: str, lang: str) -> str:
     """Return the Stage 2 mapping prompt in the requested language."""
     if lang == "fr":
-
-        return f"""**Tâche :** Vous êtes un expert des systèmes de facturation médicale en Suisse (TARDOC et Pauschalen). Votre objectif est de trouver, pour la prestation TARDOC indiquée (type E/EZ), la prestation fonctionnellement **équivalente** dans la « liste des candidats ». Cette liste contient des LKN (souvent P/PZ) utilisés comme conditions dans les Pauschalen potentielles.
-
-**Prestation TARDOC donnée (type E/EZ):**
-*   LKN: {tardoc_lkn}
-*   Description: {tardoc_desc}
-*   Contexte: Cette prestation a été réalisée dans le cadre d'un traitement pour lequel une facturation par Pauschalen est examinée.
-
-**Équivalents possibles (liste des candidats - LKN pour les conditions des Pauschalen) :**
-Choisissez dans CETTE liste la LKN candidate décrivant **le même type d'acte médical** que la prestation TARDOC.
+        return f"""Tâche : Vous êtes un expert des systèmes de facturation médicale en Suisse (TARDOC et Pauschalen). Votre objectif est de trouver, pour la prestation TARDOC indiquée (type E/EZ), la prestation fonctionnellement équivalente dans la « liste des candidats ». Cette liste contient des LKN (souvent P/PZ) utilisés comme conditions dans les Pauschalen potentielles.
+Prestation TARDOC donnée (type E/EZ):
+LKN: {tardoc_lkn}
+Description: {tardoc_desc}
+Contexte: Cette prestation a été réalisée dans le cadre d'un traitement pour lequel une facturation par Pauschalen est examinée.
+Équivalents possibles (liste des candidats - LKN pour les conditions des Pauschalen) :
+Choisissez dans CETTE liste la LKN candidate décrivant le même type d'acte médical que la prestation TARDOC.
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
-
-**Analyse et décision :**
-1.  Comprenez la **fonction médicale principale** de la prestation TARDOC.
-2.  Identifiez les LKN candidates correspondant le mieux à cette fonction.
-3.  Classez-les par pertinence.
-
-**Réponse :**
-*   Donnez une **liste simple séparée par des virgules** des codes LKN retenus.
-*   Si aucun candidat ne convient, renvoyez exactement `NONE`.
-*   Aucune autre sortie, pas d'explications.
-
+Analyse et décision :
+Comprenez la fonction médicale principale de la prestation TARDOC.
+Identifiez les LKN candidates correspondant le mieux à cette fonction.
+Classez-les par pertinence.
+Réponse :
+Donnez une liste simple séparée par des virgules des codes LKN retenus.
+Si aucun candidat ne convient, renvoyez exactement NONE.
+Aucune autre sortie, pas d'explications.
 Liste priorisée (seulement la liste ou NONE):"""
     elif lang == "it":
-        return f"""**Compito:** Sei un esperto dei sistemi di fatturazione medica in Svizzera (TARDOC e Pauschalen). Il tuo obiettivo è individuare, per la prestazione TARDOC indicata (tipo E/EZ), la prestazione funzionalmente **equivalente** nella "lista dei candidati". Questa lista contiene LKN (spesso P/PZ) utilizzati come condizioni nelle Pauschalen potenzialmente rilevanti.
-
-**Prestazione TARDOC fornita (tipo E/EZ):**
-*   LKN: {tardoc_lkn}
-*   Descrizione: {tardoc_desc}
-*   Contesto: Questa prestazione è stata eseguita nell'ambito di un trattamento per il quale si verifica una fatturazione a forfait.
-
-**Possibili equivalenti (lista dei candidati - LKN per le condizioni delle Pauschalen):**
-Trova in QUESTA lista la LKN candidata che descrive **lo stesso tipo di atto medico** della prestazione TARDOC.
+        return f"""Compito: Sei un esperto dei sistemi di fatturazione medica in Svizzera (TARDOC e Pauschalen). Il tuo obiettivo è individuare, per la prestazione TARDOC indicata (tipo E/EZ), la prestazione funzionalmente equivalente nella "lista dei candidati". Questa lista contiene LKN (spesso P/PZ) utilizzati come condizioni nelle Pauschalen potenzialmente rilevanti.
+Prestazione TARDOC fornita (tipo E/EZ):
+LKN: {tardoc_lkn}
+Descrizione: {tardoc_desc}
+Contesto: Questa prestazione è stata eseguita nell'ambito di un trattamento per il quale si verifica una fatturazione a forfait.
+Possibili equivalenti (lista dei candidati - LKN per le condizioni delle Pauschalen):
+Trova in QUESTA lista la LKN candidata che descrive lo stesso tipo di atto medico della prestazione TARDOC.
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
-
-**Analisi e decisione:**
-1.  Comprendi la **funzione medica principale** della prestazione TARDOC.
-2.  Individua i candidati che rappresentano meglio tale funzione.
-3.  Ordinali per pertinenza.
-
-**Risposta:**
-*   Fornisci un **elenco semplice separato da virgole** dei codici LKN trovati.
-*   Se nessun candidato è adatto, restituisci esattamente `NONE`.
-*   Nessun altro testo o spiegazione.
-
+Analisi e decisione:
+Comprendi la funzione medica principale della prestazione TARDOC.
+Individua i candidati che rappresentano meglio tale funzione.
+Ordinali per pertinenza.
+Risposta:
+Fornisci un elenco semplice separato da virgole dei codici LKN trovati.
+Se nessun candidato è adatto, restituisci esattamente NONE.
+Nessun altro testo o spiegazione.
 Elenco prioritario (solo elenco o NONE):"""
-    else:
-        return f"""**Aufgabe:** Du bist ein Experte für medizinische Abrechnungssysteme in der Schweiz (TARDOC und Pauschalen). Deine Aufgabe ist es, für die gegebene TARDOC-Einzelleistung (Typ E/EZ) die funktional **äquivalente** Leistung aus der \"Kandidatenliste\" zu finden. Die Kandidatenliste enthält LKNs (aller Typen, oft P/PZ), die als Bedingungen in potenziell relevanten Pauschalen vorkommen.
-
-**Gegebene TARDOC-Leistung (Typ E/EZ):**
-*   LKN: {tardoc_lkn}
-*   Beschreibung: {tardoc_desc}
-*   Kontext: Diese Leistung wurde im Rahmen einer Behandlung erbracht, für die eine Pauschalenabrechnung geprüft wird.
-
-**Mögliche Äquivalente (Kandidatenliste - LKNs für Pauschalen-Bedingungen):**
-Finde aus DIESER Liste die Kandidaten-LKN, die die **gleiche Art von medizinischer Tätigkeit** beschreibt.
+    else: # DE (German) - OPTIMIZED PROMPT
+        return f"""Rolle: Experte für TARDOC/Pauschalen-Mapping.
+Aufgabe: Finde in der "Kandidatenliste" die LKN, die funktional identisch mit der gegebenen "TARDOC-Leistung" ist.
+Gegebene TARDOC-Leistung (Typ E/EZ):
+LKN: {tardoc_lkn}
+Beschreibung: {tardoc_desc}
+Kandidatenliste (LKNs für Pauschalen-Bedingungen):
+(Finde hier die exakte funktionale Entsprechung)
 --- Kandidaten Start ---
 {candidates_text}
 --- Kandidaten Ende ---
-
-**Analyse & Entscheidung:**
-1.  Verstehe die **medizinische Kernfunktion** der gegebenen TARDOC-Leistung.
-2.  Identifiziere die Kandidaten-LKN, die diese Kernfunktion am besten repräsentiert, und priorisiere nach Passgenauigkeit.
-
-**Antwort:**
-*   Gib eine **reine, kommagetrennte Liste** der LKN-Codes zurück.
-*   Wenn keine passt, gib exakt `NONE` aus.
-*   Keine weiteren Erklärungen.
-
+Analyse & Entscheidung:
+Kernfunktion verstehen: Was ist die medizinische Haupttätigkeit der TARDOC-Leistung? (z.B. "Entfernung einer Hautläsion", "Reposition einer Fraktur").
+Abgleichen: Vergleiche diese Kernfunktion mit der Beschreibung JEDES Kandidaten.
+Auswählen: Wähle den/die Kandidaten mit der höchsten Übereinstimmung.
+Antwort-Format:
+Gib NUR eine kommagetrennte Liste der passenden LKN-Codes zurück (z.B. PZ.01.0010,PZ.01.0020).
+Wenn absolut kein Kandidat passt, gib exakt NONE zurück.
+Keine Erklärungen, kein zusätzlicher text.
 Priorisierte Liste (nur Liste oder NONE):"""
-
 def get_stage2_ranking_prompt(user_input: str, potential_pauschalen_text: str, lang: str) -> str:
     """Return the Stage 2 ranking prompt in the requested language."""
     if lang == "fr":
@@ -374,40 +357,33 @@ def get_stage2_ranking_prompt(user_input: str, potential_pauschalen_text: str, l
 Prends en compte la description de la Pauschale ('Pauschale_Text').
 Fournis une liste priorisée des codes de Pauschale en commençant par la meilleure correspondance.
 Donne UNIQUEMENT les codes séparés par des virgules (ex. "CODE1,CODE2"). Aucune justification.
-
 Behandlungstext: "{user_input}"
-
 Pauschalen potentielles:
 --- Pauschalen Start ---
 {potential_pauschalen_text}
 --- Pauschalen Ende ---
-
 Codes de Pauschale par ordre de pertinence (liste uniquement):"""
     elif lang == "it":
         return f"""In base al seguente testo di trattamento, quale delle Pauschalen elencate di seguito corrisponde meglio al contenuto?
 Tieni conto della descrizione della Pauschale ('Pauschale_Text').
 Fornisci un elenco prioritario dei codici Pauschale iniziando dal più adatto.
 Fornisci SOLO i codici separati da virgola (es. "CODE1,CODE2"). Nessuna spiegazione.
-
 Behandlungstext: "{user_input}"
-
 Pauschalen potenziali:
 --- Pauschalen Start ---
 {potential_pauschalen_text}
 --- Pauschalen Ende ---
-
 Codici Pauschale in ordine di rilevanza (solo elenco):"""
-    else:
-        return f"""Basierend auf dem folgenden Behandlungstext, welche der unten aufgeführten Pauschalen passt inhaltlich am besten?
-Berücksichtige die Beschreibung der Pauschale ('Pauschale_Text').
-Gib eine priorisierte Liste der Pauschalen-Codes zurück, beginnend mit der besten Übereinstimmung.
-Gib NUR die Pauschalen-Codes als kommagetrennte Liste zurück (z.B. \"CODE1,CODE2\"). KEINE Begründung.
-
-Behandlungstext: \"{user_input}\"
-
+    else: # DE (German) - OPTIMIZED PROMPT
+        return f"""Aufgabe: RANGORDNE die "Potenziellen Pauschalen" nach ihrer Relevanz für den "Behandlungstext".
+Kriterien: Die beste Pauschale ist die, deren 'Pauschale_Text' die im Behandlungstext beschriebene Hauptleistung am genauesten widerspiegelt.
+Behandlungstext: "{user_input}"
 Potenzielle Pauschalen:
 --- Pauschalen Start ---
 {potential_pauschalen_text}
 --- Pauschalen Ende ---
-
+Output:
+Gib NUR eine kommagetrennte Liste der Pauschalen-Codes zurück, sortiert von der besten zur schlechtesten Übereinstimmung.
+Beispiel: "C01.10A,C05.20B"
+KEINE Begründung, KEIN zusätzlicher Text.
 Priorisierte Pauschalen-Codes (nur kommagetrennte Liste):"""
