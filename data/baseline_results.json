@@ -23,8 +23,8 @@
   "2": {
     "query": {
       "de": "Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie",
-      "fr": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes), y compris temps de changement vers la salle traitement dermatologique",
-      "it": "Consulta specialistica dermatologica  de 10 minutos y rimozione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
+      "fr": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes); temps de changement, salle traitement dermatologique",
+      "it": "Consulta specialistica dermatologica  de 10 minutos; asportazione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
     },
     "baseline": {
       "pauschale": null,
@@ -118,9 +118,9 @@
   },
   "6": {
     "query": {
-      "de": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind 8 jährig",
-      "fr": "Consultation du médecin de famille 15 min plus 10 min de consultation enfant de 8 ans",
-      "it": "Consultazione del medico di famiglia di 15 minuti per un bambino di 8 anni (incluso supplemento). Inoltre, 10 minuti di consulenza supplementare specifica ai genitori, separata dalla consultazione (ad es. educazione sanitaria, spiegazione dettagliata, colloquio di supporto)."
+      "de": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung; Kind 8 jährig",
+      "fr": "Consultation du médecin de famille 15 min; plus 10 min de conseil; supplement enfant de 8 ans",
+      "it": "Consultazione del medico di base 15 minuti più 10 minuti di consulenza; supplemento per bambini di 8 anni"
     },
     "baseline": {
       "pauschale": null,
@@ -207,9 +207,9 @@
   },
   "11": {
     "query": {
-      "de": "Korrektur eines Hallux valgus rechts",
+      "de": "Korrekturop eines Hallux valgus rechts",
       "fr": "Correction d'un hallux valgus droit",
-      "it": "Correzione di alluce valgo destro"
+      "it": "Osteotomia di alluce valgo destro"
     },
     "baseline": {
       "pauschale": {

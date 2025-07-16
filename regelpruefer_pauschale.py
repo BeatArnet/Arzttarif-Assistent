@@ -567,7 +567,7 @@ def evaluate_pauschale_logic_orchestrator(
         [cond for cond in all_pauschale_bedingungen_data if cond.get("Pauschale") == pauschale_code],
         key=lambda x: x.get("BedingungsID", 0)
     )
-
+    
     if not conditions_for_pauschale:
         if debug:
             logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: No conditions defined. Result: True")

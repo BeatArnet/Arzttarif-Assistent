@@ -44,6 +44,7 @@ const DYN_TEXT = {
         llmExtr: 'Vom KI extrahierte Details:',
         llmNoneExtr: 'Keine zusätzlichen Details von der KI extrahiert.',
         llmReason: 'Begründung KI (Stufe 1):',
+        llmRankedLkns: 'Weitere mögliche LKN (Ranking):',
         llmDetails2: 'Details KI-Analyse Stufe 2 (TARDOC-zu-Pauschalen-LKN Mapping)',
         mappingIntro: 'Folgende TARDOC LKNs wurden versucht, auf äquivalente Pauschalen-Bedingungs-LKNs zu mappen:',
         ruleDetails: 'Details Regelprüfung',
@@ -95,6 +96,7 @@ const DYN_TEXT = {
         llmExtr: 'Détails extraits par IA :',
         llmNoneExtr: 'Aucun détail supplémentaire extrait par IA.',
         llmReason: 'Justification IA (Niveau 1) :',
+        llmRankedLkns: 'Autres NPL possibles (classement) :',
         llmDetails2: 'Détails analyse IA niveau 2 (mappage TARDOC vers forfaits)',
         mappingIntro: 'Les NPL TARDOC suivants ont été mis en correspondance avec des NPL de conditions de forfait :',
         ruleDetails: 'Détails contrôle des règles',
@@ -146,6 +148,7 @@ const DYN_TEXT = {
         llmExtr: 'Dettagli estratti dal IA:',
         llmNoneExtr: 'Nessun dettaglio aggiuntivo estratto dal IA.',
         llmReason: 'Motivazione IA (Livello 1):',
+        llmRankedLkns: 'Altri NPL possibili (classifica):',
         llmDetails2: 'Dettagli analisi IA livello 2 (mappatura TARDOC a forfait)',
         mappingIntro: 'I seguenti NPL TARDOC sono stati mappati su NPL di condizioni forfait:',
         ruleDetails: 'Dettagli verifica regole',
@@ -1157,6 +1160,16 @@ function generateLlmStage1Details(llmResult) {
         detailsHtml += `</ul>`;
     } else {
         detailsHtml += `<p><i>${tDyn('llmNoneIdent')}</i></p>`;
+    }
+
+    const rankedList = llmResult.ranking_candidates || [];
+    if (Array.isArray(rankedList) && rankedList.length > 1) {
+        detailsHtml += `<p><b>${tDyn('llmRankedLkns')}</b></p><ol>`;
+        rankedList.forEach(code => {
+            const desc = beschreibungZuLKN(code);
+            detailsHtml += `<li>${createInfoLink(code,'lkn')} ${escapeHtml(desc)}</li>`;
+        });
+        detailsHtml += `</ol>`;
     }
 
     let extractedDetails = [];

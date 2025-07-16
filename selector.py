@@ -30,8 +30,13 @@ def rank_leistungskatalog_entries(
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
     token_doc_freq: Dict[str, int],
     limit: int = 200,
-) -> List[str]:
-    """Return LKN codes ranked by weighted token occurrences."""
+    return_scores: bool = False,
+) -> List[str] | List[Tuple[float, str]]:
+    """Return LKN codes ranked by weighted token occurrences.
+
+    If ``return_scores`` is ``True`` the result is a list of ``(score, code)``
+    tuples, otherwise just the codes are returned.
+    """
     scored: List[Tuple[float, str]] = []
     for lkn_code, details in leistungskatalog_dict.items():
         texts = []
@@ -57,4 +62,6 @@ def rank_leistungskatalog_entries(
         if score > 0:
             scored.append((score, lkn_code))
     scored.sort(key=lambda x: x[0], reverse=True)
+    if return_scores:
+        return scored[:limit]
     return [code for _, code in scored[:limit]]

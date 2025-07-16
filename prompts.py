@@ -228,6 +228,7 @@ Risposta JSON:"""
     *   Beispiel A: "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind" -> Tätigkeit 1: "Hausärztliche Konsultation 15 Min", Tätigkeit 2: "10 Minuten Beratung Kind".
     *   Beispiel B: "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin" -> Tätigkeit 1: "Geschlossene Reposition Kiefergelenk", Tätigkeit 2: "Anästhesie durch Anästhesistin".
 *   Beziehe Details wie Zeitangaben immer auf die korrekte Tätigkeit.
+*   Wenn eine LKN im Format "AA.NN.NNNN" (A=Buchstabe, N=Ziffer) gefunden wird, dann wird diese priorisiert und ausgewählt
 
 **Schritt 2: LKN-Identifikation (pro Tätigkeit)**
 *   Finde für jede Tätigkeit die passende LKN im Katalog.
