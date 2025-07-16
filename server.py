@@ -111,12 +111,13 @@ except ModuleNotFoundError:
     def load_dotenv(*a, **k) -> bool:
         return False
 import regelpruefer # Dein Modul
-from typing import Dict, List, Any, Set, Tuple, Callable # Tuple und Callable hinzugefügt
+from typing import Dict, List, Any, Set, Tuple, Callable, cast  # Tuple und Callable hinzugefügt
 from utils import (
     get_table_content,
     translate_rule_error_message,
     expand_compound_words,
     extract_keywords,
+    extract_lkn_codes_from_text,
 )
 import html
 from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
@@ -1272,10 +1273,16 @@ def analyze_billing():
     )
 
     llm_stage1_result: Dict[str, Any] = {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": ""}
+    top_ranking_results: List[Tuple[float, str]] = []
     try:
         katalog_context_parts = []
         preprocessed_input = expand_compound_words(user_input)
         tokens = extract_keywords(user_input)
+        # Extract any potential LKN codes mentioned in the text. Even if a code
+        # is unknown to the loaded Leistungskatalog we still include it so that
+        # the LLM context is never empty when the user explicitly provides a
+        # code.
+        direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
 
         # --- DEBUGGING START ---
         logger.info(f"DEBUG: Zustand vor rank_leistungskatalog_entries:")
@@ -1287,7 +1294,20 @@ def analyze_billing():
             logger.info(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
         # --- DEBUGGING END ---
 
-        ranked_codes = rank_leistungskatalog_entries(tokens, leistungskatalog_dict, token_doc_freq, 500)
+        ranked_results = cast(
+            List[Tuple[float, str]],
+            rank_leistungskatalog_entries(
+                tokens,
+                leistungskatalog_dict,
+                token_doc_freq,
+                500,
+                return_scores=True,
+            ),
+        )
+        ranked_codes = [code for _, code in ranked_results]
+        top_ranking_results = ranked_results[:5]
+        if direct_codes:
+            ranked_codes = list(dict.fromkeys(direct_codes + ranked_codes))
         # --- DEBUGGING START ---
         logger.info(f"DEBUG: ranked_codes: {ranked_codes[:10]}") # Logge die ersten 10 gerankten Codes
         # --- DEBUGGING END ---
@@ -1366,6 +1386,20 @@ def analyze_billing():
             )
     llm_stage1_result["identified_leistungen"] = final_validated_llm_leistungen
     logger.info("%s LKNs nach LLM Stufe 1 und lokaler Katalogvalidierung.", len(final_validated_llm_leistungen))
+
+    candidate_codes: List[str] = []
+    if top_ranking_results:
+        if len(top_ranking_results) > 1:
+            ratio = (
+                top_ranking_results[0][0] / top_ranking_results[1][0]
+                if top_ranking_results[1][0] != 0
+                else float("inf")
+            )
+        else:
+            ratio = float("inf")
+        if not final_validated_llm_leistungen or ratio <= 1.5:
+            candidate_codes = [code for _, code in top_ranking_results]
+    llm_stage1_result["ranking_candidates"] = candidate_codes
 
     extracted_info_llm = llm_stage1_result.get("extracted_info", {})
     alter_context_val = alter_user if alter_user is not None else extracted_info_llm.get("alter")

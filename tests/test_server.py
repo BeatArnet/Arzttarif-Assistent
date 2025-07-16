@@ -51,3 +51,19 @@ def test_analyze_billing_with_mocked_llm():
                 assert 'beschreibung' in leistung
                 assert leistung['beschreibung'] is not None
                 assert leistung['beschreibung'] != "N/A"
+
+
+def test_analyze_billing_with_direct_lkn():
+    """Input containing an explicit LKN should not cause a 400 error."""
+    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE)):
+        with server.app.test_client() as client:
+            response = client.post('/api/analyze-billing', json={'inputText': 'GG.15.0330 30 Minuten'})
+            assert response.status_code == 200
+
+
+def test_analyze_billing_with_unknown_lkn():
+    """Even unknown LKN codes should not trigger a 400 response."""
+    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE)):
+        with server.app.test_client() as client:
+            response = client.post('/api/analyze-billing', json={'inputText': 'GG.99.9999 5 Minuten'})
+            assert response.status_code == 200
