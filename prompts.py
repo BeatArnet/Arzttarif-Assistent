@@ -261,6 +261,7 @@ Wende für jede gefundene LKN EINE der folgenden Regeln an:
 
 **Schritt 5: Extraktion der Kontextinformationen**
 *   Extrahiere die Werte `dauer_minuten`, `menge_allgemein`, `alter`, etc. NUR wenn sie explizit im Text stehen. Sonst `null`.
+*   Angebrochene Zeiteinheiten gelten als ganze Zeiteinheit (z.B. wenn eine LKN 15 Min. umfasst und ich habe 20 Minuten benötigt, dann ist das eine Menge von 2) ) 
 
 **Schritt 6: JSON-Output erstellen**
 *   Stelle alle validierten LKNs und extrahierten Infos im JSON-Format zusammen.
