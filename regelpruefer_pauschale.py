@@ -753,17 +753,37 @@ def check_pauschale_conditions(
             actual_cond_group_id = cond_data.get(GRUPPE_KEY)
 
             if actual_cond_group_id != current_display_group_id:
+                # Close the previous group div if it exists
                 if current_display_group_id is not None:
                     html_parts.append("</div>")
 
+                # Logic to add the operator between groups
+                if last_processed_actual_condition:
+                    # Check if the previous line was NOT an AST operator
+                    previous_condition_index = idx - 1
+                    if previous_condition_index >= 0:
+                        prev_cond_data = all_conditions_for_pauschale_sorted_by_id[previous_condition_index]
+                        if str(prev_cond_data.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR":
+                            # The operator is determined by the last condition of the previous group
+                            inter_group_op_val = str(last_processed_actual_condition.get(OPERATOR_KEY, "UND")).upper()
+                            translated_inter_group_op = ""
+                            if inter_group_op_val == "ODER":
+                                translated_inter_group_op = translate('OR', lang)
+                            elif inter_group_op_val == "UND":
+                                translated_inter_group_op = translate('AND', lang)
+
+                            if translated_inter_group_op:
+                                html_parts.append(f"<div class=\"condition-separator inter-group-operator\">{translated_inter_group_op}</div>")
+
+                # Start the new group
                 current_display_group_id = actual_cond_group_id
                 group_title = f"{translate('condition_group', lang)} {escape(str(current_display_group_id))}"
                 html_parts.append(f"<div class=\"condition-group\"><div class=\"condition-group-title\">{group_title}</div>")
-                last_processed_actual_condition = None
+                last_processed_actual_condition = None # Reset for the new group
 
             elif last_processed_actual_condition and \
                  last_processed_actual_condition.get(GRUPPE_KEY) == current_display_group_id:
-
+                # This is for the operator *within* a group (intra-group)
                 linking_op_val = str(last_processed_actual_condition.get(OPERATOR_KEY, "UND")).upper()
                 translated_linking_op = ""
                 if linking_op_val == "ODER":
