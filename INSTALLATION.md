@@ -68,8 +68,11 @@ Erstelle eine Datei namens `.env` im Projektstammverzeichnis (diese Datei wird d
 Inhalt der `.env`-Datei:
 ```env
 GEMINI_API_KEY="DEIN_GEMINI_API_KEY"
+GITHUB_TOKEN="DEIN_GITHUB_TOKEN"
+GITHUB_REPO="USER/REPO"
 ```
 Ersetze `DEIN_GEMINI_API_KEY` durch deinen Schlüssel.
+Wenn du Feedback automatisch als GitHub-Issue erfassen möchtest, musst du zusätzlich `GITHUB_TOKEN` und `GITHUB_REPO` setzen. `GITHUB_REPO` sollte im Format `benutzername/repository` angegeben werden. **Der bereitgestellte Token läuft am 19.07.2026 ab.**
 
 **3.6. Anwendung lokal starten**
 ```bash

@@ -5,6 +5,7 @@ import json
 import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -1960,6 +1961,129 @@ def test_example():
         'result': result,
         'diff': diff
     })
+
+
+# --- Feedback via GitHub --------------------------------------------------
+
+@app.route('/api/submit-feedback', methods=['POST'])
+def submit_feedback() -> Any:
+    """Create a GitHub issue from user feedback."""
+    token = os.environ.get("GITHUB_TOKEN")
+    repo = os.environ.get("GITHUB_REPO")
+
+    data = request.get_json() or {}
+    category = data.get("category", "Allgemein")
+    code = (data.get("code") or "").strip()
+    message = data.get("message", "")
+    user_input = data.get("user_input", "")
+    pauschale = data.get("pauschale")
+    einzelleistungen = data.get("einzelleistungen", [])
+    begruendung1 = data.get("begruendung_llm1", "")
+    begruendung2 = data.get("begruendung_llm2", "")
+    context = data.get("context")
+
+    if not token or not repo:
+        # Fallback: store feedback locally if GitHub is not configured
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "category": category,
+            "code": code,
+            "message": message,
+            "user_input": user_input,
+            "pauschale": pauschale,
+            "einzelleistungen": einzelleistungen,
+            "begruendung_llm1": begruendung1,
+            "begruendung_llm2": begruendung2,
+            "context": context,
+        }
+        feedback_file = Path("feedback_local.json")
+        try:
+            if feedback_file.exists():
+                existing = json.loads(feedback_file.read_text(encoding="utf-8"))
+            else:
+                existing = []
+            existing.append(entry)
+            feedback_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+            logger.info("Stored feedback locally: %s", entry)
+        except Exception as exc:
+            logger.error("Failed to store feedback locally: %s", exc)
+            return jsonify({"error": "Could not save feedback"}), 500
+        return jsonify({"status": "saved"})
+
+
+    title_parts = [category]
+    if code:
+        title_parts.append(code)
+    title = " - ".join(title_parts)
+    body_lines = [f"**Kategorie:** {category}"]
+    if code:
+        body_lines.append(f"**Code:** {code}")
+    if user_input:
+        body_lines.append(f"**User Input:** {user_input}")
+    if pauschale:
+        body_lines.append(f"**Pauschale:** {pauschale}")
+    if einzelleistungen:
+        body_lines.append("**Einzelleistungen:** " + ", ".join(map(str, einzelleistungen)))
+    if begruendung1:
+        body_lines.append("**Begründung LLM Stufe 1:**\n" + begruendung1)
+    if begruendung2:
+        body_lines.append("**Begründung LLM Stufe 2:**\n" + begruendung2)
+    if context:
+        body_lines.append("**Kontext:**\n```")
+        try:
+            body_lines.append(json.dumps(context, ensure_ascii=False, indent=2))
+        except Exception:
+            body_lines.append(str(context))
+        body_lines.append("```")
+    body_lines.append("")
+    body_lines.append(message)
+    body = "\n".join(body_lines)
+
+    issue_url = f"https://api.github.com/repos/{repo}/issues"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+    payload = {"title": title, "body": body, "labels": ["feedback"]}
+    try:
+        resp = requests.post(issue_url, json=payload, headers=headers, timeout=10)
+    except Exception as exc:
+        logger.error("GitHub request failed: %s", exc)
+        return jsonify({"error": "Could not submit feedback"}), 500
+    if resp.status_code >= 300:
+        logger.error("GitHub issue creation failed: %s - %s", resp.status_code, resp.text)
+        return jsonify({"error": "GitHub issue creation failed"}), 500
+
+    return jsonify({"status": "ok"})
+
+
+@app.route('/api/approved-feedback', methods=['GET'])
+def approved_feedback() -> Any:
+    """Return feedback issues labeled for display."""
+    token = os.environ.get("GITHUB_TOKEN")
+    repo = os.environ.get("GITHUB_REPO")
+    label = os.environ.get("FEEDBACK_APPROVED_LABEL", "feedback-approved")
+    if not token or not repo:
+        return jsonify([])
+    url = f"https://api.github.com/repos/{repo}/issues"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+    params = {"state": "all", "labels": label}
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+    except Exception as exc:
+        logger.error("GitHub fetch failed: %s", exc)
+        return jsonify([])
+    if resp.status_code != 200:
+        logger.error("GitHub fetch failed: %s - %s", resp.status_code, resp.text)
+        return jsonify([])
+    items = [
+        {"title": i.get("title", ""), "body": i.get("body", "")}
+        for i in resp.json()
+    ]
+    return jsonify(items)
 
 # --- Static‑Routes & Start ---
 @app.route("/")

@@ -5,3 +5,4 @@ __pycache__/
 *.tar.gz 
 data/beispiele.json filter=lfs diff=lfs merge=lfs -text
 # Andere temporäre oder lokale Dateien/Ordner
+feedback_local.json

@@ -18,6 +18,8 @@ let dignitaetenMap = {}; // For mapping dignity codes to text
 // Zusätzliche Pauschalen-Infos
 let selectedPauschaleDetails = null;
 let evaluatedPauschalenList = [];
+let lastBackendResponse = null; // Speichert die letzte Serverantwort für Feedback
+let lastUserInput = "";
 
 // Dynamische Übersetzungen
 const DYN_TEXT = {
@@ -1020,6 +1022,8 @@ async function getBillingAnalysis() {
         // console.log("[getBillingAnalysis] Raw Response vom Backend erhalten:", rawResponseText.substring(0, 500) + "..."); // Gekürzt loggen
         if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
         backendResponse = JSON.parse(rawResponseText);
+        lastBackendResponse = backendResponse; // Für spätere Feedback-Übermittlung
+        lastUserInput = userInput;
         console.log("[getBillingAnalysis] Backend-Antwort geparst.");
         console.log("[getBillingAnalysis] Empfangene Backend-Daten (Ausschnitt):", {
             begruendung_llm_stufe1: backendResponse?.llm_ergebnis_stufe1?.begruendung_llm}); // Logge spezifisch die Begründung       

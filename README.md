@@ -12,8 +12,15 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 
 ## Versionsübersicht
 
-### V2.2 (Aktuell)
+### V2.3 (Aktuell)
+- Überarbeitetes Feedback-Modul mit modalem Formular und Kontextinformationen.
+- In der Pilotphase werden alle Rückmeldungen im Repository
+  [BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)
+  gesammelt.
+
+### V2.2
 - Dokumentation (README.md, INSTALLATION.md) aktualisiert mit den neuesten Hinweisen und Versionsdetails.
+- Neue Feedback-Funktion: Über ein Formular kann Feedback an ein GitHub-Repository gesendet oder lokal gespeichert werden, wenn keine GitHub-Konfiguration vorliegt.
 
 ### V2.0
 - **Qualitätstests und Baseline-Vergleiche:** Einführung einer neuen Testseite (`quality.html`, `quality.js`) und eines Skripts (`run_quality_tests.py`) zum automatisierten Vergleich von Beispielen mit Referenzwerten (`baseline_results.json`). Ein neuer Backend-Endpunkt `/api/quality` wurde dafür in `server.py` hinzugefügt.
@@ -118,6 +125,18 @@ Die Datei `data/beispiele.json` enthält Testfälle. Mit `run_quality_tests.py` 
 ```bash
 python run_quality_tests.py
 ```
+
+## Feedback
+
+Über den Button "Feedback geben" oben neben der Sprachauswahl öffnet sich ein modales Formular.
+Es sammelt automatisch Kontextinformationen (URL, Browser, Bildschirmauflösung
+sowie eine Momentaufnahme der aktuellen Formulareingaben und Analyseergebnisse)
+und sendet sie zusammen mit der Nachricht an das Backend.
+Sind `GITHUB_TOKEN` und `GITHUB_REPO` gesetzt, wird daraus ein GitHub-Issue erstellt,
+ansonsten landet das Feedback in `feedback_local.json`.
+Während der Pilotphase werden alle eingehenden Meldungen im Repository
+[BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)
+gebündelt.
 
 ## Unittests mit `pytest`
 
