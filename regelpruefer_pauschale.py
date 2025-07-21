@@ -287,9 +287,18 @@ def get_beschreibung_fuer_icd_im_backend(
     for entry in icd_entries_main:
         if entry.get('Code', '').upper() == icd_code.upper():
             return entry.get('Code_Text', icd_code)
-            
-    # print(f"DEBUG: ICD {icd_code} nicht in spezifischer oder Haupttabelle gefunden.")
-    return icd_code # Wenn nirgends gefunden, Code selbst zurückgeben
+
+    # Weitere Suche: durchlaufe alle Tabellen nach einem passenden ICD-Eintrag
+    for entries in tabellen_dict_by_table.values():
+        for entry in entries:
+            if (
+                entry.get('Tabelle_Typ') == 'icd' and
+                entry.get('Code', '').upper() == icd_code.upper()
+            ):
+                return entry.get('Code_Text', icd_code)
+
+    # print(f"DEBUG: ICD {icd_code} nicht gefunden.")
+    return icd_code  # Wenn nirgends gefunden, Code selbst zurückgeben
 
 def get_group_operator_for_pauschale(
     pauschale_code: str, bedingungen_data: List[Dict], default: str = DEFAULT_GROUP_OPERATOR

@@ -12,7 +12,15 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 
 ## Versionsübersicht
 
-### V2.3 (Aktuell)
+### V2.4 (Aktuell)
+- Neuer CHOP‑Lookup: `/api/chop?q=<term>` liefert passende Codes mit Kurzbeschreibung.
+- Kleine Beispieldatei `CHOP_Katalog.json` hinzugefügt.
+- GUI erweitert um CHOP-Suche. Gewählter Code wird beim Verlassen des Feldes automatisch in das Formular übernommen.
+- ICD-Codes lassen sich jetzt über ein dynamisches Dropdown suchen und übernehmen.
+- Verbesserte LKN-Erkennung unterstützt gemischte Formate wie `ANN.AA.NNNN`.
+- Einheitliches Layout: Dropdown-Pfeile sind klickbar und Modalfenster lassen sich am Kopf verschieben.
+
+### V2.3
 - Überarbeitetes Feedback-Modul mit modalem Formular und Kontextinformationen.
 - In der Pilotphase werden alle Rückmeldungen im Repository
   [BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)

@@ -70,6 +70,39 @@ else:
 
                         return R(data, status)
 
+                    def get(self, path, query_string=None):
+                        func = app.routes.get((path, ("GET",)))
+                        if not func:
+                            raise AssertionError("Route not found")
+                        global request
+
+                        class Req:
+                            is_json = False
+                            args = query_string or {}
+
+                            def get_json(self, silent: bool = False):
+                                return {}
+
+                        request = Req()
+                        resp = func()
+                        status = 200
+                        data = resp
+                        if isinstance(resp, tuple):
+                            data, status = resp
+
+                        class R:
+                            def __init__(self, d, s):
+                                self.status_code = s
+                                self._d = d
+
+                            def get_json(self):
+                                return self._d
+
+                            def get_data(self, as_text: bool = False):
+                                return self._d if not as_text else str(self._d)
+
+                        return R(data, status)
+
                 return Client()
 
             def run(self, *a, **k):
@@ -172,6 +205,7 @@ PAUSCHALE_BED_PATH = DATA_DIR / "PAUSCHALEN_Bedingungen.json"
 TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
 BEISPIELE_PATH = DATA_DIR / "beispiele.json"
+CHOP_PATH = DATA_DIR / "CHOP_Katalog.json"
 
 # Retry configuration for Gemini API calls
 # Bei HTTP 429 (Rate Limit) wird nach dem Exponential-Backoff-Schema erneut
@@ -346,6 +380,7 @@ daten_geladen: bool = False
 baseline_results: dict[str, dict] = {}
 examples_data: list[dict] = []
 token_doc_freq: dict[str, int] = {}
+chop_data: list[dict] = []
 
 
 def create_app() -> FlaskType:
@@ -370,7 +405,7 @@ def create_app() -> FlaskType:
 def load_data() -> bool:
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, pauschale_bedingungen_indexed, tabellen_data
-    global tabellen_dict_by_table, daten_geladen
+    global tabellen_dict_by_table, daten_geladen, chop_data
 
     all_loaded_successfully = True
     logger.info("--- Lade Daten ---")
@@ -379,6 +414,7 @@ def load_data() -> bool:
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
     token_doc_freq.clear()
+    chop_data.clear()
 
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
@@ -387,7 +423,8 @@ def load_data() -> bool:
         "PauschaleBedingungen": (PAUSCHALE_BED_PATH, pauschale_bedingungen_data, None, None),
         "TARDOC_TARIF": (TARDOC_TARIF_PATH, [], 'LKN', tardoc_tarif_dict),  # Tarifpositionen
         "TARDOC_INTERP": (TARDOC_INTERP_PATH, [], 'LKN', tardoc_interp_dict),  # Interpretationen
-        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None)  # Tabellen nur in Liste (vorerst)
+        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None),  # Tabellen nur in Liste (vorerst)
+        "CHOP": (CHOP_PATH, chop_data, None, None)
     }
 
     for name, (path, target_list_ref, key_field, target_dict_ref) in files_to_load.items():
@@ -1201,6 +1238,79 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
             })
     return results
 
+def search_chop(term: str, offset: int = 0, limit: int = 20) -> List[Dict[str, str]]:
+    """Search CHOP data by code or German description with pagination."""
+    if offset < 0:
+        offset = 0
+    if limit <= 0:
+        limit = 20
+
+    term_lower = term.lower()
+    results: List[Dict[str, str]] = []
+    skipped = 0
+
+    for item in chop_data:
+        code = str(item.get("code", ""))
+        desc = str(item.get("description_de", ""))
+        extra = str(item.get("freitext_payload", ""))
+
+        match = True
+        if term_lower:
+            match = (
+                term_lower in code.lower()
+                or term_lower in desc.lower()
+                or term_lower in extra.lower()
+            )
+
+        if not match:
+            continue
+
+        if skipped < offset:
+            skipped += 1
+            continue
+
+        results.append({"code": code, "description_de": desc, "freitext_payload": extra})
+
+        if len(results) >= limit:
+            break
+
+    return results
+
+def search_icd(term: str, lang: str = 'de', offset: int = 0, limit: int = 20) -> List[Dict[str, str]]:
+    """Search ICD data in tabellen_data by code or description for a language with pagination."""
+    if offset < 0:
+        offset = 0
+    if limit <= 0:
+        limit = 20
+
+    lang = lang.lower() if lang in ['de', 'fr', 'it'] else 'de'
+    term_lower = term.lower()
+    results: List[Dict[str, str]] = []
+    skipped = 0
+
+    text_key = 'Code_Text' + {'de': '', 'fr': '_f', 'it': '_i'}.get(lang, '')
+
+    for item in tabellen_data:
+        if str(item.get('Tabelle_Typ', '')).lower() != 'icd':
+            continue
+        code = str(item.get('Code', ''))
+        text = str(item.get(text_key, item.get('Code_Text', '')))
+        table = str(item.get('Tabelle', ''))
+
+        if term_lower and term_lower not in code.lower() and term_lower not in text.lower() and term_lower not in table.lower():
+            continue
+
+        if skipped < offset:
+            skipped += 1
+            continue
+
+        results.append({'tabelle': str(item.get('Tabelle', '')), 'code': code, 'text': text})
+
+        if len(results) >= limit:
+            break
+
+    return results
+
 
 import threading
 
@@ -1854,6 +1964,42 @@ def perform_analysis(text: str,
         if resp.status_code != 200:
             raise RuntimeError(f"analyze-billing failed: {resp.status_code} {resp.get_data(as_text=True)}")
         return resp.get_json()
+
+
+@app.route('/api/chop')
+def chop_lookup() -> Any:
+    """Return CHOP suggestions for a search term."""
+    if not daten_geladen:
+        return jsonify([])
+    term = request.args.get('q', '').strip()
+    try:
+        offset = int(request.args.get('offset', '0'))
+    except ValueError:
+        offset = 0
+    try:
+        limit = int(request.args.get('limit', '20'))
+    except ValueError:
+        limit = 20
+    results = search_chop(term, offset=offset, limit=limit)
+    return jsonify(results)
+
+@app.route('/api/icd')
+def icd_lookup() -> Any:
+    """Return ICD suggestions for a search term and language."""
+    if not daten_geladen:
+        return jsonify([])
+    term = request.args.get('q', '').strip()
+    lang = request.args.get('lang', 'de').strip().lower()
+    try:
+        offset = int(request.args.get('offset', '0'))
+    except ValueError:
+        offset = 0
+    try:
+        limit = int(request.args.get('limit', '20'))
+    except ValueError:
+        limit = 20
+    results = search_icd(term, lang=lang, offset=offset, limit=limit)
+    return jsonify(results)
 
 @app.route('/api/quality', methods=['POST'])
 def quality_endpoint():
