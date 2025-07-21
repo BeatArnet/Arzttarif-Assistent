@@ -708,12 +708,13 @@ def extract_keywords(text: str) -> Set[str]:
 
 
 # --- New helper: Extract LKN codes directly from text ---
-LKN_CODE_REGEX = re.compile(r"\b[A-Z]{2}\.[A-Z0-9]{2}\.[A-Z0-9]{4}\b", re.IGNORECASE)
+LKN_CODE_REGEX = re.compile(r"\b[A-Z][A-Z0-9]{1,2}\.[A-Z0-9]{2}\.[0-9]{4}\b", re.IGNORECASE)
 
 def extract_lkn_codes_from_text(text: str) -> List[str]:
     """Return all potential LKN codes found in ``text``.
 
-    The pattern matches codes like ``GG.15.0330`` irrespective of case.
+    The pattern matches codes like ``GG.15.0330`` or ``C08.SA.0700``
+    irrespective of case.
     """
     if not isinstance(text, str):
         return []

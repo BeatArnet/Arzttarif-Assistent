@@ -68,6 +68,14 @@ def test_analyze_billing_with_unknown_lkn():
             response = client.post('/api/analyze-billing', json={'inputText': 'GG.99.9999 5 Minuten'})
             assert response.status_code == 200
 
+
+def test_analyze_billing_with_mixed_lkn():
+    """Codes like 'C08.SA.0700' should be accepted."""
+    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE)):
+        with server.app.test_client() as client:
+            response = client.post('/api/analyze-billing', json={'inputText': 'C08.SA.0700'})
+            assert response.status_code == 200
+
 def test_submit_feedback_local(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)

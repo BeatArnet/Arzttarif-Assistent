@@ -338,6 +338,7 @@ function hideModal(modalOverlayId) {
 let isResizing = false;
 
 function makeModalDraggable(modalElement) {
+    const handle = modalElement.querySelector('.modal-header') || modalElement;
     let isDragging = false;
     let startX, startY;
     let x = 0, y = 0; // To store the current translation
@@ -349,19 +350,13 @@ function makeModalDraggable(modalElement) {
         y = matrix.m42;
     }
 
-    modalElement.addEventListener('mousedown', (e) => {
+    handle.addEventListener('mousedown', (e) => {
         const rect = modalElement.getBoundingClientRect();
         const resizeHandleSize = 20;
-        
+
         // Prüfen, ob der Klick im Resize-Bereich (unten rechts) ist
         if (e.clientX > rect.right - resizeHandleSize && e.clientY > rect.bottom - resizeHandleSize) {
             isResizing = true;
-            // Verhindern, dass das Dragging startet
-            return;
-        }
-
-        // Interaktive Elemente oder Modal-Body sollen kein Dragging auslösen
-        if (e.target.closest('button, a, input, select, textarea, details, summary, .info-modal-body')) {
             return;
         }
 
@@ -369,7 +364,7 @@ function makeModalDraggable(modalElement) {
         getCurrentTransform();
         startX = e.clientX;
         startY = e.clientY;
-        modalElement.style.cursor = 'grabbing';
+        handle.style.cursor = 'grabbing';
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -384,7 +379,7 @@ function makeModalDraggable(modalElement) {
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
-            modalElement.style.cursor = 'grab';
+            handle.style.cursor = 'grab';
         }
         // WICHTIG: Setze isResizing nach einer kurzen Verzögerung zurück,
         // damit der Click-Handler des Overlays es zuerst prüfen kann.
@@ -395,7 +390,7 @@ function makeModalDraggable(modalElement) {
         }
     });
 
-    modalElement.style.cursor = 'grab';
+    handle.style.cursor = 'grab';
 }
 
 function buildDiagnosisInfoHtmlFromCode(code) {
@@ -406,20 +401,14 @@ function buildDiagnosisInfoHtmlFromCode(code) {
     // Attempt to find description in data_tabellen (assuming some tables might be ICD catalogs)
     // This is a simplified search. A dedicated ICD data structure would be better.
     if (Array.isArray(data_tabellen)) {
-        for (const tableName in data_tabellen) { // data_tabellen is an object with table names as keys
-            if (Object.hasOwnProperty.call(data_tabellen, tableName)) {
-                const tableEntries = data_tabellen[tableName];
-                if (Array.isArray(tableEntries)) {
-                    const entry = tableEntries.find(item => item && typeof item.Code === 'string' && item.Code.toUpperCase() === normCode && item.Tabelle_Typ === 'icd');
-                    if (entry) {
-                        description = getLangField(entry, 'Code_Text') || getLangField(entry, 'Beschreibung'); // Check common fields
-                        if (description) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-            }
+        const entry = data_tabellen.find(item =>
+            item && typeof item.Code === 'string' &&
+            item.Code.toUpperCase() === normCode &&
+            item.Tabelle_Typ === 'icd'
+        );
+        if (entry) {
+            description = getLangField(entry, 'Code_Text') || getLangField(entry, 'Beschreibung');
+            if (description) found = true;
         }
     }
 
