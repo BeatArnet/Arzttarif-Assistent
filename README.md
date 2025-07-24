@@ -8,11 +8,18 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Offizielle Quellen:**
     *   Für verbindliche Tarifinformationen und zur Überprüfung der Resultate konsultieren Sie bitte den offiziellen **OAAT Tarifbrowser**: [https://tarifbrowser.oaat-otma.ch/startPortal](https://tarifbrowser.oaat-otma.ch/startPortal)
     *   Die Ärzteschaft kann sich zudem auf der **Tarifplattform der FMH** orientieren: [https://www.tarifeambulant.fmh.ch/](https://www.tarifeambulant.fmh.ch/)
-*   **Open Source:** Das Projekt ist öffentlich auf GitHub verfügbar: [https://github.com/BeatArnet/Arzttarif-Assistent](https://github.com/BeatArnet/Arzttarif-Assistent)
+*   **Open Source:** Das Projekt ist öffentlich auf GitHub verfügbar: [https://github.com/BeatArnet/Arzttarif-Assistent](https://github.com/BeatArnet/
+*   Keine persönlichen Daten eingeben – KI-Abfragen laufen über Google Gemini.Arzttarif-Assistent)
 
 ## Versionsübersicht
 
-### V2.4 (Aktuell)
+### V2.5 (Aktuell)
+- Einheitliches Übersetzungssystem: Alle UI-Texte liegen jetzt zentral in `translations.json`.
+- Die Übersetzungsfunktionen sind direkt in `calculator.js` und `quality.js` eingebaut.
+- Sämtliche Oberflächenelemente werden darüber dynamisch lokalisiert.
+- Der Hinweis, keine persönlichen Daten einzugeben, ist nun deutlich sichtbar.
+
+### V2.4
 - Neuer CHOP‑Lookup: `/api/chop?q=<term>` liefert passende Codes mit Kurzbeschreibung.
 - Kleine Beispieldatei `CHOP_Katalog.json` hinzugefügt.
 - GUI erweitert um CHOP-Suche. Gewählter Code wird beim Verlassen des Feldes automatisch in das Formular übernommen.
@@ -32,14 +39,16 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 
 ### V2.0
 - **Qualitätstests und Baseline-Vergleiche:** Einführung einer neuen Testseite (`quality.html`, `quality.js`) und eines Skripts (`run_quality_tests.py`) zum automatisierten Vergleich von Beispielen mit Referenzwerten (`baseline_results.json`). Ein neuer Backend-Endpunkt `/api/quality` wurde dafür in `server.py` hinzugefügt.
-- **Erweiterte Pop-up-Funktionen:** Pop-up-Fenster im Frontend sind nun verschiebbar und in der Größe anpassbar (`calculator.js`).
+- **Erweiterte Pop-up-Funktionen:** Pop-up-Fenster im Frontend sind nun verschiebbar und in der Grösse anpassbar (`calculator.js`).
 - **Verbesserte Pauschalenlogik:** Die Auswertung strukturierter Pauschalenbedingungen erfolgt nun über den Orchestrator `evaluate_pauschale_logic_orchestrator` in `regelpruefer_pauschale.py`, begleitet von neuen Unittests.
 - **Daten- und Funktionsumfang:** Zusätzliche Datendateien wie `DIGNITAETEN.json` wurden integriert. Die TARDOC-Daten wurden in `TARDOC_Tarifpositionen.json` und `TARDOC_Interpretationen.json` aufgeteilt.
 - **Verbesserte Textaufbereitung:** Neue Hilfsfunktionen in `utils.py` zur Erweiterung von Komposita (`expand_compound_words`) und zur Synonym-Erkennung (`SYNONYM_MAP`).
 - **Ausgelagerte Prompts:** Die Prompt-Definitionen für die KI wurden in die separate Datei `prompts.py` ausgelagert und unterstützen Mehrsprachigkeit.
+- **Test-Endpoint `/api/test-example`:** Über diesen Endpunkt lassen sich Beispiele gegen die erwarteten Ergebnisse in `baseline_results.json` prüfen (siehe `quality.html`).
 
 ### V1.1
 - JSON-Datendateien wurden umbenannt und der ehemals kombinierte TARDOC-Datensatz in **TARDOC_Tarifpositionen.json** und **TARDOC_Interpretationen.json** aufgeteilt.
+- Alte Dateinamen wie `tblLeistungskatalog.json`, `tblPauschaleLeistungsposition.json` oder `tblTabellen.json` heissen nun entsprechend `LKAAT_Leistungskatalog.json`, `PAUSCHALEN_Leistungspositionen.json` und `PAUSCHALEN_Tabellen.json`.
 - `server.py` sowie das README verwenden diese neuen Namen; `index.html` weist nun die Version "V1.1" aus.
 - `utils.py` bietet ein Übersetzungssystem für Regelmeldungen und Condition-Typen in Deutsch, Französisch und Italienisch.
 - In `regelpruefer_pauschale.py` sorgt eine Operator-Präzedenzlogik für korrektes "UND vor ODER" bei strukturierten Bedingungen.
@@ -60,6 +69,10 @@ Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-
 
 Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprache richtet sich nach der Browsereinstellung, sie kann aber auch manuell geändert werden. Allerdings sollte man die Seite dann neu aufrufen, damit alles neu initialisiert wird. Es zeigt sich, dass die Antworten der KI nicht in allen drei Sprachen gleich (gut) funktioniert. An der Konsistenz der Antworten muss noch gearbeitet werden.
 
+## Übersetzen von Texten
+
+Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der Datei `translations.json`. Diese enthält die deutschen Texte sowie Übersetzungen in Französisch und Italienisch. Die Dateien `calculator.js` und `quality.js` laden diese Datei über `loadTranslations()` und stellen mit `t(key, lang)` eine einfache Lookup-Funktion bereit. Neue Texte müssen nur in `translations.json` ergänzt werden.
+
 ## Kernlogik / Architektur
 
 1.  **Frontend (`index.html`, `calculator.js`):**
@@ -71,7 +84,7 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
 2.  **Backend (Python/Flask - `server.py`):**
     *   Empfängt Anfragen vom Frontend.
     *   **LLM Stufe 1 (`call_gemini_stage1`):** Identifiziert LKNs und extrahiert Kontext aus dem Benutzertest mithilfe von Google Gemini.
-    *   **Regelprüfung LKN (`regelpruefer.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln.
+    *   **Regelprüfung LKN (`regelpruefer_einzelleistungen.py`):** Prüft die identifizierten LKNs auf Konformität mit TARDOC-Regeln.
     *   **Pauschalen-Anwendbarkeitsprüfung (`regelpruefer_pauschale.py`):** Identifiziert und prüft potenzielle Pauschalen.
     *   **Entscheidung & TARDOC-Vorbereitung:** Entscheidet "Pauschale vor TARDOC".
     *   Sendet das Gesamtergebnis zurück an das Frontend.
@@ -126,6 +139,10 @@ Der Assistent ist in den drei Landessprachen DE, FR und IT verfügbar. Die Sprac
 ## Deployment auf Render.com
 
 Die Anwendung kann auf Plattformen wie Render.com deployed werden. Hierfür sind eine `Procfile` und die Konfiguration von Umgebungsvariablen für den API-Schlüssel notwendig. Der `Standard`-Plan (oder höher) wird aufgrund des RAM-Bedarfs (>512 MB) empfohlen.
+
+### Logs auf Render.com durchsuchen
+
+Im Render-Dashboard kann man die Server-Logs einsehen. Rufe den entsprechenden Service auf und wähle den Reiter **Logs**. Oben rechts lässt sich ein Zeitraum festlegen. Über das Suchfeld kann dann nach `inputText` gesucht werden, um die Anfragen in diesem Zeitraum zu filtern.
 
 ## Qualitätstests
 

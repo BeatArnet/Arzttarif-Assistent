@@ -70,7 +70,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Merge Branch '$branchName' in '$targetBranch'..."
 git merge --no-ff $branchName
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Fehler beim Mergen. Bitte beheben Sie die Konflikte manuell und schließen Sie den Merge ab." -ForegroundColor Red
+    Write-Host "Fehler beim Mergen. Bitte beheben Sie die Konflikte manuell und schliessen Sie den Merge ab." -ForegroundColor Red
     exit
 }
 

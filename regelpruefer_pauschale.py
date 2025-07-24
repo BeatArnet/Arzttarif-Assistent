@@ -1242,7 +1242,7 @@ def check_pauschale_conditions(
             </div>
         """)
 
-    if current_group is not None: # Letzte Gruppe abschließen
+    if current_group is not None: # Letzte Gruppe abschliessen
         html_parts.append("</div>") # condition-group
 
     # Rückgabe als Dictionary, um konsistent mit der vorherigen Struktur zu sein,

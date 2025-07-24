@@ -1,4 +1,4 @@
-# regelpruefer.py
+# regelpruefer_einzelleistungen.py
 
 """
 Modul zur Prüfung der Abrechnungsregeln (Regelwerk) für TARDOC-Leistungen
@@ -76,7 +76,7 @@ def pruefe_abrechnungsfaehigkeit(fall: dict, regelwerk: dict) -> dict:
     Returns:
         Dict mit Schlüsseln:
           - abrechnungsfaehig (bool): True, wenn alle Regeln erfüllt sind.
-          - fehler (list): Liste der Regelverstöße (Fehlermeldungen).
+          - fehler (list): Liste der Regelverstösse (Fehlermeldungen).
     """
     lkn = fall.get("LKN")
     menge = fall.get("Menge", 0) or 0
