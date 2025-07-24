@@ -144,7 +144,7 @@ try:
 except ModuleNotFoundError:
     def load_dotenv(*a, **k) -> bool:
         return False
-import regelpruefer # Dein Modul
+import regelpruefer_einzelleistungen as regelpruefer  # Dein Modul
 from typing import Dict, List, Any, Set, Tuple, Callable, cast  # Tuple und Callable hinzugefügt
 from utils import (
     get_table_content,
@@ -155,7 +155,7 @@ from utils import (
 )
 import html
 from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
-from selector import compute_token_doc_freq, rank_leistungskatalog_entries
+from utils import compute_token_doc_freq, rank_leistungskatalog_entries
 
 import logging
 import sys
@@ -289,20 +289,20 @@ prepare_tardoc_abrechnung_func: PrepareTardocAbrechnungType # Wird unten zugewie
 
 # --- Importiere Regelprüfer-Module und überschreibe Fallbacks bei Erfolg ---
 try:
-    # Für regelpruefer.py (LKN-Regeln)
+    # Für regelpruefer_einzelleistungen.py (LKN-Regeln)
     rp_lkn_module = None
-    import regelpruefer as rp_lkn_module
-    logger.info("✓ Regelprüfer LKN (regelpruefer.py) Modul geladen.")
+    import regelpruefer_einzelleistungen as rp_lkn_module
+    logger.info("✓ Regelprüfer LKN (regelpruefer_einzelleistungen.py) Modul geladen.")
     if hasattr(rp_lkn_module, 'prepare_tardoc_abrechnung'):
         prepare_tardoc_abrechnung_func = rp_lkn_module.prepare_tardoc_abrechnung
-        logger.info("DEBUG: 'prepare_tardoc_abrechnung' aus regelpruefer.py zugewiesen.")
+        logger.info("DEBUG: 'prepare_tardoc_abrechnung' aus regelpruefer_einzelleistungen.py zugewiesen.")
     else:
-        logger.error("FEHLER: 'prepare_tardoc_abrechnung' NICHT in regelpruefer.py gefunden! Verwende Fallback.")
+        logger.error("FEHLER: 'prepare_tardoc_abrechnung' NICHT in regelpruefer_einzelleistungen.py gefunden! Verwende Fallback.")
         def prepare_tardoc_lkn_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
             return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Funktion fehlt)"}
         prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_fb
 except ImportError:
-    logger.error("FEHLER: regelpruefer.py nicht gefunden! Verwende Fallbacks für LKN-Regelprüfung.")
+    logger.error("FEHLER: regelpruefer_einzelleistungen.py nicht gefunden! Verwende Fallbacks für LKN-Regelprüfung.")
     def prepare_tardoc_lkn_import_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
         return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Modulimportfehler)"}
     prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_import_fb
@@ -1105,7 +1105,7 @@ def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, 
 
 # --- Ausgelagerte TARDOC-Vorbereitung ---
 # prepare_tardoc_abrechnung wird jetzt über prepare_tardoc_abrechnung_func aufgerufen,
-# die entweder die echte Funktion aus regelpruefer.py oder einen Fallback enthält.
+# die entweder die echte Funktion aus regelpruefer_einzelleistungen.py oder einen Fallback enthält.
 
 def get_relevant_p_pz_condition_lkns( # Beibehalten, falls spezifisch nur P/PZ benötigt wird
     potential_pauschale_codes: Set[str],
@@ -2041,7 +2041,7 @@ def test_example():
         # Langfristig sollten Testfälle spezifische ICDs und useIcd-Flags haben können.
         expected_pauschale = baseline.get('pauschale')
         test_use_icd = True
-        test_icd_codes = [] # Standardmäßig keine ICDs für Tests, es sei denn, sie wären in baseline_results definiert
+        test_icd_codes = [] # Standardmässig keine ICDs für Tests, es sei denn, sie wären in baseline_results definiert
 
         if expected_pauschale is not None:
             # Wenn eine spezifische Pauschale (nicht C90.xx) erwartet wird,

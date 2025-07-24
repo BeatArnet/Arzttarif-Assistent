@@ -1,17 +1,37 @@
-const qcTranslations = {
-    de: {title:'Qualitätskontrolle', testExample:'Beispiel testen', testAll:'Alle Beispiele testen', pass:'OK', fail:'Fehler'},
-    fr: {title:'Contrôle de qualité', testExample:'Tester exemple', testAll:'Tester tous les exemples', pass:'OK', fail:'Erreur'},
-    it: {title:'Controllo qualità', testExample:'Prova esempio', testAll:'Testa tutti gli esempi', pass:'OK', fail:'Errore'}
-};
+// --- Übersetzungen ---------------------------------------------------------
+let translations = {};
+function loadTranslations(){
+    if(Object.keys(translations).length) return Promise.resolve(translations);
+    return fetch('translations.json')
+        .then(r=>r.json())
+        .then(data=>{
+            const base=data.de||{};
+            for(const [lang,vals] of Object.entries(data)){
+                translations[lang]={...base,...vals};
+            }
+            return translations;
+        });
+}
+function t(key, lang){
+    lang = lang || (typeof currentLang !== 'undefined' ? currentLang : 'de');
+    if(!translations[lang]) lang='de';
+    return (translations[lang] && translations[lang][key]) || translations.de[key] || key;
+}
+
 let examplesData = [];
 let currentLang = 'de';
 
 function applyLanguage(lang){
     currentLang = lang;
-    const t = qcTranslations[lang];
     document.documentElement.lang = lang;
-    document.getElementById('qcHeader').textContent = t.title;
-    document.getElementById('testAllBtn').textContent = t.testAll;
+    document.getElementById('qcHeader').textContent = t('qcTitle', lang);
+    document.getElementById('testAllBtn').textContent = t('qcTestAll', lang);
+    document.getElementById('qcId').textContent = t('qcColId', lang);
+    document.getElementById('qcExample').textContent = t('qcColExample', lang);
+    document.getElementById('qcAction').textContent = t('qcColAction', lang);
+    document.getElementById('qcResDe').textContent = t('qcColResDe', lang);
+    document.getElementById('qcResFr').textContent = t('qcColResFr', lang);
+    document.getElementById('qcResIt').textContent = t('qcColResIt', lang);
     buildTable();
 }
 
@@ -28,7 +48,7 @@ function buildTable(){
     const tbody = document.querySelector('#exampleTable tbody');
     if(!tbody || !Object.keys(examplesData).length) return;
     tbody.innerHTML='';
-    const t = qcTranslations[currentLang]; // For button text, example text uses specific lang
+    const btnText = t('qcTestExample', currentLang);
 
     for(const [id, ex] of Object.entries(examplesData)){
         // Try to get example text in current language, fallback to DE, then first available
@@ -38,7 +58,7 @@ function buildTable(){
         tr.setAttribute('data-example-id', id);
         tr.innerHTML=`<td>${id}</td>
                       <td>${text}</td>
-                      <td><button class="single-test-all-langs" data-id="${id}">${t.testExample}</button></td>
+                      <td><button class="single-test-all-langs" data-id="${id}">${btnText}</button></td>
                       <td id="res-${id}-de"></td>
                       <td id="res-${id}-fr"></td>
                       <td id="res-${id}-it"></td>`;
@@ -71,11 +91,11 @@ function runTest(id, lang) {
                 return;
             }
             if (res.passed) {
-                cell.textContent = qcTranslations[currentLang].pass;
+                cell.textContent = t('qcPass', currentLang);
                 cell.style.color = 'green';
                 resolve({ id, lang, passed: true });
             } else {
-                cell.textContent = qcTranslations[currentLang].fail + (res.diff ? ': ' + res.diff : '');
+                cell.textContent = t('qcFail', currentLang) + (res.diff ? ': ' + res.diff : '');
                 cell.style.color = 'red';
                 resolve({ id, lang, passed: false, diff: res.diff });
             }
@@ -83,7 +103,7 @@ function runTest(id, lang) {
         .catch(error => {
             const cell = document.getElementById(`res-${id}-${lang}`);
             if (cell) {
-                cell.textContent = 'error';
+                cell.textContent = t('qcError', currentLang);
                 cell.style.color = 'orange';
             }
             console.error(`Error testing example ${id} lang ${lang}:`, error);
@@ -132,7 +152,7 @@ function processTestQueue(isTestAll = false) {
         (async () => {
             for (const lang of langs) {
                 const cell = document.getElementById(`res-${id}-${lang}`);
-                if(cell) cell.textContent = `testing ${lang}...`;
+                if(cell) cell.textContent = t('qcTestingLang', currentLang).replace('{lang}', lang);
                 await runTest(id, lang); // Wait for each test to complete before starting the next
             }
 
@@ -173,7 +193,9 @@ async function testAll() {
 function updateOverallSummary() {
     const summaryDiv = document.getElementById('overallSummary');
     if (totalTests > 0) {
-        summaryDiv.textContent = `Gesamt: ${passedTests} / ${totalTests} bestanden.`;
+        summaryDiv.textContent = t('qcSummary', currentLang)
+            .replace('{passed}', passedTests)
+            .replace('{total}', totalTests);
     } else {
         summaryDiv.textContent = '';
     }
@@ -184,6 +206,8 @@ document.getElementById('testAllBtn').addEventListener('click', testAll);
 document.addEventListener('DOMContentLoaded', () => {
     const stored=localStorage.getItem('language');
     if(stored && ['de','fr','it'].includes(stored)) currentLang=stored;
-    applyLanguage(currentLang);
-    loadExamples();
+    loadTranslations().then(() => {
+        applyLanguage(currentLang);
+        loadExamples();
+    });
 });

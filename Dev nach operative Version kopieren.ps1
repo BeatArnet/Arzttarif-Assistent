@@ -28,7 +28,7 @@ git fetch origin
 git checkout $Branch
 git pull origin $Branch
 
-# Alte Dateien (außer .git) entfernen
+# Alte Dateien (ausser .git) entfernen
 Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | Remove-Item -Recurse -Force
 git clean -xdf
 

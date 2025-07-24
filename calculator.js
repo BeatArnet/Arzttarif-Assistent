@@ -2,6 +2,26 @@
 // Arbeitet mit zweistufigem Backend (Mapping-Ansatz). Holt lokale Details zur Anzeige.
 // Mit Mouse Spinner & strukturierter Ausgabe
 
+// --- Übersetzungen ---------------------------------------------------------
+let translations = {};
+function loadTranslations(){
+    if(Object.keys(translations).length) return Promise.resolve(translations);
+    return fetch('translations.json')
+        .then(r=>r.json())
+        .then(data=>{
+            const base=data.de||{};
+            for(const [lang,vals] of Object.entries(data)){
+                translations[lang]={...base,...vals};
+            }
+            return translations;
+        });
+}
+function t(key, lang){
+    lang = lang || (typeof currentLang !== 'undefined' ? currentLang : 'de');
+    if(!translations[lang]) lang='de';
+    return (translations[lang] && translations[lang][key]) || translations.de[key] || key;
+}
+
 // ─── 0 · Globale Datencontainer ─────────────────────────────────────────────
 let data_leistungskatalog = [];
 let data_pauschaleLeistungsposition = [];
@@ -20,6 +40,9 @@ let selectedPauschaleDetails = null;
 let evaluatedPauschalenList = [];
 let lastBackendResponse = null; // Speichert die letzte Serverantwort für Feedback
 let lastUserInput = "";
+let progressTimes = {};
+let elapsedTimer = null;
+let llm1BarInterval = null;
 
 // Dynamische Übersetzungen
 const DYN_TEXT = {
@@ -73,7 +96,17 @@ const DYN_TEXT = {
         diffTaxpoints: 'Differenz Taxpunkte',
         implantsIncluded: 'Implantate inbegriffen',
         dignitiesLabel: 'Dignitäten',
-        descriptionNotFound: 'Beschreibung nicht gefunden'
+        descriptionNotFound: 'Beschreibung nicht gefunden',
+        progressLLM1Request: 'Anfrage an LLM 1 gestellt...',
+        progressLLM1Response: 'Antwort von LLM 1 erhalten...',
+        progressPlausi: 'Plausibilisierung läuft...',
+        progressLLM2Request: 'Anfrage an LLM 2 gestellt...',
+        progressLLM2Response: 'Antwort von LLM 2 erhalten...',
+        progressFinal: 'Finale Plausibilisierung...',
+        progressDone: 'Fertig.',
+        progressQuery: 'Anfrage: «{text}»',
+        progressDuration: 'Dauer: {ms} ms',
+        progressCandidates: 'Mögliche LKN: {count}'
     },
     fr: {
         spinnerWorking: 'Vérification en cours...',
@@ -125,7 +158,17 @@ const DYN_TEXT = {
         diffTaxpoints: 'Différence points tarifaires',
         implantsIncluded: 'Implants inclus',
         dignitiesLabel: 'Dignités',
-        descriptionNotFound: 'Description non trouvée'
+        descriptionNotFound: 'Description non trouvée',
+        progressLLM1Request: 'Requête au LLM 1 envoyée...',
+        progressLLM1Response: 'Réponse du LLM 1 reçue...',
+        progressPlausi: 'Vérification de plausibilité...',
+        progressLLM2Request: 'Requête au LLM 2 envoyée...',
+        progressLLM2Response: 'Réponse du LLM 2 reçue...',
+        progressFinal: 'Plausibilisation finale...',
+        progressDone: 'Terminé.',
+        progressQuery: 'Requête : «{text}»',
+        progressDuration: 'Durée : {ms} ms',
+        progressCandidates: 'NPL potentielles : {count}'
     },
     it: {
         spinnerWorking: 'Verifica in corso...',
@@ -177,7 +220,17 @@ const DYN_TEXT = {
         diffTaxpoints: 'Differenza punti tariffari',
         implantsIncluded: 'Impianti inclusi',
         dignitiesLabel: 'Dignità',
-        descriptionNotFound: 'Descrizione non trovata'
+        descriptionNotFound: 'Descrizione non trovata',
+        progressLLM1Request: 'Richiesta al LLM 1 inviata...',
+        progressLLM1Response: 'Risposta dal LLM 1 ricevuta...',
+        progressPlausi: 'Verifica di plausibilità...',
+        progressLLM2Request: 'Richiesta al LLM 2 inviata...',
+        progressLLM2Response: 'Risposta dal LLM 2 ricevuta...',
+        progressFinal: 'Plausibilizzazione finale...',
+        progressDone: 'Completato.',
+        progressQuery: 'Richiesta: «{text}»',
+        progressDuration: 'Durata: {ms} ms',
+        progressCandidates: 'Possibili NPL: {count}'
     }
 };
 
@@ -689,14 +742,13 @@ function updateSpinnerPosition(event) {
 }
 
 function showSpinner(text = tDyn('spinnerWorking')) {
-    const textSpinner = $('spinner');
+    const spinner = $('spinner');
+    const spinnerText = $('spinnerText');
     const button = $('analyzeButton');
     const body = document.body;
 
-    if (textSpinner) {
-        textSpinner.innerHTML = escapeHtml(text); // Text escapen
-        textSpinner.style.display = 'block';
-    }
+    if (spinnerText) spinnerText.textContent = text;
+    if (spinner) spinner.style.display = 'block';
     if (button) button.disabled = true;
 
     if (!mouseSpinnerElement) mouseSpinnerElement = $('mouseSpinner');
@@ -710,14 +762,13 @@ function showSpinner(text = tDyn('spinnerWorking')) {
 }
 
 function hideSpinner() {
-    const textSpinner = $('spinner');
+    const spinner = $('spinner');
+    const spinnerText = $('spinnerText');
     const button = $('analyzeButton');
     const body = document.body;
 
-    if (textSpinner) {
-        textSpinner.innerHTML = "";
-        textSpinner.style.display = 'none';
-    }
+    if (spinnerText) spinnerText.textContent = '';
+    if (spinner) spinner.style.display = 'none';
     if (button) button.disabled = false;
 
     if (mouseSpinnerElement) mouseSpinnerElement.style.display = 'none';
@@ -729,6 +780,68 @@ function hideSpinner() {
     }
 }
 // --- Ende Mouse Spinner Funktionen ---
+
+// --- Fortschrittsbalken Funktionen ---
+function startProgress() {
+    const c = $('progressContainer');
+    const bar = $('progressBar');
+    const text = $('progressText');
+    const timer = $('progressTimer');
+    if (c) c.style.display = 'block';
+    if (bar) bar.style.width = '0%';
+    if (text) text.textContent = '';
+    if (timer) {
+        timer.textContent = '0 s';
+        timer.style.display = 'block';
+    }
+    progressTimes = {start: performance.now()};
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+        if (timer) {
+            const sec = ((performance.now() - progressTimes.start) / 1000).toFixed(0);
+            timer.textContent = sec + ' s';
+        }
+    }, 1000);
+}
+
+function updateProgress(percent, textKey) {
+    const bar = $('progressBar');
+    const text = $('progressText');
+    if (bar) bar.style.width = percent + '%';
+    if (text) text.textContent = tDyn(textKey);
+}
+
+function finishProgress() {
+    const c = $('progressContainer');
+    const timer = $('progressTimer');
+    if (c) c.style.display = 'none';
+    if (timer) timer.style.display = 'none';
+    if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+    if (llm1BarInterval) { clearInterval(llm1BarInterval); llm1BarInterval = null; }
+}
+
+function startLlm1Progress() {
+    if (llm1BarInterval) clearInterval(llm1BarInterval);
+    let percent = 10;
+    llm1BarInterval = setInterval(() => {
+        percent = Math.min(percent + 1, 28);
+        updateProgress(percent, 'progressLLM1Request');
+    }, 1000);
+}
+
+function stopLlm1Progress() {
+    if (llm1BarInterval) { clearInterval(llm1BarInterval); llm1BarInterval = null; }
+}
+
+function logProgress(message) {
+    const list = $('progressLog');
+    if (list) {
+        const li = document.createElement('li');
+        li.textContent = message;
+        list.appendChild(li);
+    }
+}
+// --- Ende Fortschrittsbalken Funktionen ---
 
 
 // ─── 2 · Daten laden ─────────────────────────────────────────────────────────
@@ -993,7 +1106,18 @@ async function getBillingAnalysis() {
     if (!userInput) { displayOutput(`<p class='error'>${tDyn('pleaseEnter')}</p>`); return; }
 
     showSpinner(tDyn('spinnerWorking'));
-    displayOutput("", "info");
+    displayOutput(`
+        <div id="progressContainer">
+            <div id="progressBar"></div>
+            <div id="progressText"></div>
+            <div id="progressTimer"></div>
+        </div>
+        <ul id="progressLog"></ul>`, 'info');
+    startProgress();
+    logProgress(tDyn('progressLLM1Request') + ' ' + tDyn('progressQuery', {text: userInput}));
+    updateProgress(10, 'progressLLM1Request');
+    startLlm1Progress();
+    progressTimes.llm1Start = performance.now();
 
     try {
         console.log("[getBillingAnalysis] Sende Anfrage an Backend...");
@@ -1008,9 +1132,15 @@ async function getBillingAnalysis() {
         };
         const res = await fetch("/api/analyze-billing", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(requestBody) });
         rawResponseText = await res.text();
+        const llm1Duration = performance.now() - progressTimes.llm1Start;
+        stopLlm1Progress();
+        updateProgress(30, 'progressLLM1Response');
         // console.log("[getBillingAnalysis] Raw Response vom Backend erhalten:", rawResponseText.substring(0, 500) + "..."); // Gekürzt loggen
         if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
         backendResponse = JSON.parse(rawResponseText);
+        const lknCount = Array.isArray(backendResponse?.llm_ergebnis_stufe1?.rankierte_lkns) ? backendResponse.llm_ergebnis_stufe1.rankierte_lkns.length : 0;
+        logProgress(tDyn('progressLLM1Response') + ' ' + tDyn('progressDuration', {ms: llm1Duration.toFixed(0)}) + ' ' + tDyn('progressCandidates', {count: lknCount}));
+        progressTimes.plausiStart = performance.now();
         lastBackendResponse = backendResponse; // Für spätere Feedback-Übermittlung
         lastUserInput = userInput;
         console.log("[getBillingAnalysis] Backend-Antwort geparst.");
@@ -1024,7 +1154,8 @@ async function getBillingAnalysis() {
              throw new Error("Unerwartete Hauptstruktur vom Server erhalten.");
         }
         console.log("[getBillingAnalysis] Backend-Antwortstruktur ist OK.");
-        showSpinner(tDyn('spinnerWorking'));
+        updateProgress(50, 'progressPlausi');
+        logProgress(tDyn('progressPlausi'));
 
     } catch (e) {
         console.error("Fehler bei Backend-Anfrage oder Verarbeitung:", e);
@@ -1033,6 +1164,7 @@ async function getBillingAnalysis() {
              msg += `<details style="margin-top:1em"><summary>Raw Response (gekürzt)</summary><pre>${escapeHtml(rawResponseText.substring(0,1000))}${rawResponseText.length > 1000 ? '...' : ''}</pre></details>`;
         }
         displayOutput(msg);
+        finishProgress();
         hideSpinner();
         return;
     }
@@ -1091,24 +1223,36 @@ async function getBillingAnalysis() {
         htmlOutput += finalResultHeader;
         // 2. Details zur finalen Abrechnung (Pauschale/TARDOC) hinzufügen
         htmlOutput += finalResultDetailsHtml;
+        progressTimes.llm2Start = performance.now();
+        updateProgress(70, 'progressLLM2Request');
+        logProgress(tDyn('progressLLM2Request'));
         // 3. LLM Stufe 1 Ergebnisse
         htmlOutput += generateLlmStage1Details(llmResultStufe1);
         // 4. LLM Stufe 2 Ergebnisse (Mapping)
         const stage2Html = generateLlmStage2Details(llmResultStufe2); // Ergebnis holen
+        const llm2Duration = performance.now() - progressTimes.llm2Start;
+        updateProgress(80, 'progressLLM2Response');
+        logProgress(tDyn('progressLLM2Response') + ' ' + tDyn('progressDuration', {ms: llm2Duration.toFixed(0)}));
         // console.log("[getBillingAnalysis] Ergebnis von generateLlmStage2Details:", stage2Html.substring(0, 100) + "..."); // Loggen
         htmlOutput += stage2Html; // Hinzufügen
         // 5. Regelprüfungsdetails
+        updateProgress(90, 'progressFinal');
+        logProgress(tDyn('progressFinal'));
         htmlOutput += generateRuleCheckDetails(regelErgebnisseDetails, abrechnung.type === "Error");
 
         // --- Finalen Output anzeigen ---
         displayOutput(htmlOutput);
+        updateProgress(100, 'progressDone');
+        logProgress(tDyn('progressDone'));
+        setTimeout(finishProgress, 300);
         console.log("[getBillingAnalysis] Frontend-Verarbeitung abgeschlossen.");
         hideSpinner();
 
     } catch (error) {
          console.error("[getBillingAnalysis] Unerwarteter Fehler bei Ergebnisverarbeitung im Frontend:", error);
-         displayOutput(`<p class="error">Ein interner Fehler im Frontend ist aufgetreten: ${escapeHtml(error.message)}</p><pre>${escapeHtml(error.stack)}</pre>`);
-         hideSpinner();
+        displayOutput(`<p class="error">Ein interner Fehler im Frontend ist aufgetreten: ${escapeHtml(error.message)}</p><pre>${escapeHtml(error.stack)}</pre>`);
+        finishProgress();
+        hideSpinner();
     }
 }
 

@@ -1,0 +1,50 @@
+# Anwendung des Arzttarif-Assistenten
+
+Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistenten ausprobieren möchten. Sie zeigt die typischen Arbeitsschritte, gibt Hinweise zur iterativen Nutzung und beschreibt die Grenzen des Systems.
+
+## 1. Voraussetzungen und Start
+
+1. Installieren Sie die Abhängigkeiten gemäss `INSTALLATION.md` und legen Sie Ihren Google Gemini API-Schlüssel in einer `.env`-Datei ab.
+2. Starten Sie den Server lokal mit:
+   ```bash
+   python server.py
+   ```
+   Anschliessend erreichen Sie die Weboberfläche unter [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+## 2. Erste Schritte in der Weboberfläche
+
+1. Wählen Sie bei Bedarf die Sprache (Deutsch, Französisch oder Italienisch).
+2. Optional können Sie über die Dropdown-Liste ein Beispiel laden, um die Funktionsweise kennenzulernen.
+3. Tragen Sie die **Leistungsbeschreibung oder LKN** ins Textfeld ein. Zusätzliche Angaben wie Dauer, Alter oder Geschlecht können das Ergebnis verbessern.
+4. Bei Bedarf können Sie auch einen **ICD-Code**, **GTINs** oder einen **CHOP-Code** angeben. Mit dem Häkchen "ICD berücksichtigen" steuern Sie, ob ICD-Regeln für Pauschalen angewendet werden sollen.
+5. Klicken Sie auf **"Tarifpositionen finden"**. Das Resultat erscheint nach kurzer Zeit im unteren Bereich.
+
+## 3. Iteratives Vorgehen
+
+Der Assistent verwendet ein KI-Modell (Google Gemini) in Kombination mit lokalen Regeln. Schon kleine Anpassungen im Freitext können zu anderen Vorschlägen führen. Gehen Sie daher schrittweise vor:
+
+1. **Kurzbeschreibung testen:** Beginnen Sie mit einer einfachen Beschreibung der Leistung. Notieren Sie sich das Ergebnis.
+2. **Weitere Details hinzufügen:** Fügen Sie bei Bedarf Angaben zu Zeitdauer, Körperregion, Material oder Diagnosen hinzu. Wiederholen Sie die Analyse und vergleichen Sie die Resultate.
+3. **Synonyme ausprobieren:** Verschiedene Formulierungen oder ein geänderter Satzbau können andere LKNs oder Pauschalen hervorbringen.
+4. **Qualitätskontrolle nutzen:** Unter dem Link "Qualitätskontrolle" (bzw. `quality.html`) finden Sie vordefinierte Beispiele, mit denen Sie das System testen können.
+
+Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gewünschten Effekt haben.
+
+## 4. Grenzen der Anwendung
+
+* **Ohne Gewähr:** Der Arzttarif-Assistent ist ein Open-Source-Prototyp. Die Resultate können Fehler enthalten und sind nicht verbindlich.
+* **Offizielle Quellen benutzen:** Für rechtsgültige Tarifinformationen konsultieren Sie den [OAAT Tarifbrowser](https://tarifbrowser.oaat-otma.ch/startPortal) oder die [Tarifplattform der FMH](https://www.tarifeambulant.fmh.ch/).
+* **Keine persönlichen Daten eingeben:** Die KI-Abfragen laufen über Google Gemini. Geben Sie daher keine patientenbezogenen Daten ein.
+* **Unvollständige Datenbasis:** Die bereitgestellten JSON-Dateien und Regeln können Lücken enthalten. Spezielle Fälle oder neue Tarifpositionen sind möglicherweise nicht abgedeckt.
+* **Manuelle Prüfung erforderlich:** Die Vorschläge des Assistenten ersetzen nicht die finale fachliche Beurteilung. Kontrollieren Sie die Resultate und vergleichen Sie sie mit den offiziellen Angaben.
+
+## 5. Tipps für erfahrene Nutzende
+
+* **CHOP- und ICD-Suche:** Über die Felder für CHOP-Code und ICD können Sie direkt nach Eingriffen bzw. Diagnosen suchen und diese in die Analyse einbeziehen.
+* **Ergebnisse nachvollziehen:** Der Assistent zeigt bei Pauschalen die geprüften Bedingungen an. Bei TARDOC-Einzelleistungen werden die relevanten Regeln mitgeliefert. Nutzen Sie diese Informationen, um die Entscheidung nachzuvollziehen.
+* **Feedback-Funktion:** Falls Sie Verbesserungswünsche haben, können Sie über den Button "Feedback geben" eine kurze Nachricht senden.
+
+---
+
+Mit dieser Anleitung sollten sowohl Einsteiger als auch versierte User den Arzttarif-Assistenten effizient nutzen können. Beachten Sie stets die genannten Grenzen und ziehen Sie bei Unsicherheiten die offiziellen Quellen zu Rate.
+

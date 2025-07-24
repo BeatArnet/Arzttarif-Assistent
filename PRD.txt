@@ -22,7 +22,7 @@ Hinweise:
 
    Schritt 2: Regelprüfung der Einzelleistungen (Regelprüfer LKN)
      - Eingabe: Validierte LKNs aus Schritt 1, Kontext (ICD, GTIN, Alter, Geschlecht aus Usereingabe!).
-     - Aktion: Das Modul `regelpruefer.py` prüft jede LKN anhand des geladenen Regelwerks auf Konformität. Mengen werden ggf. angepasst.
+     - Aktion: Das Modul `regelpruefer_einzelleistungen.py` prüft jede LKN anhand des geladenen Regelwerks auf Konformität. Mengen werden ggf. angepasst.
      - Ergebnis: Detaillierte Liste aller geprüften LKNs (`regel_ergebnisse_details`) UND eine bereinigte Liste der *regelkonformen* Leistungen (`rule_checked_leistungen`).
 
    Schritt 3: Kontextanreicherung (Optional, für Pauschalenprüfung)

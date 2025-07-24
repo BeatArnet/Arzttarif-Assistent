@@ -322,6 +322,47 @@
             text-align: center; font-style: italic; border-radius: 4px;
             font-size: 0.9em; color: #333;
         }
+        #progressContainer {
+            display: none;
+            width: 100%;
+            max-width: 630px;
+            height: 20px;
+            background-color: #f1f1f1;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+        }
+        #progressBar {
+            background-color: var(--primary);
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        #progressText {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            line-height: 20px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #000;
+            pointer-events: none;
+        }
+        #progressTimer {
+            position: absolute;
+            right: 5px;
+            top: 0;
+            height: 20px;
+            line-height: 20px;
+            font-size: 0.85em;
+            color: #000;
+            pointer-events: none;
+        }
+        #progressLog { list-style: none; padding-left: 20px; margin-top: 10px; }
+        #progressLog li { margin-bottom: 4px; font-size: 0.9em; }
         .mouse-spinner {
             display: none; position: fixed; z-index: 9999;
             width: 24px; height: 24px;
@@ -345,7 +386,7 @@
             width: 70vw;
             max-width: 1000px;
             min-width: 300px;
-            height: 85vh; /* Höhe statt max-height für bessere Größenänderung */
+            height: 85vh; /* Höhe statt max-height für bessere Grössenänderung */
             overflow: auto;
             resize: both;
             border-radius: 6px;
@@ -489,7 +530,7 @@
     <!-- Main Info Modal (for initial explanation and general info) -->
     <div id="infoModalMainOverlay" class="info-modal-overlay" style="display:none;">
         <div id="infoModalMain" class="info-modal">
-            <div class="modal-header"><h2>Info</h2></div>
+            <div class="modal-header"><h2 id="infoModalMainTitle">Info</h2></div>
             <button id="infoModalMainClose" class="modal-close">&times;</button>
             <div id="infoModalMainContent"></div>
         </div>
@@ -498,7 +539,7 @@
     <!-- Detail Info Modal (for specific Pauschale condition details) -->
     <div id="infoModalDetailOverlay" class="info-modal-overlay" style="display:none;">
         <div id="infoModalDetail" class="info-modal info-modal-detail"> <!-- Added info-modal-detail for potential specific styling -->
-            <div class="modal-header"><h2>Info</h2></div>
+            <div class="modal-header"><h2 id="infoModalDetailTitle">Info</h2></div>
             <button id="infoModalDetailClose" class="modal-close">&times;</button>
             <div id="infoModalDetailContent"></div>
         </div>
@@ -507,7 +548,7 @@
     <!-- Nested (second level) Detail Info Modal -->
     <div id="infoModalNestedOverlay" class="info-modal-overlay" style="display:none;">
         <div id="infoModalNested" class="info-modal info-modal-nested">
-            <div class="modal-header"><h2>Info</h2></div>
+            <div class="modal-header"><h2 id="infoModalNestedTitle">Info</h2></div>
             <button id="infoModalNestedClose" class="modal-close">&times;</button>
             <div id="infoModalNestedContent"></div>
         </div>
@@ -525,14 +566,14 @@
         </div>
         <a id="qualityLink" href="quality.html">Qualitätskontrolle</a>
         <div class="version-info">
-            V2.4, Arnet Konsilium,
+            V2.5, Arnet Konsilium,
             <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>,
             2025
         </div>
     </div>
 
     <h1 id="mainHeader">Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
-    <p id="intro">Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.</p>
+    <p id="intro">Die KI unterst&uuml;tzt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, GTIN- und CHOP-Suchen sind m&ouml;glich. Bitte keine pers&ouml;nlichen Daten eingeben.</p>
 
     <div id="inputFrame" class="input-frame">
         <label id="exampleLabel" for="beispielSelect">Beispiel auswählen:</label>
@@ -566,7 +607,7 @@
     </div>
 
     <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
-    <div id="spinner">Wird geladen...</div>
+    <div id="spinner"><span id="spinnerText">Wird geladen...</span></div>
     <div id="output">Hier erscheinen die Ergebnisse...</div>
 
     <div class="disclaimer" id="disclaimer">
@@ -584,10 +625,10 @@
             <div id="feedbackModalBody">
                 <label for="feedbackCategory" id="fbCategoryLabel">Kategorie:</label>
                 <select id="feedbackCategory">
-                    <option value="Allgemein">Allgemein</option>
-                    <option value="Leistungsbeschreibung">Leistungsbeschreibung</option>
-                    <option value="Pauschale">Pauschale</option>
-                    <option value="Einzelleistung">Einzelleistung</option>
+                    <option id="fbCatGeneralOpt" value="Allgemein">Allgemein</option>
+                    <option id="fbCatServiceOpt" value="Leistungsbeschreibung">Leistungsbeschreibung</option>
+                    <option id="fbCatPauschaleOpt" value="Pauschale">Pauschale</option>
+                    <option id="fbCatSingleOpt" value="Einzelleistung">Einzelleistung</option>
                 </select>
                 <label for="feedbackCode" id="fbCodeLabel">Code (optional):</label>
                 <input type="text" id="feedbackCode">
@@ -608,144 +649,6 @@
 
     <script src="calculator.js"></script>
     <script>
-        const translations = {
-            de: {
-                langLabel: 'Sprache:',
-                title: 'TARDOC / Pauschalen Rechner Prototyp',
-                header: 'Neuer Arzttarif Schweiz: TARDOC und Pauschalen',
-                intro: 'Geben Sie die medizinische Leistung oder die LKN ein (inkl. relevanter Details wie Dauer, Alter, Geschlecht, falls zutreffend). Der Assistent prüft die optimale Abrechnung.',
-                exampleLabel: 'Beispiel auswählen:',
-                selectPlaceholder: '--- Bitte wählen ---',
-                userLabel: 'Leistungsbeschreibung / LKN:',
-                userPlaceholder: 'z.B. Hausärztliche Konsultation von 17 Minuten...',
-                icdLabel: 'Hauptdiagnose ICD (optional):',
-                icdPlaceholder: 'z.B. K35.8, J45.9',
-                gtinLabel: 'Medikamenten-GTINs (kommagetrennt, optional):',
-                gtinPlaceholder: 'z.B. 7680664950014, 1234567890123',
-                chopLabel: 'Über den CHOP-Code suchen:',
-                chopPlaceholder: 'CHOP-Code oder Text',
-                useIcd: 'ICD berücksichtigen',
-                analyzeButton: 'Tarifpositionen finden',
-                loading: 'Wird geladen...',
-                resultsPlaceholder: 'Hier erscheinen die Ergebnisse...',
-                disclaimer: '<strong>Haftungsausschluss:</strong> Alle Auskünfte erfolgen ohne Gewähr.',
-                newDisclaimer: `
-                    <p><strong>Ohne Gewähr:</strong> Der Arzttarif-Assistent ist eine Open-Source-Anwendung und ein Prototyp. Die Ergebnisse können Fehler enthalten und sind nicht verbindlich.</p>
-                    <p><strong>Offizielle Quellen:</strong></p>
-                    <ul>
-                        <li>Für verbindliche Tarifinformationen und zur Überprüfung der Resultate konsultieren Sie bitte den offiziellen <strong>OAAT Tarifbrowser</strong>: <a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a></li>
-                        <li>Die Ärzteschaft kann sich zudem auf der <strong>Tarifplattform der FMH</strong> orientieren: <a href="https://www.tarifeambulant.fmh.ch/" target="_blank">https://www.tarifeambulant.fmh.ch/</a></li>
-                    </ul>
-                    <p><strong>Open Source:</strong> Das Projekt ist öffentlich auf GitHub verfügbar: <a href="https://github.com/BeatArnet/Arzttarif-Assistent" target="_blank">https://github.com/BeatArnet/Arzttarif-Assistent</a></p>
-                `,
-                clickFind: "<i>Bitte 'Tarifpositionen finden' klicken.</i>",
-                qualityLink: 'Qualitätskontrolle',
-                testExample: 'Beispiel testen',
-                testAll: 'Alle Beispiele testen',
-                pass: 'OK',
-                fail: 'Fehler',
-                feedbackButton: 'Feedback geben',
-                fbCategory: 'Kategorie:',
-                fbCode: 'Code (optional):',
-                fbMessage: 'Nachricht:',
-                fbSubmit: 'Absenden',
-                fbCancel: 'Abbrechen',
-                feedbackTitle: 'Feedback geben',
-                fbContext: 'Kontext',
-                fbThanks: 'Vielen Dank für das Feedback!'
-            },
-            fr: {
-                langLabel: 'Langue :',
-                title: 'Prototype du calculateur de forfaits / TARDOC',
-                header: 'Nouveau tarif médical suisse : TARDOC et forfaits',
-                intro: "Saisissez la prestation médicale ou le NPL (y compris les détails pertinents tels que durée, âge, sexe, le cas échéant). L'assistant vérifie la facturation optimale.",
-                exampleLabel: 'Sélectionner un exemple :',
-                selectPlaceholder: '--- Veuillez choisir ---',
-
-                userLabel: 'Description de la prestation / NPL :',
-                userPlaceholder: 'p. ex. consultation de médecine de famille de 17 minutes...',
-                icdLabel: 'Diagnostic principal CIM (optionnel) :',
-                icdPlaceholder: 'p. ex. K35.8, J45.9',
-                gtinLabel: 'GTIN des médicaments (séparées par des virgules, optionnel) :',
-                gtinPlaceholder: 'p. ex. 7680664950014, 1234567890123',
-                chopLabel: 'Chercher via le code CHOP :',
-                chopPlaceholder: 'Code ou terme CHOP',
-                useIcd: 'Prendre en compte la CIM',
-                analyzeButton: 'Trouver les positions tarifaires',
-                loading: 'Chargement...',
-                resultsPlaceholder: "Les résultats s'affichent ici...",
-                disclaimer: '<strong>Clause de non-responsabilité :</strong> Toutes les informations sont fournies sans garantie.',
-                newDisclaimer: `
-                    <p><strong>Sans garantie :</strong> L'assistant tarifaire médical est une application open source et un prototype. Les résultats peuvent contenir des erreurs et ne sont pas contraignants.</p>
-                    <p><strong>Sources officielles :</strong></p>
-                    <ul>
-                        <li>Pour des informations tarifaires contraignantes et pour vérifier les résultats, veuillez consulter le <strong>navigateur tarifaire officiel de l'OAAT</strong> : <a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a></li>
-                        <li>Le corps médical peut également s'orienter sur la <strong>plateforme tarifaire de la FMH</strong> : <a href="https://www.tarifeambulant.fmh.ch/" target="_blank">https://www.tarifeambulant.fmh.ch/</a></li>
-                    </ul>
-                    <p><strong>Open Source :</strong> Le projet est disponible publiquement sur GitHub : <a href="https://github.com/BeatArnet/Arzttarif-Assistent" target="_blank">https://github.com/BeatArnet/Arzttarif-Assistent</a></p>
-                `,
-                clickFind: "<i>Veuillez cliquer sur 'Trouver les positions tarifaires'.</i>",
-                qualityLink: 'Contrôle de qualité',
-                testExample: 'Tester exemple',
-                testAll: 'Tester tous les exemples',
-                pass: 'OK',
-                fail: 'Erreur',
-                feedbackButton: 'Envoyer un feedback',
-                fbCategory: 'Catégorie:',
-                fbCode: 'Code (optionnel):',
-                fbMessage: 'Message:',
-                fbSubmit: 'Envoyer',
-                fbCancel: 'Annuler',
-                feedbackTitle: 'Envoyer un feedback',
-                fbContext: 'Contexte',
-                fbThanks: 'Merci pour votre feedback!'
-            },
-            it: {
-                langLabel: 'Lingua:',
-                title: 'Prototipo calcolatore di forfait / TARDOC',
-                header: 'Nuova tariffa medica svizzera: TARDOC e forfait',
-                intro: "Inserisci la prestazione medica o il NPL (compresi i dettagli rilevanti come durata, età, sesso, se applicabile). L'assistente verifica la fatturazione ottimale.",
-                exampleLabel: 'Seleziona un esempio:',
-                selectPlaceholder: '--- Si prega di scegliere ---',
-                userLabel: 'Descrizione della prestazione / NPL:',
-                userPlaceholder: 'es. consultazione di base di 17 minuti...',
-                icdLabel: 'Diagnosi principale ICD (opzionale):',
-                icdPlaceholder: 'es. K35.8, J45.9',
-                gtinLabel: 'GTIN dei medicamenti (separate da virgole, opzionale):',
-                gtinPlaceholder: 'es. 7680664950014, 1234567890123',
-                chopLabel: 'Cerca tramite codice CHOP:',
-                chopPlaceholder: 'Codice o testo CHOP',
-                useIcd: 'Considera ICD',
-                analyzeButton: 'Trova le posizioni tariffarie',
-                loading: 'Caricamento...',
-                resultsPlaceholder: 'Qui verranno visualizzati i risultati...',
-                disclaimer: '<strong>Clausola di esclusione della responsabilità:</strong> tutte le informazioni sono fornite senza garanzia.',
-                newDisclaimer: `
-                    <p><strong>Senza garanzia:</strong> L'assistente tariffale medico è un'applicazione open source e un prototipo. I risultati possono contenere errori e non sono vincolanti.</p>
-                    <p><strong>Fonti ufficiali:</strong></p>
-                    <ul>
-                        <li>Per informazioni tariffarie vincolanti e per verificare i risultati, si prega di consultare il <strong>browser tariffale ufficiale dell'OAAT</strong>: <a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">https://tarifbrowser.oaat-otma.ch/startPortal</a></li>
-                        <li>I medici possono anche orientarsi sulla <strong>piattaforma tariffale della FMH</strong>: <a href="https://www.tarifeambulant.fmh.ch/" target="_blank">https://www.tarifeambulant.fmh.ch/</a></li>
-                    </ul>
-                    <p><strong>Open Source:</strong> Il progetto è pubblicamente disponibile su GitHub: <a href="https://github.com/BeatArnet/Arzttarif-Assistent" target="_blank">https://github.com/BeatArnet/Arzttarif-Assistent</a></p>
-                `,
-                clickFind: "<i>Fare clic su 'Trova le posizioni tariffarie'.</i>",
-                qualityLink: 'Controllo qualità',
-                testExample: 'Prova esempio',
-                testAll: 'Testa tutti gli esempi',
-                pass: 'OK',
-                fail: 'Errore',
-                feedbackButton: 'Invia feedback',
-                fbCategory: 'Categoria:',
-                fbCode: 'Codice (opzionale):',
-                fbMessage: 'Messaggio:',
-                fbSubmit: 'Invia',
-                fbCancel: 'Annulla',
-                feedbackTitle: 'Invia feedback',
-                fbContext: 'Contesto',
-                fbThanks: 'Grazie per il feedback!'
-            }
-        };
         let examplesData = [];
         fetch("data/beispiele.json")
             .then(r => r.json())
@@ -759,7 +662,7 @@
             select.innerHTML = ""; // Alte Optionen löschen
             // Platzhalter-Option hinzufügen
             const placeholderOpt = document.createElement("option");
-            placeholderOpt.textContent = translations[lang].selectPlaceholder;
+            placeholderOpt.textContent = t('selectPlaceholder', lang);
             placeholderOpt.value = "";
             placeholderOpt.disabled = true;
             placeholderOpt.selected = true;
@@ -968,51 +871,64 @@
             currentLang = lang;
             localStorage.setItem('language', lang);
             document.documentElement.lang = lang;
-            const t = translations[lang];
-            document.getElementById('langLabel').textContent = t.langLabel;
-            document.title = t.title;
-            document.getElementById('mainHeader').textContent = t.header;
-            document.getElementById('intro').textContent = t.intro;
-            document.getElementById('exampleLabel').textContent = t.exampleLabel;
+            document.getElementById('langLabel').textContent = t('langLabel', lang);
+            document.title = t('title', lang);
+            document.getElementById('mainHeader').textContent = t('header', lang);
+            document.getElementById('intro').textContent = t('intro', lang);
+            document.getElementById('exampleLabel').textContent = t('exampleLabel', lang);
             populateExamples(lang);
-            document.getElementById('userInput').placeholder = t.userPlaceholder;
-            document.getElementById('icdLabel').textContent = t.icdLabel;
-            document.getElementById('icdInput').placeholder = t.icdPlaceholder;
-            document.getElementById('gtinLabel').textContent = t.gtinLabel;
-            document.getElementById('gtinInput').placeholder = t.gtinPlaceholder;
-            document.getElementById('chopLabel').textContent = t.chopLabel;
-            document.getElementById('chopInput').placeholder = t.chopPlaceholder;
-            document.getElementById('useIcdLabel').textContent = t.useIcd;
-            document.getElementById('analyzeButton').textContent = t.analyzeButton;
-            document.getElementById('spinner').textContent = t.loading;
+            document.getElementById('userLabel').textContent = t('userLabel', lang);
+            document.getElementById('userInput').placeholder = t('userPlaceholder', lang);
+            document.getElementById('icdLabel').textContent = t('icdLabel', lang);
+            document.getElementById('icdInput').placeholder = t('icdPlaceholder', lang);
+            document.getElementById('gtinLabel').textContent = t('gtinLabel', lang);
+            document.getElementById('gtinInput').placeholder = t('gtinPlaceholder', lang);
+            document.getElementById('chopLabel').textContent = t('chopLabel', lang);
+            document.getElementById('chopInput').placeholder = t('chopPlaceholder', lang);
+            document.getElementById('useIcdLabel').textContent = t('useIcd', lang);
+            document.getElementById('analyzeButton').textContent = t('analyzeButton', lang);
+            document.getElementById('spinner').textContent = t('loading', lang);
             const qLink = document.getElementById('qualityLink');
-            if(qLink) qLink.textContent = t.qualityLink;
+            if(qLink) qLink.textContent = t('qualityLink', lang);
             const fbBtn = document.getElementById('feedbackButton');
-            if(fbBtn) fbBtn.textContent = t.feedbackButton;
+            if(fbBtn) fbBtn.textContent = t('feedbackButton', lang);
             const fbCat = document.getElementById('fbCategoryLabel');
-            if(fbCat) fbCat.textContent = t.fbCategory;
+            if(fbCat) fbCat.textContent = t('fbCategory', lang);
             const fbCode = document.getElementById('fbCodeLabel');
-            if(fbCode) fbCode.textContent = t.fbCode;
+            if(fbCode) fbCode.textContent = t('fbCode', lang);
             const fbMsg = document.getElementById('fbMessageLabel');
-            if(fbMsg) fbMsg.textContent = t.fbMessage;
+            if(fbMsg) fbMsg.textContent = t('fbMessage', lang);
             const fbSub = document.getElementById('fbSubmitButton');
-            if(fbSub) fbSub.textContent = t.fbSubmit;
+            if(fbSub) fbSub.textContent = t('fbSubmit', lang);
             const fbCan = document.getElementById('fbCancelButton');
-            if(fbCan) fbCan.textContent = t.fbCancel;
+            if(fbCan) fbCan.textContent = t('fbCancel', lang);
             const fbTitle = document.getElementById('feedbackModalTitle');
-            if(fbTitle) fbTitle.textContent = t.feedbackTitle;
+            if(fbTitle) fbTitle.textContent = t('feedbackTitle', lang);
             const fbCtx = document.getElementById('fbContextLabel');
-            if(fbCtx) fbCtx.textContent = t.fbContext;
+            if(fbCtx) fbCtx.textContent = t('fbContext', lang);
+            const optGen = document.getElementById('fbCatGeneralOpt');
+            if(optGen) optGen.textContent = t('fbCatGeneral', lang);
+            const optService = document.getElementById('fbCatServiceOpt');
+            if(optService) optService.textContent = t('fbCatService', lang);
+            const optPausch = document.getElementById('fbCatPauschaleOpt');
+            if(optPausch) optPausch.textContent = t('fbCatPauschale', lang);
+            const optSingle = document.getElementById('fbCatSingleOpt');
+            if(optSingle) optSingle.textContent = t('fbCatSingle', lang);
+            const infoMain = document.getElementById('infoModalMainTitle');
+            if(infoMain) infoMain.textContent = t('infoTitle', lang);
+            const infoDetail = document.getElementById('infoModalDetailTitle');
+            if(infoDetail) infoDetail.textContent = t('infoTitle', lang);
+            const infoNested = document.getElementById('infoModalNestedTitle');
+            if(infoNested) infoNested.textContent = t('infoTitle', lang);
             const out = document.getElementById('output');
             if(out){
-                const prev = translations[prevLang] || translations['de'];
                 const content = out.innerHTML.trim();
-                if(!content || content === prev.resultsPlaceholder || content === prev.clickFind){
-                    out.textContent = t.resultsPlaceholder;
+                if(!content || content === t('resultsPlaceholder', prevLang) || content === t('clickFind', prevLang)){
+                    out.textContent = t('resultsPlaceholder', lang);
                 }
             }
-            document.getElementById('disclaimer').innerHTML = t.disclaimer;
-            document.getElementById('newDisclaimer').innerHTML = t.newDisclaimer;
+            document.getElementById('disclaimer').innerHTML = t('disclaimer', lang);
+            document.getElementById('newDisclaimer').innerHTML = t('newDisclaimer', lang);
         }
         function beispielEinfuegen(){
             const sel=document.getElementById('beispielSelect');
@@ -1021,7 +937,7 @@
             if(val && ta){
                 ta.value=val;
                 const out=document.getElementById('output');
-                if(out) out.innerHTML=translations[currentLang].clickFind;
+                if(out) out.innerHTML=t('clickFind', currentLang);
             }
         }
         function initLanguage(){
@@ -1052,7 +968,9 @@
         document.getElementById('icdInput').addEventListener('focus', onIcdFocus);
         document.getElementById('icdInput').addEventListener('click', onIcdArrow);
         document.getElementById('icdDropdown').addEventListener('scroll', onIcdScroll);
-        document.addEventListener('DOMContentLoaded',initLanguage);
+        document.addEventListener('DOMContentLoaded',()=>{
+            loadTranslations().then(initLanguage);
+        });
 
         function toggleFeedback(){
             const overlay = document.getElementById('feedbackModalOverlay');
@@ -1108,15 +1026,15 @@
                 let data = {};
                 try { data = await resp.json(); } catch(_) {}
                 if(resp.ok){
-                    if(status) status.textContent = translations[currentLang].fbThanks;
+                    if(status) status.textContent = t('fbThanks', currentLang);
                     document.getElementById('feedbackText').value = '';
                     document.getElementById('feedbackModalOverlay').style.display='none';
                 } else {
-                    const msg = data.error || translations[currentLang].fail;
+                    const msg = data.error || t('fail', currentLang);
                     if(status) status.textContent = msg;
                 }
             }catch(e){
-                if(status) status.textContent = translations[currentLang].fail;
+                if(status) status.textContent = t('fail', currentLang);
             }
         }
     </script>
