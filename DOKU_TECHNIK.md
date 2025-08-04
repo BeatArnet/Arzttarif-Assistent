@@ -60,6 +60,16 @@ Enthält verschiedenste Helfer:
 - `compute_token_doc_freq()` und `rank_leistungskatalog_entries()` – unterstützen das Ranking von LKN anhand der Texte im Leistungskatalog.
 - Zusätzlich einfache Übersetzungen (`translate`, `translate_rule_error_message`) und HTML‑Hilfen.
 
+### RAG-Modus und Embeddings
+
+Ab Version 2.6 kann der Kontext für das LLM stark verkleinert werden. Dazu werden
+Vektordarstellungen des Leistungskatalogs mit `generate_embeddings.py` erzeugt
+(`sentence-transformers` erforderlich) und als `leistungskatalog_embeddings.json`
+gespeichert. Ist in `config.ini` unter `[RAG]` der Wert `enabled = 1` gesetzt,
+werden beim Aufruf von `/api/analyze-billing` nur die passendsten Einträge an das
+LLM geschickt.
+Ohne RAG umfasst der Prompt mehr als 600 000 Tokens; mit RAG genügen rund 10 000.
+
 ## 4. Frontend
 
 `calculator.js` und `index.html` bilden die Hauptoberfläche. Die Texte der Benutzeroberfläche werden aus `translations.json` geladen. Über `/api/analyze-billing` wird die Berechnung gestartet. `quality.js` bedient die Testseite `quality.html` und ruft `/api/quality` auf.

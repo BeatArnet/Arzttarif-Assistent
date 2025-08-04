@@ -12,7 +12,7 @@ param(
 )
 
 $RepoUrl = "https://github.com/BeatArnet/Arzttarif-Assistent"
-$Version = "v2.5"
+$Version = "v2.7"
 
 if (-not (Test-Path $DevPath)) {
     Write-Error "Entwicklungsverzeichnis '$DevPath' wurde nicht gefunden."

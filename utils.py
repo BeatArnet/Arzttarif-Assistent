@@ -4,6 +4,8 @@ import logging
 from typing import Dict, List, Any, Set, Tuple
 import re
 
+from synonyms.expander import synonyms_enabled
+
 logger = logging.getLogger(__name__)
 
 def escape(text: Any) -> str:
@@ -702,7 +704,11 @@ def extract_keywords(text: str) -> Set[str]:
 
     expanded_tokens: Set[str] = set()
     for t in base_tokens:
-        expanded_tokens.update(collect_synonyms(t))
+        # Only use the legacy synonym map when the new subsystem is inactive
+        if not synonyms_enabled():
+            expanded_tokens.update(collect_synonyms(t))
+        else:
+            expanded_tokens.add(t)
 
     return expanded_tokens
 
@@ -787,3 +793,34 @@ def rank_leistungskatalog_entries(
         return scored[:limit]
     return [code for _, code in scored[:limit]]
 
+
+def _cosine_similarity(a: List[float], b: List[float]) -> float:
+    """Return cosine similarity between two vectors."""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = sum(x * x for x in a) ** 0.5
+    norm_b = sum(x * x for x in b) ** 0.5
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def rank_embeddings_entries(
+    query_vec: List[float],
+    vectors: List[List[float]],
+    codes: List[str],
+    limit: int = 200,
+) -> List[Tuple[float, str]]:
+    """Return ``codes`` ranked by cosine similarity to ``query_vec``."""
+    scored = []
+    for vec, code in zip(vectors, codes):
+        scored.append((_cosine_similarity(query_vec, vec), code))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored[:limit]
+
+TOKEN_REGEX = re.compile(r"\w+|[^\w\s]", re.UNICODE)
+
+def count_tokens(text: str) -> int:
+    """Return a naive token count for ``text``."""
+    if not text:
+        return 0
+    return len(TOKEN_REGEX.findall(text))

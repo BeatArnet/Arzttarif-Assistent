@@ -62,6 +62,14 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+Wenn der optionale RAG-Modus aktiviert werden soll, installiere zusätzlich
+`sentence-transformers` und erstelle anschliessend die Embedding-Datei:
+```bash
+pip install sentence-transformers
+python generate_embeddings.py
+```
+Ohne RAG müssen beim LLM mehr als 600 000 Tokens verarbeitet werden. Durch die
+Embedding-Suche sinkt der Bedarf auf rund 10 000 Tokens pro Anfrage.
 
 **3.5. Umgebungsvariablen konfigurieren**
 Erstelle eine Datei namens `.env` im Projektstammverzeichnis (diese Datei wird durch `.gitignore` ignoriert).

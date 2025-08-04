@@ -13,7 +13,15 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 
 ## Versionsübersicht
 
-### V2.5 (Aktuell)
+### V2.7 (Aktuell)
+- Erweiterte Logging-Optionen: Granulare Steuerung der LLM-Zwischenschritte über `config.ini`.
+
+### V2.6
+- Optionaler RAG-Modus über `config.ini` schaltbar.
+- Versionsnummer ebenfalls in `config.ini` definiert und in der Oberfläche angezeigt.
+- Reduziert die Grösse des LLM-Kontexts: mit RAG werden nur rund 10 000 Tokens übertragen, ohne RAG sind es über 600 000.
+
+### V2.5
 - Einheitliches Übersetzungssystem: Alle UI-Texte liegen jetzt zentral in `translations.json`.
 - Die Übersetzungsfunktionen sind direkt in `calculator.js` und `quality.js` eingebaut.
 - Sämtliche Oberflächenelemente werden darüber dynamisch lokalisiert.
@@ -162,6 +170,125 @@ ansonsten landet das Feedback in `feedback_local.json`.
 Während der Pilotphase werden alle eingehenden Meldungen im Repository
 [BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)
 gebündelt.
+
+## Embeddings generieren
+
+Der optionale RAG-Modus nutzt vorab berechnete Vektoren des Leistungskatalogs.
+Diese werden mit dem Skript `generate_embeddings.py` erzeugt:
+
+```bash
+python generate_embeddings.py
+```
+
+Das Skript benötigt die Bibliothek `sentence-transformers` und schreibt die Datei
+`data/leistungskatalog_embeddings.json`, die vom Server automatisch geladen wird.
+Um RAG zu aktivieren, setze in `config.ini` den Wert `enabled = 1` unter
+`[RAG]` und stelle sicher, dass die Embedding-Datei vorhanden ist. Führe das
+Skript nach Datenänderungen erneut aus.
+
+## Synonym-Subsystem
+
+Um auch umgangssprachliche Begriffe korrekt zu erkennen, besitzt der Assistent
+ein optionales Synonym-Subsystem. Es erweitert die bei der
+Schlüsselwortextraktion gefundenen Tokens um bekannte Synonyme und erhöht damit
+die Trefferquote im Leistungskatalog.
+
+### Synonyme generieren und pflegen
+
+Mit dem Kommandozeilenwerkzeug `python -m synonyms.cli` lässt sich eine erste
+Liste vorgeschlagener Synonyme aus den vorhandenen Katalogdaten ableiten.
+Sofern eine `GEMINI_API_KEY` Umgebungsvariable gesetzt ist und das
+`google-generativeai` Paket installiert wurde, nutzt das Werkzeug die
+Gemini‑API, um mehrsprachige Synonyme vorzuschlagen. Ist kein LLM verfügbar,
+werden keine zusätzlichen Synonyme erzeugt:
+
+```bash
+python -m synonyms.cli generate --output data/synonyms.json
+```
+
+Wird das Modul ohne Argumente gestartet, erzeugt es automatisch eine Datei
+`data/synonyms.json`. Mit `-v` oder `-vv` kann die Ausführlichkeit der Ausgabe
+gesteigert werden und `--log-file log.txt` schreibt eine detaillierte
+Protokolldatei.
+
+Wer lieber eine einfache grafische Oberfläche nutzt, kann den Generator auch
+mit Tkinter starten. Dazu kann entweder das Modul ausgeführt werden oder die
+Datei direkt gestartet werden:
+
+```bash
+python -m synonyms.gui
+# oder
+python synonyms/gui.py
+```
+Das Fenster zeigt Anzahl und Fortschritt der Anfragen, berechnet die
+voraussichtliche Endzeit und erlaubt das Festlegen des Startindex sowie des
+Ausgabepfades.
+
+Die Datei `data/synonyms.json` kann anschliessend manuell geprüft und
+ergänzt werden. Beim Start des Servers wird sie automatisch eingelesen.
+Erfasst der Nutzer einen Begriff aus dieser Liste, wird nun automatisch der
+zugehörige Grundbegriff samt Varianten berücksichtigt.
+
+Zur Umstellung auf das neue Schema mit `concept_id` und Statusfeld steht
+ein Migrationsskript bereit. Ohne bestehende Datei können die in
+`utils.py` definierten Synonyme exportiert werden:
+
+```bash
+python scripts/migrate_synonyms.py data/synonyms.json --from-utils
+```
+
+Alternativ kann eine vorhandene Zuordnung im alten Format übergeben
+werden:
+
+```bash
+python scripts/migrate_synonyms.py data/synonyms_new.json old.json
+```
+
+Die erzeugte Datei enthält eine Liste von Einträgen mit folgenden Feldern:
+`concept_id`, `canonical_terms`, `synonyms` und `status` (standardmässig
+`approved`).
+
+
+### Aktivierung in der Konfiguration
+
+In `config.ini` kann das Feature unter dem Abschnitt `[Synonyms]` aktiviert
+werden:
+
+```ini
+[Synonyms]
+enabled = 1
+catalog_path = data/synonyms.json
+```
+
+Steht `enabled` auf `0`, nutzt der Assistent ausschliesslich die in
+`utils.py` hinterlegte Basismenge `SYNONYM_MAP`.
+
+### Format `data/synonyms.json`
+
+Der Katalog enthält nun zusätzlich die zugehörige Tarifposition (LKN) und
+unterscheidet Synonyme nach Sprache. Jede Position wird über den Grundbegriff
+referenziert und speichert ihre Varianten je Sprache unter `synonyms`. Ein
+Beispiel:
+
+```json
+{
+  "Foo": {
+    "lkn": "AA.00.0010",
+    "synonyms": {
+      "de": ["bar"],
+      "fr": ["baz"]
+    }
+  }
+}
+```
+
+Dieses Format wird von `synonym_cli.py` erzeugt und von `synonyms.storage`
+eingelesen. Vorherige Dateien ohne `lkn`-Feld oder ohne Sprachaufteilung werden
+weiterhin unterstützt.
+
+**Hinweis zu den Tokenanforderungen:** Ohne RAG müssen mehr als 600 000 Tokens an
+das LLM geschickt werden. Mit RAG reichen etwa 10 000 Tokens für eine typische
+Anfrage.
 
 ## Unittests mit `pytest`
 
