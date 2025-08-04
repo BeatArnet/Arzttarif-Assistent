@@ -1,0 +1,4683 @@
+{
+  "Ärztliche Konsultation, erste 5 Min.": {
+    "lkn": "AA.00.0010",
+    "synonyms": {
+      "de": [
+        "Arztbesuch",
+        "Sprechstunde",
+        "Arzttermin",
+        "Konsultation",
+        "Patientengespräch",
+        "Erstgespräch",
+        "Sprechstundenbesuch"
+      ],
+      "fr": [
+        "Ärztliche Konsultation",
+        "Consultation médicale",
+        "Visite chez le médecin",
+        "Rendez-vous médical",
+        "Première consultation",
+        "Consultation de premier contact",
+        "Anamnèse",
+        "Entretien médical"
+      ],
+      "it": [
+        "Ärztliche Konsultation",
+        "Consultazione medica",
+        "Visita medica",
+        "Visita dal medico",
+        "Consulto medico",
+        "Appuntamento con il medico"
+      ]
+    }
+  },
+  "+ Ärztliche Konsultation, jede weitere 1 Min.": {
+    "lkn": "AA.00.0020",
+    "synonyms": {
+      "de": [
+        "Arztbesuch",
+        "Sprechstunde",
+        "Arztgespräch",
+        "Medizinische Beratung",
+        "Ärztliche Untersuchung",
+        "Patientenbesuch",
+        "Visite"
+      ],
+      "fr": [
+        "Consultation médicale",
+        "Rendez-vous médical",
+        "Visite chez le médecin",
+        "Consultation",
+        "Examen médical"
+      ],
+      "it": [
+        "Ärztliche Konsultation",
+        "Visita medica",
+        "Consulto medico",
+        "Visita dal medico",
+        "Appuntamento dal medico",
+        "Visita di controllo",
+        "Consultazione"
+      ]
+    }
+  },
+  "Besuch, erste 5 Min.": {
+    "lkn": "AA.00.0030",
+    "synonyms": {
+      "de": [
+        "Sprechstunde",
+        "Konsultation",
+        "Arztbesuch",
+        "Arztkonsultation",
+        "Patientenkontakt",
+        "Sprechstundenbesuch",
+        "Aerztliche Konsultation",
+        "Aerztliche Sprechstunde"
+      ],
+      "fr": [
+        "consultation",
+        "rendez-vous médical",
+        "visite médicale",
+        "première consultation",
+        "consultation initiale"
+      ],
+      "it": [
+        "Visita",
+        "Consulto",
+        "Appuntamento medico",
+        "Visita medica",
+        "Controllo"
+      ]
+    }
+  },
+  "+ Besuch, jede weitere 1 Min.": {
+    "lkn": "AA.00.0040",
+    "synonyms": {
+      "de": [
+        "Arztbesuch",
+        "Sprechstundenbesuch",
+        "Konsultation",
+        "Sprechstunde",
+        "Visite",
+        "Behandlung",
+        "Sitzung",
+        "Termin"
+      ],
+      "fr": [
+        "Besuch",
+        "Consultation",
+        "Rendez-vous médical",
+        "Visite médicale",
+        "Examen clinique",
+        "Suivi médical"
+      ],
+      "it": [
+        "Besuch",
+        "Visita medica",
+        "Consulto medico",
+        "Appuntamento medico",
+        "Prestazione medica",
+        "Visita di controllo",
+        "Visita successiva"
+      ]
+    }
+  },
+  "Wegzeit, pro 1 Min.": {
+    "lkn": "AA.00.0050",
+    "synonyms": {
+      "de": [
+        "Anfahrtszeit",
+        "Fahrtzeit",
+        "Reisezeit",
+        "Anreisezeit",
+        "Fahrt zum Patienten",
+        "Anfahrt zum Patienten"
+      ],
+      "fr": [
+        "Wegzeit",
+        "Temps de déplacement",
+        "Déplacement",
+        "Temps de trajet"
+      ],
+      "it": [
+        "Wegzeit",
+        "tempo di viaggio",
+        "tempo di spostamento",
+        "tempo di percorrenza",
+        "tempo di trasferimento",
+        "spostamento del medico",
+        "trasferta del medico",
+        "uscita del medico"
+      ]
+    }
+  },
+  "Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.": {
+    "lkn": "AA.00.0060",
+    "synonyms": {
+      "de": [
+        "Aufklärungsgespräch",
+        "Beratungsgespräch",
+        "Patientenberatung",
+        "Informationsgespräch",
+        "Befundbesprechung",
+        "Ergebnisbesprechung",
+        "Gespräch vor und nach Behandlungen",
+        "Aufklärung und Beratung"
+      ],
+      "fr": [
+        "Vor- und Nachbesprechung",
+        "entretien d'information",
+        "explication des procédures",
+        "consultation d'information et de suivi",
+        "information du patient",
+        "discussion des actes",
+        "conseil au patient"
+      ],
+      "it": [
+        "Vor- und Nachbesprechung",
+        "colloquio",
+        "consulto",
+        "spiegazione",
+        "informazione",
+        "briefing",
+        "chiarimento"
+      ]
+    }
+  },
+  "Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.": {
+    "lkn": "AA.00.0070",
+    "synonyms": {
+      "de": [
+        "Anleitung",
+        "Einweisung",
+        "Schulung",
+        "Unterweisung",
+        "Aufklärung",
+        "Demonstration",
+        "Patientenschulung"
+      ],
+      "fr": [
+        "Instruktion",
+        "Instruction",
+        "Enseignement",
+        "Explication",
+        "Démonstration",
+        "Formation",
+        "Éducation thérapeutique",
+        "Conseils"
+      ],
+      "it": [
+        "Instruktion",
+        "istruzione",
+        "insegnamento",
+        "spiegazione",
+        "guida",
+        "formazione",
+        "addestramento",
+        "dimostrazione"
+      ]
+    }
+  },
+  "Ärztliches Konsilium, pro 1 Min.": {
+    "lkn": "AA.00.0080",
+    "synonyms": {
+      "de": [
+        "Konsultation",
+        "Arztgespräch",
+        "Beratung beim Arzt",
+        "Sprechstunde",
+        "Befundbesprechung",
+        "Fallbesprechung",
+        "Zweitmeinung",
+        "Expertenrat",
+        "Kollegenbesprechung",
+        "Arztbesuch"
+      ],
+      "fr": [
+        "Avis médical",
+        "Deuxième avis médical",
+        "Consultation de spécialiste",
+        "Concertation médicale",
+        "Expertise médicale",
+        "Consultation pour avis",
+        "Réunion de concertation pluridisciplinaire"
+      ],
+      "it": [
+        "Consulto medico",
+        "Consulto",
+        "Parere medico",
+        "Seconda opinione",
+        "Valutazione medica",
+        "Consiglio medico"
+      ]
+    }
+  },
+  "Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min.": {
+    "lkn": "AA.00.0090",
+    "synonyms": {
+      "de": [
+        "Impfgespräch",
+        "Impfaufklärung",
+        "Beratung zu Impfungen",
+        "Impfberatung",
+        "Beratung vor Impfung",
+        "Impfsprechstunde"
+      ],
+      "fr": [
+        "Spezifische Impfberatung",
+        "consultation vaccinale",
+        "conseil en vaccination",
+        "entretien vaccinal",
+        "bilan vaccinal",
+        "information sur la vaccination",
+        "discussion sur les vaccins"
+      ],
+      "it": [
+        "Consulenza vaccinale",
+        "Consulenza vaccinazioni",
+        "Consiglio vaccinale",
+        "Informazioni su vaccini",
+        "Colloquio sui vaccini",
+        "Spiegazione vaccini",
+        "Consulenza su punture",
+        "Consulenza personalizzata vaccini",
+        "Orientamento vaccinale"
+      ]
+    }
+  },
+  "Untersuchung: Kreislauf": {
+    "lkn": "AA.05.0010",
+    "synonyms": {
+      "de": [
+        "Check-up",
+        "Abklärung",
+        "Diagnostik",
+        "Gesundheitscheck",
+        "Vorsorge",
+        "Kontrolle"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "consultation",
+        "bilan",
+        "visite",
+        "check-up",
+        "exploration"
+      ],
+      "it": [
+        "Untersuchung",
+        "Visita",
+        "Esame",
+        "Controllo"
+      ]
+    }
+  },
+  "Untersuchung: Augen": {
+    "lkn": "AA.05.0020",
+    "synonyms": {
+      "de": [
+        "Check-up",
+        "Kontrolle",
+        "Test",
+        "Abklärung",
+        "Screening"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "consultation",
+        "bilan",
+        "contrôle",
+        "dépistage",
+        "visite"
+      ],
+      "it": [
+        "Untersuchung",
+        "visita",
+        "esame",
+        "controllo",
+        "accertamento"
+      ]
+    }
+  },
+  "Untersuchung: Ohren": {
+    "lkn": "AA.05.0030",
+    "synonyms": {
+      "de": [
+        "Check",
+        "Kontrolle",
+        "Abklärung",
+        "Diagnostik",
+        "Inspektion",
+        "Begutachtung",
+        "Befundaufnahme"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "consultation",
+        "bilan",
+        "contrôle",
+        "dépistage",
+        "exploration"
+      ],
+      "it": [
+        "esame",
+        "visita",
+        "controllo",
+        "accertamento"
+      ]
+    }
+  },
+  "Untersuchung: Luftwege": {
+    "lkn": "AA.05.0040",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Check-up",
+        "Check",
+        "Durchchecken",
+        "Test",
+        "Screening",
+        "Diagnostik",
+        "Nachschauen",
+        "Anschauen"
+      ],
+      "fr": [
+        "Examen",
+        "Consultation",
+        "Bilan",
+        "Contrôle",
+        "Exploration",
+        "Visite",
+        "Bilan de santé"
+      ],
+      "it": [
+        "Untersuchung",
+        "Esame",
+        "Visita",
+        "Controllo medico",
+        "Accertamento"
+      ]
+    }
+  },
+  "Untersuchung: Wirbelsäule": {
+    "lkn": "AA.05.0050",
+    "synonyms": {
+      "de": [
+        "Ärztliche Untersuchung",
+        "Medizinische Abklärung",
+        "Diagnostische Untersuchung",
+        "Abklärung",
+        "Befundaufnahme",
+        "Check-up"
+      ],
+      "fr": [
+        "Examen",
+        "Consultation",
+        "Bilan",
+        "Évaluation",
+        "Contrôle"
+      ],
+      "it": [
+        "Untersuchung",
+        "visita",
+        "esame",
+        "controllo",
+        "accertamento",
+        "valutazione"
+      ]
+    }
+  },
+  "Untersuchung: Abdomen": {
+    "lkn": "AA.05.0060",
+    "synonyms": {
+      "de": [
+        "Begutachtung",
+        "Check-up",
+        "Befundaufnahme",
+        "Abklärung",
+        "Durchsicht",
+        "Durchchecken"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "palpation",
+        "auscultation",
+        "exploration",
+        "bilan",
+        "consultation",
+        "visite"
+      ],
+      "it": [
+        "Untersuchung",
+        "Esame",
+        "Visita",
+        "Controllo"
+      ]
+    }
+  },
+  "Untersuchung: Uro-Genital": {
+    "lkn": "AA.05.0070",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Check-up",
+        "Kontrolle",
+        "Diagnostik",
+        "Screening",
+        "Test",
+        "Befundaufnahme"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "consultation",
+        "bilan",
+        "contrôle",
+        "visite"
+      ],
+      "it": [
+        "Esame",
+        "Visita",
+        "Accertamento",
+        "Controllo",
+        "Check-up",
+        "Indagine"
+      ]
+    }
+  },
+  "Untersuchung: Haut": {
+    "lkn": "AA.05.0080",
+    "synonyms": {
+      "de": [
+        "Inspektion",
+        "Kontrolle",
+        "Screening",
+        "Vorsorge",
+        "Abklärung",
+        "Check-up",
+        "Diagnostik"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "consultation",
+        "visite",
+        "contrôle",
+        "dépistage"
+      ],
+      "it": [
+        "Untersuchung",
+        "Esame",
+        "Visita",
+        "Controllo",
+        "Accertamento",
+        "Ispezione",
+        "Valutazione"
+      ]
+    }
+  },
+  "Untersuchung: Muskulatur": {
+    "lkn": "AA.05.0090",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Diagnostik",
+        "Begutachtung",
+        "Check-up",
+        "Funktionsprüfung"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "évaluation",
+        "bilan",
+        "contrôle",
+        "test",
+        "palpation"
+      ],
+      "it": [
+        "Esame",
+        "Visita",
+        "Accertamento",
+        "Valutazione",
+        "Controllo"
+      ]
+    }
+  },
+  "Untersuchung: Gelenke": {
+    "lkn": "AA.05.0100",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Begutachtung",
+        "Befundaufnahme",
+        "Check",
+        "Kontrolle",
+        "Diagnostik"
+      ],
+      "fr": [
+        "Examen",
+        "Consultation",
+        "Bilan",
+        "Diagnostic",
+        "Exploration",
+        "Contrôle"
+      ],
+      "it": [
+        "Untersuchung",
+        "Esame",
+        "Visita",
+        "Controllo",
+        "Valutazione"
+      ]
+    }
+  },
+  "Untersuchung: Gefässe": {
+    "lkn": "AA.05.0110",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Diagnostik",
+        "Check-up",
+        "Test"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "exploration",
+        "bilan",
+        "diagnostic",
+        "évaluation",
+        "contrôle"
+      ],
+      "it": [
+        "esame",
+        "visita",
+        "accertamento",
+        "indagine",
+        "controllo"
+      ]
+    }
+  },
+  "Untersuchung: Lymphatische Organe": {
+    "lkn": "AA.05.0120",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Diagnostik",
+        "Check-up",
+        "Kontrolle",
+        "Screening",
+        "Beurteilung"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "bilan",
+        "consultation",
+        "contrôle médical",
+        "exploration"
+      ],
+      "it": [
+        "Untersuchung",
+        "visita",
+        "esame",
+        "controllo",
+        "accertamento",
+        "indagine"
+      ]
+    }
+  },
+  "Untersuchung: Neurologie": {
+    "lkn": "AA.05.0130",
+    "synonyms": {
+      "de": [
+        "Abklärung",
+        "Diagnostik",
+        "Konsultation",
+        "Sprechstunde",
+        "Arztbesuch",
+        "Befundaufnahme",
+        "Durchuntersuchung"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "bilan",
+        "consultation",
+        "évaluation"
+      ],
+      "it": [
+        "Esame",
+        "Visita",
+        "Accertamento",
+        "Valutazione",
+        "Controllo"
+      ]
+    }
+  },
+  "Untersuchung: Pubertätsentwicklung": {
+    "lkn": "AA.05.0140",
+    "synonyms": {
+      "de": [
+        "Abklaerung",
+        "Check-up",
+        "Konsultation"
+      ],
+      "fr": [
+        "Untersuchung",
+        "examen",
+        "bilan",
+        "évaluation",
+        "consultation",
+        "visite médicale",
+        "contrôle"
+      ],
+      "it": [
+        "Esame",
+        "Visita",
+        "Controllo",
+        "Accertamento",
+        "Valutazione",
+        "Indagine"
+      ]
+    }
+  },
+  "Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.": {
+    "lkn": "AA.10.0010",
+    "synonyms": {
+      "de": [
+        "Sprechstunde",
+        "Beratung",
+        "Arztgespräch",
+        "Arzttermin"
+      ],
+      "fr": [
+        "Ärztliche",
+        "par un médecin",
+        "avec un médecin"
+      ],
+      "it": [
+        "Ärztliche Konsultation",
+        "consulto medico",
+        "visita medica",
+        "appuntamento medico",
+        "colloquio medico"
+      ]
+    }
+  },
+  "+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.": {
+    "lkn": "AA.10.0020",
+    "synonyms": {
+      "de": [
+        "Beratung",
+        "Gespraech",
+        "Sprechstunde",
+        "Patientengespräch"
+      ],
+      "fr": [
+        "Konsultation",
+        "consultation médicale",
+        "rendez-vous médical",
+        "visite médicale"
+      ],
+      "it": [
+        "Konsultation",
+        "consulto",
+        "visita",
+        "consultazione",
+        "colloquio medico"
+      ]
+    }
+  },
+  "Ärztliche, telemedizinische zeitversetzte Konsultation": {
+    "lkn": "AA.10.0030",
+    "synonyms": {
+      "de": [
+        "Arzt-",
+        "Medizinische"
+      ],
+      "fr": [
+        "telemedizinisch",
+        "à distance",
+        "en ligne",
+        "virtuel"
+      ],
+      "it": [
+        "telemedizinische",
+        "telemedica",
+        "a distanza",
+        "online",
+        "virtuale",
+        "da remoto"
+      ]
+    }
+  },
+  "Studium von Fremdakten in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0010",
+    "synonyms": {
+      "de": [
+        "Aktenpruefung",
+        "Aktenanalyse",
+        "Aktenauswertung",
+        "Aktenlektuere",
+        "Befundpruefung",
+        "Befundauswertung",
+        "Dokumentenpruefung",
+        "Dokumentenanalyse",
+        "Fallpruefung",
+        "Fallanalyse"
+      ],
+      "fr": [
+        "Studium",
+        "analyse",
+        "examen",
+        "évaluation",
+        "revue",
+        "étude"
+      ],
+      "it": [
+        "Studium",
+        "revisione",
+        "analisi",
+        "valutazione",
+        "esame",
+        "consultazione",
+        "studio"
+      ]
+    }
+  },
+  "Auskünfte von/an Dritte(n) und Erkundigungen bei Dritten in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0020",
+    "synonyms": {
+      "de": [
+        "Informationsaustausch mit Dritten",
+        "Informationsweitergabe an Dritte",
+        "Informationseinholung von Dritten",
+        "Berichterstattung an Dritte",
+        "Rückmeldung an Dritte",
+        "Telefonische Auskunft an Dritte",
+        "Schriftliche Auskunft an Dritte",
+        "Kommunikation mit Dritten",
+        "Rücksprache mit Dritten",
+        "Datenaustausch mit Dritten"
+      ],
+      "fr": [
+        "Auskünfte von/an Dritte(n)",
+        "Informations à/de tiers",
+        "Echange d'informations avec des tiers",
+        "Communication avec des tiers",
+        "Renseignements donnés à des tiers",
+        "Renseignements reçus de tiers",
+        "Transmission d'informations à des tiers",
+        "Discussion avec l'entourage",
+        "Contact avec des proches",
+        "Rapportage à des tiers"
+      ],
+      "it": [
+        "Comunicazione con terzi",
+        "Scambio di informazioni",
+        "Contatto con familiari",
+        "Colloquio con familiari",
+        "Informazioni a familiari",
+        "Informazioni da familiari",
+        "Contatto con altri medici",
+        "Colloquio con altri specialisti",
+        "Informazioni a specialisti",
+        "Informazioni da specialisti",
+        "Aggiornamento di terzi",
+        "Consulenza a terzi"
+      ]
+    }
+  },
+  "Auskünfte von/an Angehörige(n) oder andere(n) Bezugspersonen des Patienten in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0030",
+    "synonyms": {
+      "de": [
+        "Informationen",
+        "Beratung",
+        "Gespräch",
+        "Bericht",
+        "Rückmeldung"
+      ],
+      "fr": [
+        "information",
+        "renseignement",
+        "communication",
+        "échange",
+        "discussion",
+        "entretien",
+        "mise au point",
+        "bilan",
+        "compte rendu"
+      ],
+      "it": [
+        "Auskünfte",
+        "informazioni",
+        "comunicazioni",
+        "chiarimenti",
+        "colloquio",
+        "consulto",
+        "aggiornamenti"
+      ]
+    }
+  },
+  "Besprechungen mit Ärzten, Therapeuten und Betreuern des Patienten in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0040",
+    "synonyms": {
+      "de": [
+        "Fallbesprechung",
+        "Teambesprechung",
+        "Austausch",
+        "Koordination",
+        "Absprache",
+        "Fallkonferenz",
+        "Interdisziplinäre Besprechung"
+      ],
+      "fr": [
+        "Besprechungen",
+        "Discussions",
+        "Entretiens",
+        "Concertations",
+        "Coordinations",
+        "Échanges",
+        "Mises au point",
+        "Points de situation",
+        "Suivis de dossier",
+        "Réunions de cas",
+        "Conférences de cas"
+      ],
+      "it": [
+        "Besprechungen",
+        "discussioni di caso",
+        "riunioni di coordinamento",
+        "consultazioni interdisciplinari",
+        "confronti tra specialisti",
+        "colloqui tra professionisti",
+        "scambi di informazioni cliniche",
+        "pianificazione della cura"
+      ]
+    }
+  },
+  "Ärztliches Expertenboard in An- oder Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0050",
+    "synonyms": {
+      "de": [
+        "Tumorkonferenz",
+        "Fallkonferenz",
+        "interdisziplinäre Besprechung",
+        "Konsilium",
+        "Ärztegremium",
+        "Ärztekonferenz",
+        "medizinische Fallbesprechung",
+        "Ärztebesprechung",
+        "Fallbesprechung"
+      ],
+      "fr": [
+        "Conseil d'experts médicaux",
+        "Collège d'experts médicaux",
+        "Réunion de concertation pluridisciplinaire",
+        "Consultation pluridisciplinaire",
+        "Avis collégial",
+        "Discussion de dossier médical",
+        "Comité médical"
+      ],
+      "it": [
+        "Ärztliches Expertenboard",
+        "Board medico",
+        "Consulto collegiale",
+        "Riunione di esperti medici",
+        "Discussione di caso clinico",
+        "Valutazione multidisciplinare"
+      ]
+    }
+  },
+  "Ausstellen von Rezepten oder Verordnungen ausserhalb von Konsultation, Besuch und telemedizinischer Konsultation in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0060",
+    "synonyms": {
+      "de": [
+        "Erstellen",
+        "Schreiben",
+        "Ausfertigen"
+      ],
+      "fr": [
+        "Ausstellen von Rezepten oder Verordnungen",
+        "rédaction d'ordonnance",
+        "renouvellement d'ordonnance",
+        "prescription de médicaments",
+        "émission de bon de soins",
+        "prescription à distance",
+        "préparation de document médical"
+      ],
+      "it": [
+        "Ausstellen",
+        "emissione",
+        "rilascio",
+        "preparazione",
+        "redazione",
+        "compilazione"
+      ]
+    }
+  },
+  "Überweisungen an Konsiliarärzte in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0070",
+    "synonyms": {
+      "de": [
+        "Zuweisungen",
+        "Weiterleitungen",
+        "Facharztzuweisungen",
+        "Spezialistenzuweisungen",
+        "Konsultationsanordnungen"
+      ],
+      "fr": [
+        "Überweisungen",
+        "orientation",
+        "référence",
+        "adressage",
+        "envoi",
+        "demande de consultation",
+        "prescription de consultation"
+      ],
+      "it": [
+        "Überweisungen",
+        "Invio",
+        "Rinvio",
+        "Referral",
+        "Richiesta di consulto"
+      ]
+    }
+  },
+  "Administrative Leistung für Pathologie/Histologie/Zytologie in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0080",
+    "synonyms": {
+      "de": [
+        "Verwaltungsarbeit",
+        "Buerobearbeitung",
+        "Dokumentationsarbeit",
+        "Aktenbearbeitung",
+        "Fallbearbeitung",
+        "Schreibarbeiten",
+        "Datenerfassung",
+        "Befundbearbeitung",
+        "Organisationsarbeit"
+      ],
+      "fr": [
+        "Administrative Leistung",
+        "gestion administrative",
+        "traitement administratif",
+        "formalités administratives",
+        "travail administratif",
+        "rédaction de rapports",
+        "traitement de dossiers",
+        "coordination administrative"
+      ],
+      "it": [
+        "Administrative Leistung",
+        "Prestazione amministrativa",
+        "Lavoro amministrativo",
+        "Gestione amministrativa",
+        "Elaborazione referti",
+        "Redazione referti",
+        "Documentazione",
+        "Gestione pratiche",
+        "Pratiche burocratiche"
+      ]
+    }
+  },
+  "Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min.": {
+    "lkn": "AA.15.0090",
+    "synonyms": {
+      "de": [
+        "Gutachtenerstellung",
+        "Aktenbeurteilung",
+        "Befundbeurteilung",
+        "Fallbeurteilung",
+        "Stellungnahme",
+        "Berichterstellung",
+        "Dokumentenprüfung",
+        "medizinische Expertise",
+        "medizinische Fallprüfung"
+      ],
+      "fr": [
+        "Ärztliche Leistungen",
+        "Évaluation de dossier",
+        "Analyse de dossier",
+        "Rédaction de rapport médical",
+        "Expertise médicale",
+        "Travail administratif médical",
+        "Revue de dossier",
+        "Gestion de cas (médicale)",
+        "Conseil médical"
+      ],
+      "it": [
+        "Prestazioni mediche",
+        "Consulenza medica",
+        "Perizia medica",
+        "Valutazione medica",
+        "Parere medico",
+        "Esame di documentazione clinica",
+        "Attività medico-legale",
+        "Gestione di pratiche sanitarie"
+      ]
+    }
+  },
+  "Lokalanästhesie durch den Nichtanästhesisten (Operateur), pro Lokalisation": {
+    "lkn": "AA.20.0010",
+    "synonyms": {
+      "de": [
+        "örtliche Betäubung",
+        "lokale Betäubung",
+        "Betäubungsspritze",
+        "Spritze zur Betäubung",
+        "Schmerzspritze",
+        "Infiltrationsanästhesie"
+      ],
+      "fr": [
+        "Anesthésie locale",
+        "Anesthésie par infiltration",
+        "Anesthésie topique",
+        "Anesthésie de contact",
+        "Anesthésie superficielle",
+        "Injection anesthésiante",
+        "Piqure anesthésiante",
+        "Endormissement local",
+        "Insensibilisation locale",
+        "Anesthésier localement",
+        "Rendre insensible une zone",
+        "Endormir une zone"
+      ],
+      "it": [
+        "Lokalanästhesie",
+        "Anestesia locale",
+        "Anestesia infiltrativa",
+        "Anestesia per infiltrazione",
+        "Anestesia topica",
+        "Anestesia di superficie",
+        "Blocco nervoso",
+        "Puntura anestetica",
+        "Iniezione anestetica",
+        "Addormentare la zona",
+        "Rendere insensibile la parte",
+        "Anestetizzazione locale"
+      ]
+    }
+  },
+  "Regionalanästhesie durch den Nichtanästhesisten (Operateur)": {
+    "lkn": "AA.20.0020",
+    "synonyms": {
+      "de": [
+        "Teilnarkose",
+        "Lokalanästhesie",
+        "örtliche Betäubung",
+        "Teilbetäubung",
+        "Nervenblockade",
+        "Leitungsanästhesie"
+      ],
+      "fr": [
+        "Regionalanästhesie",
+        "anesthésie régionale",
+        "anesthésie locorégionale",
+        "bloc nerveux",
+        "anesthésie locale"
+      ],
+      "it": [
+        "Regionalanästhesie",
+        "anestesia regionale",
+        "anestesia locale",
+        "blocco nervoso",
+        "anestesia periferica",
+        "addormentare una parte",
+        "insensibilizzare una zona"
+      ]
+    }
+  },
+  "Feinnadelpunktion zur Entnahme von Gewebe und anderem Material, pro Lokalisation": {
+    "lkn": "AA.20.0030",
+    "synonyms": {
+      "de": [
+        "Punktion",
+        "Nadelpunktion",
+        "Feinnadelbiopsie",
+        "Punktieren",
+        "Stichprobeentnahme"
+      ],
+      "fr": [
+        "Ponction à l'aiguille fine",
+        "Ponction",
+        "Biopsie à l'aiguille fine",
+        "Aspiration à l'aiguille fine",
+        "Cytoponction",
+        "Prélèvement par ponction",
+        "Ponction biopsie",
+        "Ponction cytologique"
+      ],
+      "it": [
+        "Feinnadelpunktion",
+        "Agoaspirato",
+        "Biopsia con ago sottile",
+        "Punzione bioptica",
+        "Prelievo con ago sottile",
+        "Aspirazione con ago sottile"
+      ]
+    }
+  },
+  "Stomapflege ohne Irrigation": {
+    "lkn": "AA.20.0040",
+    "synonyms": {
+      "de": [
+        "Stomaversorgung",
+        "Stomabetreuung",
+        "Stomawechsel",
+        "Beutelwechsel",
+        "Stomabeutelwechsel",
+        "Stomareinigung"
+      ],
+      "fr": [
+        "Soins de stomie",
+        "Entretien de stomie",
+        "Changement de poche de stomie",
+        "Vidange de poche de stomie",
+        "Nettoyage de la stomie",
+        "Gestion de la stomie",
+        "Soins d'une stomie",
+        "Soins de l'appareillage de stomie"
+      ],
+      "it": [
+        "Stomapflege",
+        "Cura della stomia",
+        "Assistenza stomale",
+        "Gestione della stomia",
+        "Cambio della sacca per stomia",
+        "Pulizia della stomia",
+        "Igiene della stomia"
+      ]
+    }
+  },
+  "Stomapflege mit Irrigation": {
+    "lkn": "AA.20.0050",
+    "synonyms": {
+      "de": [
+        "Stomaversorgung",
+        "Stomabeutel wechseln",
+        "Stoma versorgen",
+        "Künstlicher Ausgang pflegen",
+        "Stoma reinigen"
+      ],
+      "fr": [
+        "Stomapflege",
+        "Soins de stomie",
+        "Changement de poche de stomie",
+        "Entretien de la stomie",
+        "Gestion de la stomie",
+        "Hygiène de la stomie"
+      ],
+      "it": [
+        "Cura della stomia",
+        "Assistenza stomia",
+        "Gestione stomia",
+        "Igiene stomale",
+        "Pulizia stomia",
+        "Cambio sacca stomale"
+      ]
+    }
+  },
+  "Feststellen des Todes durch den Arzt": {
+    "lkn": "AA.20.0060",
+    "synonyms": {
+      "de": [
+        "Bestätigen",
+        "Konstatieren",
+        "Diagnostizieren",
+        "Bescheinigen",
+        "Erkennen",
+        "Verifizieren"
+      ],
+      "fr": [
+        "Constatation du décès",
+        "Déclaration du décès",
+        "Certification du décès",
+        "Confirmation du décès",
+        "Constatation de la mort",
+        "Prononciation du décès",
+        "Attestation du décès",
+        "Vérification du décès",
+        "Etablissement du décès",
+        "Constat de décès"
+      ],
+      "it": [
+        "Feststellen",
+        "accertamento",
+        "constatazione",
+        "dichiarazione"
+      ]
+    }
+  },
+  "Legalinspektion durch den Arzt, pro 1 Min.": {
+    "lkn": "AA.20.0070",
+    "synonyms": {
+      "de": [
+        "Gerichtliche Untersuchung",
+        "Forensische Untersuchung",
+        "Gutachterliche Untersuchung",
+        "Aerztliche Begutachtung",
+        "Medizinische Begutachtung",
+        "Beweissicherung durch Arzt",
+        "Untersuchung fuer Gutachten",
+        "Untersuchung auf behordliche Anordnung",
+        "Aerztliche Untersuchung fuer rechtliche Zwecke",
+        "Gerichtsmedizinisches Gutachten",
+        "Amtsaerztliche Untersuchung"
+      ],
+      "fr": [
+        "Legalinspektion",
+        "examen médico-légal",
+        "expertise médicale",
+        "constat médical",
+        "évaluation médico-légale",
+        "visite médico-légale",
+        "examen judiciaire",
+        "expertise judiciaire"
+      ],
+      "it": [
+        "Legalinspektion",
+        "Ispezione medico-legale",
+        "Accertamento medico-legale",
+        "Perizia medico-legale",
+        "Visita medico-legale",
+        "Esame medico-legale",
+        "Valutazione medico-legale",
+        "Ispezione forense",
+        "Accertamento forense",
+        "Perizia forense",
+        "Esame forense"
+      ]
+    }
+  },
+  "Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.": {
+    "lkn": "AA.25.0010",
+    "synonyms": {
+      "de": [
+        "Verfassen",
+        "Ausfertigung",
+        "Anfertigung",
+        "Schreiben",
+        "Aufsetzen",
+        "Ausstellen"
+      ],
+      "fr": [
+        "Erstellung",
+        "préparation",
+        "rédaction",
+        "élaboration",
+        "établissement"
+      ],
+      "it": [
+        "Erstellung",
+        "redazione",
+        "stesura",
+        "preparazione",
+        "compilazione"
+      ]
+    }
+  },
+  "Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.": {
+    "lkn": "AA.25.0020",
+    "synonyms": {
+      "de": [
+        "Anfertigung",
+        "Ausfertigung",
+        "Verfassen",
+        "Schreiben",
+        "Erarbeiten",
+        "Aufsetzen"
+      ],
+      "fr": [
+        "Erstellung",
+        "Rédaction",
+        "Préparation",
+        "Établissement",
+        "Mise en forme",
+        "Écriture"
+      ],
+      "it": [
+        "Erstellung",
+        "stesura",
+        "redazione",
+        "compilazione",
+        "preparazione",
+        "elaborazione"
+      ]
+    }
+  },
+  "Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.": {
+    "lkn": "AA.25.0030",
+    "synonyms": {
+      "de": [
+        "Anfertigung",
+        "Ausfertigung",
+        "Verfassen",
+        "Ausarbeitung"
+      ],
+      "fr": [
+        "Rédaction",
+        "Préparation",
+        "Établissement",
+        "Élaboration",
+        "Réalisation"
+      ],
+      "it": [
+        "Erstellung",
+        "Redazione",
+        "Stesura",
+        "Compilazione",
+        "Preparazione",
+        "Elaborazione"
+      ]
+    }
+  },
+  "Erstellung eines ärztlichen Zeugnisses in Abwesenheit des Patienten": {
+    "lkn": "AA.25.0040",
+    "synonyms": {
+      "de": [
+        "Ausstellung",
+        "Ausfertigung",
+        "Anfertigung",
+        "Vorbereitung",
+        "Verfassen",
+        "Ausarbeitung"
+      ],
+      "fr": [
+        "Erstellung",
+        "rédaction",
+        "établissement",
+        "préparation"
+      ],
+      "it": [
+        "Erstellung",
+        "Redazione",
+        "Stesura",
+        "Compilazione",
+        "Emissione",
+        "Rilascio",
+        "Preparazione",
+        "Formulazione"
+      ]
+    }
+  },
+  "Ärztliches Gutachten, pro 1 Min.": {
+    "lkn": "AA.25.0050",
+    "synonyms": {
+      "de": [
+        "Gutachten",
+        "Medizinisches Gutachten",
+        "Ärztliche Stellungnahme",
+        "Medizinische Stellungnahme",
+        "Ärztliche Beurteilung",
+        "Medizinische Beurteilung",
+        "Expertise",
+        "Sachverständigengutachten",
+        "Befundbericht",
+        "Ärztlicher Bericht",
+        "Medizinischer Bericht"
+      ],
+      "fr": [
+        "expertise médicale",
+        "rapport médical",
+        "avis médical",
+        "certificat médical",
+        "évaluation médicale",
+        "examen médical",
+        "bilan médical",
+        "attestation médicale"
+      ],
+      "it": [
+        "Ärztliches",
+        "medico",
+        "sanitario",
+        "clinico"
+      ]
+    }
+  },
+  "Dringlichkeits-Pauschale A, Mo-Fr 7-19 Uhr, Sa 7-12 Uhr": {
+    "lkn": "AA.30.0010",
+    "synonyms": {
+      "de": [
+        "Notfall",
+        "Akut",
+        "Sofort",
+        "Bereitschafts",
+        "Pikett"
+      ],
+      "fr": [
+        "Dringlichkeits-Pauschale A",
+        "Forfait d'urgence A",
+        "Consultation d'urgence",
+        "Visite d'urgence",
+        "Prise en charge urgente",
+        "Soins urgents",
+        "Consultation non programmée",
+        "Consultation sans rendez-vous"
+      ],
+      "it": [
+        "Dringlichkeits-Pauschale A",
+        "Forfait d'urgenza",
+        "Tariffa d'urgenza",
+        "Prestazione d'urgenza a forfait",
+        "Visita d'urgenza",
+        "Intervento urgente",
+        "Cura d'urgenza",
+        "Pronto soccorso"
+      ]
+    }
+  },
+  "Dringlichkeits-Pauschale B, Mo bis Fr 19-22 Uhr, Sa 12-19, So 7-19 Uhr": {
+    "lkn": "AA.30.0020",
+    "synonyms": {
+      "de": [
+        "Notfallbehandlung",
+        "Akutbehandlung",
+        "Dringende Behandlung",
+        "Notfallkonsultation",
+        "Akutkonsultation",
+        "Bereitschaftsdienst",
+        "Notdienst",
+        "Sprechstunde ausserhalb der regulären Zeiten",
+        "Abendsprechstunde",
+        "Wochenendsprechstunde",
+        "Feiertagssprechstunde",
+        "Notfallversorgung",
+        "Akutversorgung",
+        "Eilbehandlung",
+        "Dringender Arztbesuch",
+        "Arztbesuch ausserhalb der Sprechzeiten",
+        "Notfalltermin",
+        "Akuttermin"
+      ],
+      "fr": [
+        "Dringlichkeits-Pauschale B",
+        "Forfait urgence",
+        "Supplément d'urgence",
+        "Majoration d'urgence",
+        "Consultation d'urgence",
+        "Soins urgents",
+        "Urgence médicale",
+        "Prise en charge urgente",
+        "Consultation non programmée"
+      ],
+      "it": [
+        "Dringlichkeits",
+        "urgenza",
+        "emergenza",
+        "fuori orario",
+        "servizio urgente",
+        "prestazione urgente",
+        "visita urgente",
+        "intervento urgente"
+      ]
+    }
+  },
+  "Notfall-Pauschale C, Mo-Fr 7-19 Uhr, Sa 7-12 Uhr": {
+    "lkn": "AA.30.0030",
+    "synonyms": {
+      "de": [
+        "Akutfall",
+        "Dringender Fall",
+        "Notsituation",
+        "Akutbehandlung",
+        "Notfallbehandlung",
+        "Notfallversorgung",
+        "Dringlichkeitsfall",
+        "Eilfall",
+        "Akutversorgung"
+      ],
+      "fr": [
+        "Urgence",
+        "cas d'urgence",
+        "situation d'urgence",
+        "consultation d'urgence",
+        "soins d'urgence",
+        "prise en charge d'urgence",
+        "service des urgences",
+        "visite aux urgences",
+        "urgence médicale",
+        "consultation non programmée",
+        "consultation sans rendez-vous"
+      ],
+      "it": [
+        "Notfall-Pauschale C",
+        "visita d'urgenza",
+        "prestazione d'emergenza",
+        "intervento d'urgenza",
+        "pronto soccorso",
+        "consulto d'urgenza",
+        "assistenza d'urgenza",
+        "visita al pronto soccorso"
+      ]
+    }
+  },
+  "Notfall-Pauschale D, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
+    "lkn": "AA.30.0040",
+    "synonyms": {
+      "de": [
+        "Notfallbehandlung",
+        "Notfallversorgung",
+        "Akutbehandlung",
+        "Akutversorgung",
+        "Dringende Behandlung",
+        "Dringende Versorgung",
+        "Sofortbehandlung",
+        "Sofortversorgung",
+        "Akutfall",
+        "Dringender Fall"
+      ],
+      "fr": [
+        "Notfall",
+        "Urgence",
+        "Consultation d'urgence",
+        "Prise en charge d'urgence",
+        "Soins d'urgence",
+        "Visite aux urgences",
+        "Consultation non programmée"
+      ],
+      "it": [
+        "Notfall",
+        "emergenza",
+        "urgenza",
+        "pronto soccorso",
+        "situazione d'emergenza",
+        "caso d'urgenza"
+      ]
+    }
+  },
+  "(+) 25%-Zuschlag für Notfall D, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
+    "lkn": "AA.30.0050",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Sondergebühr",
+        "Mehrkosten",
+        "Extrakosten"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "surcoût"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "extra"
+      ]
+    }
+  },
+  "Notfall-Pauschale E, Mo-Fr 22-7 Uhr, Sa und So 19-7 Uhr": {
+    "lkn": "AA.30.0060",
+    "synonyms": {
+      "de": [
+        "Notfallbehandlung",
+        "Notfallversorgung",
+        "Akutfall",
+        "Akutbehandlung",
+        "Dringender Fall",
+        "Dringliche Behandlung",
+        "Notaufnahme"
+      ],
+      "fr": [
+        "Notfall",
+        "urgence médicale",
+        "consultation d'urgence",
+        "soins d'urgence",
+        "prise en charge d'urgence",
+        "intervention d'urgence",
+        "traitement d'urgence"
+      ],
+      "it": [
+        "Notfall",
+        "emergenza",
+        "urgenza",
+        "pronto soccorso"
+      ]
+    }
+  },
+  "(+) 50%-Zuschlag für Notfall E, Mo-Fr 22-7 Uhr, Sa und So 19-7 Uhr": {
+    "lkn": "AA.30.0070",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Sonderzuschlag",
+        "Zusatzkosten"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "surcoût",
+        "frais supplémentaires",
+        "tarif additionnel"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo"
+      ]
+    }
+  },
+  "Notfall-Pauschale F für telemedizinische Konsultationen, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
+    "lkn": "AA.30.0080",
+    "synonyms": {
+      "de": [
+        "Akutfall",
+        "Dringender Fall",
+        "Akute Erkrankung",
+        "Akute Beschwerden",
+        "Notfallbehandlung",
+        "Akutversorgung",
+        "Dringende medizinische Hilfe",
+        "Sofortfall"
+      ],
+      "fr": [
+        "Notfall",
+        "urgence",
+        "consultation d'urgence",
+        "soins d'urgence",
+        "prise en charge d'urgence",
+        "besoin urgent",
+        "problème aigu",
+        "consultation urgente",
+        "urgence médicale",
+        "garde médicale",
+        "service de garde",
+        "consultation de garde"
+      ],
+      "it": [
+        "Notfall",
+        "emergenza",
+        "urgenza",
+        "caso urgente",
+        "situazione d'emergenza",
+        "pronto intervento"
+      ]
+    }
+  },
+  "(+) 25%-Zuschlag für telemedizinische Notfallkonsultation F, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
+    "lkn": "AA.30.0090",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Zusatzgebuehr",
+        "Extragebuehr",
+        "Sonderzuschlag"
+      ],
+      "fr": [
+        "25%-Zuschlag",
+        "supplément de 25%",
+        "majoration de 25%"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo"
+      ]
+    }
+  },
+  "Notfall-Pauschale G für telemedizinische Konsultationen, Mo-Fr 22-7 Uhr, Sa und So 19-7 Uhr": {
+    "lkn": "AA.30.0100",
+    "synonyms": {
+      "de": [
+        "dringender Fall",
+        "akuter Fall",
+        "Eilfall",
+        "Notfallbehandlung",
+        "Notfallversorgung",
+        "dringende Angelegenheit"
+      ],
+      "fr": [
+        "Notfall",
+        "urgence",
+        "cas d'urgence",
+        "soins d'urgence",
+        "aide urgente",
+        "problème urgent"
+      ],
+      "it": [
+        "Notfall",
+        "emergenza",
+        "urgenza",
+        "pronto soccorso",
+        "assistenza d'urgenza",
+        "intervento d'urgenza"
+      ]
+    }
+  },
+  "(+) 50%-Zuschlag für telemedizinische Notfallkonsultation G, Mo-Fr 22-7 Uhr, Sa und So 19-7 Uhr": {
+    "lkn": "AA.30.0110",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Mehrkosten",
+        "Extrakosten"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "surcoût"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo"
+      ]
+    }
+  },
+  "Gelenkpunktion (inkl. Ganglion, Gelenkzyste, Bursa), erstes Gelenk": {
+    "lkn": "AG.00.0010",
+    "synonyms": {
+      "de": [
+        "Gelenk anstechen",
+        "Gelenk punktieren",
+        "Punktion des Gelenks",
+        "Gelenkflüssigkeit entnehmen",
+        "Gelenkflüssigkeit abziehen",
+        "Gelenk entleeren"
+      ],
+      "fr": [
+        "Gelenkpunktion",
+        "ponction articulaire",
+        "ponction d'une articulation",
+        "prélèvement de liquide articulaire",
+        "aspiration articulaire",
+        "drainage articulaire",
+        "piquer une articulation"
+      ],
+      "it": [
+        "Gelenkpunktion",
+        "artrocentesi",
+        "puntura articolare",
+        "aspirazione articolare",
+        "drenaggio articolare",
+        "prelievo liquido sinoviale"
+      ]
+    }
+  },
+  "+ Gelenkpunktion (inkl. Ganglion, Gelenkzyste, Bursa), jedes weitere Gelenk": {
+    "lkn": "AG.00.0020",
+    "synonyms": {
+      "de": [
+        "Gelenk punktieren",
+        "Punktion am Gelenk",
+        "Gelenk anstechen",
+        "Gelenk entleeren",
+        "Gelenk spritzen",
+        "Spritze ins Gelenk",
+        "Gelenkfluessigkeit abziehen"
+      ],
+      "fr": [
+        "Gelenkpunktion",
+        "Ponction articulaire",
+        "Prélèvement de liquide articulaire",
+        "Aspiration articulaire",
+        "Drainage articulaire",
+        "Piqûre dans l'articulation",
+        "Vider une articulation"
+      ],
+      "it": [
+        "Puntura articolare",
+        "Artocentesi",
+        "Aspirazione articolare",
+        "Drenaggio articolare",
+        "Prelevamento di liquido sinoviale"
+      ]
+    }
+  },
+  "Anästhesie der Region Schädel/Gesicht, alle Zugänge, Nerven ausserhalb Schädelbasis": {
+    "lkn": "AG.00.0030",
+    "synonyms": {
+      "de": [
+        "Narkose",
+        "Betäubung",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung",
+        "Lokalanästhesie",
+        "Regionalanästhesie",
+        "Nervenblockade",
+        "Nervenblock"
+      ],
+      "fr": [
+        "Anesthésie",
+        "Anesthésie locale",
+        "Anesthésie régionale",
+        "Bloc nerveux",
+        "Bloc anesthésique",
+        "Endormissement local",
+        "Piqûre anesthésiante"
+      ],
+      "it": [
+        "Anestesia",
+        "narcosi",
+        "addormentamento",
+        "sedazione",
+        "blocco"
+      ]
+    }
+  },
+  "Anästhesie der Region Wirbelsäule, sakral, ohne BV-TV": {
+    "lkn": "AG.00.0040",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Narkose",
+        "Schmerzausschaltung",
+        "Regionale Anästhesie",
+        "Lokalanästhesie"
+      ],
+      "fr": [
+        "Anesthésie",
+        "bloc",
+        "anesthésie régionale",
+        "anesthésie locorégionale",
+        "piqûre anesthésiante"
+      ],
+      "it": [
+        "Anästhesie",
+        "anestesia",
+        "blocco",
+        "sedazione",
+        "addormentamento",
+        "narcotizzazione"
+      ]
+    }
+  },
+  "Anästhesie der Region Arm und Hand": {
+    "lkn": "AG.00.0050",
+    "synonyms": {
+      "de": [
+        "Narkose",
+        "Betäubung",
+        "Schmerzausschaltung",
+        "Regionalanästhesie",
+        "Lokalanästhesie"
+      ],
+      "fr": [
+        "Anesthésie",
+        "Bloc",
+        "Endormissement",
+        "Narcose",
+        "Insensibilisation"
+      ],
+      "it": [
+        "Anästhesie",
+        "Anestesia",
+        "Anestesia regionale",
+        "Anestesia locale",
+        "Blocco nervoso"
+      ]
+    }
+  },
+  "Anästhesie von peripheren Nerven, obere Extremitäten, erster Nerv": {
+    "lkn": "AG.00.0060",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung",
+        "Blockade",
+        "Betäubungsspritze",
+        "Spritze zur Betäubung"
+      ],
+      "fr": [
+        "Anesthésie",
+        "Bloc nerveux",
+        "Bloc",
+        "Anesthésie locale",
+        "Anesthésie régionale",
+        "Injection anesthésique",
+        "Endormissement"
+      ],
+      "it": [
+        "Anästhesie",
+        "Anestesia",
+        "Blocco nervoso",
+        "Addormentamento",
+        "Insensibilizzazione"
+      ]
+    }
+  },
+  "+ Anästhesie von peripheren Nerven, obere Extremitäten, jeder weitere Nerv": {
+    "lkn": "AG.00.0070",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Nervenblockade",
+        "Nervenbetäubung",
+        "Lokalanästhesie",
+        "Regionalanästhesie",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung"
+      ],
+      "fr": [
+        "Anesthésie",
+        "bloc nerveux",
+        "anesthésie locorégionale",
+        "anesthésie régionale",
+        "injection anesthésique"
+      ],
+      "it": [
+        "Anästhesie",
+        "anestesia",
+        "blocco nervoso",
+        "anestesia locale",
+        "anestesia regionale",
+        "iniezione anestetica"
+      ]
+    }
+  },
+  "Anästhesie von Nn. intercostales, jeder Zugang, erster Nerv": {
+    "lkn": "AG.00.0080",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Nervenblockade",
+        "Nervenblock",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung",
+        "Lokalanästhesie",
+        "oertliche Betaeubung",
+        "Blockade"
+      ],
+      "fr": [
+        "Anesthésie",
+        "bloc",
+        "injection",
+        "insensibilisation"
+      ],
+      "it": [
+        "Anästhesie",
+        "blocco nervoso",
+        "infiltrazione anestetica",
+        "iniezione anestetica",
+        "anestesia locale",
+        "anestesia regionale",
+        "puntura anestetica",
+        "addormentamento"
+      ]
+    }
+  },
+  "+ Anästhesie von Nn. intercostales, jeder Zugang, jeder weitere Nerv": {
+    "lkn": "AG.00.0090",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Narkose",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung",
+        "Lokalanästhesie",
+        "Regionalanästhesie",
+        "Nervenblockade"
+      ],
+      "fr": [
+        "Anästhesie",
+        "anesthésie",
+        "bloc nerveux",
+        "infiltration",
+        "injection anesthésique"
+      ],
+      "it": [
+        "Anästhesie",
+        "Anestesia",
+        "Blocco nervoso",
+        "Infiltrazione anestetica",
+        "Puntura anestetica",
+        "Addormentamento"
+      ]
+    }
+  },
+  "Anästhesie der Nerven untere Extremitäten, Pelvis, jeder Zugang": {
+    "lkn": "AG.00.0100",
+    "synonyms": {
+      "de": [
+        "Betäubung",
+        "Schmerzausschaltung",
+        "Schmerzbetäubung",
+        "Nervenblockade",
+        "Blockade",
+        "Taubmachung",
+        "Gefühllosmachung"
+      ],
+      "fr": [
+        "Anästhesie",
+        "anesthésie",
+        "bloc",
+        "anesthésie locorégionale",
+        "anesthésie régionale",
+        "endormissement"
+      ],
+      "it": [
+        "Anästhesie",
+        "Anestesia",
+        "Anestesia locale",
+        "Anestesia regionale",
+        "Anestesia generale",
+        "Sedazione",
+        "Blocco",
+        "Infiltrazione",
+        "Rachianestesia",
+        "Epidurale"
+      ]
+    }
+  },
+  "Nichtärztliche Blutentnahme (kapilär)": {
+    "lkn": "AK.00.0010",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch medizinisches Fachpersonal",
+        "durch MPA",
+        "von der Pflege",
+        "durch Assistenzpersonal"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "par le personnel soignant",
+        "par une infirmière",
+        "par un assistant médical",
+        "par du personnel paramédical",
+        "par un technicien de laboratoire"
+      ],
+      "it": [
+        "Eseguito da personale non medico",
+        "Infermieristico",
+        "Da infermiere",
+        "Da personale paramedico",
+        "Da tecnico di laboratorio"
+      ]
+    }
+  },
+  "Nichtärztliche Blutentnahme (venös)": {
+    "lkn": "AK.00.0020",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch MPA",
+        "durch Laborpersonal",
+        "durch medizinisches Assistenzpersonal",
+        "durch nicht-aerztliches Personal"
+      ],
+      "fr": [
+        "Blutentnahme",
+        "Prélèvement sanguin",
+        "Prise de sang"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "non medica",
+        "da infermiere",
+        "da personale non medico"
+      ]
+    }
+  },
+  "Eigenblutentnahme mit Vollblutkonservierung, pro 1 Min.": {
+    "lkn": "AK.00.0030",
+    "synonyms": {
+      "de": [
+        "Autologe Blutentnahme",
+        "Blutabnahme fuer Eigenblut",
+        "Entnahme von Eigenblut",
+        "Eigenblutspende",
+        "Blutentnahme zur Eigenverwendung",
+        "Blutabnahme zur Eigenanwendung"
+      ],
+      "fr": [
+        "Don de sang autologue",
+        "Autotransfusion"
+      ],
+      "it": [
+        "Eigenblutentnahme",
+        "prelievo di sangue autologo",
+        "raccolta di sangue autologo",
+        "donazione autologa",
+        "prelevamento di sangue proprio"
+      ]
+    }
+  },
+  "Postoperative maschinelle Autotransfusion, pro 1 Min.": {
+    "lkn": "AK.00.0040",
+    "synonyms": {
+      "de": [
+        "nach Operation",
+        "nach dem Eingriff",
+        "nach der OP"
+      ],
+      "fr": [
+        "Postopératoire",
+        "après l'opération",
+        "suite à l'intervention",
+        "en phase post-opératoire",
+        "post-chirurgical"
+      ],
+      "it": [
+        "Postoperative",
+        "post-operatorio",
+        "dopo l'intervento",
+        "dopo l'operazione",
+        "in fase post-operatoria",
+        "nel post-operatorio"
+      ]
+    }
+  },
+  "Nichtärztliche Injektion/Infusion": {
+    "lkn": "AK.00.0050",
+    "synonyms": {
+      "de": [
+        "Pflegeleistung",
+        "MPA-Leistung",
+        "Delegierte Leistung",
+        "Assistenzleistung"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "Infirmière",
+        "Paramédical"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "non medica",
+        "infermieristica",
+        "eseguita da infermiere",
+        "somministrazione non medica"
+      ]
+    }
+  },
+  "Nichtärztlicher Gefässzugang periphervenös": {
+    "lkn": "AK.00.0060",
+    "synonyms": {
+      "de": [
+        "delegiert",
+        "Pflege",
+        "MPA",
+        "Rettungsdienst"
+      ],
+      "fr": [
+        "Nichtärztlicher",
+        "par infirmier",
+        "par infirmière",
+        "soins infirmiers",
+        "acte infirmier",
+        "par le personnel soignant"
+      ],
+      "it": [
+        "Nichtärztlicher",
+        "infermieristico",
+        "non medico",
+        "da personale sanitario",
+        "da infermiere"
+      ]
+    }
+  },
+  "Nichtärztliche Wundbehandlung ohne Einbezug komplexer Strukturen, pro 1 Min.": {
+    "lkn": "AK.00.0070",
+    "synonyms": {}
+  },
+  "Nichtärztliche Wundtoilette und Verbandswechsel, pro 1 Min.": {
+    "lkn": "AK.00.0080",
+    "synonyms": {
+      "de": [
+        "Pflegeleistung",
+        "Durch Pflegepersonal",
+        "Durch Fachpersonal",
+        "Von Pflegefachperson",
+        "Von MPA"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "Soins infirmiers",
+        "Actes infirmiers",
+        "Prestations infirmières",
+        "Soins par une infirmière",
+        "Soins par une assistante médicale"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "infermieristica",
+        "paramedica",
+        "assistenziale"
+      ]
+    }
+  },
+  "Nichtärztliche Entfernung von Verbänden und Nahtmaterial": {
+    "lkn": "AK.00.0090",
+    "synonyms": {
+      "de": [
+        "Pflegeleistung",
+        "MPA-Leistung",
+        "Spitex-Leistung",
+        "Assistenzleistung",
+        "Fachpflege"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "non-médicale",
+        "par le personnel soignant",
+        "par une infirmière",
+        "par un aide-soignant",
+        "par un assistant médical",
+        "par du personnel paramédical"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "prestazione infermieristica",
+        "assistenza infermieristica",
+        "cura infermieristica",
+        "prestazione paramedica",
+        "eseguito da personale non medico"
+      ]
+    }
+  },
+  "Nichtärztliche ophthalmologische Leistungen, pro 1 Min.": {
+    "lkn": "AK.00.0100",
+    "synonyms": {
+      "de": [
+        "durch Fachpersonal",
+        "durch Optometristen",
+        "durch Orthoptisten",
+        "durch Augenoptiker",
+        "durch Augenpflegefachkräfte",
+        "von geschultem Personal",
+        "ohne Arzt"
+      ],
+      "fr": [
+        "Ophthalmologische Leistungen",
+        "soins oculaires",
+        "soins ophtalmiques",
+        "examens de la vue",
+        "bilans visuels",
+        "prestations oculaires",
+        "controles de la vue",
+        "tests de la vue"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "non mediche",
+        "da personale non medico",
+        "da ortottista",
+        "da optometrista",
+        "da tecnico oculistico"
+      ]
+    }
+  },
+  "Nichtärztlicher Atemtest mit Harnstoff {13C} zum Nachweis von Heliobacter pylori": {
+    "lkn": "AK.00.0110",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch MPA",
+        "nicht vom Arzt durchgeführt",
+        "von medizinischem Fachpersonal",
+        "von nicht-ärztlichem Personal",
+        "nicht-ärztliche Durchführung"
+      ],
+      "fr": [
+        "Nichtärztlicher",
+        "non-médecin",
+        "par le personnel soignant",
+        "par le personnel paramédical",
+        "par un assistant médical",
+        "par une infirmière"
+      ],
+      "it": [
+        "Nichtärztlicher",
+        "test di routine",
+        "test di screening",
+        "esame di base",
+        "prestazione infermieristica"
+      ]
+    }
+  },
+  "Nichtärztliche überwachte Medikamentenverabreichung": {
+    "lkn": "AK.00.0120",
+    "synonyms": {
+      "de": [
+        "Pflegepersonal",
+        "Pflegefachkraft",
+        "Krankenpflege",
+        "Betreuung",
+        "Delegierte Leistung"
+      ],
+      "fr": [
+        "non-médicale",
+        "par infirmier",
+        "par infirmière",
+        "par personnel soignant",
+        "par personnel paramédical",
+        "par aide-soignant"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "non medico",
+        "infermieristico",
+        "da personale non medico",
+        "assistenza non medica"
+      ]
+    }
+  },
+  "Nichtärztliche überwachte Urinabgabe bei Alkohol-/Drogenpatienten": {
+    "lkn": "AK.00.0130",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch medizinisches Fachpersonal",
+        "durch nicht-ärztliches Personal"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "par personnel soignant",
+        "par personnel paramédical",
+        "par infirmier/infirmière",
+        "par assistant/assistante"
+      ],
+      "it": [
+        "überwachte",
+        "sorvegliata",
+        "controllata",
+        "monitorata",
+        "osservata"
+      ]
+    }
+  },
+  "Nichtärztliche Leistungen im Rahmen des delegierten Chronic Care Managements bei Asthma oder COPD, pro 1 Min.": {
+    "lkn": "AK.05.0010",
+    "synonyms": {
+      "de": [
+        "Pflegeleistungen",
+        "Betreuungsleistungen",
+        "Leistungen durch medizinisches Fachpersonal",
+        "Nicht-ärztliche Versorgung"
+      ],
+      "fr": [
+        "Nichtärztliche Leistungen",
+        "soins infirmiers",
+        "actes paramédicaux",
+        "prestations de personnel soignant",
+        "suivi par le personnel soignant"
+      ],
+      "it": [
+        "Prestazioni infermieristiche",
+        "Cure infermieristiche",
+        "Assistenza infermieristica",
+        "Prestazioni paramediche",
+        "Cure da personale non medico"
+      ]
+    }
+  },
+  "Nichtärztliche Leistungen im Rahmen des delegierten Chronic Care Managements bei Diabetes mellitus, pro 1 Min.": {
+    "lkn": "AK.05.0020",
+    "synonyms": {
+      "de": [
+        "Leistungen von Pflegefachpersonen",
+        "Leistungen von medizinischem Fachpersonal",
+        "Nichtärztliche Versorgung",
+        "Nichtärztliche Betreuung",
+        "Pflegeleistungen",
+        "Betreuungsleistungen"
+      ],
+      "fr": [
+        "Nichtärztliche Leistungen",
+        "Prestations non médicales",
+        "Soins infirmiers",
+        "Suivi infirmier",
+        "Accompagnement paramédical",
+        "Conseils paramédicaux",
+        "Éducation thérapeutique",
+        "Prise en charge paramédicale"
+      ],
+      "it": [
+        "Nichtärztliche Leistungen",
+        "prestazioni non mediche",
+        "prestazioni paramediche",
+        "cure non mediche",
+        "assistenza non medica",
+        "interventi non medici"
+      ]
+    }
+  },
+  "Nichtärztliche Leistungen im Rahmen des delegierten Chronic Care Managements bei Herzinsuffizienz oder koronaren Herzkrankheiten, pro 1 Min.": {
+    "lkn": "AK.05.0030",
+    "synonyms": {
+      "de": [
+        "Pflegeleistungen",
+        "Betreuungsleistungen",
+        "Nicht-ärztliche Versorgung",
+        "Pflegebetreuung",
+        "Unterstützungsleistungen"
+      ],
+      "fr": [
+        "Nichtärztliche Leistungen",
+        "Soins non médicaux",
+        "Actes paramédicaux",
+        "Interventions non médicales",
+        "Accompagnement non médical",
+        "Prise en charge non médicale"
+      ],
+      "it": [
+        "Nichtärztliche Leistungen",
+        "Prestazioni infermieristiche",
+        "Cure infermieristiche",
+        "Assistenza infermieristica",
+        "Prestazioni sanitarie delegate",
+        "Servizi di assistenza non medica"
+      ]
+    }
+  },
+  "Nichtärztliche Leistungen im Rahmen des delegierten Chronic Care Managements Rheuma, pro 1 Min.": {
+    "lkn": "AK.05.0040",
+    "synonyms": {
+      "de": [
+        "Pflegeleistungen",
+        "Betreuungsleistungen",
+        "Assistenzleistungen",
+        "Unterstuetzungsleistungen",
+        "Leistungen durch Pflegefachpersonen",
+        "Leistungen durch medizinisches Fachpersonal",
+        "Leistungen durch nicht-aerztliches Personal",
+        "Pflegeberatung",
+        "Patientenbetreuung"
+      ],
+      "fr": [
+        "Nichtärztliche Leistungen",
+        "prestations paramédicales",
+        "soins infirmiers",
+        "actes délégués",
+        "interventions non médicales",
+        "prise en charge non médicale"
+      ],
+      "it": [
+        "Nichtärztliche Leistungen",
+        "Prestazioni infermieristiche",
+        "Prestazioni paramediche",
+        "Assistenza specialistica non medica",
+        "Cure di supporto",
+        "Interventi non medici"
+      ]
+    }
+  },
+  "Nichtärztliche, nichtspezialisierte Überwachung, pro 15 Min.": {
+    "lkn": "AM.00.0010",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch Pflegekräfte",
+        "durch medizinisches Fachpersonal",
+        "durch nicht-ärztliches Personal",
+        "delegierte",
+        "ohne ärztliche Beteiligung"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "par personnel soignant",
+        "par infirmier/infirmière",
+        "par aide-soignant/aide-soignante",
+        "par auxiliaire de santé",
+        "paramédical",
+        "non-médical"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "Assistenza infermieristica",
+        "Cura di supporto",
+        "Assistenza non medica"
+      ]
+    }
+  },
+  "Spezialisierte nichtärztliche Überwachung, 1 Substanz, einfache Zubereitung, einfacher Zugang, erste 30 Min.": {
+    "lkn": "AM.05.0010",
+    "synonyms": {
+      "de": [
+        "Pflegeüberwachung",
+        "nichtärztliches Monitoring",
+        "fachliche Patientenbeobachtung",
+        "Betreuung nach Medikamentengabe",
+        "Überwachung durch Pflegepersonal",
+        "spezielle Beobachtung"
+      ],
+      "fr": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "Surveillance infirmière",
+        "Monitoring paramédical",
+        "Suivi par le personnel soignant",
+        "Observation clinique non médicale",
+        "Surveillance d'un traitement",
+        "Surveillance post-administration"
+      ],
+      "it": [
+        "Sorveglianza non medica specializzata",
+        "monitoraggio infermieristico",
+        "osservazione paramedica",
+        "assistenza infermieristica mirata",
+        "supervisione non medica qualificata"
+      ]
+    }
+  },
+  "Ärztliche Leistung im Rahmen der spezialisierten, nichtärztlichen Überwachung, pro 1 Min.": {
+    "lkn": "AM.05.0020",
+    "synonyms": {
+      "de": [
+        "Arztleistung",
+        "Medizinische Dienstleistung",
+        "Ärztliche Tätigkeit",
+        "Ärztliche Betreuung",
+        "Ärztliche Versorgung"
+      ],
+      "fr": [
+        "Ärztliche Leistung",
+        "Acte médical",
+        "Prestation médicale",
+        "Soins médicaux",
+        "Intervention médicale"
+      ],
+      "it": [
+        "Ärztliche Leistung",
+        "Prestazione medica",
+        "Servizio medico",
+        "Atto medico",
+        "Consulenza medica",
+        "Valutazione medica",
+        "Supervisione medica",
+        "Direzione medica"
+      ]
+    }
+  },
+  "+ %-Zuschlag für Leistungen am Patienten unter Kontaktisolation während Sockelzeit Überwachung": {
+    "lkn": "AM.05.0030",
+    "synonyms": {
+      "de": [
+        "Behandlung",
+        "Therapie",
+        "Versorgung",
+        "Betreuung",
+        "Medizinische Massnahmen",
+        "Patientenversorgung"
+      ],
+      "fr": [
+        "Supplément",
+        "Majoration",
+        "Frais additionnels",
+        "Coût supplémentaire"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo",
+        "costo aggiuntivo",
+        "tariffa aggiuntiva"
+      ]
+    }
+  },
+  "+ Spezialisierte nichtärztliche Überwachung, geringe Betreuungsintensität, pro weitere 15 Min.": {
+    "lkn": "AM.05.0040",
+    "synonyms": {
+      "de": [
+        "fachkundige",
+        "qualifizierte",
+        "gezielte",
+        "besondere"
+      ],
+      "fr": [
+        "Spezialisierte",
+        "approfondie",
+        "ciblée",
+        "qualifiée"
+      ],
+      "it": [
+        "sorveglianza",
+        "monitoraggio",
+        "osservazione",
+        "assistenza"
+      ]
+    }
+  },
+  "+ Spezialisierte nichtärztliche Überwachung, mittlere Betreuungsintensität, pro weitere 15 Min.": {
+    "lkn": "AM.05.0050",
+    "synonyms": {
+      "de": [
+        "fachkundige",
+        "qualifizierte",
+        "professionelle",
+        "erweiterte",
+        "vertiefte"
+      ],
+      "fr": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "Surveillance paramédicale spécialisée",
+        "Suivi infirmier spécialisé",
+        "Monitoring par personnel soignant qualifié",
+        "Accompagnement clinique non médical spécialisé"
+      ],
+      "it": [
+        "Spezialisierte",
+        "specializzata",
+        "qualificata",
+        "ad alta competenza",
+        "specifica"
+      ]
+    }
+  },
+  "+ %-Zuschlag für Leistungen am Patienten unter Kontaktisolation bei mittlerer Betreuungsintensität": {
+    "lkn": "AM.05.0060",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Mehrkosten",
+        "Zusatzgebuehr",
+        "Aufpreis"
+      ],
+      "fr": [
+        "Zuschlag",
+        "Supplément",
+        "Majoration",
+        "Frais additionnels",
+        "Coût supplémentaire"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo",
+        "costo aggiuntivo"
+      ]
+    }
+  },
+  "+ Spezialisierte nichtärztliche Überwachung, hohe Betreuungsintensität, pro weitere 15 Min.": {
+    "lkn": "AM.05.0070",
+    "synonyms": {
+      "de": [
+        "Fachliche",
+        "Qualifizierte",
+        "Experten-",
+        "Besondere"
+      ],
+      "fr": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "Surveillance infirmière spécialisée",
+        "Surveillance paramédicale spécialisée",
+        "Suivi infirmier spécialisé",
+        "Monitoring non médical spécialisé",
+        "Observation non médicale spécialisée",
+        "Accompagnement non médical spécialisé"
+      ],
+      "it": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "monitoraggio specialistico non medico",
+        "assistenza infermieristica specializzata",
+        "sorveglianza clinica avanzata",
+        "cura paramedica specialistica"
+      ]
+    }
+  },
+  "+ %-Zuschlag für Leistungen am Patienten unter Kontaktisolation bei hoher Betreuungsintensität": {
+    "lkn": "AM.05.0080",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Mehrkosten",
+        "Aufpreis",
+        "Extrakosten",
+        "Zusatzleistung"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "surcoût",
+        "frais additionnels",
+        "coût additionnel",
+        "frais supplémentaires"
+      ],
+      "it": [
+        "Zuschlag",
+        "sovrapprezzo",
+        "supplemento",
+        "maggiorazione",
+        "addizionale",
+        "costo aggiuntivo"
+      ]
+    }
+  },
+  "Spezialisierte nichtärztliche Überwachung, 1-2 Substanzen, komplexe Zubereitung oder komplexer Zugang, erste 45 Min.": {
+    "lkn": "AM.05.0090",
+    "synonyms": {
+      "de": [
+        "Pflege-Monitoring",
+        "Fachpflege-Überwachung",
+        "Überwachung durch Pflegefachkraft",
+        "Spezial-Überwachung durch Pflege"
+      ],
+      "fr": [
+        "Surveillance non médicale spécialisée",
+        "Suivi infirmier spécialisé",
+        "Monitoring paramédical approfondi",
+        "Observation clinique non médicale",
+        "Surveillance par personnel soignant qualifié"
+      ],
+      "it": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "monitoraggio specialistico",
+        "sorveglianza infermieristica specialistica",
+        "assistenza infermieristica avanzata",
+        "monitoraggio paramedico"
+      ]
+    }
+  },
+  "Spezialisierte nichtärztliche Überwachung, ab 2 Substanzen, komplexe Zubereitung und komplexer Zugang, erste 60 Min.": {
+    "lkn": "AM.05.0100",
+    "synonyms": {
+      "de": [
+        "Pflegeueberwachung",
+        "Fachueberwachung durch Pflegepersonal",
+        "Medikamenten-Ueberwachung durch Pflege",
+        "Ueberwachung durch Fachpersonal",
+        "Betreuung bei komplexer Medikation"
+      ],
+      "fr": [
+        "Überwachung",
+        "Surveillance",
+        "Suivi",
+        "Monitoring",
+        "Observation",
+        "Vigilance"
+      ],
+      "it": [
+        "Spezialisierte nichtärztliche Überwachung",
+        "sorveglianza infermieristica specializzata",
+        "monitoraggio infermieristico avanzato",
+        "assistenza infermieristica intensiva",
+        "monitoraggio paramedico specialistico",
+        "osservazione clinica non medica complessa"
+      ]
+    }
+  },
+  "Nichtärztliche Vorbereitung vor Eingriffen in Regional- oder Allgemeinanästhesie, pro 1 Min.": {
+    "lkn": "AM.10.0010",
+    "synonyms": {
+      "de": [
+        "Pflegevorbereitung",
+        "Patientenvorbereitung",
+        "Praeoperative Pflege",
+        "Vorbereitung durch Pflegepersonal",
+        "Vorbereitung fuer Narkose",
+        "Vorbereitung fuer Betaeubung"
+      ],
+      "fr": [
+        "Nichtärztliche",
+        "par le personnel soignant",
+        "par une infirmière",
+        "par un infirmier",
+        "par un assistant médical",
+        "par une assistante médicale",
+        "par du personnel paramédical"
+      ],
+      "it": [
+        "Nichtärztliche Vorbereitung",
+        "Preparazione del paziente",
+        "Assistenza pre-operatoria",
+        "Cura pre-operatoria",
+        "Preparazione all'intervento",
+        "Accoglienza e preparazione"
+      ]
+    }
+  },
+  "Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie, erste 30 Min.": {
+    "lkn": "AM.10.0020",
+    "synonyms": {}
+  },
+  "+ Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie (31. bis 240. Minute), pro 1 Min.": {
+    "lkn": "AM.10.0030",
+    "synonyms": {
+      "de": [
+        "Pflegeueberwachung",
+        "Ueberwachung durch Pflegepersonal",
+        "Postoperative Pflegeueberwachung",
+        "Patientenmonitoring durch Pflege",
+        "Nachsorge durch Pflegepersonal"
+      ],
+      "fr": [
+        "Nichtärztliche Überwachung",
+        "Surveillance infirmière",
+        "Monitoring par le personnel paramédical",
+        "Suivi infirmier"
+      ],
+      "it": [
+        "Nichtärztliche Überwachung",
+        "assistenza post-operatoria",
+        "monitoraggio infermieristico",
+        "sorveglianza in sala risveglio",
+        "osservazione post-anestesia"
+      ]
+    }
+  },
+  "+ Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie (241. bis 480. Minute), pro 1 Min.": {
+    "lkn": "AM.10.0040",
+    "synonyms": {}
+  },
+  "Nichtärztliche Vorbereitung vor Eingriffen in Regional- oder Allgemeinanästhesie, bei Kindern bis 16 Jahre, pro 1 Min.": {
+    "lkn": "AM.10.0050",
+    "synonyms": {
+      "de": [
+        "Pflegepersonal",
+        "Anästhesiepflege",
+        "Fachpersonal",
+        "Assistenzpersonal"
+      ],
+      "fr": [
+        "Préparation non médicale",
+        "Préparation par le personnel soignant",
+        "Soins préparatoires non médicaux"
+      ],
+      "it": [
+        "Nichtärztliche",
+        "personale infermieristico",
+        "personale paramedico",
+        "assistenza non medica",
+        "personale di supporto"
+      ]
+    }
+  },
+  "Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie, bei Kindern bis 16 Jahren, erste 60 Min.": {
+    "lkn": "AM.10.0060",
+    "synonyms": {
+      "de": [
+        "Pflegeüberwachung",
+        "Überwachung durch Pflegepersonal",
+        "Aufwachraum-Überwachung",
+        "Post-OP-Überwachung",
+        "Vitalzeichenkontrolle",
+        "Patientenbeobachtung",
+        "Nachsorgebeobachtung"
+      ],
+      "fr": [
+        "Nichtärztliche Überwachung",
+        "surveillance infirmière",
+        "surveillance par le personnel soignant",
+        "monitoring non médical",
+        "observation par personnel non médical"
+      ],
+      "it": [
+        "Nichtärztliche Überwachung",
+        "Sorveglianza non medica",
+        "Monitoraggio post-operatorio",
+        "Osservazione post-operatoria",
+        "Assistenza infermieristica post-operatoria",
+        "Controllo dei parametri vitali",
+        "Accertamento delle condizioni cliniche"
+      ]
+    }
+  },
+  "+ Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie (61. bis 240. Minute), bei Kindern bis 16 Jahren, pro 1 Min.": {
+    "lkn": "AM.10.0070",
+    "synonyms": {
+      "de": [
+        "Pflegeüberwachung",
+        "Monitoring durch Pflegepersonal",
+        "Aufwachraum-Überwachung",
+        "Patientenbeobachtung durch Pflege"
+      ],
+      "fr": [
+        "Nichtärztliche Überwachung",
+        "Surveillance paramédicale",
+        "Surveillance infirmière",
+        "Monitorage non médical",
+        "Suivi post-opératoire non médical"
+      ],
+      "it": [
+        "Nichtärztliche Überwachung",
+        "monitoraggio infermieristico",
+        "sorveglianza infermieristica",
+        "osservazione infermieristica",
+        "assistenza infermieristica post-operatoria",
+        "assistenza post-operatoria"
+      ]
+    }
+  },
+  "+ Nichtärztliche Überwachung nach Eingriffen in Regional- oder Allgemeinanästhesie (241. bis 480. Minute), bei Kindern bis 16 Jahren, pro 1 Min.": {
+    "lkn": "AM.10.0080",
+    "synonyms": {
+      "de": [
+        "Pflegeueberwachung",
+        "Ueberwachung durch Pflegepersonal",
+        "Betreuung nach Eingriff durch Pflege",
+        "Nachsorge durch nichtaerztliches Personal",
+        "Post-OP-Beobachtung durch Pflege",
+        "Monitoring durch Pflege"
+      ],
+      "fr": [
+        "Surveillance non médicale",
+        "surveillance paramédicale",
+        "surveillance infirmière",
+        "surveillance post-opératoire",
+        "suivi post-opératoire",
+        "monitoring post-anesthésie",
+        "observation post-opératoire",
+        "surveillance de réveil",
+        "surveillance en salle de réveil"
+      ],
+      "it": [
+        "Nichtärztliche Überwachung",
+        "Sorveglianza infermieristica",
+        "Monitoraggio infermieristico",
+        "Assistenza post-anestesia",
+        "Osservazione post-intervento"
+      ]
+    }
+  },
+  "Nichtärztliche Überwachung nach Interventionen mit Sedation und/oder Lokalanästhesie, pro 1 Min.": {
+    "lkn": "AM.15.0010",
+    "synonyms": {
+      "de": [
+        "Pflegepersonal",
+        "Pflegefachkraft",
+        "MPA",
+        "Arzthelferin",
+        "nicht-ärztliches Personal"
+      ],
+      "fr": [
+        "Nichtärztliche Überwachung",
+        "surveillance post-interventionnelle",
+        "surveillance par personnel non-médical",
+        "suivi infirmier",
+        "observation après intervention",
+        "monitoring post-procédure"
+      ],
+      "it": [
+        "Nichtärztliche Überwachung",
+        "monitoraggio infermieristico",
+        "sorveglianza infermieristica",
+        "assistenza post-procedurale",
+        "osservazione clinica non medica"
+      ]
+    }
+  },
+  "Taping, alle Regionen, pro 1 Min.": {
+    "lkn": "AP.00.0010",
+    "synonyms": {
+      "de": [
+        "Tapen",
+        "Kinesiotaping",
+        "Sporttaping",
+        "Tape-Anlage",
+        "Anlegen von Tapes"
+      ],
+      "fr": [
+        "Taping",
+        "Application de bande",
+        "Pose de bande",
+        "Strapping",
+        "Kinesio-taping",
+        "Bandage adhésif",
+        "Contention adhésive",
+        "Mise en place de bande"
+      ],
+      "it": [
+        "Taping",
+        "applicazione di tape",
+        "kinesiotaping",
+        "bendaggio funzionale",
+        "bendaggio neuromuscolare"
+      ]
+    }
+  },
+  "Thermoplastische härtende Verbände (Schienen)": {
+    "lkn": "AP.05.0010",
+    "synonyms": {
+      "de": [
+        "wärmeformbare",
+        "anpassbare",
+        "modellierbare",
+        "formbare"
+      ],
+      "fr": [
+        "Thermoplastische härtende Verbände (Schienen)",
+        "Attelle thermoplastique",
+        "Orthèse thermoplastique",
+        "Appareil d'immobilisation thermoplastique",
+        "Moulage thermoplastique",
+        "Confection d'attelle thermoplastique",
+        "Pose d'attelle thermoplastique",
+        "Gouttière thermoplastique",
+        "Attelle moulée",
+        "Attelle sur mesure"
+      ],
+      "it": [
+        "termoplastico",
+        "modellabile a caldo",
+        "formabile a caldo"
+      ]
+    }
+  },
+  "+ Zuschlag für härtende Verbände bei Kindern bis 7 Jahren": {
+    "lkn": "AP.05.0020",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Zusatzgebühr",
+        "Mehrkosten",
+        "Ergänzungsleistung",
+        "Zusatzposition"
+      ],
+      "fr": [
+        "Supplément",
+        "Frais supplémentaires",
+        "Majoration",
+        "Coût additionnel"
+      ],
+      "it": [
+        "Zuschlag",
+        "sovrapprezzo",
+        "supplemento",
+        "maggiorazione",
+        "costo aggiuntivo"
+      ]
+    }
+  },
+  "Härtende Verbände (Zirkulärverbände/Schienen), Kategorie I": {
+    "lkn": "AP.05.0030",
+    "synonyms": {
+      "de": [
+        "Gipsverband",
+        "Kunststoffgips",
+        "Immobilisationsverband",
+        "Stützverband",
+        "Fixationsverband",
+        "Hartverband",
+        "Gips anlegen",
+        "Gipsverband anlegen",
+        "Verband anlegen zum Aushärten"
+      ],
+      "fr": [
+        "Härtende Verbände",
+        "plâtre",
+        "résine",
+        "appareil plâtré",
+        "appareil de contention",
+        "immobilisation plâtrée",
+        "immobilisation rigide",
+        "contention rigide"
+      ],
+      "it": [
+        "Bendaggi indurenti",
+        "Applicazione di gesso",
+        "Ingessatura",
+        "Gessatura",
+        "Immobilizzazione rigida",
+        "Applicazione di tutore rigido",
+        "Bendaggio gessato",
+        "Bendaggio rigido"
+      ]
+    }
+  },
+  "+ Zuschlag für Gehgips bei härtenden Verbänden": {
+    "lkn": "AP.05.0040",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Mehrkosten",
+        "Zusatzkosten",
+        "Extra-Kosten",
+        "Zusatzgebuehr"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "frais additionnels",
+        "coût additionnel"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "costo aggiuntivo",
+        "extra"
+      ]
+    }
+  },
+  "Härtende Verbände (Zirkulärverbände/Schienen), Kategorie II": {
+    "lkn": "AP.05.0050",
+    "synonyms": {
+      "de": [
+        "Gipsverband",
+        "Stützverband",
+        "Immobilisationsverband",
+        "Fixationsverband",
+        "Hartverband",
+        "Verband zum Ruhigstellen",
+        "Verband zur Stabilisierung",
+        "Kunststoffgips",
+        "Ruhigstellungsverband"
+      ],
+      "fr": [
+        "Härtende Verbände",
+        "plâtre",
+        "attelle",
+        "immobilisation rigide",
+        "pose de plâtre",
+        "application d'attelle",
+        "bandage durcissant"
+      ],
+      "it": [
+        "Härtende Verbände",
+        "Bendaggio rigido",
+        "Bendaggio gessato",
+        "Gesso",
+        "Ingessatura",
+        "Immobilizzazione con gesso",
+        "Tutore rigido",
+        "Apparecchio gessato"
+      ]
+    }
+  },
+  "+ Zuschlag für Fensterung/Deckelung/Schalung bei härtenden Verbänden": {
+    "lkn": "AP.05.0060",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Mehrkosten",
+        "Zusatzkosten",
+        "Aufschlag"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "frais supplémentaires"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "maggiorazione",
+        "sovrapprezzo",
+        "aggiunta"
+      ]
+    }
+  },
+  "+ Zuschlag für Keilung zwecks Stellungskorrektur bei härtenden Verbänden": {
+    "lkn": "AP.05.0070",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Mehrkosten",
+        "Zusatzkosten",
+        "Aufschlag",
+        "Extra-Gebuehr"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "frais additionnels",
+        "surcoût"
+      ],
+      "it": [
+        "Zuschlag",
+        "supplemento",
+        "sovrapprezzo",
+        "maggiorazione",
+        "costo aggiuntivo",
+        "onorario aggiuntivo"
+      ]
+    }
+  },
+  "Härtende Verbände (Zirkulärverbände/Schienen), Kategorie III": {
+    "lkn": "AP.05.0080",
+    "synonyms": {
+      "de": [
+        "Gipsverband",
+        "Gips",
+        "Stützverband",
+        "Immobilisationsverband",
+        "Fixationsverband",
+        "Hartverband",
+        "Kunststoffgips",
+        "Cast"
+      ],
+      "fr": [
+        "Härtende Verbände",
+        "plâtre",
+        "résine",
+        "appareil d'immobilisation",
+        "immobilisation plâtrée",
+        "immobilisation par résine",
+        "pose de plâtre",
+        "application de plâtre",
+        "mise en place de plâtre",
+        "pose de résine",
+        "application de résine",
+        "mise en place de résine",
+        "contention plâtrée",
+        "contention par résine"
+      ],
+      "it": [
+        "Härtende Verbände",
+        "Gesso",
+        "Ingessatura",
+        "Bendaggio rigido",
+        "Immobilizzazione con gesso",
+        "Tutore rigido"
+      ]
+    }
+  },
+  "Nachträgliche Umwandlung eines Liegegipses in einen Gehgips bei härtenden Verbänden": {
+    "lkn": "AP.05.0090",
+    "synonyms": {
+      "de": [
+        "Gipsanpassung",
+        "Gips-Umbau",
+        "Gips-Umstellung",
+        "Gips-Modifikation",
+        "Gips-Änderung"
+      ],
+      "fr": [
+        "Nachträgliche Umwandlung",
+        "Conversion",
+        "Transformation",
+        "Modification",
+        "Adaptation",
+        "Changement de type",
+        "Ajustement"
+      ],
+      "it": [
+        "Nachträgliche Umwandlung",
+        "conversione successiva",
+        "modifica successiva",
+        "cambio successivo",
+        "riadattamento del gesso",
+        "sostituzione del gesso"
+      ]
+    }
+  },
+  "Nachträgliche Fensterung/Deckelung/Schalung bei härtenden Verbänden": {
+    "lkn": "AP.05.0100",
+    "synonyms": {
+      "de": [
+        "Gipsfenster anlegen",
+        "Fenster im Gipsverband schneiden",
+        "Gipsverband oeffnen",
+        "Druckentlastung am Gips",
+        "Zugang am Gips schaffen"
+      ],
+      "fr": [
+        "Fensterung",
+        "fenestration",
+        "ouverture",
+        "découpe"
+      ],
+      "it": [
+        "Fensterung",
+        "fenestrazione",
+        "apertura",
+        "creazione di un'apertura",
+        "taglio di una finestra"
+      ]
+    }
+  },
+  "Nachträgliche Keilung zwecks Stellungskorrektur bei härtenden Verbänden": {
+    "lkn": "AP.05.0110",
+    "synonyms": {
+      "de": [
+        "Keilkorrektur",
+        "Gipsanpassung",
+        "Verbandanpassung",
+        "Gipskorrektur",
+        "Verbandkorrektur",
+        "Gipsmodifikation",
+        "Verbandmodifikation",
+        "Keileinsatz"
+      ],
+      "fr": [
+        "Keilung",
+        "calage",
+        "ajustement par coin",
+        "correction par coin",
+        "réajustement de l'immobilisation",
+        "modification de plâtre",
+        "retouche de plâtre"
+      ],
+      "it": [
+        "Keilung",
+        "cuneizzazione",
+        "rimodellamento",
+        "aggiustamento",
+        "correzione",
+        "modifica",
+        "rettifica"
+      ]
+    }
+  },
+  "Spezialverbände, funktioneller Fingerverband": {
+    "lkn": "AP.10.0010",
+    "synonyms": {
+      "de": [
+        "besondere Verbände",
+        "spezielle Verbandstechniken",
+        "Funktionsverbände",
+        "komplexe Verbandanlagen",
+        "individuelle Verbände",
+        "massgeschneiderte Verbände"
+      ],
+      "fr": [
+        "Spezialverbände",
+        "pansements spéciaux",
+        "bandages spéciaux",
+        "pansements techniques",
+        "pansements complexes",
+        "pose de pansements spécifiques",
+        "application de pansements particuliers"
+      ],
+      "it": [
+        "Spezialverbände",
+        "bendaggi speciali",
+        "fasciature speciali",
+        "bendaggi complessi",
+        "bendaggi specialistici",
+        "medicazioni speciali"
+      ]
+    }
+  },
+  "Spezialverbände, Klumpfuss, jede Methode": {
+    "lkn": "AP.10.0020",
+    "synonyms": {
+      "de": [
+        "Spezialverband",
+        "Funktionsverband",
+        "Stützverband",
+        "Gipsverband",
+        "Korrekturverband",
+        "Redressionsverband",
+        "Bandagierung",
+        "Verbandsanlage",
+        "Verbandswechsel"
+      ],
+      "fr": [
+        "Spezialverbände",
+        "pansements spéciaux",
+        "bandages spéciaux",
+        "pansements correcteurs",
+        "bandages correcteurs",
+        "pose de pansements spécialisés",
+        "application de bandages spécifiques"
+      ],
+      "it": [
+        "Spezialverbände",
+        "Bendaggi speciali",
+        "Fasciature speciali",
+        "Medicazioni complesse",
+        "Bendaggi ortopedici",
+        "Bendaggi correttivi"
+      ]
+    }
+  },
+  "Spezialverbände, pro 1 Min.": {
+    "lkn": "AP.10.0030",
+    "synonyms": {
+      "de": [
+        "Spezialverband",
+        "Verband",
+        "Bandage",
+        "Wundverband",
+        "Druckverband",
+        "Gipsverband",
+        "Kompressionsverband",
+        "Stützverband",
+        "Fixierverband",
+        "Wundauflage",
+        "Verbandswechsel",
+        "Verband anlegen",
+        "Verband wechseln",
+        "Wundversorgung",
+        "Wundbehandlung"
+      ],
+      "fr": [
+        "Pansement spécial",
+        "Pose de pansement spécial",
+        "Réfection de pansement spécial",
+        "Changement de pansement spécial",
+        "Soins de pansement spécialisé",
+        "Pansement complexe",
+        "Pansement technique",
+        "Pansement spécifique"
+      ],
+      "it": [
+        "Spezialverbände",
+        "medicazione specialistica",
+        "medicazione complessa",
+        "applicazione di medicazioni speciali",
+        "gestione di medicazioni avanzate",
+        "cura di ferite complesse"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR Angiologie": {
+    "lkn": "AR.00.0010",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Disziplin",
+        "Spezialgebiet",
+        "Fachrichtung"
+      ],
+      "fr": [
+        "Sparte",
+        "spécialité",
+        "domaine médical",
+        "branche médicale"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ramo",
+        "specialità",
+        "ambito"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR Chirurgie und Kinderchirurgie": {
+    "lkn": "AR.00.0020",
+    "synonyms": {
+      "de": [
+        "Umstellung",
+        "Übergang",
+        "Änderung",
+        "Anpassung",
+        "Verlagerung",
+        "Neuausrichtung",
+        "Fokuswechsel",
+        "Themenwechsel",
+        "Spartenwechsel"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "transition",
+        "changement d'orientation",
+        "réorientation",
+        "ajustement",
+        "passage"
+      ],
+      "it": [
+        "settore",
+        "specialità",
+        "disciplina",
+        "branca",
+        "ambito"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR Dermatologie": {
+    "lkn": "AR.00.0030",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Fachgebiet",
+        "Abteilung",
+        "Spezialgebiet",
+        "Fachrichtung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "specialite",
+        "branche",
+        "secteur"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "specialità",
+        "ambito"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR Gynäkologie": {
+    "lkn": "AR.00.0040",
+    "synonyms": {
+      "de": [
+        "Fachbereich",
+        "Fachrichtung",
+        "Spezialgebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "branche",
+        "secteur",
+        "discipline"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "specialità",
+        "ambito medico"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR Grundversorger, bei vermehrtem Aufwand wegen resistenten Erregern, pro 1 Min.": {
+    "lkn": "AR.00.0050",
+    "synonyms": {
+      "de": [
+        "Umstellungszeit",
+        "Anpassungszeit",
+        "Vorbereitungszeit fuer Spezialfaelle",
+        "erhoehter Hygieneaufwand"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "temps d'adaptation",
+        "temps de réévaluation",
+        "temps d'ajustement",
+        "temps de réorientation des soins"
+      ],
+      "it": [
+        "Wechselzeit",
+        "Tempo di transizione",
+        "Tempo di preparazione",
+        "Tempo per cambio attività",
+        "Tempo indiretto"
+      ]
+    }
+  },
+  "Wechselzeit Sparte UBR ORL": {
+    "lkn": "AR.00.0060",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Leistungsbereich",
+        "medizinischer Bereich",
+        "Spezialgebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "Spécialité",
+        "Domaine médical",
+        "Branche médicale",
+        "Discipline médicale"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "specialità",
+        "branca medica",
+        "ambito medico"
+      ]
+    }
+  },
+  "Wechselzeit Sparte EKG-Labor": {
+    "lkn": "AR.00.0070",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Fachbereich"
+      ],
+      "fr": [
+        "Sparte",
+        "Service",
+        "Unité",
+        "Département",
+        "Cabinet"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "reparto",
+        "sezione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Echokardiografie": {
+    "lkn": "AR.00.0090",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Gebiet",
+        "Leistungsbereich",
+        "Leistungsgebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "branche",
+        "discipline"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "branca",
+        "specialità"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Gipsraum": {
+    "lkn": "AR.00.0100",
+    "synonyms": {
+      "de": [
+        "Gipswechsel",
+        "Gipsverbandwechsel",
+        "Gips erneuern",
+        "Gips neu anlegen",
+        "Gips anpassen",
+        "Gipsrevision"
+      ],
+      "fr": [
+        "Wechsel",
+        "Changement de plâtre",
+        "Réfection de plâtre",
+        "Remplacement de plâtre",
+        "Changement de pansement",
+        "Réfection de pansement"
+      ],
+      "it": [
+        "Wechsel",
+        "cambio",
+        "sostituzione",
+        "applicazione",
+        "rimozione",
+        "gestione",
+        "cura"
+      ]
+    }
+  },
+  "Wechselzeit Sparte EKG-Platz": {
+    "lkn": "AR.00.0130",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Fachbereich",
+        "Leistungsbereich",
+        "Leistungsgruppe"
+      ],
+      "fr": [
+        "Sparte",
+        "type",
+        "genre"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "tipo di prestazione",
+        "categoria di servizio"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Dermatologische Lasertherapie": {
+    "lkn": "AR.00.0140",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Disziplin",
+        "Gebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "Domaine",
+        "Branche",
+        "Spécialité",
+        "Discipline"
+      ],
+      "it": [
+        "settore",
+        "ambito",
+        "branca",
+        "specialità",
+        "disciplina"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Camera silens": {
+    "lkn": "AR.00.0160",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Einheit",
+        "Leistungsbereich",
+        "Behandlungsbereich",
+        "Spezialbereich",
+        "Behandlungssetting"
+      ],
+      "fr": [
+        "Sparte",
+        "type de consultation",
+        "modalité de soin",
+        "forme de thérapie",
+        "catégorie de prestation"
+      ],
+      "it": [
+        "Sparte",
+        "prestazione",
+        "procedura",
+        "ambito",
+        "settore",
+        "tipologia"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Funktionsdiagnostik ORL": {
+    "lkn": "AR.00.0170",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Fachgebiet",
+        "Abteilung",
+        "Spezialgebiet",
+        "Disziplin"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "champ"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "ambito",
+        "specialità"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Phoniatrie": {
+    "lkn": "AR.00.0180",
+    "synonyms": {
+      "de": [
+        "Anpassung",
+        "Umstellung",
+        "Beratung",
+        "Nachjustierung",
+        "Veränderung"
+      ],
+      "fr": [
+        "Sparte",
+        "spécialité",
+        "discipline",
+        "domaine médical"
+      ],
+      "it": [
+        "Sparte",
+        "specialità",
+        "branca"
+      ]
+    }
+  },
+  "Wechselzeit Sparte audiologisches technisches Labor": {
+    "lkn": "AR.00.0190",
+    "synonyms": {
+      "de": [
+        "Umstellung",
+        "Vorbereitung",
+        "Rueckstellung",
+        "Anpassung",
+        "Umruestung",
+        "Bereitstellung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "secteur",
+        "département",
+        "service",
+        "unité"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "branca",
+        "categoria"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Funktionsdiagnostik Ophthalmologie": {
+    "lkn": "AR.00.0200",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Disziplin",
+        "Spezialgebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "spécialité",
+        "domaine",
+        "branche",
+        "département"
+      ],
+      "it": [
+        "Sparte",
+        "settore medico",
+        "ambito medico",
+        "specialità medica",
+        "branca medica"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Klinische ophthalmologische Diagnostik": {
+    "lkn": "AR.00.0210",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Fachgebiet",
+        "Disziplin",
+        "Spezialgebiet",
+        "Abteilung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "secteur",
+        "champ"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "specialità",
+        "ambito"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Ophthalmologischer Laser": {
+    "lkn": "AR.00.0220",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Gebiet",
+        "Disziplin",
+        "Spezialgebiet",
+        "Fachrichtung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "secteur",
+        "application",
+        "type de traitement"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "branca"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Orthoptik/Neuroophthalmologie": {
+    "lkn": "AR.00.0230",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Abteilung",
+        "Spezialgebiet",
+        "Disziplin"
+      ],
+      "fr": [
+        "Sparte",
+        "spécialité",
+        "domaine médical",
+        "discipline médicale"
+      ],
+      "it": [
+        "Sparte",
+        "specialità",
+        "disciplina",
+        "settore"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Excimer-Laser": {
+    "lkn": "AR.00.0240",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Gebiet",
+        "Anwendungsbereich",
+        "Art",
+        "Typ",
+        "Kategorie"
+      ],
+      "fr": [
+        "Excimer-Laser",
+        "laser excimer",
+        "chirurgie réfractive",
+        "traitement au laser excimer",
+        "opération des yeux au laser",
+        "intervention oculaire au laser"
+      ],
+      "it": [
+        "Excimer-Laser",
+        "laser a eccimeri",
+        "chirurgia refrattiva",
+        "correzione della vista con laser",
+        "trattamento laser oculare",
+        "intervento laser agli occhi",
+        "operazione laser per la vista",
+        "LASIK",
+        "PRK"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Ophthalmologische Photografie": {
+    "lkn": "AR.00.0250",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Disziplin",
+        "Spezialgebiet",
+        "Fachrichtung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "branche",
+        "secteur"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "specialità",
+        "ambito"
+      ]
+    }
+  },
+  "Wechselzeit Sparte ENMG": {
+    "lkn": "AR.00.0260",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Gebiet",
+        "Fachgebiet",
+        "Leistungsbereich",
+        "Untersuchungsbereich"
+      ],
+      "fr": [
+        "Wechsel",
+        "changement de configuration",
+        "ajustement de l'appareil",
+        "préparation entre les phases",
+        "transition entre les tests",
+        "repositionnement",
+        "adaptation du protocole"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "branca",
+        "specialita",
+        "disciplina"
+      ]
+    }
+  },
+  "Wechselzeit Sparte EEG": {
+    "lkn": "AR.00.0270",
+    "synonyms": {
+      "de": [
+        "Art",
+        "Typ"
+      ],
+      "fr": [
+        "Sparte",
+        "modalité",
+        "type d'examen",
+        "mode d'enregistrement",
+        "phase d'exploration"
+      ],
+      "it": [
+        "EEG",
+        "elettroencefalografia",
+        "esame EEG",
+        "tracciato EEG",
+        "registrazione EEG"
+      ]
+    }
+  },
+  "Wechselzeit Sparte ENMG EEG erweitert": {
+    "lkn": "AR.00.0280",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Leistungsbereich",
+        "Kategorie",
+        "Gebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "branche"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "ambito",
+        "specialita",
+        "disciplina"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Hyperbare Sauerstofftherapie": {
+    "lkn": "AR.00.0290",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Fachgebiet",
+        "Therapiebereich",
+        "Behandlungsbereich",
+        "Fachrichtung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "branche",
+        "type de thérapie",
+        "modalité thérapeutique",
+        "méthode de traitement"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "branca",
+        "ambito",
+        "specialità"
+      ]
+    }
+  },
+  "Wechselzeit Sparte MSLT-Labor": {
+    "lkn": "AR.00.0300",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Fachgebiet",
+        "Spezialgebiet",
+        "Sektor",
+        "Zweig"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "service",
+        "unité",
+        "département",
+        "spécialité"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "reparto",
+        "sezione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Funktionsdiagnostik Gastroenterologie": {
+    "lkn": "AR.00.0310",
+    "synonyms": {
+      "de": [
+        "Funktionspruefung",
+        "Funktionstest",
+        "Funktionsuntersuchung",
+        "Organfunktionspruefung",
+        "Funktionsanalyse",
+        "Leistungspruefung",
+        "Leistungsdiagnose"
+      ],
+      "fr": [
+        "Funktionsdiagnostik",
+        "exploration fonctionnelle",
+        "diagnostic fonctionnel",
+        "bilan fonctionnel"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "area"
+      ]
+    }
+  },
+  "Wechselzeit bei Endoskopien (ausser ERCP, Endosonografie, Anoskopie und Rektoskopie)": {
+    "lkn": "AR.00.0320",
+    "synonyms": {
+      "de": [
+        "Vorbereitungszeit",
+        "Umrüstzeit",
+        "Rüstzeit",
+        "Zwischenzeit",
+        "Patientenwechselzeit",
+        "Bereitstellungszeit"
+      ],
+      "fr": [
+        "Endoskopien",
+        "endoscopie",
+        "examen endoscopique",
+        "exploration endoscopique",
+        "fibroscopie"
+      ],
+      "it": [
+        "Endoscopie",
+        "Esame endoscopico",
+        "Indagine endoscopica",
+        "Gastroscopia",
+        "Colonscopia",
+        "Broncoscopia",
+        "Esofagogastroduodenoscopia",
+        "EGDS"
+      ]
+    }
+  },
+  "Wechselzeit bei Rektoskopie, Sparte Endoskopie": {
+    "lkn": "AR.00.0330",
+    "synonyms": {
+      "de": [
+        "Enddarmspiegelung",
+        "Mastdarmspiegelung",
+        "Spiegelung des Enddarms",
+        "Spiegelung des Mastdarms",
+        "Enddarmuntersuchung",
+        "Mastdarmuntersuchung"
+      ],
+      "fr": [
+        "Rectoscopie",
+        "Examen du rectum",
+        "Exploration du rectum",
+        "Endoscopie rectale",
+        "Examen proctologique"
+      ],
+      "it": [
+        "Rektoskopie",
+        "rettoscopia",
+        "esame rettoscopico",
+        "endoscopia del retto",
+        "visita rettoscopica"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Interventionelle Schmerztherapie": {
+    "lkn": "AR.00.0370",
+    "synonyms": {
+      "de": [
+        "Fachgebiet",
+        "Bereich",
+        "Disziplin",
+        "Gebiet",
+        "Spezialgebiet"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "branche"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "disciplina",
+        "specialita",
+        "branca"
+      ]
+    }
+  },
+  "Wechselzeit spezialisierte, nichtärztliche Überwachung, bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0380",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Umstellungsphase",
+        "Anpassungsphase",
+        "Beobachtungsphase",
+        "kritische Phase",
+        "Nachbeobachtung",
+        "Phase der Veränderung"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "période de transition",
+        "phase de changement",
+        "phase critique",
+        "période post-intervention"
+      ],
+      "it": [
+        "Wechselzeit",
+        "fase di transizione",
+        "periodo di adattamento",
+        "fase di recupero",
+        "periodo di stabilizzazione"
+      ]
+    }
+  },
+  "+ %-Zuschlag bei Kontaktisolation": {
+    "lkn": "AR.00.0390",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Zusatzgebuehr",
+        "Mehrkosten",
+        "Extrakosten",
+        "Sondergebuehr",
+        "Aufpreis"
+      ],
+      "fr": [
+        "Zuschlag",
+        "supplément",
+        "majoration",
+        "surcoût",
+        "frais supplémentaires"
+      ],
+      "it": [
+        "Zuschlag",
+        "maggiorazione",
+        "supplemento",
+        "sovrapprezzo"
+      ]
+    }
+  },
+  "Wechselzeit spezialisierte, nichtärztliche Überwachung, ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0400",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Umstellungsphase",
+        "Anpassungsphase",
+        "Beobachtungsphase"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "période de transition",
+        "phase critique",
+        "période d'instabilité",
+        "moment clé"
+      ],
+      "it": [
+        "Wechselzeit",
+        "fase di transizione",
+        "periodo di adattamento",
+        "fase di recupero"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0410",
+    "synonyms": {
+      "de": [
+        "Aufenthalt in der Notaufnahme",
+        "Verweildauer in der Notfallambulanz",
+        "Übergangsphase in der Notaufnahme",
+        "Beobachtungsbereich Notaufnahme",
+        "Wartezeit Notaufnahme",
+        "Zeit in der Notfallstation"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "Temps de régulation",
+        "Temps de coordination",
+        "Temps de gestion du patient",
+        "Temps de suivi intermittent"
+      ],
+      "it": [
+        "Wechselzeit Sparte Notfallstation",
+        "sosta in reparto di emergenza"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0420",
+    "synonyms": {
+      "de": [
+        "Wartezeit Notaufnahme",
+        "Aufenthaltszeit Notfall",
+        "Verweildauer Notfallstation",
+        "Zeit im Notfallbereich",
+        "Notfallaufenthalt"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "Temps de présence",
+        "Temps de séjour",
+        "Durée de présence",
+        "Durée de séjour",
+        "Temps passé",
+        "Attente"
+      ],
+      "it": [
+        "Wechselzeit Sparte Notfallstation"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0430",
+    "synonyms": {
+      "de": [
+        "Übergangszeit",
+        "Transferzeit",
+        "Übergabezeit",
+        "Verlegungszeit",
+        "Phasenwechsel"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "Temps de transition",
+        "Temps d'attente",
+        "Prise en charge transitoire",
+        "Gestion du patient en attente",
+        "Temps de transfert"
+      ],
+      "it": [
+        "Wechselzeit",
+        "passaggio di consegne",
+        "trasferimento paziente",
+        "gestione del passaggio",
+        "fase di transizione",
+        "spostamento interno"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0440",
+    "synonyms": {
+      "de": [
+        "Ubergangszeit",
+        "Transferzeit",
+        "Wartezeit",
+        "Bereitstellungszeit",
+        "Ubergabezeit"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "transfert du patient",
+        "déplacement du patient",
+        "changement de service",
+        "changement d'unité",
+        "transition de prise en charge",
+        "orientation du patient",
+        "admission du patient"
+      ],
+      "it": [
+        "Wechselzeit Sparte",
+        "Area di osservazione",
+        "Sala d'osservazione",
+        "Area di transizione",
+        "Zona di gestione d'urgenza"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation Schockraum, bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0450",
+    "synonyms": {
+      "de": [
+        "Übergangszeit",
+        "Umstellungszeit",
+        "Akutphase",
+        "Stabilisierungsphase"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "période de transition",
+        "phase de réévaluation",
+        "temps de stabilisation",
+        "prise en charge transitoire"
+      ],
+      "it": [
+        "Wechselzeit",
+        "tempo di transizione",
+        "gestione del passaggio",
+        "trasferimento del paziente",
+        "fase di trasferimento"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation Schockraum, ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0460",
+    "synonyms": {
+      "de": [
+        "Erstversorgung",
+        "Initialbehandlung",
+        "Akutbehandlung",
+        "Stabilisierung",
+        "Patientenaufnahme im Schockraum"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "temps de transition",
+        "temps de transfert",
+        "temps de bascule",
+        "temps de passage"
+      ],
+      "it": [
+        "Wechselzeit",
+        "periodo di stabilizzazione",
+        "fase di transizione clinica",
+        "assistenza intensiva iniziale",
+        "permanenza per gestione critica"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0470",
+    "synonyms": {
+      "de": [
+        "Vorbereitung",
+        "Bereitstellung",
+        "Übergabe",
+        "Umstellung",
+        "Patientenwechsel"
+      ],
+      "fr": [
+        "Temps de transition",
+        "Phase de transfert",
+        "Prise en charge initiale",
+        "Période d'adaptation",
+        "Mise en observation",
+        "Installation du patient"
+      ],
+      "it": [
+        "Wechselzeit",
+        "passaggio di consegne",
+        "gestione del paziente in transizione",
+        "periodo di transizione assistita"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0480",
+    "synonyms": {
+      "de": [
+        "Vorbereitungszeit",
+        "Nachbereitungszeit",
+        "Übergabezeit",
+        "Umstellungszeit",
+        "Rüstzeit"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "période de transition",
+        "temps de transition",
+        "phase de transition",
+        "suivi de transition",
+        "gestion de la transition",
+        "surveillance en phase critique",
+        "observation renforcée"
+      ],
+      "it": [
+        "Wechselzeit",
+        "Gestione della fase di transizione",
+        "Periodo di adeguamento clinico"
+      ]
+    }
+  },
+  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, bis 60 Minuten Überwachung": {
+    "lkn": "AR.00.0490",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Phasenwechsel",
+        "Statuswechsel",
+        "Anpassungsphase",
+        "Stabilisierungsphase"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "période de transition",
+        "phase de transition",
+        "changement de niveau de soins",
+        "ajustement des soins",
+        "adaptation des soins"
+      ],
+      "it": [
+        "Wechselzeit",
+        "tempo di transizione",
+        "fase di transizione",
+        "gestione del passaggio",
+        "periodo di adattamento",
+        "trasferimento assistito",
+        "cambio di livello di cura"
+      ]
+    }
+  },
+  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, ab 60 Minuten Überwachung": {
+    "lkn": "AR.00.0500",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Stabilisierungsphase",
+        "Umstellungsphase",
+        "Zwischenbetreuung",
+        "Anpassungsphase"
+      ],
+      "fr": [
+        "Wechselzeit",
+        "Période de transition",
+        "Phase de transfert",
+        "Préparation au transfert",
+        "Gestion du transfert",
+        "Accompagnement du transfert",
+        "Passage d'un service à l'autre",
+        "Changement de service",
+        "Changement de niveau de soins"
+      ],
+      "it": [
+        "Wechselzeit",
+        "periodo di transizione",
+        "fase di adattamento",
+        "gestione della fase di transizione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Röntgen-Osteodensitometrie": {
+    "lkn": "AR.05.0010",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Fachgebiet",
+        "Leistungsbereich",
+        "Gebiet",
+        "Abteilung"
+      ],
+      "fr": [
+        "Sparte",
+        "domaine",
+        "spécialité",
+        "catégorie",
+        "type de prestation"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "ambito",
+        "tipo di prestazione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Röntgenraum I": {
+    "lkn": "AR.05.0020",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Sektion",
+        "Fachbereich",
+        "Einheit"
+      ],
+      "fr": [
+        "Sparte",
+        "secteur",
+        "service",
+        "unité"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "area",
+        "zona"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Röntgenraum III": {
+    "lkn": "AR.05.0030",
+    "synonyms": {
+      "de": [
+        "Bereich",
+        "Abteilung",
+        "Sektion"
+      ],
+      "fr": [
+        "Sparte",
+        "Secteur",
+        "Domaine",
+        "Département",
+        "Service"
+      ],
+      "it": [
+        "Sparte",
+        "settore",
+        "reparto",
+        "area",
+        "sezione"
+      ]
+    }
+  }
+}

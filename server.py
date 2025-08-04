@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from flask import Flask as FlaskType, jsonify, send_from_directory, request, abort
+    from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
 else:
     try:
-        from flask import Flask as FlaskType, jsonify, send_from_directory, request, abort
+        from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
     except ModuleNotFoundError:  # Minimal stubs for test environment
         class FlaskType:
             def __init__(self, *a, **kw):
@@ -110,6 +110,10 @@ else:
 
         Flask = FlaskType
 
+        class FlaskBlueprint:
+            def __init__(self, *a: Any, **kw: Any) -> None:
+                pass
+
         def jsonify(obj: Any = None) -> Any:
             return obj
 
@@ -152,10 +156,18 @@ from utils import (
     expand_compound_words,
     extract_keywords,
     extract_lkn_codes_from_text,
+    rank_embeddings_entries,
 )
 import html
 from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
-from utils import compute_token_doc_freq, rank_leistungskatalog_entries
+from utils import (
+    compute_token_doc_freq,
+    rank_leistungskatalog_entries,
+    count_tokens)
+from synonyms.expander import expand_query, set_synonyms_enabled
+from synonyms import storage
+from synonyms.models import SynonymCatalog
+import configparser
 
 import logging
 import sys
@@ -175,7 +187,6 @@ class SafeEncodingStreamHandler(logging.StreamHandler):
 
 # Get the root logger
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
 
 # Remove any existing handlers
 for handler in root_logger.handlers[:]:
@@ -188,6 +199,10 @@ safe_handler.setFormatter(formatter)
 root_logger.addHandler(safe_handler)
 
 logger = logging.getLogger(__name__)  # Module-level logger
+detail_logger = logging.getLogger("detail")
+detail_logger.setLevel(logging.DEBUG)
+detail_logger.addHandler(safe_handler)
+detail_logger.propagate = False
 
 # --- Konfiguration ---
 load_dotenv()
@@ -195,7 +210,81 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
 # Wollen wir später testen
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.5-flash")
+
+# Lese optionale Einstellungen aus config.ini
+config = configparser.ConfigParser()
+config.read('config.ini', encoding='utf-8')
+
+# Logging settings
+LOG_LEVEL = config.get('LOGGING', 'allgemein', fallback='INFO').upper()
+if LOG_LEVEL not in logging._nameToLevel:
+    LOG_LEVEL = 'INFO'
+root_logger.setLevel(logging._nameToLevel.get(LOG_LEVEL, logging.INFO))
+LOG_INPUT_TEXT = config.getint('LOGGING', 'input_text', fallback=1) == 1
+LOG_TOKENS = config.getint('LOGGING', 'tokens', fallback=1) == 1
+LOG_OUTPUT_TEXT = config.getint('LOGGING', 'output_text', fallback=1) == 1
+LOG_S1_PARSED_JSON_INITIAL = config.getint('LOGGING', 's1_parsed_json_initial', fallback=1) == 1
+LOG_S1_PARSED_JSON_BEFORE_VALIDATION = (
+    config.getint('LOGGING', 's1_parsed_json_before_validation', fallback=1) == 1
+)
+LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS = (
+    config.getint('LOGGING', 's1_parsed_json_after_setrdefaults', fallback=1) == 1
+)
+LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION = (
+    config.getint(
+        'LOGGING',
+        's1_identified_leistungen_before_item_validation',
+        fallback=1,
+    )
+    == 1
+)
+if LOG_LEVEL in ('ERROR', 'CRITICAL'):
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+USE_RAG = config.getint('RAG', 'enabled', fallback=0) == 1
+APP_VERSION = config.get('APP', 'version', fallback='unknown')
+# Configure synonym support
+SYNONYMS_ENABLED = config.getint('SYNONYMS', 'enabled', fallback=0) == 1
+
+SYNONYMS_CATALOG_PATH = Path(config.get('SYNONYMS', 'catalog_path', fallback=''))
+set_synonyms_enabled(SYNONYMS_ENABLED)
+
+# Load synonym catalog if enabled
+synonym_catalog: SynonymCatalog = SynonymCatalog()
+if SYNONYMS_ENABLED and SYNONYMS_CATALOG_PATH:
+    try:
+        synonym_catalog = storage.load_synonyms(SYNONYMS_CATALOG_PATH)
+        logger.info(
+            "✓ Synonymkatalog geladen (%s Einträge).",
+            len(synonym_catalog.entries),
+        )
+    except Exception as exc:  # pragma: no cover - optional file
+        logger.error("Failed to load synonym catalog: %s", exc)
+        synonym_catalog = SynonymCatalog()
+
 DATA_DIR = Path("data")
+EMBEDDING_FILE = DATA_DIR / "leistungskatalog_embeddings.json"
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+try:  # optional dependency
+    from sentence_transformers import SentenceTransformer
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    SentenceTransformer = None  # type: ignore
+
+embedding_model = None
+embedding_codes: List[str] = []
+embedding_vectors: List[List[float]] = []
+if USE_RAG and SentenceTransformer:
+    try:
+        with EMBEDDING_FILE.open("r", encoding="utf-8") as f:
+            _data = json.load(f)
+            embedding_codes = _data.get("codes", [])
+            embedding_vectors = _data.get("embeddings", [])
+        embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        logger.info("Embedding model and vectors geladen.")
+    except Exception as e:  # pragma: no cover - ignore on missing file
+        logger.warning(f"Konnte Embeddings nicht laden: {e}")
+
 LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
 TARDOC_TARIF_PATH = DATA_DIR / "TARDOC_Tarifpositionen.json"
 TARDOC_INTERP_PATH = DATA_DIR / "TARDOC_Interpretationen.json"
@@ -374,14 +463,13 @@ pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
-# NEU: Indexierte und vorsortierte Pauschalenbedingungen
 pauschale_bedingungen_indexed: Dict[str, List[Dict[str, Any]]] = {}
 daten_geladen: bool = False
 baseline_results: dict[str, dict] = {}
 examples_data: list[dict] = []
 token_doc_freq: dict[str, int] = {}
 chop_data: list[dict] = []
-
+full_catalog_token_count: int = 0
 
 def create_app() -> FlaskType:
     """
@@ -397,6 +485,13 @@ def create_app() -> FlaskType:
         logger.info("INFO: Initialer Daten-Load beim App-Start …")
         if not load_data():
             raise RuntimeError("Kritische Daten konnten nicht geladen werden.")
+
+    if SYNONYMS_ENABLED:
+        try:
+            from synonyms.api import bp as synonyms_bp
+            app.register_blueprint(cast(FlaskBlueprint, synonyms_bp))
+        except Exception as exc:
+            logger.error("Failed to register synonyms API: %s", exc)
 
     # Ab hier bleiben alle @app.route-Dekorationen unverändert
     return app
@@ -525,6 +620,32 @@ def load_data() -> bool:
     compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
     logger.info("  ✓ Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
 
+    global full_catalog_token_count
+    if not USE_RAG:
+        total_tokens = 0
+        for lkn_code, details in leistungskatalog_dict.items():
+            desc_texts = []
+            for base in ["Beschreibung", "Beschreibung_f", "Beschreibung_i"]:
+                val = details.get(base)
+                if val:
+                    desc_texts.append(str(val))
+            mi_texts = []
+            for base in [
+                "MedizinischeInterpretation",
+                "MedizinischeInterpretation_f",
+                "MedizinischeInterpretation_i",
+            ]:
+                val = details.get(base)
+                if val:
+                    mi_texts.append(str(val))
+            mi_joined = " ".join(mi_texts)
+            context_line = f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {desc_texts[0] if desc_texts else 'N/A'}"
+            if mi_joined:
+                context_line += f", MedizinischeInterpretation: {mi_joined}"
+            total_tokens += count_tokens(context_line)
+        full_catalog_token_count = total_tokens
+        logger.info("  ✓ Vollständiger Katalog-Kontext enthält %s Tokens.", full_catalog_token_count)
+
     # NEU: Indexiere und sortiere Pauschalbedingungen
     if pauschale_bedingungen_data and all_loaded_successfully:
         logger.info("  Beginne Indizierung und Sortierung der Pauschalbedingungen...")
@@ -588,6 +709,10 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         logger.error("LLM_S1_ERROR: GEMINI_API_KEY fehlt oder ist leer. Funktion wird vorzeitig beendet.")
         return {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": "Fehler: API Key nicht konfiguriert."}
     prompt = get_stage1_prompt(user_input, katalog_context, lang)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", count_tokens(prompt))
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 1 Prompt: %s", prompt)
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
@@ -599,7 +724,8 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         }
     }
     logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", GEMINI_MODEL)
-    logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
+    if LOG_INPUT_TEXT:
+        detail_logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
     try:
         response = None
         for attempt in range(GEMINI_MAX_RETRIES):
@@ -621,15 +747,29 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                     time.sleep(wait_time)
                     continue
                 else:
-                    logger.error("Netzwerkfehler bei Gemini Stufe 1 nach %s Versuchen: %s", GEMINI_MAX_RETRIES, e)
-                    raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 1: {e}") from e
+                    error_detail = ""
+                    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                        error_detail = f"{e.response.status_code} {e.response.text}"
+                    else:
+                        error_detail = str(e)
+                    logger.error(
+                        "Netzwerkfehler bei Gemini Stufe 1 nach %s Versuchen: %s",
+                        GEMINI_MAX_RETRIES,
+                        error_detail,
+                    )
+                    raise ConnectionError(
+                        f"Netzwerkfehler bei Gemini Stufe 1: {error_detail}"
+                    ) from e
         if response is None:
             raise ConnectionError("Keine Antwort von Gemini Stufe 1 erhalten")
         gemini_data = response.json()
-        logger.debug(f"LLM_S1_RAW_GEMINI_RESPONSE: {json.dumps(gemini_data, ensure_ascii=False)}")
-        logger.info(
-            f"LLM_S1_RAW_GEMINI_DATA: {json.dumps(gemini_data, ensure_ascii=False)}"
-        )
+        if LOG_OUTPUT_TEXT:
+            detail_logger.debug(
+                f"LLM_S1_RAW_GEMINI_RESPONSE: {json.dumps(gemini_data, ensure_ascii=False)}"
+            )
+            detail_logger.info(
+                f"LLM_S1_RAW_GEMINI_DATA: {json.dumps(gemini_data, ensure_ascii=False)}"
+            )
 
 
         candidate: Dict[str, Any] | None = None
@@ -687,7 +827,10 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                  raw_text_response = ""
             # else: candidate_list ist nicht None, aber auch keine Liste (sollte nicht passieren bei Gemini)
 
-        logger.info(f"LLM_S1_RAW_TEXT_RESPONSE: '{raw_text_response}'")
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info(f"LLM_S1_RAW_TEXT_RESPONSE: '{raw_text_response}'")
+        if LOG_TOKENS:
+            detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", count_tokens(raw_text_response))
 
         if not raw_text_response:
             if candidate and isinstance(candidate, dict):
@@ -715,7 +858,8 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                 json_text = raw_text_response
 
             llm_response_json = json.loads(json_text)
-            logger.info(f"LLM_S1_PARSED_JSON_INITIAL: {json.dumps(llm_response_json, ensure_ascii=False)}")
+            if LOG_S1_PARSED_JSON_INITIAL:
+                detail_logger.info(f"LLM_S1_PARSED_JSON_INITIAL: {json.dumps(llm_response_json, ensure_ascii=False)}")
         except json.JSONDecodeError as json_err:
             logger.error(f"Fehler beim Parsen der LLM Stufe 1 Antwort: {json_err}. Rohtext: {raw_text_response[:500]}...")
             # Return a default error structure if JSON parsing fails completely
@@ -726,7 +870,11 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
             }
 
         # print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
-        logger.info(f"LLM_S1_PARSED_JSON_BEFORE_VALIDATION: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
+        if LOG_S1_PARSED_JSON_BEFORE_VALIDATION:
+            detail_logger.info(
+                "LLM_S1_PARSED_JSON_BEFORE_VALIDATION: %s",
+                json.dumps(llm_response_json, indent=2, ensure_ascii=False),
+            )
 
         # Strikte Validierung der Hauptstruktur
         # Handle case where the response is a list containing a single JSON object
@@ -745,8 +893,11 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         llm_response_json.setdefault("identified_leistungen", [])
         llm_response_json.setdefault("extracted_info", {})
         llm_response_json.setdefault("begruendung_llm", "N/A")
-        logger.info(f"LLM_S1_JSON_AFTER_SETRDEFAULTS: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
-
+        if LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS:
+            detail_logger.info(
+                "LLM_S1_JSON_AFTER_SETRDEFAULTS: %s",
+                json.dumps(llm_response_json, indent=2, ensure_ascii=False),
+            )
 
         if not isinstance(llm_response_json["identified_leistungen"], list):
             logger.error(f"LLM_S1_ERROR: 'identified_leistungen' ist keine Liste, sondern {type(llm_response_json['identified_leistungen'])}")
@@ -760,7 +911,15 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
 
         # Validierung und Default-Setzung für extracted_info
         # Logge den Zustand von identified_leistungen vor der detaillierten Validierung
-        logger.info(f"LLM_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION: {json.dumps(llm_response_json.get('identified_leistungen'), indent=2, ensure_ascii=False)}")
+        if LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION:
+            detail_logger.info(
+                "LLM_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION: %s",
+                json.dumps(
+                    llm_response_json.get('identified_leistungen'),
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+            )
         extracted_info_defaults = {
             "dauer_minuten": None, "menge_allgemein": None, "alter": None,
             "geschlecht": None, "seitigkeit": "unbekannt", "anzahl_prozeduren": None
@@ -866,14 +1025,20 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
             validated_identified_leistungen.append(item)
         llm_response_json["identified_leistungen"] = validated_identified_leistungen
         # print("INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
-        logger.info(f"LLM_S1_INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
-        logger.info(f"LLM_S1_FINAL_VALIDATED_LEISTUNGEN: {json.dumps(validated_identified_leistungen, indent=2, ensure_ascii=False)}")
-        logger.info(f"LLM Stage 1 response: {json.dumps(llm_response_json, ensure_ascii=False)}") # Beibehalten für Kompatibilität mit bestehenden Logs
+        logger.info("LLM_S1_INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info(f"LLM_S1_FINAL_VALIDATED_LEISTUNGEN: {json.dumps(validated_identified_leistungen, indent=2, ensure_ascii=False)}")
+            detail_logger.info(f"LLM Stage 1 response: {json.dumps(llm_response_json, ensure_ascii=False)}")
         return llm_response_json
 
     except requests.exceptions.RequestException as req_err:
-        logger.error("Netzwerkfehler bei Gemini Stufe 1: %s", req_err)
-        raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 1: {req_err}")
+        error_detail = ""
+        if isinstance(req_err, requests.exceptions.HTTPError) and req_err.response is not None:
+            error_detail = f"{req_err.response.status_code} {req_err.response.text}"
+        else:
+            error_detail = str(req_err)
+        logger.error("Netzwerkfehler bei Gemini Stufe 1: %s", error_detail)
+        raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 1: {error_detail}")
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as proc_err:
         logger.error("Fehler beim Verarbeiten der LLM Stufe 1 Antwort: %s", proc_err)
         traceback.print_exc()
@@ -899,6 +1064,10 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
         candidates_text = candidates_text[:15000] + "\n..."  # Einfache Kürzung
 
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", count_tokens(prompt))
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 2 (Mapping) Prompt: %s", prompt)
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
@@ -949,7 +1118,10 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
                 parts_map = content_map.get('parts', [{}])
                 if parts_map and isinstance(parts_map, list) and len(parts_map) > 0:
                      raw_text_response_part = parts_map[0].get('text', '').strip()
-        logger.info("DEBUG: Roher Text von LLM Stufe 2 (Mapping) für %s: '%s'", tardoc_lkn, raw_text_response_part)
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info("DEBUG: Roher Text von LLM Stufe 2 (Mapping) für %s: '%s'", tardoc_lkn, raw_text_response_part)
+        if LOG_TOKENS:
+            detail_logger.info("LLM Stufe 2 (Mapping) Antwort Tokens: %s", count_tokens(raw_text_response_part))
 
         if not raw_text_response_part:
             logger.info("Kein passendes Mapping für %s gefunden (LLM-Antwort war leer).", tardoc_lkn)
@@ -978,13 +1150,15 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
                 if code.strip() and code.strip().upper() != "NONE"
             ]
         
-        logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Raw response: '{raw_text_response_part}'")
-        logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Extracted codes: {extracted_codes_from_llm}")
-        logger.info(
-            "Mapping-Antwort (%s) geparst: %s",
-            'JSON' if (isinstance(extracted_codes_from_llm, list) and raw_text_response_part.startswith('[') or raw_text_response_part.startswith('{')) else 'Text',
-            extracted_codes_from_llm,
-        )
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Raw response: '{raw_text_response_part}'")
+            detail_logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Extracted codes: {extracted_codes_from_llm}")
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info(
+                "Mapping-Antwort (%s) geparst: %s",
+                'JSON' if (isinstance(extracted_codes_from_llm, list) and raw_text_response_part.startswith('[') or raw_text_response_part.startswith('{')) else 'Text',
+                extracted_codes_from_llm,
+            )
 
         for code in extracted_codes_from_llm:
             if code in candidate_pauschal_lkns:
@@ -1023,6 +1197,10 @@ def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, 
         return [line.split(":",1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5]
 
     prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", count_tokens(prompt))
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 2 (Ranking) Prompt: %s", prompt)
 
     gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500}}
@@ -1078,9 +1256,12 @@ def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, 
         seen = set()
         ranked_codes = [x for x in ranked_codes if not (x in seen or seen.add(x))]
 
-        logger.info(f"LLM Stage 2 (Ranking) - Raw response: '{ranked_text}'")
-        logger.info(f"LLM Stage 2 (Ranking) - Extracted and cleaned codes: {ranked_codes}")
-        logger.info("LLM Stufe 2 Gerankte Codes nach Filter: %s (aus Rohtext: '%s')", ranked_codes, ranked_text)
+        if LOG_OUTPUT_TEXT:
+            detail_logger.info(f"LLM Stage 2 (Ranking) - Raw response: '{ranked_text}'")
+            detail_logger.info(f"LLM Stage 2 (Ranking) - Extracted and cleaned codes: {ranked_codes}")
+            detail_logger.info("LLM Stufe 2 Gerankte Codes nach Filter: %s (aus Rohtext: '%s')", ranked_codes, ranked_text)
+        if LOG_TOKENS:
+            detail_logger.info("LLM Stufe 2 (Ranking) Antwort Tokens: %s", count_tokens(ranked_text))
         if not ranked_codes and ranked_text:  # Nur warnen, wenn Text da war, aber keine Codes extrahiert wurden
             logger.warning("LLM Stufe 2 (Ranking) hat keine gültigen Codes aus '%s' zurückgegeben.", ranked_text)
         elif not ranked_text:
@@ -1330,7 +1511,10 @@ def analyze_billing():
     age_input_log = data_for_log.get('age')
     gender_input_log = data_for_log.get('gender')
 
-    logger.info(f"Received request for /api/analyze-billing. InputText: '{user_input_log}...', ICDs: {icd_input_log}, GTINs: {gtin_input_log}, useIcd: {use_icd_flag_log}, Age: {age_input_log}, Gender: {gender_input_log}")
+    if LOG_INPUT_TEXT:
+        detail_logger.info(
+            f"Received request for /api/analyze-billing. InputText: '{user_input_log}...', ICDs: {icd_input_log}, GTINs: {gtin_input_log}, useIcd: {use_icd_flag_log}, Age: {age_input_log}, Gender: {gender_input_log}"
+        )
     logger.info("--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
 
@@ -1373,22 +1557,39 @@ def analyze_billing():
 
     request_id = f"req_{time.time_ns()}" # Eindeutige Request-ID
     logger.info(f"[{request_id}] --- Start /api/analyze-billing ---")
-    logger.info(
-        "[{request_id}] Input: '%s...', ICDs: %s, GTINs: %s, useIcd: %s, Age: %s, Gender: %s",
-        user_input[:100],
-        icd_input,
-        gtin_input,
-        use_icd_flag,
-        alter_user,
-        geschlecht_user,
-    )
+    if LOG_INPUT_TEXT:
+        detail_logger.info(
+            "[{request_id}] Input: '%s...', ICDs: %s, GTINs: %s, useIcd: %s, Age: %s, Gender: %s",
+            user_input[:100],
+            icd_input,
+            gtin_input,
+            use_icd_flag,
+            alter_user,
+            geschlecht_user,
+        )
 
     llm_stage1_result: Dict[str, Any] = {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": ""}
     top_ranking_results: List[Tuple[float, str]] = []
     try:
         katalog_context_parts = []
         preprocessed_input = expand_compound_words(user_input)
+        # Konflikt V2 muss gelöst werden
         tokens = extract_keywords(user_input)
+        # Konflikt V1
+        query_variants = [preprocessed_input]
+        if SYNONYMS_ENABLED:
+            try:
+                query_variants = expand_query(
+                    preprocessed_input,
+                    synonym_catalog,
+                    lang=lang,
+                )
+            except Exception as e:
+                logger.warning("Synonym expansion failed: %s", e)
+                query_variants = [preprocessed_input]
+        tokens = set()
+        for _q in query_variants:
+            tokens.update(extract_keywords(_q))
         # Extract any potential LKN codes mentioned in the text. Even if a code
         # is unknown to the loaded Leistungskatalog we still include it so that
         # the LLM context is never empty when the user explicitly provides a
@@ -1405,18 +1606,32 @@ def analyze_billing():
             logger.info(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
         # --- DEBUGGING END ---
 
-        ranked_results = cast(
-            List[Tuple[float, str]],
-            rank_leistungskatalog_entries(
-                tokens,
-                leistungskatalog_dict,
-                token_doc_freq,
+        if USE_RAG and embedding_model and embedding_vectors:
+            q_vec = embedding_model.encode([user_input], convert_to_numpy=True)[0]
+            ranked_results = rank_embeddings_entries(
+                cast(List[float], q_vec.tolist()),
+                embedding_vectors,
+                embedding_codes,
                 500,
-                return_scores=True,
-            ),
-        )
-        ranked_codes = [code for _, code in ranked_results]
-        top_ranking_results = ranked_results[:5]
+            )
+            ranked_codes = [code for _, code in ranked_results]
+            top_ranking_results = ranked_results[:5]
+        elif USE_RAG:
+            ranked_results = cast(
+                List[Tuple[float, str]],
+                rank_leistungskatalog_entries(
+                    tokens,
+                    leistungskatalog_dict,
+                    token_doc_freq,
+                    500,
+                    return_scores=True,
+                ),
+            )
+            ranked_codes = [code for _, code in ranked_results]
+            top_ranking_results = ranked_results[:5]
+        else:
+            ranked_codes = list(leistungskatalog_dict.keys())
+            top_ranking_results = []
         if direct_codes:
             ranked_codes = list(dict.fromkeys(direct_codes + ranked_codes))
         # --- DEBUGGING START ---
@@ -1448,6 +1663,7 @@ def analyze_billing():
                 context_line += f", MedizinischeInterpretation: {html.escape(mi_joined)}"
             katalog_context_parts.append(context_line)
         katalog_context_str = "\n".join(katalog_context_parts)
+        logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
         # --- DEBUGGING START ---
         logger.info(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
         if not katalog_context_str:
@@ -1933,7 +2149,10 @@ def analyze_billing():
         "Sende finale Antwort Typ '%s' an Frontend.",
         finale_abrechnung_obj.get('type') if finale_abrechnung_obj else 'None',
     )
-    logger.info(f"Final response payload for /api/analyze-billing: {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}")
+    if LOG_OUTPUT_TEXT:
+        detail_logger.info(
+            f"Final response payload for /api/analyze-billing: {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}"
+        )
     return jsonify(final_response_payload)
 
 
@@ -2230,6 +2449,12 @@ def approved_feedback() -> Any:
         for i in resp.json()
     ]
     return jsonify(items)
+
+
+@app.route('/api/version')
+def api_version() -> Any:
+    """Return the configured application version."""
+    return jsonify({"version": APP_VERSION})
 
 # --- Static‑Routes & Start ---
 @app.route("/")

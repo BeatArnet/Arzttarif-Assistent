@@ -5,7 +5,8 @@ Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistente
 ## 1. Voraussetzungen und Start
 
 1. Installieren Sie die Abhängigkeiten gemäss `INSTALLATION.md` und legen Sie Ihren Google Gemini API-Schlüssel in einer `.env`-Datei ab.
-2. Starten Sie den Server lokal mit:
+2. Optional: Soll der RAG-Modus genutzt werden, setzen Sie in `config.ini` unter `[RAG]` den Wert `enabled = 1` und erzeugen Sie zuvor die Datei `data/leistungskatalog_embeddings.json` mit `python generate_embeddings.py` (benötigt `sentence-transformers`).
+3. Starten Sie den Server lokal mit:
    ```bash
    python server.py
    ```
@@ -35,6 +36,7 @@ Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gew
 * **Ohne Gewähr:** Der Arzttarif-Assistent ist ein Open-Source-Prototyp. Die Resultate können Fehler enthalten und sind nicht verbindlich.
 * **Offizielle Quellen benutzen:** Für rechtsgültige Tarifinformationen konsultieren Sie den [OAAT Tarifbrowser](https://tarifbrowser.oaat-otma.ch/startPortal) oder die [Tarifplattform der FMH](https://www.tarifeambulant.fmh.ch/).
 * **Keine persönlichen Daten eingeben:** Die KI-Abfragen laufen über Google Gemini. Geben Sie daher keine patientenbezogenen Daten ein.
+* **Tokenbedarf:** Ohne RAG werden sämtliche Katalogdaten an das LLM gesendet (mehr als 600 000 Tokens). Mit aktiviertem RAG werden nur die relevantesten Einträge übermittelt (ca. 10 000 Tokens).
 * **Unvollständige Datenbasis:** Die bereitgestellten JSON-Dateien und Regeln können Lücken enthalten. Spezielle Fälle oder neue Tarifpositionen sind möglicherweise nicht abgedeckt.
 * **Manuelle Prüfung erforderlich:** Die Vorschläge des Assistenten ersetzen nicht die finale fachliche Beurteilung. Kontrollieren Sie die Resultate und vergleichen Sie sie mit den offiziellen Angaben.
 

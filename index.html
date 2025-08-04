@@ -566,7 +566,7 @@
         </div>
         <a id="qualityLink" href="quality.html">Qualitätskontrolle</a>
         <div class="version-info">
-            V2.5, Arnet Konsilium,
+            <span id="versionSpan">V?</span>, Arnet Konsilium,
             <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>,
             2025
         </div>
@@ -649,6 +649,12 @@
 
     <script src="calculator.js"></script>
     <script>
+        fetch('/api/version')
+            .then(r => r.json())
+            .then(d => {
+                const span = document.getElementById('versionSpan');
+                if (span && d.version) { span.textContent = 'V' + d.version; }
+            });
         let examplesData = [];
         fetch("data/beispiele.json")
             .then(r => r.json())

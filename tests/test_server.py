@@ -92,3 +92,11 @@ def test_submit_feedback_local(tmp_path, monkeypatch):
     stored = json.loads(Path('feedback_local.json').read_text(encoding='utf-8'))
     assert stored[-1]['message'] == 'Unit test feedback'
     assert stored[-1]['context']['inputs']['userInput'] == 'foo'
+
+
+def test_version_endpoint():
+    with server.app.test_client() as client:
+        resp = client.get('/api/version')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data.get('version') == server.APP_VERSION
