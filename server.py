@@ -6,7 +6,7 @@ import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Union
 
 if TYPE_CHECKING:
     from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
@@ -132,17 +132,34 @@ else:
             raise Exception(f"abort {code}")
 try:
     import requests
+    RequestsHTTPError = requests.exceptions.HTTPError
+    RequestsRequestException = requests.exceptions.RequestException
 except ModuleNotFoundError:
+    class RequestsRequestException(Exception):
+        """Fallback RequestException if requests is not available."""
+
+        pass
+
+    class RequestsHTTPError(RequestsRequestException):
+        """Fallback HTTPError capturing an optional response."""
+
+        def __init__(self, response: Any | None = None) -> None:
+            super().__init__("HTTP error")
+            self.response = response
+
     class _DummyRequests:
         class exceptions:
-            class RequestException(Exception):
-                pass
+            RequestException = RequestsRequestException
+            HTTPError = RequestsHTTPError
 
         @staticmethod
         def post(*a: Any, **k: Any) -> None:
             raise RuntimeError("requests module not available")
 
     requests: Any = _DummyRequests()
+
+HTTPError = RequestsHTTPError
+RequestException = RequestsRequestException
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
@@ -167,6 +184,7 @@ from utils import (
 from synonyms.expander import expand_query, set_synonyms_enabled
 from synonyms import storage
 from synonyms.models import SynonymCatalog
+from openai_wrapper import chat_completion_safe
 import configparser
 
 import logging
@@ -192,34 +210,77 @@ root_logger = logging.getLogger()
 for handler in root_logger.handlers[:]:
     root_logger.removeHandler(handler)
 
-# Add our custom handler
-safe_handler = SafeEncodingStreamHandler(sys.stdout)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# Handler for standard logs
+safe_handler = SafeEncodingStreamHandler(sys.stdout)
 safe_handler.setFormatter(formatter)
 root_logger.addHandler(safe_handler)
 
 logger = logging.getLogger(__name__)  # Module-level logger
+
+# Separate logger and handler for optional detailed output
 detail_logger = logging.getLogger("detail")
-detail_logger.setLevel(logging.DEBUG)
-detail_logger.addHandler(safe_handler)
+detail_handler = SafeEncodingStreamHandler(sys.stdout)
+detail_handler.setFormatter(formatter)
+detail_logger.addHandler(detail_handler)
 detail_logger.propagate = False
 
 # --- Konfiguration ---
 load_dotenv()
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-# GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-1.5-flash-latest")
-# Wollen wir später testen
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', "gemini-2.5-flash")
+
+# Default models per provider; can be extended as new providers are added
+DEFAULT_MODELS: Dict[str, str] = {
+    "gemini": "gemini-2.5-flash",
+    "openai": "gpt-4o-mini",
+}
+
+
+def _env_name(provider: str) -> str:
+    """Return an environment variable prefix for ``provider``."""
+    return re.sub(r"[^A-Z0-9]", "_", provider.upper())
+
+
+# Helper to fetch API credentials generically (e.g. GEMINI_API_KEY)
+def _get_api_key(provider: str) -> Optional[str]:
+    return os.getenv(f"{_env_name(provider)}_API_KEY")
+
+
+def _get_base_url(provider: str) -> Optional[str]:
+    return os.getenv(f"{_env_name(provider)}_BASE_URL")
+
 
 # Lese optionale Einstellungen aus config.ini
 config = configparser.ConfigParser()
-config.read('config.ini', encoding='utf-8')
+config_file = Path(__file__).with_name("config.ini")
+config.read(config_file, encoding='utf-8')
+
+
+def _get_stage_settings(stage: str) -> tuple[str, str]:
+    provider = (
+        os.getenv(f"{stage.upper()}_LLM_PROVIDER")
+        or config.get("LLM1UND2", f"{stage}_provider", fallback="gemini")
+    ).lower()
+    model = (
+        os.getenv(f"{stage.upper()}_LLM_MODEL")
+        or config.get("LLM1UND2", f"{stage}_model", fallback=DEFAULT_MODELS.get(provider, ""))
+        or DEFAULT_MODELS.get(provider, "")
+    )
+    return provider, model
+
+
+STAGE1_PROVIDER, STAGE1_MODEL = _get_stage_settings("stage1")
+STAGE2_PROVIDER, STAGE2_MODEL = _get_stage_settings("stage2")
+
+# Fallback: if OpenAI is configured but no API key is available, use Gemini so
+# that tests can run without external credentials.
+if STAGE1_PROVIDER == "openai" and not os.getenv("OPENAI_API_KEY"):
+    STAGE1_PROVIDER, STAGE1_MODEL = "gemini", DEFAULT_MODELS.get("gemini", "")
 
 # Logging settings
 LOG_LEVEL = config.get('LOGGING', 'allgemein', fallback='INFO').upper()
 if LOG_LEVEL not in logging._nameToLevel:
     LOG_LEVEL = 'INFO'
-root_logger.setLevel(logging._nameToLevel.get(LOG_LEVEL, logging.INFO))
 LOG_INPUT_TEXT = config.getint('LOGGING', 'input_text', fallback=1) == 1
 LOG_TOKENS = config.getint('LOGGING', 'tokens', fallback=1) == 1
 LOG_OUTPUT_TEXT = config.getint('LOGGING', 'output_text', fallback=1) == 1
@@ -238,15 +299,57 @@ LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION = (
     )
     == 1
 )
-if LOG_LEVEL in ('ERROR', 'CRITICAL'):
-    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+# Determine if detailed logging is requested
+detail_logging_enabled = any([
+    LOG_INPUT_TEXT,
+    LOG_TOKENS,
+    LOG_OUTPUT_TEXT,
+    LOG_S1_PARSED_JSON_INITIAL,
+    LOG_S1_PARSED_JSON_BEFORE_VALIDATION,
+    LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS,
+    LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION,
+])
+
+level = logging._nameToLevel.get(LOG_LEVEL, logging.INFO)
+root_logger.setLevel(level)
+
+# If detailed logging is enabled, ensure those messages are visible on the
+# dedicated logger without altering the global log level
+if detail_logging_enabled:
+    detail_handler.setLevel(logging.INFO)
+    detail_logger.setLevel(logging.INFO)
+else:
+    detail_handler.setLevel(level)
+    detail_logger.setLevel(level)
+
+# Ensure that Werkzeug's startup messages (including the server URLs) are
+# always visible so users know where to access the HTML GUI. We attach a
+# dedicated handler and disable propagation to prevent these logs from being
+# filtered by the root logger or appearing twice.
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.INFO)
+werkzeug_handler = SafeEncodingStreamHandler(sys.stdout)
+werkzeug_handler.setFormatter(formatter)
+werkzeug_logger.addHandler(werkzeug_handler)
+werkzeug_logger.propagate = False
 
 USE_RAG = config.getint('RAG', 'enabled', fallback=0) == 1
 APP_VERSION = config.get('APP', 'version', fallback='unknown')
+TARIF_VERSION = config.get('APP', 'tarif_version', fallback='')
+# Base data directory
+DATA_DIR = Path("data")
 # Configure synonym support
 SYNONYMS_ENABLED = config.getint('SYNONYMS', 'enabled', fallback=0) == 1
 
-SYNONYMS_CATALOG_PATH = Path(config.get('SYNONYMS', 'catalog_path', fallback=''))
+# Determine path to the synonym catalogue. Prefer explicit catalog_path for
+# backwards compatibility, otherwise build the path from the configured
+# filename inside DATA_DIR.
+if config.has_option('SYNONYMS', 'catalog_path'):
+    SYNONYMS_CATALOG_PATH = Path(config.get('SYNONYMS', 'catalog_path'))
+else:
+    _fname = config.get('SYNONYMS', 'catalog_filename', fallback='synonyms.json')
+    SYNONYMS_CATALOG_PATH = DATA_DIR / _fname
 set_synonyms_enabled(SYNONYMS_ENABLED)
 
 # Load synonym catalog if enabled
@@ -255,14 +358,13 @@ if SYNONYMS_ENABLED and SYNONYMS_CATALOG_PATH:
     try:
         synonym_catalog = storage.load_synonyms(SYNONYMS_CATALOG_PATH)
         logger.info(
-            "✓ Synonymkatalog geladen (%s Einträge).",
+            " ✓ Synonymkatalog geladen (%s Einträge).",
             len(synonym_catalog.entries),
         )
     except Exception as exc:  # pragma: no cover - optional file
         logger.error("Failed to load synonym catalog: %s", exc)
         synonym_catalog = SynonymCatalog()
 
-DATA_DIR = Path("data")
 EMBEDDING_FILE = DATA_DIR / "leistungskatalog_embeddings.json"
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
@@ -281,7 +383,7 @@ if USE_RAG and SentenceTransformer:
             embedding_codes = _data.get("codes", [])
             embedding_vectors = _data.get("embeddings", [])
         embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        logger.info("Embedding model and vectors geladen.")
+        logger.info(" ✓ Embedding model and vectors geladen.")
     except Exception as e:  # pragma: no cover - ignore on missing file
         logger.warning(f"Konnte Embeddings nicht laden: {e}")
 
@@ -301,6 +403,8 @@ CHOP_PATH = DATA_DIR / "CHOP_Katalog.json"
 # versucht. Die Wartezeit berechnet sich als GEMINI_BACKOFF_SECONDS * (2**Versuch).
 GEMINI_MAX_RETRIES = 3
 GEMINI_BACKOFF_SECONDS = 1.0
+# Einheitlicher Timeout für Gemini-API-Aufrufe (in Sekunden)
+GEMINI_TIMEOUT = 120
 
 # --- Typ-Aliase für Klarheit ---
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
@@ -384,7 +488,7 @@ try:
     logger.info("✓ Regelprüfer LKN (regelpruefer_einzelleistungen.py) Modul geladen.")
     if hasattr(rp_lkn_module, 'prepare_tardoc_abrechnung'):
         prepare_tardoc_abrechnung_func = rp_lkn_module.prepare_tardoc_abrechnung
-        logger.info("DEBUG: 'prepare_tardoc_abrechnung' aus regelpruefer_einzelleistungen.py zugewiesen.")
+        logger.debug("DEBUG: 'prepare_tardoc_abrechnung' aus regelpruefer_einzelleistungen.py zugewiesen.")
     else:
         logger.error("FEHLER: 'prepare_tardoc_abrechnung' NICHT in regelpruefer_einzelleistungen.py gefunden! Verwende Fallback.")
         def prepare_tardoc_lkn_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
@@ -400,8 +504,8 @@ try:
     # Für regelpruefer_pauschale.py
     logger.info("INFO: Versuche, regelpruefer_pauschale.py zu importieren...")
     import regelpruefer_pauschale as rpp_module
-    logger.info("DEBUG: Importversuch abgeschlossen. rpp_module ist: %s", rpp_module)
-    logger.info("DEBUG: Inhalt von rpp_module: %s", dir(rpp_module))
+    logger.debug("DEBUG: Importversuch abgeschlossen. rpp_module ist: %s", rpp_module)
+    logger.debug("DEBUG: Inhalt von rpp_module: %s", dir(rpp_module))
     logger.info("✓ Regelprüfer Pauschalen (regelpruefer_pauschale.py) Modul geladen.")
 
     # if rpp_module and hasattr(rpp_module, 'evaluate_structured_conditions'):
@@ -432,7 +536,7 @@ try:
 
     if rpp_module and hasattr(rpp_module, 'determine_applicable_pauschale'):
         determine_applicable_pauschale_func = rpp_module.determine_applicable_pauschale  # type: ignore[attr-defined]
-        logger.info("DEBUG: 'determine_applicable_pauschale' aus regelpruefer_pauschale.py zugewiesen.")
+        logger.debug("DEBUG: 'determine_applicable_pauschale' aus regelpruefer_pauschale.py zugewiesen.")
     else:
         logger.error(
             "FEHLER: 'determine_applicable_pauschale' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv."
@@ -482,7 +586,7 @@ def create_app() -> FlaskType:
     # Daten nur einmal laden – egal ob lokal oder Render-Worker
     global daten_geladen
     if not daten_geladen:
-        logger.info("INFO: Initialer Daten-Load beim App-Start …")
+        logger.info("Initialer Daten-Load beim App-Start …")
         if not load_data():
             raise RuntimeError("Kritische Daten konnten nicht geladen werden.")
 
@@ -693,28 +797,68 @@ def load_data() -> bool:
         logger.warning("WARNUNG: Einige kritische Daten konnten nicht geladen werden!")
         daten_geladen = False
     else:
-        logger.info("INFO: Alle Daten erfolgreich geladen.")
+        logger.info("Alle Daten erfolgreich geladen.")
         daten_geladen = True
-    logger.info("DEBUG: load_data() beendet. leistungskatalog_dict leer? %s", not leistungskatalog_dict)
+    logger.debug("DEBUG: load_data() beendet. leistungskatalog_dict leer? %s", not leistungskatalog_dict)
     return all_loaded_successfully
 
 # Einsatz von Flask
 # Die App-Instanz, auf die Gunicorn zugreift
 app: FlaskType = create_app()
 
+# Hilfsfunktion zum stabilen Parsen von LLM-JSON-Antworten
+def parse_llm_json_response(raw_text_response: str) -> Union[Dict[str, Any], List[Any]]:
+    """Extrahiert JSON aus einem LLM-Rohtext und parst es stabil.
+
+    Entfernt Steuerzeichen und ignoriert Text ausserhalb des ersten JSON-Objekts."""
+    match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
+    json_text = match.group(1) if match else raw_text_response
+    cleaned_text = ''.join(ch for ch in json_text if ord(ch) >= 32 or ch in '\n\t\r')
+    try:
+        return json.loads(cleaned_text)
+    except json.JSONDecodeError:
+        start = cleaned_text.find('{')
+        end = cleaned_text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return json.loads(cleaned_text[start:end + 1])
+        raise
+
 # --- LLM Stufe 1: LKN Identifikation ---
-def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") -> dict:
-    logger.info(f"LLM_S1_INIT: Aufruf von call_gemini_stage1. GEMINI_API_KEY vorhanden: {bool(GEMINI_API_KEY)}")
-    if not GEMINI_API_KEY:
-        logger.error("LLM_S1_ERROR: GEMINI_API_KEY fehlt oder ist leer. Funktion wird vorzeitig beendet.")
-        return {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": "Fehler: API Key nicht konfiguriert."}
-    prompt = get_stage1_prompt(user_input, katalog_context, lang)
+def call_gemini_stage1(
+    user_input: str,
+    katalog_context: str,
+    model: str,
+    lang: str = "de",
+    query_variants: Optional[List[str]] = None,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    api_key = _get_api_key("gemini")
+    logger.debug(
+        "LLM_S1_INIT: Aufruf von call_gemini_stage1. GEMINI_API_KEY vorhanden: %s",
+        bool(api_key),
+    )
+    if not api_key:
+        logger.error(
+            "LLM_S1_ERROR: GEMINI_API_KEY fehlt oder ist leer. Funktion wird vorzeitig beendet."
+        )
+        return (
+            {
+                "identified_leistungen": [],
+                "extracted_info": {},
+                "begruendung_llm": "Fehler: API Key nicht konfiguriert.",
+            },
+            {"input_tokens": 0, "output_tokens": 0},
+        )
+    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
     if LOG_TOKENS:
-        detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", count_tokens(prompt))
+        detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
     if LOG_INPUT_TEXT:
         detail_logger.info("LLM Stufe 1 Prompt: %s", prompt)
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -723,7 +867,7 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
             "maxOutputTokens": 65536
         }
     }
-    logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", GEMINI_MODEL)
+    logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", model)
     if LOG_INPUT_TEXT:
         detail_logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
     try:
@@ -733,10 +877,10 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                 response = requests.post(gemini_url, json=payload, timeout=90)
                 logger.info("Gemini Stufe 1 Antwort Status Code: %s", response.status_code)
                 if response.status_code == 429:
-                    raise requests.exceptions.HTTPError(response=response)
+                    raise HTTPError(response=response)
                 response.raise_for_status()
                 break
-            except requests.exceptions.RequestException as e:
+            except RequestException as e:
                 if attempt < GEMINI_MAX_RETRIES - 1:
                     wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
                     logger.warning(
@@ -748,7 +892,7 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                     continue
                 else:
                     error_detail = ""
-                    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                    if isinstance(e, HTTPError) and e.response is not None:
                         error_detail = f"{e.response.status_code} {e.response.text}"
                     else:
                         error_detail = str(e)
@@ -829,8 +973,9 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
 
         if LOG_OUTPUT_TEXT:
             detail_logger.info(f"LLM_S1_RAW_TEXT_RESPONSE: '{raw_text_response}'")
+        response_tokens = count_tokens(raw_text_response)
         if LOG_TOKENS:
-            detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", count_tokens(raw_text_response))
+            detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", response_tokens)
 
         if not raw_text_response:
             if candidate and isinstance(candidate, dict):
@@ -849,20 +994,11 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
                 raise ValueError(f"Unerwarteter Zustand: Candidate is not a dict ({type(candidate)}) and no text response.")
 
         try:
-            # Attempt to find JSON within ```json ... ``` blocks first
-            match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
-            if match:
-                json_text = match.group(1)
-                logger.info("JSON aus Markdown extrahiert.")
-            else:
-                json_text = raw_text_response
-
-            llm_response_json = json.loads(json_text)
+            llm_response_json = parse_llm_json_response(raw_text_response)
             if LOG_S1_PARSED_JSON_INITIAL:
                 detail_logger.info(f"LLM_S1_PARSED_JSON_INITIAL: {json.dumps(llm_response_json, ensure_ascii=False)}")
         except json.JSONDecodeError as json_err:
             logger.error(f"Fehler beim Parsen der LLM Stufe 1 Antwort: {json_err}. Rohtext: {raw_text_response[:500]}...")
-            # Return a default error structure if JSON parsing fails completely
             llm_response_json = {
                 "identified_leistungen": [],
                 "extracted_info": {},
@@ -1029,11 +1165,11 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         if LOG_OUTPUT_TEXT:
             detail_logger.info(f"LLM_S1_FINAL_VALIDATED_LEISTUNGEN: {json.dumps(validated_identified_leistungen, indent=2, ensure_ascii=False)}")
             detail_logger.info(f"LLM Stage 1 response: {json.dumps(llm_response_json, ensure_ascii=False)}")
-        return llm_response_json
+        return llm_response_json, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
-    except requests.exceptions.RequestException as req_err:
+    except RequestException as req_err:
         error_detail = ""
-        if isinstance(req_err, requests.exceptions.HTTPError) and req_err.response is not None:
+        if isinstance(req_err, HTTPError) and req_err.response is not None:
             error_detail = f"{req_err.response.status_code} {req_err.response.text}"
         else:
             error_detail = str(req_err)
@@ -1048,11 +1184,89 @@ def call_gemini_stage1(user_input: str, katalog_context: str, lang: str = "de") 
         traceback.print_exc()
         raise e
 
-def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_pauschal_lkns: Dict[str, str], lang: str = "de") -> str | None:
-    if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
+
+
+def call_openai_stage1(
+    user_input: str,
+    katalog_context: str,
+    model: str,
+    api_key: Optional[str],
+    base_url: Optional[str],
+    provider: str,
+    lang: str = "de",
+    query_variants: Optional[List[str]] = None,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    if not api_key:
+        logger.error(
+            "LLM_S1_ERROR: %s_API_KEY fehlt oder ist leer. Funktion wird vorzeitig beendet.",
+            provider.upper(),
+        )
+        return (
+            {
+                "identified_leistungen": [],
+                "extracted_info": {},
+                "begruendung_llm": "Fehler: API Key nicht konfiguriert.",
+            },
+            {"input_tokens": 0, "output_tokens": 0},
+        )
+    base_url = base_url or "https://api.openai.com/v1"
+    if not base_url.rstrip("/").endswith("/v1"):
+        base_url = f"{base_url.rstrip('/')}/v1"
+    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 1 Prompt: %s", prompt)
+    try:
+        from openai import OpenAI  # type: ignore
+    except Exception as e:  # pragma: no cover - optional dependency
+        raise RuntimeError("openai package not available") from e
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    try:
+        resp = chat_completion_safe(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.05,
+            timeout=60,
+            client=client,
+        )
+    except Exception as e:
+        raise ConnectionError(f"{provider} Stufe 1 Fehler: {e}") from e
+    content = resp.choices[0].message.content or ""
+    if LOG_OUTPUT_TEXT:
+        detail_logger.debug(
+            "LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content
+        )
+    response_tokens = count_tokens(content)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", response_tokens)
+    try:
+        data = json.loads(content or "{}")
+    except Exception as exc:
+        raise ValueError(f"{provider} Stufe 1: ungültige JSON-Antwort") from exc
+    data.setdefault("identified_leistungen", [])
+    data.setdefault("extracted_info", {})
+    data.setdefault("begruendung_llm", "")
+    return data, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+
+def call_gemini_stage2_mapping(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidate_pauschal_lkns: Dict[str, str],
+    model: str,
+    lang: str = "de",
+) -> tuple[str | None, dict[str, int]]:
+    api_key = _get_api_key("gemini")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
     if not candidate_pauschal_lkns:
         logger.warning("Keine Kandidaten-LKNs für Mapping von %s übergeben.", tardoc_lkn)
-        return None
+        return None, {"input_tokens": 0, "output_tokens": 0}
 
     candidates_text = "\n".join([f"- {lkn}: {desc}" for lkn, desc in candidate_pauschal_lkns.items()])
     if len(candidates_text) > 15000:  # Limit Kontextlänge (Anpassen nach Bedarf)
@@ -1064,12 +1278,16 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
         candidates_text = candidates_text[:15000] + "\n..."  # Einfache Kürzung
 
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
     if LOG_TOKENS:
-        detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", count_tokens(prompt))
+        detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", prompt_tokens)
     if LOG_INPUT_TEXT:
         detail_logger.info("LLM Stufe 2 (Mapping) Prompt: %s", prompt)
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -1078,36 +1296,53 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
             "maxOutputTokens": 512 # Für eine kurze Liste von Codes sollte das reichen
          }
     }
-    logger.info("Sende Anfrage Stufe 2 (Mapping) für %s an Gemini Model: %s...", tardoc_lkn, GEMINI_MODEL)
+    logger.info(
+        "Sende Anfrage Stufe 2 (Mapping) für %s an Gemini Model: %s...",
+        tardoc_lkn,
+        model,
+    )
     try:
         response = None
+        last_exception: Optional[RequestException] = None
         for attempt in range(GEMINI_MAX_RETRIES):
             try:
-                response = requests.post(gemini_url, json=payload, timeout=60)
+                response = requests.post(gemini_url, json=payload, timeout=GEMINI_TIMEOUT)
                 logger.info(
                     "Gemini Stufe 2 (Mapping) Antwort Status Code: %s",
                     response.status_code,
                 )
                 if response.status_code == 429:
-                    raise requests.exceptions.HTTPError(response=response)
+                    raise HTTPError(response=response)
                 response.raise_for_status()
                 break
-            except requests.exceptions.HTTPError as http_err:
+            except RequestException as req_err:
+                last_exception = req_err
+                status_code = (
+                    req_err.response.status_code
+                    if isinstance(req_err, HTTPError) and req_err.response is not None
+                    else None
+                )
                 if (
-                    http_err.response is not None
-                    and http_err.response.status_code == 429
+                    status_code is not None
+                    and (status_code == 429 or 500 <= status_code < 600)
                     and attempt < GEMINI_MAX_RETRIES - 1
                 ):
                     wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
                     logger.warning(
-                        "Gemini Stufe 2 (Mapping) Rate Limit erreicht. Neuer Versuch in %s Sekunden.",
+                        "Gemini Stufe 2 (Mapping) Fehler %s. Neuer Versuch in %s Sekunden.",
+                        status_code,
                         wait_time,
                     )
                     time.sleep(wait_time)
                     continue
                 raise
         if response is None:
-            return None
+            logger.error(
+                "Gemini Stufe 2 (Mapping) scheiterte nach %s Versuchen: %s",
+                GEMINI_MAX_RETRIES,
+                last_exception,
+            )
+            return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
         gemini_data = response.json()
 
         raw_text_response_part = ""
@@ -1119,16 +1354,17 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
                 if parts_map and isinstance(parts_map, list) and len(parts_map) > 0:
                      raw_text_response_part = parts_map[0].get('text', '').strip()
         if LOG_OUTPUT_TEXT:
-            detail_logger.info("DEBUG: Roher Text von LLM Stufe 2 (Mapping) für %s: '%s'", tardoc_lkn, raw_text_response_part)
+            detail_logger.debug("DEBUG: Roher Text von LLM Stufe 2 (Mapping) für %s: '%s'", tardoc_lkn, raw_text_response_part)
+        response_tokens = count_tokens(raw_text_response_part)
         if LOG_TOKENS:
-            detail_logger.info("LLM Stufe 2 (Mapping) Antwort Tokens: %s", count_tokens(raw_text_response_part))
+            detail_logger.info("LLM Stufe 2 (Mapping) Antwort Tokens: %s", response_tokens)
 
         if not raw_text_response_part:
             logger.info("Kein passendes Mapping für %s gefunden (LLM-Antwort war leer).", tardoc_lkn)
-            return None
+            return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
         if raw_text_response_part.upper() == "NONE":
             logger.info("Kein passendes Mapping für %s gefunden (LLM sagte explizit NONE).", tardoc_lkn)
-            return None
+            return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
         extracted_codes_from_llm = []
         try: # Versuche zuerst, als JSON zu parsen
@@ -1138,16 +1374,16 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
             elif isinstance(parsed_data, list): # Falls es direkt eine Liste ist
                 extracted_codes_from_llm = [str(code).strip().upper().replace('"', '') for code in parsed_data if str(code).strip()]
         except json.JSONDecodeError: # Wenn kein JSON, dann als Text behandeln
-            text_to_split = raw_text_response_part
+            text_to_split = str(raw_text_response_part)
             match_markdown = re.search(r'```(?:json|text)?\s*([\s\S]*?)\s*```', text_to_split, re.IGNORECASE) # Erkenne auch ```text
             if match_markdown:
-                text_to_split = match_markdown.group(1).strip()
+                text_to_split = str(match_markdown.group(1).strip())
             
             # Entferne Anführungszeichen und splitte nach Komma
             extracted_codes_from_llm = [
-                code.strip().upper().replace('"', '')
+                str(code).strip().upper().replace('"', '')
                 for code in text_to_split.split(',')
-                if code.strip() and code.strip().upper() != "NONE"
+                if str(code).strip() and str(code).strip().upper() != "NONE"
             ]
         
         if LOG_OUTPUT_TEXT:
@@ -1163,7 +1399,7 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
         for code in extracted_codes_from_llm:
             if code in candidate_pauschal_lkns:
                 logger.info("Mapping erfolgreich (aus Liste): %s -> %s", tardoc_lkn, code)
-                return code
+                return code, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
         if extracted_codes_from_llm: # Nur loggen, wenn LLM was zurückgab, das nicht passte
             logger.warning(
@@ -1177,63 +1413,147 @@ def call_gemini_stage2_mapping(tardoc_lkn: str, tardoc_desc: str, candidate_paus
                 tardoc_lkn,
                 raw_text_response_part,
             )
-        return None
+        return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
-    except requests.exceptions.RequestException as req_err:
+    except RequestException as req_err:
         logger.error("Netzwerkfehler bei Gemini Stufe 2 (Mapping): %s", req_err)
-        return None # Wichtig, um ConnectionError weiterzugeben
+        return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}  # Wichtig, um ConnectionError weiterzugeben
     except (KeyError, IndexError, TypeError, ValueError) as e:
         logger.error("Fehler beim Verarbeiten der Mapping-Antwort für %s: %s", tardoc_lkn, e)
         traceback.print_exc()
-        return None
+        return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
     except Exception as e:
         logger.error("Unerwarteter Fehler im LLM Stufe 2 (Mapping) für %s: %s", tardoc_lkn, e)
         traceback.print_exc()
-        return None
+        return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+
+
+
+def call_openai_stage2_mapping(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidate_pauschal_lkns: Dict[str, str],
+    model: str,
+    api_key: Optional[str],
+    base_url: Optional[str],
+    provider: str,
+    lang: str = "de",
+) -> tuple[str | None, dict[str, int]]:
+    if not api_key:
+        raise ValueError(f"{provider.upper()}_API_KEY nicht konfiguriert.")
+    if not candidate_pauschal_lkns:
+        logger.warning("Keine Kandidaten-LKNs für Mapping von %s übergeben.", tardoc_lkn)
+        return None, {"input_tokens": 0, "output_tokens": 0}
+    candidates_text = "\n".join(
+        [f"- {lkn}: {desc}" for lkn, desc in candidate_pauschal_lkns.items()]
+    )
+    if len(candidates_text) > 15000:
+        candidates_text = candidates_text[:15000] + "\n..."
+    prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", prompt_tokens)
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 2 (Mapping) Prompt: %s", prompt)
+    try:
+        from openai import OpenAI  # type: ignore
+    except Exception as e:  # pragma: no cover - optional dependency
+        raise RuntimeError("openai package not available") from e
+    base_url = base_url or "https://api.openai.com/v1"
+    if not base_url.rstrip("/").endswith("/v1"):
+        base_url = f"{base_url.rstrip('/')}/v1"
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    try:
+        resp = chat_completion_safe(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.05,
+            timeout=60,
+            client=client,
+        )
+    except Exception as e:
+        raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: {e}") from e
+    content = (resp.choices[0].message.content or "").strip()
+    if LOG_OUTPUT_TEXT:
+        detail_logger.debug("LLM Stage 2 (Mapping) raw %s response for %s: '%s'", provider, tardoc_lkn, content)
+    response_tokens = count_tokens(content)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Mapping) Antwort Tokens: %s", response_tokens)
+    return (content or None), {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
 # --- LLM Stufe 2: Pauschalen-Ranking ---
-def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, lang: str = "de") -> list[str]:
-    if not GEMINI_API_KEY:
-        return [line.split(":",1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5]
+def call_gemini_stage2_ranking(
+    user_input: str,
+    potential_pauschalen_text: str,
+    model: str,
+    lang: str = "de",
+) -> tuple[list[str], dict[str, int]]:
+    api_key = _get_api_key("gemini")
+    if not api_key:
+        return ([line.split(":", 1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5], {"input_tokens": 0, "output_tokens": 0})
 
     prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
     if LOG_TOKENS:
-        detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", count_tokens(prompt))
+        detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", prompt_tokens)
     if LOG_INPUT_TEXT:
         detail_logger.info("LLM Stufe 2 (Ranking) Prompt: %s", prompt)
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500}}
-    logger.info("Sende Anfrage Stufe 2 (Ranking) an Gemini Model: %s...", GEMINI_MODEL)
+    gemini_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    )
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500},
+    }
+    logger.info("Sende Anfrage Stufe 2 (Ranking) an Gemini Model: %s...", model)
     try:
         response = None
+        last_exception: Optional[RequestException] = None
         for attempt in range(GEMINI_MAX_RETRIES):
             try:
-                response = requests.post(gemini_url, json=payload, timeout=45)
+                response = requests.post(gemini_url, json=payload, timeout=GEMINI_TIMEOUT)
                 logger.info(
                     "Gemini Stufe 2 (Ranking) Antwort Status Code: %s",
                     response.status_code,
                 )
                 if response.status_code == 429:
-                    raise requests.exceptions.HTTPError(response=response)
+                    raise HTTPError(response=response)
                 response.raise_for_status()
                 break
-            except requests.exceptions.HTTPError as http_err:
+            except RequestException as req_err:
+                last_exception = req_err
+                status_code = (
+                    req_err.response.status_code
+                    if isinstance(req_err, HTTPError) and req_err.response is not None
+                    else None
+                )
                 if (
-                    http_err.response is not None
-                    and http_err.response.status_code == 429
+                    status_code is not None
+                    and (status_code == 429 or 500 <= status_code < 600)
                     and attempt < GEMINI_MAX_RETRIES - 1
                 ):
                     wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
                     logger.warning(
-                        "Gemini Stufe 2 (Ranking) Rate Limit erreicht. Neuer Versuch in %s Sekunden.",
+                        "Gemini Stufe 2 (Ranking) Fehler %s. Neuer Versuch in %s Sekunden.",
+                        status_code,
                         wait_time,
                     )
                     time.sleep(wait_time)
                     continue
                 raise
         if response is None:
-            return []
+            logger.error(
+                "Gemini Stufe 2 (Ranking) scheiterte nach %s Versuchen: %s",
+                GEMINI_MAX_RETRIES,
+                last_exception,
+            )
+            return [], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
         gemini_data = response.json()
 
         ranked_text = ""
@@ -1260,24 +1580,183 @@ def call_gemini_stage2_ranking(user_input: str, potential_pauschalen_text: str, 
             detail_logger.info(f"LLM Stage 2 (Ranking) - Raw response: '{ranked_text}'")
             detail_logger.info(f"LLM Stage 2 (Ranking) - Extracted and cleaned codes: {ranked_codes}")
             detail_logger.info("LLM Stufe 2 Gerankte Codes nach Filter: %s (aus Rohtext: '%s')", ranked_codes, ranked_text)
+        response_tokens = count_tokens(ranked_text)
         if LOG_TOKENS:
-            detail_logger.info("LLM Stufe 2 (Ranking) Antwort Tokens: %s", count_tokens(ranked_text))
+            detail_logger.info("LLM Stufe 2 (Ranking) Antwort Tokens: %s", response_tokens)
         if not ranked_codes and ranked_text:  # Nur warnen, wenn Text da war, aber keine Codes extrahiert wurden
             logger.warning("LLM Stufe 2 (Ranking) hat keine gültigen Codes aus '%s' zurückgegeben.", ranked_text)
         elif not ranked_text:
             logger.warning("LLM Stufe 2 (Ranking) hat leeren Text zurückgegeben.")
-        return ranked_codes
-    except requests.exceptions.RequestException as req_err:
+        return ranked_codes, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+    except RequestException as req_err:
         logger.error("Netzwerkfehler bei Gemini Stufe 2 (Ranking): %s", req_err)
         raise ConnectionError(f"Netzwerkfehler bei Gemini Stufe 2 (Ranking): {req_err}")  # Wichtig für analyze_billing
     except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e:
         logger.error("Fehler beim Extrahieren/Verarbeiten des Rankings: %s", e)
         traceback.print_exc()
-        return []  # Leere Liste, damit Fallback greift
+        return [], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}  # Leere Liste, damit Fallback greift
     except Exception as e:
         logger.error("Unerwarteter Fehler im LLM Stufe 2 (Ranking): %s", e)
         traceback.print_exc()
         raise e  # Erneut auslösen, um den Fehler im Hauptteil zu fangen
+
+
+
+def call_openai_stage2_ranking(
+    user_input: str,
+    potential_pauschalen_text: str,
+    model: str,
+    api_key: Optional[str],
+    base_url: Optional[str],
+    provider: str,
+    lang: str = "de",
+) -> tuple[list[str], dict[str, int]]:
+    if not api_key:
+        return ([line.split(":", 1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5], {"input_tokens": 0, "output_tokens": 0})
+    prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
+    prompt_tokens = count_tokens(prompt)
+    response_tokens = 0
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", prompt_tokens)
+    if LOG_INPUT_TEXT:
+        detail_logger.info("LLM Stufe 2 (Ranking) Prompt: %s", prompt)
+    try:
+        from openai import OpenAI  # type: ignore
+    except Exception as e:  # pragma: no cover - optional dependency
+        raise RuntimeError("openai package not available") from e
+    base_url = base_url or "https://api.openai.com/v1"
+    if not base_url.rstrip("/").endswith("/v1"):
+        base_url = f"{base_url.rstrip('/')}/v1"
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    try:
+        resp = chat_completion_safe(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            timeout=60,
+            client=client,
+        )
+    except Exception as e:
+        raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: {e}") from e
+    content = resp.choices[0].message.content or ""
+    if LOG_OUTPUT_TEXT:
+        detail_logger.info(f"LLM Stage 2 (Ranking) raw {provider} response: '{content}'")
+    response_tokens = count_tokens(content)
+    if LOG_TOKENS:
+        detail_logger.info("LLM Stufe 2 (Ranking) Antwort Tokens: %s", response_tokens)
+    try:
+        data = json.loads(content)
+        if isinstance(data, list):
+            return [str(c).strip().upper() for c in data if str(c).strip()], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+    except Exception:
+        pass
+    ranked_codes = [
+        line.strip().split()[0].upper()
+        for line in content.replace("`", "").splitlines()
+        if line.strip()
+    ]
+    seen: set[str] = set()
+    return [c for c in ranked_codes if not (c in seen or seen.add(c))], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+
+
+
+def call_llm_stage1(
+    user_input: str,
+    katalog_context: str,
+    lang: str = "de",
+    query_variants: Optional[List[str]] = None,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    if STAGE1_PROVIDER == "gemini":
+        result = call_gemini_stage1(
+            user_input, katalog_context, STAGE1_MODEL, lang, query_variants=query_variants
+        )
+    else:
+        api_key = _get_api_key(STAGE1_PROVIDER)
+        base_url = _get_base_url(STAGE1_PROVIDER)
+        if STAGE1_PROVIDER == "ollama":
+            base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
+            if not api_key:
+                api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        result = call_openai_stage1(
+            user_input,
+            katalog_context,
+            STAGE1_MODEL,
+            api_key,
+            base_url,
+            STAGE1_PROVIDER,
+            lang,
+            query_variants=query_variants,
+        )
+    if isinstance(result, tuple):
+        return result
+    return result, {"input_tokens": 0, "output_tokens": 0}
+
+
+
+def call_llm_stage2_mapping(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidate_pauschal_lkns: Dict[str, str],
+    lang: str = "de",
+) -> tuple[str | None, dict[str, int]]:
+    if STAGE2_PROVIDER == "gemini":
+        result = call_gemini_stage2_mapping(
+            tardoc_lkn, tardoc_desc, candidate_pauschal_lkns, STAGE2_MODEL, lang
+        )
+    else:
+        api_key = _get_api_key(STAGE2_PROVIDER)
+        base_url = _get_base_url(STAGE2_PROVIDER)
+        if STAGE2_PROVIDER == "ollama":
+            base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
+            if not api_key:
+                api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        result = call_openai_stage2_mapping(
+            tardoc_lkn,
+            tardoc_desc,
+            candidate_pauschal_lkns,
+            STAGE2_MODEL,
+            api_key,
+            base_url,
+            STAGE2_PROVIDER,
+            lang,
+        )
+    if isinstance(result, tuple):
+        return result
+    return result, {"input_tokens": 0, "output_tokens": 0}
+
+
+
+def call_llm_stage2_ranking(
+    user_input: str,
+    potential_pauschalen_text: str,
+    lang: str = "de",
+) -> tuple[list[str], dict[str, int]]:
+    if STAGE2_PROVIDER == "gemini":
+        result = call_gemini_stage2_ranking(
+            user_input, potential_pauschalen_text, STAGE2_MODEL, lang
+        )
+    else:
+        api_key = _get_api_key(STAGE2_PROVIDER)
+        base_url = _get_base_url(STAGE2_PROVIDER)
+        if STAGE2_PROVIDER == "ollama":
+            base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
+            if not api_key:
+                api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        result = call_openai_stage2_ranking(
+            user_input,
+            potential_pauschalen_text,
+            STAGE2_MODEL,
+            api_key,
+            base_url,
+            STAGE2_PROVIDER,
+            lang,
+        )
+    if isinstance(result, tuple):
+        return result
+    return result, {"input_tokens": 0, "output_tokens": 0}
 
 # get_table_content (aus utils.py, hier für Vollständigkeit, falls utils nicht verfügbar)
 # Die Funktion get_table_content wurde bereits in utils.py definiert und hier importiert.
@@ -1498,6 +1977,19 @@ import threading
 # Lock for sequential processing
 processing_lock = threading.Lock()
 
+
+def get_localized_text(details: Dict[str, Any], base: str, lang: str) -> Optional[str]:
+    """Return the value of a base field for the requested language.
+
+    Falls back to the German base field if the localized variant is missing.
+    """
+    suffix = {"de": "", "fr": "_f", "it": "_i"}.get(lang, "")
+    key = f"{base}{suffix}"
+    text = details.get(key)
+    if text is None and suffix:
+        text = details.get(base)
+    return str(text) if text else None
+
 # --- API Endpunkt ---
 @app.route('/api/analyze-billing', methods=['POST'])
 def analyze_billing():
@@ -1517,6 +2009,10 @@ def analyze_billing():
         )
     logger.info("--- Request an /api/analyze-billing erhalten ---")
     start_time = time.time()
+    token_usage = {
+        "llm_stage1": {"input_tokens": 0, "output_tokens": 0},
+        "llm_stage2": {"input_tokens": 0, "output_tokens": 0}
+    }
 
     if not daten_geladen:
         logger.error("Daten nicht geladen im /api/analyze-billing Endpunkt. Dies sollte nicht passieren, da create_app() die Daten laden sollte.")
@@ -1573,12 +2069,27 @@ def analyze_billing():
     try:
         katalog_context_parts = []
         preprocessed_input = expand_compound_words(user_input)
-        # Konflikt V2 muss gelöst werden
-        tokens = extract_keywords(user_input)
-        # Konflikt V1
+        direct_synonym_codes: List[str] = []
+        if SYNONYMS_ENABLED:
+            base_term = synonym_catalog.index.get(preprocessed_input.lower())
+            if base_term:
+                entry = synonym_catalog.entries.get(base_term)
+                if entry and entry.lkn:
+                    direct_synonym_codes = [
+                        code.strip().upper()
+                        for code in re.split(r"[|,;\s]+", entry.lkn)
+                        if code.strip()
+                    ]
+                    logger.info(
+                        "Direkter Synonym-Treffer: '%s' -> %s",
+                        preprocessed_input,
+                        direct_synonym_codes,
+                    )
+
         query_variants = [preprocessed_input]
         if SYNONYMS_ENABLED:
             try:
+                # expand_query now returns a list, not a dict
                 query_variants = expand_query(
                     preprocessed_input,
                     synonym_catalog,
@@ -1587,85 +2098,122 @@ def analyze_billing():
             except Exception as e:
                 logger.warning("Synonym expansion failed: %s", e)
                 query_variants = [preprocessed_input]
+
         tokens = set()
         for _q in query_variants:
             tokens.update(extract_keywords(_q))
-        # Extract any potential LKN codes mentioned in the text. Even if a code
-        # is unknown to the loaded Leistungskatalog we still include it so that
-        # the LLM context is never empty when the user explicitly provides a
-        # code.
-        direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
+
+        # Für die Embedding-Suche nur den vorverarbeiteten Input verwenden
+        embedding_query = preprocessed_input
+        logger.info(
+            "Embedding-Anfrage ohne Synonym-Erweiterung: '%s'",
+            embedding_query,
+        )
 
         # --- DEBUGGING START ---
-        logger.info(f"DEBUG: Zustand vor rank_leistungskatalog_entries:")
-        logger.info(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
+        logger.debug(f"DEBUG: Zustand vor rank_leistungskatalog_entries:")
+        logger.debug(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
         if leistungskatalog_dict:
-            logger.info(f"DEBUG: Beispiel Leistungskatalog Key: {next(iter(leistungskatalog_dict.keys()))}")
-        logger.info(f"DEBUG: len(token_doc_freq): {len(token_doc_freq)}")
+            logger.debug(f"DEBUG: Beispiel Leistungskatalog Key: {next(iter(leistungskatalog_dict.keys()))}")
+        logger.debug(f"DEBUG: len(token_doc_freq): {len(token_doc_freq)}")
         if token_doc_freq:
-            logger.info(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
+            logger.debug(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
         # --- DEBUGGING END ---
 
+        # --- HYBRID SEARCH: Combine Keyword and Embedding search results ---
+
+        # 1. Keyword-based search (reliable for synonyms and direct matches)
+        # We limit this to a reasonable number to get high-quality candidates.
+        keyword_results = cast(
+            List[Tuple[float, str]],
+            rank_leistungskatalog_entries(
+                tokens,
+                leistungskatalog_dict,
+                token_doc_freq,
+                limit=100,
+                return_scores=True,
+            ),
+        )
+        keyword_codes = [code for _, code in keyword_results]
+        logger.info(f"Keyword-Suche fand {len(keyword_codes)} Kandidaten.")
+
+        # 2. Embedding-based search (for semantic similarity)
+        embedding_results: List[Tuple[float, str]] = []
+        embedding_codes_ranked: List[str] = []
         if USE_RAG and embedding_model and embedding_vectors:
-            q_vec = embedding_model.encode([user_input], convert_to_numpy=True)[0]
-            ranked_results = rank_embeddings_entries(
+            logger.info(
+                "Suchanfrage für RAG (ohne Synonym-Erweiterung): %s",
+                embedding_query,
+            )
+            max_tokens = getattr(embedding_model, "get_max_seq_length", lambda: 128)()
+            tokenizer_max = getattr(embedding_model.tokenizer, "model_max_length", max_tokens)
+            limit = min(max_tokens, tokenizer_max)
+            special_tokens = getattr(
+                embedding_model.tokenizer, "num_special_tokens_to_add", lambda *a, **k: 0
+            )(False)
+            limit = max(limit - special_tokens, 0)
+            tokens = embedding_model.tokenizer.encode(
+                embedding_query, add_special_tokens=False
+            )
+            if len(tokens) > limit:
+                embedding_query = embedding_model.tokenizer.decode(
+                    tokens[:limit]
+                ).strip()
+            q_vec = embedding_model.encode(
+                [embedding_query], convert_to_numpy=True
+            )[0]
+
+            embedding_results = rank_embeddings_entries(
                 cast(List[float], q_vec.tolist()),
                 embedding_vectors,
                 embedding_codes,
-                500,
+                limit=100,
             )
-            ranked_codes = [code for _, code in ranked_results]
-            top_ranking_results = ranked_results[:5]
-        elif USE_RAG:
-            ranked_results = cast(
-                List[Tuple[float, str]],
-                rank_leistungskatalog_entries(
-                    tokens,
-                    leistungskatalog_dict,
-                    token_doc_freq,
-                    500,
-                    return_scores=True,
-                ),
+            embedding_codes_ranked = [code for _, code in embedding_results]
+            logger.info(
+                f"Embedding-Suche (RAG) fand {len(embedding_codes_ranked)} Kandidaten."
             )
-            ranked_codes = [code for _, code in ranked_results]
-            top_ranking_results = ranked_results[:5]
-        else:
-            ranked_codes = list(leistungskatalog_dict.keys())
-            top_ranking_results = []
-        if direct_codes:
-            ranked_codes = list(dict.fromkeys(direct_codes + ranked_codes))
+
+        # 3. Combine and de-duplicate results
+        # The order is important: direct codes first, then keyword matches, then semantic matches.
+        direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
+        for code in direct_synonym_codes:
+            if code not in direct_codes:
+                direct_codes.append(code)
+
+        combined_codes = direct_codes + keyword_codes + embedding_codes_ranked
+        ranked_codes = list(dict.fromkeys(combined_codes))  # De-duplicate while preserving order
+
+        logger.info(
+            f"Kombinierte Suche ergab {len(ranked_codes)} einzigartige Kandidaten für den Kontext."
+        )
         # --- DEBUGGING START ---
-        logger.info(f"DEBUG: ranked_codes: {ranked_codes[:10]}") # Logge die ersten 10 gerankten Codes
+        logger.debug(f"DEBUG: ranked_codes: {ranked_codes[:10]}")  # Logge die ersten 10 gerankten Codes
         # --- DEBUGGING END ---
+
+        # Build top ranking list prioritizing direct matches
+        top_ranking_results = [(1.0, code) for code in direct_codes]
+        remaining_slots = max(0, 5 - len(top_ranking_results))
+        if USE_RAG and embedding_model and embedding_vectors:
+            top_ranking_results.extend(embedding_results[:remaining_slots])
+        else:
+            top_ranking_results.extend(keyword_results[:remaining_slots])
 
         for lkn_code in ranked_codes:
             details = leistungskatalog_dict.get(lkn_code, {})
-            desc_texts = []
-            for base in ["Beschreibung", "Beschreibung_f", "Beschreibung_i"]:
-                val = details.get(base)
-                if val:
-                    desc_texts.append(str(val))
-            mi_texts = []
-            for base in [
-                "MedizinischeInterpretation",
-                "MedizinischeInterpretation_f",
-                "MedizinischeInterpretation_i",
-            ]:
-                val = details.get(base)
-                if val:
-                    mi_texts.append(str(val))
+            desc_text = get_localized_text(details, "Beschreibung", lang)
+            mi_text = get_localized_text(details, "MedizinischeInterpretation", lang)
 
-            mi_joined = " ".join(mi_texts)
             context_line = (
-                f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {html.escape(desc_texts[0] if desc_texts else 'N/A')}"
+                f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {html.escape(desc_text or 'N/A')}"
             )
-            if mi_joined:
-                context_line += f", MedizinischeInterpretation: {html.escape(mi_joined)}"
+            if mi_text:
+                context_line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
             katalog_context_parts.append(context_line)
         katalog_context_str = "\n".join(katalog_context_parts)
         logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
         # --- DEBUGGING START ---
-        logger.info(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
+        logger.debug(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
         if not katalog_context_str:
             logger.error("DEBUG: katalog_context_str ist leer. Abbruch vor LLM-Aufruf.")
         # --- DEBUGGING END ---
@@ -1673,11 +2221,13 @@ def analyze_billing():
             raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
 
         # --- DEBUGGING START ---
-        logger.info(f"DEBUG: Zustand vor call_gemini_stage1:")
-        logger.info(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
-        logger.info(f"DEBUG: llm_stage1_result (vor Aufruf): {llm_stage1_result}")
+        logger.debug(f"DEBUG: Zustand vor call_llm_stage1:")
+        logger.debug(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
+        logger.debug(f"DEBUG: llm_stage1_result (vor Aufruf): {llm_stage1_result}")
         # --- DEBUGGING END ---
-        llm_stage1_result = call_gemini_stage1(preprocessed_input, katalog_context_str, lang)
+        llm_stage1_result, s1_tokens = call_llm_stage1(user_input, katalog_context_str, lang, query_variants=query_variants)
+        token_usage["llm_stage1"]["input_tokens"] += s1_tokens.get("input_tokens", 0)
+        token_usage["llm_stage1"]["output_tokens"] += s1_tokens.get("output_tokens", 0)
     except ConnectionError as e:
         logger.error("Verbindung zu LLM1 fehlgeschlagen: %s", e)
         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
@@ -1734,7 +2284,8 @@ def analyze_billing():
     geschlecht_context_val = geschlecht_user if geschlecht_user is not None else extracted_info_llm.get("geschlecht")
     if geschlecht_context_val is None: geschlecht_context_val = "unbekannt"
     
-    seitigkeit_context_val = extracted_info_llm.get("seitigkeit", "unbekannt")
+    # Sicherstellen, dass Seitigkeit als String vorliegt, auch wenn der Schlüssel existiert, aber None ist
+    seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
     anzahl_prozeduren_val = extracted_info_llm.get("anzahl_prozeduren")
     anzahl_fuer_pauschale_context = anzahl_prozeduren_val
     if seitigkeit_context_val.lower() == 'beidseits' and anzahl_fuer_pauschale_context is None:
@@ -1756,7 +2307,9 @@ def analyze_billing():
             kandidaten_text = "\n".join(
                 f"{k['code']}: {k['text']}" for k in kandidaten_liste
             )
-            ranking_codes = call_gemini_stage2_ranking(user_input, kandidaten_text, lang)
+            ranking_codes, rank_tokens = call_llm_stage2_ranking(user_input, kandidaten_text, lang)
+            token_usage["llm_stage2"]["input_tokens"] += rank_tokens.get("input_tokens", 0)
+            token_usage["llm_stage2"]["output_tokens"] += rank_tokens.get("output_tokens", 0)
         except ConnectionError as e_rank:
             logger.error("Verbindung zu LLM Stufe 2 (Ranking) im Fallback: %s", e_rank)
             ranking_codes = []
@@ -1839,7 +2392,7 @@ def analyze_billing():
                         fehler_liste_regel = regel_ergebnis_dict.get("fehler", [])
                         mengen_reduktions_fehler = next((f for f in fehler_liste_regel if "Menge auf" in f and "reduziert" in f), None)
                         if mengen_reduktions_fehler:
-                            match_menge = re.search(r"Menge auf (\d+)", mengen_reduktions_fehler)
+                            match_menge = re.search(r"Menge auf (\d+)", str(mengen_reduktions_fehler))
                             if match_menge:
                                 try:
                                     finale_menge_nach_regeln = int(match_menge.group(1))
@@ -1854,7 +2407,7 @@ def analyze_billing():
                         else:
                             mengenbesch_fehler = next((f for f in fehler_liste_regel if "Mengenbeschränkung überschritten" in f and "max." in f), None)
                             if mengenbesch_fehler:
-                                match_max = re.search(r"max\.\s*(\d+)", mengenbesch_fehler)
+                                match_max = re.search(r"max\.\s*(\d+)", str(mengenbesch_fehler))
                                 if match_max:
                                     try:
                                         finale_menge_nach_regeln = int(match_max.group(1))
@@ -1942,7 +2495,7 @@ def analyze_billing():
                         if not table_refs_cond_set.isdisjoint(regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str]):
                             potential_pauschale_codes_set.add(pc_code_cond)
                             break
-        logger.info(
+        logger.debug(
             "DEBUG: %s potenzielle Pauschalen für Mapping/Prüfung gefunden: %s",
             len(potential_pauschale_codes_set),
             potential_pauschale_codes_set,
@@ -1980,7 +2533,9 @@ def analyze_billing():
 
                     if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
                         try:
-                            mapped_target_lkn_code = call_gemini_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
+                            mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
+                            token_usage["llm_stage2"]["input_tokens"] += map_tokens.get("input_tokens", 0)
+                            token_usage["llm_stage2"]["output_tokens"] += map_tokens.get("output_tokens", 0)
                             if mapped_target_lkn_code:
                                 mapped_lkn_codes_set.add(mapped_target_lkn_code)
                                 # print(f"INFO: LKN-Mapping: {t_lkn_code} -> {mapped_target_lkn_code}")
@@ -2084,7 +2639,7 @@ def analyze_billing():
 
                 if neu_gefundene_codes:
                     potential_pauschale_codes_set.update(neu_gefundene_codes)
-                logger.info(
+                logger.debug(
                     "DEBUG: %s potenzielle Pauschalen nach erweiterter Suche: %s",
                     len(potential_pauschale_codes_set),
                     potential_pauschale_codes_set,
@@ -2139,7 +2694,8 @@ def analyze_billing():
         "regel_ergebnisse_details": regel_ergebnisse_details_list,
         "abrechnung": finale_abrechnung_obj,
         "llm_ergebnis_stufe2": llm_stage2_mapping_results,
-        "evaluated_pauschalen": finale_abrechnung_obj.get("evaluated_pauschalen", [])
+        "evaluated_pauschalen": finale_abrechnung_obj.get("evaluated_pauschalen", []),
+        "token_usage": token_usage,
     }
     if fallback_pauschale_search:
         final_response_payload["fallback_pauschale_search"] = True
@@ -2324,7 +2880,8 @@ def test_example():
         'passed': passed,
         'baseline': baseline,
         'result': result,
-        'diff': diff
+        'diff': diff,
+        'token_usage': analysis_full.get('token_usage', {})
     })
 
 
@@ -2454,7 +3011,7 @@ def approved_feedback() -> Any:
 @app.route('/api/version')
 def api_version() -> Any:
     """Return the configured application version."""
-    return jsonify({"version": APP_VERSION})
+    return jsonify({"version": APP_VERSION, "tarif_version": TARIF_VERSION})
 
 # --- Static‑Routes & Start ---
 @app.route("/")
@@ -2492,7 +3049,10 @@ def serve_static(filename: str): # Typ hinzugefügt
 def _run_local() -> None:
     """Lokaler Debug-Server (wird von Render **nicht** aufgerufen)."""
     port = int(os.environ.get("PORT", 8000))
-    logger.info("\ud83d\ude80  Lokal verfügbar auf http://127.0.0.1:%s", port)
+    # Use WARNING level so the startup URL is visible even when the general
+    # log level is set to WARNING. This ensures users always see where to open
+    # the HTML interface.
+    logger.warning("🚀 Lokal verfügbar auf http://127.0.0.1:%s", port)
     app.run(host="0.0.0.0", port=port, debug=True)
 
 

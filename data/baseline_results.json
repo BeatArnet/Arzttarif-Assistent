@@ -24,7 +24,7 @@
     "query": {
       "de": "Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie",
       "fr": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes); temps de changement, salle traitement dermatologique",
-      "it": "Consulta specialistica dermatologica  de 10 minutos; asportazione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
+      "it": "Consultazione 10 minuti e rimozione della verruca con un cucchiaio affilato 5 minuti, con tempo di passaggio alla dermatologia"
     },
     "baseline": {
       "pauschale": null,
@@ -52,7 +52,7 @@
   "3": {
     "query": {
       "de": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
-      "fr": "Consultation médicale de 25 minutes, grand examen rhumatologique",
+      "fr": "Consultation de 25 minutes, examen rhumatologique complet",
       "it": "Consultazione medica di 25 minuti, grande esame reumatologico"
     },
     "baseline": {
@@ -192,9 +192,9 @@
   },
   "10": {
     "query": {
-      "de": "Blinddarmentfernung als alleinige Leistung",
-      "fr": "Appendicectomie à titre isolé",
-      "it": "Appendicectomia come prestazione singola"
+      "de": "Blinddarmentfernung",
+      "fr": "Appendicectomie",
+      "it": "Appendicectomia"
     },
     "baseline": {
       "pauschale": {
@@ -268,8 +268,8 @@
   "15": {
     "query": {
       "de": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
-      "fr": "Fracture des doigts, enclouage avec anesthésie par anesthésiste",
-      "it": " Frattura di un dito della mano, chiodaggio, inchiodamento con anestesia da parte dell'anestesista"
+      "fr": "Fracture du doigt, enclouage avec anesthésie par un anesthésiste",
+      "it": "Frattura delle dita, chiodatura con anestesia praticata da un'anestesista"
     },
     "baseline": {
       "pauschale": {

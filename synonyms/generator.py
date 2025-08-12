@@ -6,13 +6,54 @@ __all__ = ["extract_base_terms_from_tariff", "propose_synonyms_incremental"]
 
 import logging
 import os
-
 import json
+import subprocess
+import threading
 from pathlib import Path
 from typing import Dict, Iterable, List, TypedDict, cast
 import unicodedata
 import re
+import configparser
 from .models import SynonymCatalog, SynonymEntry
+from openai_wrapper import chat_completion_safe
+
+
+_CONFIG = configparser.ConfigParser()
+_CONFIG.read("config.ini")
+LLM_PROVIDER = (
+    os.getenv("SYNONYM_LLM_PROVIDER")
+    or _CONFIG.get("SYNONYMS", "llm_provider", fallback="ollama")
+).lower()
+
+DEFAULT_MODELS = {
+    "gemini": "gemini-2.5-pro",
+    "openai": "gpt-4o-mini",
+    "ollama": "gpt-oss-20b",
+}
+
+LLM_MODEL = (
+    os.getenv("SYNONYM_LLM_MODEL")
+    or _CONFIG.get(
+        "SYNONYMS",
+        "llm_model",
+        fallback=DEFAULT_MODELS.get(LLM_PROVIDER, "gpt-oss-20b"),
+    )
+)
+
+_OLLAMA_LOCK = threading.Lock()
+_OLLAMA_STOPPED = False
+
+
+def _env_name(provider: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "_", provider.upper())
+
+
+def _get_api_key(provider: str) -> str | None:
+    return os.getenv("SYNONYM_LLM_API_KEY") or os.getenv(f"{_env_name(provider)}_API_KEY")
+
+
+def _get_base_url(provider: str) -> str | None:
+    return os.getenv("SYNONYM_LLM_BASE_URL") or os.getenv(f"{_env_name(provider)}_BASE_URL")
 
 
 class MultilingualResponse(TypedDict):
@@ -48,8 +89,8 @@ def extract_base_terms_from_tariff() -> List[Dict[str, str]]:
                 item["fr"] = fr.strip()
             if isinstance(it, str):
                 item["it"] = it.strip()
-            if isinstance(lkn, str):
-                item["lkn"] = lkn
+            if isinstance(lkn, (str, int)):
+                item["lkn"] = str(lkn)
             terms.append(item)
     return terms
 
@@ -155,69 +196,129 @@ def _extract_json(text: str) -> Dict[str, object]:
     raise
 
 
-def _call_gemini_for_language(
-    term: str, lang: str, translation: str | None
-) -> tuple[str | None, List[str]]:
-    """Return translation and synonyms for ``term`` in a single ``lang``."""
-
-    try:
-        import google.generativeai as genai  # type: ignore
-    except Exception as e:  # pragma: no cover - optional dependency
-        raise RuntimeError("google.generativeai package not available") from e
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not configured")
-
-    genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-    model_cls = getattr(genai, "GenerativeModel")  # type: ignore[attr-defined]
-    model = model_cls(os.getenv("GEMINI_MODEL_SYNONYM", "gemini-2.5-pro"))
-
-    extra = f" Übersetzung: '{translation}'." if translation else ""
-
+def _build_prompt(term_data: Dict[str, str]) -> str:
+    term = term_data.get("de", "")
+    fr = term_data.get("fr")
+    it = term_data.get("it")
     prompt = (
         "Arzttarif Schweiz. "
         "Leistungsbezeichnung: '"
         f"{term}'.\n"
-        f"Zielsprache für Synonyme: {lang.upper()} (DE=deutsch, FR=français, IT=italiano).{extra}\n"
-        "Gib funktionale, kontextbezogene Synonyme für die Begriffe innerhalb der Leistungsbezeichnung an. "
-        "Ziel ist es, die Suchbarkeit in Alltagssprache und medizinischer Umgangssprache zu verbessern.\n"
-        "WICHTIG:\n"
-        "- Keine abstrakten oder rein adjektivischen Begriffe wie 'medizinisch', 'heilkundlich', 'ärztlich', 'therapeutisch' ohne Bezug zur Leistung.\n"
-        "- Synonyme müssen *eine erbringbare Leistung* oder *eine übliche sprachliche Umschreibung* bezeichnen.\n"
-        "- Wenn die Leistungsbezeichnung Zeitangaben enthält, gib keine Synonyme für die Zeitkomponente.\n"
-        "- Vermeide generische Begriffe wie 'Kontrolle' oder 'Prüfung', falls sie zu unspezifisch sind.\n"
-        "- Gib **ausschliesslich** Begriffe an, die in der jeweiligen Sprache verwendet werden.\n"
-        '- Format: {"canonical": "<normierter Begriff>", "synonyms": ["syn1", "syn2", "..."]}\n'
-        "- Synonyme mit Umlauten (ä, ö, ü, é, è, à usw.) und 'ss' statt 'ß' im Deutschen.\n"
+        "Gib funktionale, kontextbezogene Synonyme für die wichtigsten medizinischen und alltagssprachlichen Begriffe in den Sprachen DE, FR und IT zurück.\n"
+        'Format: {"de": ["..."], "fr": ["..."], "it": ["..."]}\n'
+        "Synonyme mit Umlauten (ä, ö, ü, é, è, à usw.) und 'ss' statt 'ß' im Deutschen.\n"
     )
+    if fr:
+        prompt += f"Französisch: '{fr}'.\n"
+    if it:
+        prompt += f"Italienisch: '{it}'.\n"
+    return prompt
 
-    logging.debug("Gemini prompt for '%s' [%s]: %s", term, lang, prompt)
+def _stop_ollama_model_once() -> None:
+    """Stop any running Ollama instance of the configured model once."""
+    global _OLLAMA_STOPPED
+    if _OLLAMA_STOPPED:
+        return
+    if LLM_PROVIDER == "ollama":
+        try:
+            subprocess.run(
+                ["ollama", "stop", LLM_MODEL],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except Exception:
+            pass
+    _OLLAMA_STOPPED = True
 
-    resp = model.generate_content(prompt, generation_config={"temperature": 0.05})
-    try:
-        content = resp.text
-    except Exception as e:  # pragma: no cover - network failures
-        raise RuntimeError("Unexpected Gemini response") from e
 
-    logging.info("LLM raw response [%s]: %s", lang, content)
 
-    try:
-        data = _extract_json(content)
-        canon_val = data.get("canonical")
-        canonical = str(canon_val).strip() if isinstance(canon_val, str) else None
-        syns = cast(List[str], data.get("synonyms") or [])
-        variants = [s.strip() for s in syns if isinstance(s, str)]
-        logging.debug(
-            "Gemini response for '%s' [%s]: canonical=%s synonyms=%s",
-            term,
-            lang,
-            canonical,
-            variants,
-        )
-        return canonical, variants
-    except Exception as e:  # pragma: no cover - parsing errors
-        raise RuntimeError("Failed to parse Gemini response") from e
+def _query_llm(term_data: Dict[str, str]) -> Dict[str, List[str]]:
+    provider = LLM_PROVIDER
+    prompt = _build_prompt(term_data)
+    content: str
+    if provider == "gemini":
+        try:
+            import google.generativeai as genai  # type: ignore
+        except Exception as e:  # pragma: no cover - optional dependency
+            raise RuntimeError("google.generativeai package not available") from e
+        api_key = _get_api_key(provider)
+        if not api_key:
+            raise RuntimeError("API key not configured")
+        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
+        model_cls = getattr(genai, "GenerativeModel")  # type: ignore[attr-defined]
+        model = model_cls(LLM_MODEL)
+        resp = model.generate_content(prompt, generation_config={"temperature": 0.05})
+        try:
+            resp_text = resp.text
+            if not isinstance(resp_text, str):
+                raise RuntimeError("Unexpected Gemini response")
+            content = resp_text
+        except Exception as e:  # pragma: no cover - network failures
+            raise RuntimeError("Unexpected Gemini response") from e
+    else:
+        try:
+            from openai import OpenAI  # type: ignore
+        except Exception as e:  # pragma: no cover - optional dependency
+            raise RuntimeError("openai package not available") from e
+        api_key = _get_api_key(provider)
+        base_url = _get_base_url(provider)
+        if provider == "ollama":
+            _stop_ollama_model_once()
+            if not api_key:
+                api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+            base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
+        else:
+            if not api_key:
+                raise RuntimeError("API key not configured")
+        base_url = base_url or "https://api.openai.com/v1"
+        if not base_url.rstrip("/").endswith("/v1"):
+            base_url = f"{base_url.rstrip('/')}/v1"
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        try:
+            if provider == "ollama":
+                with _OLLAMA_LOCK:
+                    resp = chat_completion_safe(
+                        model=LLM_MODEL,
+                        messages=[
+                            {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        timeout=60,
+                        client=client,
+                    )
+            else:
+                resp = chat_completion_safe(
+                    model=LLM_MODEL,
+                    messages=[
+                        {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=1,
+                    timeout=60,
+                    client=client,
+                )
+            resp_content = resp.choices[0].message.content
+            if isinstance(resp_content, list):
+                content = "".join(
+                    part.get("text", "") for part in resp_content if isinstance(part, dict)
+                )
+            elif isinstance(resp_content, str):
+                content = resp_content
+            else:
+                raise RuntimeError("Unexpected response")
+        except Exception as e:  # pragma: no cover - network failures
+            raise RuntimeError(f"{provider} error: {e}") from e
+    logging.info("LLM raw response: %s", content)
+    data = _extract_json(content)
+    result: Dict[str, List[str]] = {}
+    for lang in ("de", "fr", "it"):
+        vals = data.get(lang) or []
+        if isinstance(vals, list):
+            result[lang] = [str(v).strip() for v in vals if isinstance(v, str)]
+        else:
+            result[lang] = []
+    return result
 
 
 def propose_synonyms_incremental(
@@ -250,38 +351,23 @@ def propose_synonyms_incremental(
             if isinstance(it, str):
                 trans["it"] = it.strip()
             lkn_val = item.get("lkn") or item.get("LKN")
-            if isinstance(lkn_val, str):
-                lkn = lkn_val
+            if isinstance(lkn_val, (str, int)):
+                lkn = str(lkn_val)
             translations = trans or None
         else:
             term_de = str(item)
             translations = None
 
+        logging.info("LLM request for %s (%s)", term_de, lkn or "-")
         by_lang: Dict[str, List[str]] = {}
+        term_data = {"de": term_de}
+        if translations:
+            term_data.update(translations)
         try:
-            for lang in languages:
-                if lang == "de":
-                    lang_term = term_de
-                    tr = None
-                else:
-                    lang_term = translations.get(lang) if translations else None
-                    if lang_term:
-                        tr = term_de
-                    else:
-                        lang_term = term_de
-                        tr = None
-                canonical_val, syns = _call_gemini_for_language(
-                    lang_term, lang, tr
-                )
-                lang_list: List[str] = []
-                if lang != "de" and canonical_val:
-                    lang_list.append(canonical_val)
-                lang_list.extend(syns)
-                by_lang[lang] = _clean_variants(lang_list)
+            by_lang = _query_llm(term_data)
         except Exception as e:  # pragma: no cover - network failures
             logging.warning("LLM lookup failed for '%s': %s", term_de, e)
-            for lang in languages:
-                by_lang.setdefault(lang, [])
+            by_lang = {lang: [] for lang in languages}
 
         by_lang = _filter_cross_language_synonyms(by_lang)
 

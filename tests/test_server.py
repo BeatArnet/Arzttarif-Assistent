@@ -34,6 +34,12 @@ MOCK_LLM_RESPONSE = {
     "begruendung_llm": "Die Konsultation dauerte 17 Minuten, was zu 1x CA.00.0010 und 12x CA.00.0020 führt."
 }
 
+
+def test_parse_llm_json_response_with_trailing_text():
+    raw = json.dumps(MOCK_LLM_RESPONSE) + " Hinweis"
+    parsed = server.parse_llm_json_response(raw)
+    assert parsed["identified_leistungen"][0]["lkn"] == "CA.00.0010"
+
 def test_analyze_billing_with_mocked_llm():
     """
     Tests the /api/analyze-billing endpoint with a mocked LLM response.
@@ -76,6 +82,42 @@ def test_analyze_billing_with_mixed_lkn():
             response = client.post('/api/analyze-billing', json={'inputText': 'C08.SA.0700'})
             assert response.status_code == 200
 
+
+def test_french_context_localization():
+    captured = {}
+
+    def fake_stage1(user_input, katalog_context, model, lang, **kwargs):
+        captured['context'] = katalog_context
+        return MOCK_LLM_RESPONSE
+
+    with patch('server.call_gemini_stage1', side_effect=fake_stage1):
+        with server.app.test_client() as client:
+            resp = client.post('/api/analyze-billing', json={'inputText': 'AA.00.0010', 'lang': 'fr'})
+            assert resp.status_code == 200
+
+    context = captured.get('context', '')
+    assert 'Consultation médicale' in context
+    assert 'Ärztliche Konsultation' not in context
+    assert 'Consultazione medica' not in context
+
+
+def test_italian_context_localization():
+    captured = {}
+
+    def fake_stage1(user_input, katalog_context, model, lang, **kwargs):
+        captured['context'] = katalog_context
+        return MOCK_LLM_RESPONSE
+
+    with patch('server.call_gemini_stage1', side_effect=fake_stage1):
+        with server.app.test_client() as client:
+            resp = client.post('/api/analyze-billing', json={'inputText': 'AA.00.0010', 'lang': 'it'})
+            assert resp.status_code == 200
+
+    context = captured.get('context', '')
+    assert 'Consultazione medica' in context
+    assert 'Ärztliche Konsultation' not in context
+    assert 'Consultation médicale' not in context
+
 def test_submit_feedback_local(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -100,3 +142,4 @@ def test_version_endpoint():
         assert resp.status_code == 200
         data = resp.get_json()
         assert data.get('version') == server.APP_VERSION
+        assert data.get('tarif_version') == server.TARIF_VERSION

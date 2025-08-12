@@ -10,7 +10,7 @@ Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistente
    ```bash
    python server.py
    ```
-   Anschliessend erreichen Sie die Weboberfläche unter [http://127.0.0.1:8000](http://127.0.0.1:8000).
+   Anschliessend erreichen Sie die Weboberfläche unter [http://127.0.0.1:8000].
 
 ## 2. Erste Schritte in der Weboberfläche
 
@@ -39,12 +39,40 @@ Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gew
 * **Tokenbedarf:** Ohne RAG werden sämtliche Katalogdaten an das LLM gesendet (mehr als 600 000 Tokens). Mit aktiviertem RAG werden nur die relevantesten Einträge übermittelt (ca. 10 000 Tokens).
 * **Unvollständige Datenbasis:** Die bereitgestellten JSON-Dateien und Regeln können Lücken enthalten. Spezielle Fälle oder neue Tarifpositionen sind möglicherweise nicht abgedeckt.
 * **Manuelle Prüfung erforderlich:** Die Vorschläge des Assistenten ersetzen nicht die finale fachliche Beurteilung. Kontrollieren Sie die Resultate und vergleichen Sie sie mit den offiziellen Angaben.
+* **Synonymliste abhängig vom Datenstand:** Die verwendeten Synonyme stammen aus dem Leistungskatalog `LKAAT_Leistungskatalog.json`. Bei einer neuen Version der Tarifdaten müssen Synonymtabelle und Embeddings neu erzeugt werden, sonst werden neue Begriffe eventuell nicht erkannt.
 
 ## 5. Tipps für erfahrene Nutzende
 
 * **CHOP- und ICD-Suche:** Über die Felder für CHOP-Code und ICD können Sie direkt nach Eingriffen bzw. Diagnosen suchen und diese in die Analyse einbeziehen.
 * **Ergebnisse nachvollziehen:** Der Assistent zeigt bei Pauschalen die geprüften Bedingungen an. Bei TARDOC-Einzelleistungen werden die relevanten Regeln mitgeliefert. Nutzen Sie diese Informationen, um die Entscheidung nachzuvollziehen.
 * **Feedback-Funktion:** Falls Sie Verbesserungswünsche haben, können Sie über den Button "Feedback geben" eine kurze Nachricht senden.
+
+## 6. Synonymverwaltung
+
+Der Assistent nutzt eine Synonymliste, um unterschiedliche Formulierungen
+derselben Leistung zu erkennen. Die Datei `data/synonyms.json` wird beim
+Start automatisch geladen. Eigene Einträge können mit dem Werkzeug
+`python synonyms/synonyms.py` (GUI) oder über die Kommandozeile mit
+`python -m synonyms.cli generate` ergänzt werden. Nach Änderungen muss der
+Server neu gestartet werden.
+
+## 7. Vergleich verschiedener LLMs
+
+Zur Bewertung alternativer Sprachmodelle steht das Skript
+`llm_vergleich.py` zur Verfügung. Es führt die Testbeispiele aus
+`data/baseline_results.json` für jede in `llm_vergleich_results.json`
+definierte Konfiguration aus. Dort kann pro Stufe ein eigener Provider und ein
+eigenes Modell angegeben werden; andernfalls gelten `Provider` und `Model` für
+beide Stufen. Das Skript protokolliert Korrektheit, Laufzeit sowie den
+Tokenverbrauch und ermöglicht so den Vergleich verschiedener Anbieter.
+
+## 8. RAG-Modus
+
+Mit aktiviertem RAG-Modus werden vor einer Anfrage die passendsten
+Leistungskatalogeinträge per Vektor-Suche ermittelt und an das LLM
+übermittelt. Die Embeddings erzeugen Sie einmalig mit
+`python generate_embeddings.py`; in `config.ini` wird der Modus über den
+Abschnitt `[RAG]` gesteuert.
 
 ---
 

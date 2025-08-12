@@ -568,7 +568,8 @@
         <div class="version-info">
             <span id="versionSpan">V?</span>, Arnet Konsilium,
             <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>,
-            2025
+            2025<br>
+            <span id="tarifVersionSpan"></span>
         </div>
     </div>
 
@@ -654,6 +655,8 @@
             .then(d => {
                 const span = document.getElementById('versionSpan');
                 if (span && d.version) { span.textContent = 'V' + d.version; }
+                const tarifSpan = document.getElementById('tarifVersionSpan');
+                if (tarifSpan && d.tarif_version) { tarifSpan.textContent = d.tarif_version; }
             });
         let examplesData = [];
         fetch("data/beispiele.json")

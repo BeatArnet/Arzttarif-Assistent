@@ -21,6 +21,11 @@ function t(key, lang){
 let examplesData = [];
 let currentLang = 'de';
 
+let tokenTotals = {
+    llm1: { input: 0, output: 0 },
+    llm2: { input: 0, output: 0 }
+};
+
 function applyLanguage(lang){
     currentLang = lang;
     document.documentElement.lang = lang;
@@ -33,6 +38,7 @@ function applyLanguage(lang){
     document.getElementById('qcResFr').textContent = t('qcColResFr', lang);
     document.getElementById('qcResIt').textContent = t('qcColResIt', lang);
     buildTable();
+    updateTokenSummary();
 }
 
 function loadExamples(){
@@ -89,6 +95,15 @@ function runTest(id, lang) {
             if (!cell) {
                 resolve({ id, lang, passed: false, error: 'Cell not found' });
                 return;
+            }
+            if (res.token_usage) {
+                const t1 = res.token_usage.llm_stage1 || {};
+                const t2 = res.token_usage.llm_stage2 || {};
+                tokenTotals.llm1.input += t1.input_tokens || 0;
+                tokenTotals.llm1.output += t1.output_tokens || 0;
+                tokenTotals.llm2.input += t2.input_tokens || 0;
+                tokenTotals.llm2.output += t2.output_tokens || 0;
+                updateTokenSummary();
             }
             if (res.passed) {
                 cell.textContent = t('qcPass', currentLang);
@@ -174,6 +189,8 @@ async function testAll() {
 
     totalTests = 0;
     passedTests = 0;
+    tokenTotals = { llm1: { input: 0, output: 0 }, llm2: { input: 0, output: 0 } };
+    updateTokenSummary();
 
     const exampleIds = Object.keys(examplesData);
     totalTests = exampleIds.length * 3;
@@ -199,6 +216,17 @@ function updateOverallSummary() {
     } else {
         summaryDiv.textContent = '';
     }
+}
+
+function updateTokenSummary() {
+    const div = document.getElementById('tokenSummary');
+    const line1 = t('qcTokensLlm1', currentLang)
+        .replace('{in}', tokenTotals.llm1.input)
+        .replace('{out}', tokenTotals.llm1.output);
+    const line2 = t('qcTokensLlm2', currentLang)
+        .replace('{in}', tokenTotals.llm2.input)
+        .replace('{out}', tokenTotals.llm2.output);
+    div.innerHTML = line1 + '<br>' + line2;
 }
 
 document.getElementById('testAllBtn').addEventListener('click', testAll);

@@ -10,6 +10,7 @@ from . import (
     scorer,
     curator,
     expander,
+    diff_view,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "scorer",
     "curator",
     "expander",
+    "diff_view",
 ]

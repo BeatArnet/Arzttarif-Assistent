@@ -6,12 +6,6 @@
         "DignitaetText_i": "Nessun valore intrinseco qualitativo"
     },
     {
-        "DignitaetCode": "0002",
-        "DignitaetText": "Allgemeine Innere Medizin",
-        "DignitaetText_f": "Médecine interne générale",
-        "DignitaetText_i": "Medicina interna generale"
-    },
-    {
         "DignitaetCode": "0008",
         "DignitaetText": "Nephrologie",
         "DignitaetText_f": "Néphrologie",
@@ -427,6 +421,18 @@
     },
     {
         "DignitaetCode": "3000",
+        "DignitaetText": "Praktischer Arzt / Praktische Ärztin",
+        "DignitaetText_f": "Médecin praticien",
+        "DignitaetText_i": "Medico generico"
+    },
+    {
+        "DignitaetCode": "3010",
+        "DignitaetText": "Allgemeine Innere Medizin",
+        "DignitaetText_f": "Médecine interne générale",
+        "DignitaetText_i": "Medicina interna generale"
+    },
+    {
+        "DignitaetCode": "3020",
         "DignitaetText": "Klinische Pharmakologie und Toxikologie",
         "DignitaetText_f": "Pharmacologie et toxicologie cliniques",
         "DignitaetText_i": "Farmacologia e tossicologia clinica"
@@ -616,6 +622,12 @@
         "DignitaetText": "FA Zerebrovaskuläre Sonographie (SGKN)",
         "DignitaetText_f": "AFC Sonographie cérébrovasculaires (SSNC)",
         "DignitaetText_i": "AFC Malattie cerebrovascolari (SSNC)"
+    },
+    {
+        "DignitaetCode": "9926",
+        "DignitaetText": "FA Schlafmedizin (SGSSC)",
+        "DignitaetText_f": "AFC Médecine du sommeil (SSSSC)",
+        "DignitaetText_i": "AFC Medicina del sonno (SSRSMSC)"
     },
     {
         "DignitaetCode": "9928",
@@ -876,12 +888,6 @@
         "DignitaetText_i": "AFC Ipnosi medica (SMSH/GHypS)"
     },
     {
-        "DignitaetCode": "9988",
-        "DignitaetText": "FA Schlafmedizin (SGSSC)",
-        "DignitaetText_f": "AFC Médecine du sommeil (SSSSC)",
-        "DignitaetText_i": "AFC Medicina del sonno (SSRSMSC)"
-    },
-    {
         "DignitaetCode": "9989",
         "DignitaetText": "Alle (Konsilium)",
         "DignitaetText_f": "Toutes les valeurs intrinsèques (consilium)",
@@ -910,12 +916,6 @@
         "DignitaetText": "FA Sportmedizin (SGSM)",
         "DignitaetText_f": "AFC Médecine du sport (SSMS)",
         "DignitaetText_i": "AFC Medicina sportiva (SGSM)"
-    },
-    {
-        "DignitaetCode": "9994",
-        "DignitaetText": "Praktischer Arzt / Praktische Ärztin",
-        "DignitaetText_f": "Médecin praticien",
-        "DignitaetText_i": "Medico generico"
     },
     {
         "DignitaetCode": "9996",

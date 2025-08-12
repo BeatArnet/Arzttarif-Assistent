@@ -15,14 +15,14 @@
     "value_FR": "Consultation 10 min, ablation verrue 5 min, passage en dermatologie",
     "extendedValue_FR": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes); temps de changement, salle traitement dermatologique",
     "value_IT": "Consultazione 10 minuti, rimozione di una verruca 5 minuti, passaggio a dermatologia",
-    "extendedValue_IT": "Consulta specialistica dermatologica  de 10 minutos; asportazione di una verruca con cucchiaio tagliente, que tarda 5 minutos, compreso tempo di cambio per dermatologia"
+    "extendedValue_IT": "ConsultaConsultazione 10 minuti e rimozione della verruca con un cucchiaio affilato 5 minuti, con tempo di passaggio alla dermatologia"
   },
   {
     "label": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
     "value_DE": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
     "extendedValue_DE": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
-    "value_FR": "Consultation de 25 minutes, grand examen rhumatologique",
-    "extendedValue_FR": "Consultation médicale de 25 minutes, grand examen rhumatologique",
+    "value_FR": "Consultation de 25 minutes, examen rhumatologique complet",
+    "extendedValue_FR": "Consultation de 25 minutes, examen rhumatologique complet",
     "value_IT": "Consultazione di 25 minuti, grande esame reumatologico",
     "extendedValue_IT": "Consultazione medica di 25 minuti, grande esame reumatologico"
   },
@@ -83,11 +83,11 @@
   {
     "label": "Blinddarmentfernung",
     "value_DE": "Blinddarmentfernung",
-    "extendedValue_DE": "Blinddarmentfernung als alleinige Leistung",
-    "value_FR": "Appendicectomie comme acte isolé",
-    "extendedValue_FR": "Appendicectomie à titre isolé",
-    "value_IT": "Appendicectomia come prestazione singola",
-    "extendedValue_IT": "Appendicectomia come prestazione singola"
+    "extendedValue_DE": "Blinddarmentfernung",
+    "value_FR": "Appendicectomie",
+    "extendedValue_FR": "Appendicectomie",
+    "value_IT": "Appendicectomia",
+    "extendedValue_IT": "Appendicectomia"
   },
   {
     "label": "Korrektur Hallux valgus",
@@ -130,9 +130,9 @@
     "value_DE": "Fingerfraktur, Nagelung mit Anästhesie",
     "extendedValue_DE": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
     "value_FR": "Fracture du doigt, enclouage avec anesthésie",
-    "extendedValue_FR": "Fracture du doigt, enclouage avec anesthésie par l'anesthésiste",
-    "value_IT": "Frattura del dito, chiodaggio con anestesia",
-    "extendedValue_IT": " Frattura di un dito della mano, chiodaggio, inchiodamento con anestesia da parte dell'anestesista"
+    "extendedValue_FR": "Fracture du doigt, enclouage avec anesthésie par un anesthésiste",
+    "value_IT": "Frattura delle dita, chiodatura con anestesia",
+    "extendedValue_IT": "Frattura delle dita, chiodatura con anestesia praticata da un'anestesista"
   },
   {
     "label": "Hypoglossusstimulator",
