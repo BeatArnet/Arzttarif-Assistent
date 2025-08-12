@@ -42,3 +42,23 @@ def test_expand_query_reverse_lookup(tmp_path):
     variants = expand_query("Arztbesuch", catalog)
     assert "Ärztliche Konsultation" in variants
     assert "Arztbesuch" in variants
+
+
+def test_expand_query_language_filtering():
+    entry = SynonymEntry(
+        "foo",
+        ["bar", "baz", "qux"],
+        by_lang={"de": ["bar"], "fr": ["baz"], "it": ["qux"]},
+    )
+    catalog = SynonymCatalog(entries={"foo": entry})
+    set_synonyms_enabled(True)
+
+    fr_variants = expand_query("foo", catalog, lang="fr")
+    assert set(fr_variants) == {"foo", "baz"}
+    assert "bar" not in fr_variants
+    assert "qux" not in fr_variants
+
+    it_variants = expand_query("foo", catalog, lang="it")
+    assert set(it_variants) == {"foo", "qux"}
+    assert "bar" not in it_variants
+    assert "baz" not in it_variants

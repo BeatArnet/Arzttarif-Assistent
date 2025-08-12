@@ -49,11 +49,13 @@ def expand_query(
     catalog: SynonymCatalog | None = None,
     *,
     lang: str | None = None,
-) -> List[Any]:
+) -> List[str]:
     """Return ``query`` plus any synonyms from ``catalog`` or :data:`_synonyms`.
 
     If ``query`` itself matches a known synonym, the canonical base term is
-    included in the result as well.
+    included in the result as well.  When ``lang`` is provided, only synonyms
+    for that language are considered, falling back to German if no entries are
+    found.
     """
 
     if not synonyms_enabled() or not isinstance(query, str):
@@ -70,7 +72,13 @@ def expand_query(
                 variants.append(base)
                 entry = catalog.entries.get(base)
         if entry:
-            variants.extend(entry.synonyms)
+            if lang:
+                syns = entry.by_lang.get(lang, [])
+                if not syns:
+                    syns = entry.by_lang.get("de", [])
+                variants.extend(syns)
+            else:
+                variants.extend(entry.synonyms)
 
     seen: Set[str] = set()
     deduped: List[str] = []

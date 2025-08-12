@@ -1,0 +1,907 @@
+[
+    {
+        "Provider": "openai",
+        "Model": "gpt-5",
+        "Price_Input_CHF": 1.13,
+        "Price_Output_CHF": 9.0,
+        "Kontext_Input": 200000,
+        "Kontext_Output": 200000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 48,
+        "InputTokens": 396,
+        "OutputTokens": 2193,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020; missing AR.00.0030"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "missing KF.05.0050; unexpected KF.05.0030"
+            }
+        ],
+        "Runtime_Seconds": 2293.375335454941,
+        "Prozent_Korrekt": 94.12,
+        "InputToken_CHF": 0.000447,
+        "OutputToken_CHF": 0.019737,
+        "Zeit_Stunden": 0.637
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-5-mini",
+        "Price_Input_CHF": 0.23,
+        "Price_Output_CHF": 1.8,
+        "Kontext_Input": 128000,
+        "Kontext_Output": 128000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 46,
+        "InputTokens": 396,
+        "OutputTokens": 2233,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AR.00.0030; unexpected AR.00.0140"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020; unexpected AA.00.0080"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "qty CA.00.0020: 10 != 15; missing CA.00.0030"
+            },
+            {
+                "id": "15",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            }
+        ],
+        "Runtime_Seconds": 1172.8026988506317,
+        "Prozent_Korrekt": 90.2,
+        "InputToken_CHF": 9.1e-05,
+        "OutputToken_CHF": 0.004019,
+        "Zeit_Stunden": 0.3258
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-5-nano",
+        "Price_Input_CHF": 0.05,
+        "Price_Output_CHF": 0.36,
+        "Kontext_Input": 64000,
+        "Kontext_Output": 64000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 31,
+        "InputTokens": 396,
+        "OutputTokens": 1909,
+        "Bemerkungen": [
+            {
+                "id": "1",
+                "lang": "it",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AR.00.0030"
+            },
+            {
+                "id": "2",
+                "lang": "fr",
+                "error": "missing AR.00.0030"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0010; missing AA.00.0020; missing AR.00.0030; unexpected AA.00.0080"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "missing KF.05.0050"
+            },
+            {
+                "id": "4",
+                "lang": "fr",
+                "error": "missing AA.00.0010; unexpected AA.00.0030"
+            },
+            {
+                "id": "4",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "qty CA.00.0020: 10 != 15; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "missing CA.00.0020; missing CG.15.0010; unexpected CG.00.0010"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "missing CA.00.0020; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "8",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != None"
+            },
+            {
+                "id": "11",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.43A', 'qty': 1} != {'code': 'C08.22A', 'qty': 1}"
+            },
+            {
+                "id": "12",
+                "lang": "de",
+                "error": "pauschale {'code': 'C04.51B', 'qty': 1} != None"
+            },
+            {
+                "id": "12",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C04.51B', 'qty': 1} != {'code': 'C99.80Z', 'qty': 1}"
+            },
+            {
+                "id": "14",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.30F', 'qty': 1} != None"
+            },
+            {
+                "id": "14",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30F', 'qty': 1} != None"
+            },
+            {
+                "id": "15",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30F', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.50A', 'qty': 1}"
+            }
+        ],
+        "Runtime_Seconds": 1084.4748601913452,
+        "Prozent_Korrekt": 60.78,
+        "InputToken_CHF": 2e-05,
+        "OutputToken_CHF": 0.000687,
+        "Zeit_Stunden": 0.3012
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-4.1",
+        "Price_Input_CHF": 2.7,
+        "Price_Output_CHF": 10.8,
+        "Kontext_Input": 128000,
+        "Kontext_Output": 128000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 48,
+        "InputTokens": 396,
+        "OutputTokens": 2193,
+        "Bemerkungen": [
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "missing CA.00.0030; missing CG.15.0010; unexpected CG.00.0150"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            }
+        ],
+        "Runtime_Seconds": 589.1704642772675,
+        "Prozent_Korrekt": 94.12,
+        "InputToken_CHF": 0.001069,
+        "OutputToken_CHF": 0.023684,
+        "Zeit_Stunden": 0.1637
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-4.1-mini",
+        "Price_Input_CHF": 0.72,
+        "Price_Output_CHF": 2.88,
+        "Kontext_Input": 64000,
+        "Kontext_Output": 64000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 38,
+        "InputTokens": 396,
+        "OutputTokens": 1979,
+        "Bemerkungen": [
+            {
+                "id": "1",
+                "lang": "it",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020; missing AR.00.0030; unexpected CA.00.0010; unexpected AR.00.0140"
+            },
+            {
+                "id": "2",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0010; missing AA.00.0020; missing AR.00.0030"
+            },
+            {
+                "id": "3",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "5",
+                "lang": "it",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "qty CA.00.0020: 10 != 5; missing CA.00.0030; missing CG.15.0010; unexpected MP.10.0020"
+            },
+            {
+                "id": "8",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != {'code': 'C08.10C', 'qty': 1}"
+            },
+            {
+                "id": "9",
+                "lang": "it",
+                "error": "pauschale {'code': 'C07.50Z', 'qty': 1} != None; unexpected GG.15.0080"
+            },
+            {
+                "id": "15",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != None; unexpected WA.10.0010"
+            }
+        ],
+        "Runtime_Seconds": 635.1325259208679,
+        "Prozent_Korrekt": 74.51,
+        "InputToken_CHF": 0.000285,
+        "OutputToken_CHF": 0.0057,
+        "Zeit_Stunden": 0.1764
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-4.1-nano",
+        "Price_Input_CHF": 0.18,
+        "Price_Output_CHF": 0.72,
+        "Kontext_Input": 32000,
+        "Kontext_Output": 32000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 19,
+        "InputTokens": 396,
+        "OutputTokens": 1429,
+        "Bemerkungen": [
+            {
+                "id": "1",
+                "lang": "de",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "1",
+                "lang": "it",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AA.00.0020; qty MK.05.0070: 5 != 1; missing AR.00.0030"
+            },
+            {
+                "id": "2",
+                "lang": "fr",
+                "error": "missing MK.05.0070; missing AR.00.0030"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "3",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0010; missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "4",
+                "lang": "de",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "4",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "4",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "5",
+                "lang": "de",
+                "error": "missing CA.00.0010; missing CA.00.0020; unexpected AA.00.0010"
+            },
+            {
+                "id": "5",
+                "lang": "it",
+                "error": "missing CA.00.0020"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "missing CA.00.0020; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "qty CA.00.0020: 10 != 5; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "missing CA.00.0020; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "7",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.50E', 'qty': 1} != None"
+            },
+            {
+                "id": "8",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != {'code': 'C08.50E', 'qty': 1}"
+            },
+            {
+                "id": "8",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != None; unexpected WA.10.0010"
+            },
+            {
+                "id": "9",
+                "lang": "fr",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "9",
+                "lang": "it",
+                "error": "pauschale {'code': 'C07.50Z', 'qty': 1} != {'code': 'C06.00A', 'qty': 1}"
+            },
+            {
+                "id": "12",
+                "lang": "de",
+                "error": "pauschale {'code': 'C04.51B', 'qty': 1} != {'code': 'C04.51D', 'qty': 1}"
+            },
+            {
+                "id": "12",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C04.51B', 'qty': 1} != None"
+            },
+            {
+                "id": "12",
+                "lang": "it",
+                "error": "pauschale {'code': 'C04.51B', 'qty': 1} != {'code': 'C04.51D', 'qty': 1}"
+            },
+            {
+                "id": "13",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "14",
+                "lang": "fr",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "14",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "15",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != None; unexpected AA.20.0010"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30F', 'qty': 1}"
+            },
+            {
+                "id": "17",
+                "lang": "fr",
+                "error": "missing AK.05.0020"
+            },
+            {
+                "id": "17",
+                "lang": "it",
+                "error": "HTTP 500"
+            }
+        ],
+        "Runtime_Seconds": 438.1293692588806,
+        "Prozent_Korrekt": 37.25,
+        "InputToken_CHF": 7.1e-05,
+        "OutputToken_CHF": 0.001029,
+        "Zeit_Stunden": 0.1217
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-4o",
+        "Price_Input_CHF": 2.25,
+        "Price_Output_CHF": 9.0,
+        "Kontext_Input": 128000,
+        "Kontext_Output": 128000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 31,
+        "InputTokens": 396,
+        "OutputTokens": 1738,
+        "Bemerkungen": [
+            {
+                "id": "1",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "qty MK.05.0070: 5 != 1"
+            },
+            {
+                "id": "2",
+                "lang": "fr",
+                "error": "qty MK.05.0070: 5 != 1"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010; unexpected CA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "4",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010; unexpected CA.00.0020"
+            },
+            {
+                "id": "4",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "5",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "7",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "8",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != {'code': 'C08.10C', 'qty': 1}"
+            },
+            {
+                "id": "9",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C07.50Z', 'qty': 1} != {'code': 'C08.80B', 'qty': 1}"
+            },
+            {
+                "id": "9",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "11",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "13",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "16",
+                "lang": "it",
+                "error": "HTTP 500"
+            },
+            {
+                "id": "17",
+                "lang": "it",
+                "error": "HTTP 500"
+            }
+        ],
+        "Runtime_Seconds": 707.4519436359406,
+        "Prozent_Korrekt": 60.78,
+        "InputToken_CHF": 0.000891,
+        "OutputToken_CHF": 0.015642,
+        "Zeit_Stunden": 0.1965
+    },
+    {
+        "Provider": "openai",
+        "Model": "gpt-4o-mini",
+        "Price_Input_CHF": 0.14,
+        "Price_Output_CHF": 0.54,
+        "Kontext_Input": 64000,
+        "Kontext_Output": 64000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 31,
+        "InputTokens": 396,
+        "OutputTokens": 1996,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AA.00.0020; qty MK.05.0070: 5 != 1; missing AR.00.0030"
+            },
+            {
+                "id": "2",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020; qty MK.05.0070: 5 != 1; missing AR.00.0030"
+            },
+            {
+                "id": "3",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "4",
+                "lang": "de",
+                "error": "qty AA.00.0020: 10 != 1"
+            },
+            {
+                "id": "4",
+                "lang": "it",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "qty CA.00.0020: 10 != 1; missing CA.00.0030; missing CG.15.0010"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "qty CA.00.0020: 10 != 5; missing CA.00.0030"
+            },
+            {
+                "id": "9",
+                "lang": "it",
+                "error": "pauschale {'code': 'C07.50Z', 'qty': 1} != None; unexpected GG.15.0080"
+            },
+            {
+                "id": "14",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30F', 'qty': 1} != {'code': 'C08.50D', 'qty': 1}"
+            },
+            {
+                "id": "14",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.30F', 'qty': 1} != {'code': 'C08.40H', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "15",
+                "lang": "it",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.50A', 'qty': 1}"
+            },
+            {
+                "id": "17",
+                "lang": "de",
+                "error": "qty AK.05.0020: 20 != 1"
+            },
+            {
+                "id": "17",
+                "lang": "fr",
+                "error": "missing AK.05.0020; unexpected JE.00.0010"
+            },
+            {
+                "id": "17",
+                "lang": "it",
+                "error": "missing AK.05.0020; unexpected JE.00.0010"
+            }
+        ],
+        "Runtime_Seconds": 560.161199092865,
+        "Prozent_Korrekt": 60.78,
+        "InputToken_CHF": 5.5e-05,
+        "OutputToken_CHF": 0.001078,
+        "Zeit_Stunden": 0.1556
+    },
+    {
+        "Provider": "gemini",
+        "Model": "gemini-2.5-pro",
+        "Price_Input_CHF": 1.13,
+        "Price_Output_CHF": 9.0,
+        "Kontext_Input": 200000,
+        "Kontext_Output": 200000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 46,
+        "InputTokens": 396,
+        "OutputTokens": 2153,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020; missing AR.00.0030"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected KF.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "qty CA.00.0020: 10 != 15; missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "qty CA.00.0020: 10 != 15; missing CA.00.0030"
+            },
+            {
+                "id": "8",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != {'code': 'C08.50E', 'qty': 1}"
+            }
+        ],
+        "Runtime_Seconds": 1389.5353198051453,
+        "Prozent_Korrekt": 90.2,
+        "InputToken_CHF": 0.000447,
+        "OutputToken_CHF": 0.019377,
+        "Zeit_Stunden": 0.386
+    },
+    {
+        "Provider": "gemini",
+        "Model": "gemini-2.5-flash",
+        "Price_Input_CHF": 0.27,
+        "Price_Output_CHF": 2.25,
+        "Kontext_Input": 1000000,
+        "Kontext_Output": 1000000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 48,
+        "InputTokens": 396,
+        "OutputTokens": 2177,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "missing AA.00.0020; missing AR.00.0030"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0020"
+            },
+            {
+                "id": "11",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.43A', 'qty': 1} != None"
+            }
+        ],
+        "Runtime_Seconds": 714.1409296989441,
+        "Prozent_Korrekt": 94.12,
+        "InputToken_CHF": 0.000107,
+        "OutputToken_CHF": 0.004898,
+        "Zeit_Stunden": 0.1984
+    },
+    {
+        "Provider": "gemini",
+        "Model": "gemini-2.5-flash-lite",
+        "Price_Input_CHF": 0.09,
+        "Price_Output_CHF": 0.36,
+        "Kontext_Input": 1000000,
+        "Kontext_Output": 1000000,
+        "Total_Tests": 51,
+        "Progress_Index": 51,
+        "Passed": 38,
+        "InputTokens": 396,
+        "OutputTokens": 2239,
+        "Bemerkungen": [
+            {
+                "id": "2",
+                "lang": "de",
+                "error": "missing AA.00.0010; qty AA.00.0020: 5 != 1; qty MK.05.0070: 5 != 1; missing AR.00.0030; unexpected CA.00.0010; unexpected AR.00.0010"
+            },
+            {
+                "id": "2",
+                "lang": "it",
+                "error": "qty MK.05.0070: 5 != 1"
+            },
+            {
+                "id": "3",
+                "lang": "de",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010; unexpected CA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "fr",
+                "error": "missing AA.00.0010; missing AA.00.0020; unexpected CA.00.0010; unexpected CA.00.0020"
+            },
+            {
+                "id": "3",
+                "lang": "it",
+                "error": "qty AA.00.0020: 15 != 2"
+            },
+            {
+                "id": "6",
+                "lang": "de",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "fr",
+                "error": "qty CA.00.0020: 10 != 5; missing CA.00.0030"
+            },
+            {
+                "id": "6",
+                "lang": "it",
+                "error": "missing CA.00.0030"
+            },
+            {
+                "id": "8",
+                "lang": "de",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != None; unexpected WA.10.0010"
+            },
+            {
+                "id": "8",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.50A', 'qty': 1} != {'code': 'C08.10C', 'qty': 1}"
+            },
+            {
+                "id": "9",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C07.50Z', 'qty': 1} != None; unexpected GG.15.0080"
+            },
+            {
+                "id": "15",
+                "lang": "fr",
+                "error": "pauschale {'code': 'C08.30E', 'qty': 1} != {'code': 'C08.30C', 'qty': 1}"
+            },
+            {
+                "id": "17",
+                "lang": "de",
+                "error": "qty AK.05.0020: 20 != 2"
+            }
+        ],
+        "Runtime_Seconds": 542.4246935844421,
+        "Prozent_Korrekt": 74.51,
+        "InputToken_CHF": 3.6e-05,
+        "OutputToken_CHF": 0.000806,
+        "Zeit_Stunden": 0.1507
+    }
+]

@@ -71,22 +71,50 @@ python generate_embeddings.py
 Ohne RAG müssen beim LLM mehr als 600 000 Tokens verarbeitet werden. Durch die
 Embedding-Suche sinkt der Bedarf auf rund 10 000 Tokens pro Anfrage.
 
-**3.5. Umgebungsvariablen konfigurieren**
+**3.5. Synonymverwaltung aktualisieren (optional)**
+Um Synonyme zu erweitern oder neu zu generieren, steht das Paket im
+Verzeichnis `synonyms/` zur Verfügung. Starte das GUI mit
+`python synonyms/synonyms.py` oder verwende die Kommandozeile:
+```bash
+python -m synonyms.cli generate --output data/synonyms.json
+```
+Nach Änderungen muss der Server neu gestartet und gegebenenfalls die
+Embeddings neu erstellt werden.
+
+**3.6. Umgebungsvariablen konfigurieren**
 Erstelle eine Datei namens `.env` im Projektstammverzeichnis (diese Datei wird durch `.gitignore` ignoriert).
 Inhalt der `.env`-Datei:
 ```env
-GEMINI_API_KEY="DEIN_GEMINI_API_KEY"
+SYNONYM_LLM_API_KEY="DEIN_API_KEY"
+SYNONYM_LLM_MODEL="DEIN_MODELL"
 GITHUB_TOKEN="DEIN_GITHUB_TOKEN"
 GITHUB_REPO="USER/REPO"
 ```
-Ersetze `DEIN_GEMINI_API_KEY` durch deinen Schlüssel.
-Wenn du Feedback automatisch als GitHub-Issue erfassen möchtest, musst du zusätzlich `GITHUB_TOKEN` und `GITHUB_REPO` setzen. `GITHUB_REPO` sollte im Format `benutzername/repository` angegeben werden. **Der bereitgestellte Token läuft am 19.07.2026 ab.**
+Ersetze `DEIN_API_KEY` und `DEIN_MODELL` durch deine Werte. Die Verwendung des LLMs wird in
+`config.ini` über `llm_provider` und `llm_model` (Abschnitt `[SYNONYMS]`)
+gesteuert. Standardmässig ist ein lokaler Ollama‑Server mit dem Modell
+`gpt-oss-20b` konfiguriert. Für Gemini setze `llm_provider = gemini` und
+hinterlege den API‑Schlüssel in `SYNONYM_LLM_API_KEY`. Bei Bedarf kann die Ollama‑Adresse über
+`OLLAMA_URL` in der `.env` überschrieben werden. Wenn du Feedback automatisch als
+GitHub-Issue erfassen möchtest, musst du zusätzlich `GITHUB_TOKEN` und
+`GITHUB_REPO` setzen. `GITHUB_REPO` sollte im Format
+`benutzername/repository` angegeben werden. **Der bereitgestellte Token läuft am
+19.07.2026 ab.**
 
-**3.6. Anwendung lokal starten**
+**3.7. Anwendung lokal starten**
 ```bash
 python server.py
 ```
 Der Server startet standardmässig auf `http://127.0.0.1:8000`.
+
+**3.8. LLM-Vergleich durchführen (optional)**
+In `llm_vergleich_results.json` lassen sich verschiedene Modelle definieren,
+die mit `llm_vergleich.py` automatisch gegen die Beispiele aus
+`data/baseline_results.json` getestet werden. Für jede Stufe kann ein eigener
+Provider und ein eigenes Modell (`Stage1Provider`/`Stage1Model` bzw.
+`Stage2Provider`/`Stage2Model`) angegeben werden; ansonsten gelten `Provider`
+und `Model` für beide Stufen. Das Skript schreibt Korrektheit, Laufzeit und
+Tokenverbrauch pro Konfiguration zurück in die JSON.
 
 ## 4. Deployment auf Render.com
 

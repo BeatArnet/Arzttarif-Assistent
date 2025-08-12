@@ -60,6 +60,17 @@ Enthält verschiedenste Helfer:
 - `compute_token_doc_freq()` und `rank_leistungskatalog_entries()` – unterstützen das Ranking von LKN anhand der Texte im Leistungskatalog.
 - Zusätzlich einfache Übersetzungen (`translate`, `translate_rule_error_message`) und HTML‑Hilfen.
 
+### Synonymverwaltung
+
+Der Synonymkatalog liegt in `data/synonyms.json` und wird beim Start des
+Servers geladen. Das Paket im Verzeichnis `synonyms/` bietet sowohl eine
+GUI (`python synonyms/synonyms.py`) als auch eine CLI
+(`python -m synonyms.cli generate`), um neue Vorschläge zu erzeugen oder
+Einträge zu kuratieren. Über den Abschnitt `[Synonyms]` in `config.ini`
+lässt sich steuern, ob die Liste genutzt wird und wie sie heisst. Die
+Synonyme fliessen in die Stichwortsuche sowie in den Aufbau der
+Embeddings ein.
+
 ### RAG-Modus und Embeddings
 
 Ab Version 2.6 kann der Kontext für das LLM stark verkleinert werden. Dazu werden
@@ -69,6 +80,29 @@ gespeichert. Ist in `config.ini` unter `[RAG]` der Wert `enabled = 1` gesetzt,
 werden beim Aufruf von `/api/analyze-billing` nur die passendsten Einträge an das
 LLM geschickt.
 Ohne RAG umfasst der Prompt mehr als 600 000 Tokens; mit RAG genügen rund 10 000.
+
+Der Embedding‑Generator berücksichtigt dabei auch Synonyme. `generate_embeddings.py`
+lädt den Synonymkatalog aus `data/synonyms.json` und fügt alle dort hinterlegten
+Varianten den Beschreibungstexten der jeweiligen LKN hinzu, bevor der Vektor
+berechnet wird. Dadurch landet jede bekannte Formulierung der Leistung im
+Embedding und steht später für die semantische Suche zur Verfügung.
+
+Bei der Ermittlung der Leistungskandidaten für LLM 1 nutzt `server.py`
+dieselben Synonyme: über `expand_query` werden Eingaben des Nutzers um passende
+Begriffe ergänzt, direkte Treffer in der Synonymliste liefern sofort die
+zugehörigen LKN‑Codes. Die Embedding‑Suche verwendet hingegen ausschliesslich den
+vorverarbeiteten Originaltext ohne Synonym‑Erweiterung.
+
+### LLM-Vergleich
+
+Das Skript `llm_vergleich.py` testet verschiedene LLM-Provider und Modelle gegen
+die in `data/baseline_results.json` hinterlegten Beispiele. In
+`llm_vergleich_results.json` lässt sich pro Stufe ein eigener Provider und ein
+eigenes Modell (`Stage1Provider`/`Stage1Model` bzw. `Stage2Provider`/`Stage2Model`)
+angeben; fehlen diese Felder, gelten `Provider` und `Model` für beide Stufen. Für
+jede Konfiguration werden Korrektheitsquote, Laufzeit und der benötigte
+Tokenumfang ermittelt und im JSON gespeichert, sodass sich Kosten und Qualität
+gegenüberstellen lassen.
 
 ## 4. Frontend
 
@@ -87,6 +121,22 @@ ausgeführt werden.
 ## 6. Daten und Konfiguration
 
 Im Ordner `data/` liegen sämtliche JSON‑Dateien für Leistungskatalog, TARDOC‑Informationen und Pauschalen. Grosse Dateien werden über Git LFS versioniert. Ein API‑Key für Google Gemini wird in einer `.env`‑Datei hinterlegt (`GEMINI_API_KEY`). Weitere optionale Variablen (`GITHUB_TOKEN`, `GITHUB_REPO`) ermöglichen die automatische Erstellung von Feedback‑Issues.
+
+### Aktualisierung der Datenbasis
+
+Synonyme und Embeddings sind direkt an die Version des Leistungskatalogs gebunden. Die mitgelieferte `synonyms.json` wurde aus den Beschreibungen des `LKAAT_Leistungskatalog.json` erstellt. Sobald dieser Katalog oder andere Daten aktualisiert werden, muss der Synonymkatalog neu generiert werden, z. B. mit
+
+```
+python -m synonyms.cli generate --output data/synonyms.json
+```
+
+oder per GUI mit `python synonyms/synonyms.py`. Anschliessend müssen die Embeddings über
+
+```
+python generate_embeddings.py
+```
+
+neu erstellt werden, damit die Suche neue LKNs und Begriffe berücksichtigt.
 
 ### Dateiumbenennungen ab Version 1.1
 

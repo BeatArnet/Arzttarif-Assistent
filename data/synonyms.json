@@ -9,7 +9,11 @@
         "Erstgespräch",
         "Anamnesegespräch",
         "Konsultation",
-        "Besuch beim Arzt"
+        "Besuch beim Arzt",
+        "Arztkonsultation",
+        "Konsultation beim Arzt",
+        "Konsultation durch den Arzt",
+        "erste fünf Minuten"
       ],
       "fr": [
         "Consultation médicale",
@@ -19,7 +23,9 @@
         "entretien médical",
         "premier contact médical",
         "accueil médical",
-        "anamnèse"
+        "anamnèse",
+        "cinq premières minutes",
+        "5 premières minutes"
       ],
       "it": [
         "Consultazione medica",
@@ -30,7 +36,9 @@
         "Incontro con il medico",
         "Valutazione medica iniziale",
         "Primo contatto medico",
-        "Visita dal medico"
+        "Visita dal medico",
+        "cinque minuti iniziali",
+        "Primi cinque minuti"
       ]
     }
   },
@@ -131,9 +139,9 @@
         "Fahrzeit",
         "Reisezeit",
         "Anreisezeit",
-        "Fahrt zum Patienten",
+        "Fahrt zum Patenten",
         "Anfahrt zum Patienten",
-        "Wegpauschale"
+        "Wegzeit"
       ],
       "fr": [
         "déplacement",
@@ -248,39 +256,6 @@
         "Appuntamento dal medico",
         "Visita specialistica",
         "Visita di controllo"
-      ]
-    }
-  },
-  "Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min.": {
-    "lkn": "AA.00.0090",
-    "synonyms": {
-      "de": [
-        "Impfgespräch",
-        "Impfaufklärung",
-        "Beratung zur Impfung",
-        "Impfberatung",
-        "Impfsprechstunde"
-      ],
-      "fr": [
-        "Conseils spécifiques",
-        "Consultation",
-        "Entretien conseil",
-        "Avis médical",
-        "Information personnalisée",
-        "Recommandations ciblées",
-        "Guidance",
-        "Bilan conseil",
-        "Orientation"
-      ],
-      "it": [
-        "Consulenza specifica",
-        "parere specialistico",
-        "consulto mirato",
-        "consiglio mirato",
-        "orientamento specifico",
-        "informazione specifica",
-        "colloquio specialistico",
-        "visita di consulenza"
       ]
     }
   },
@@ -1501,41 +1476,6 @@
       ]
     }
   },
-  "Dringlichkeits-Pauschale B, Mo bis Fr 19-22 Uhr, Sa 12-19, So 7-19 Uhr": {
-    "lkn": "AA.30.0020",
-    "synonyms": {
-      "de": [
-        "Notfallbehandlung",
-        "Akutbehandlung",
-        "Eilbehandlung",
-        "Sofortbehandlung",
-        "Notfallversorgung",
-        "Akutversorgung",
-        "Notfallzuschlag",
-        "Dringlichkeitszuschlag",
-        "Eilzuschlag"
-      ],
-      "fr": [
-        "Indemnité",
-        "Forfait",
-        "Prestation",
-        "Honoraires",
-        "Rémunération",
-        "Tarif"
-      ],
-      "it": [
-        "Forfait",
-        "tariffa forfettaria",
-        "importo fisso",
-        "costo fisso",
-        "prezzo fisso",
-        "tariffa unica",
-        "pacchetto",
-        "prestazione forfettaria",
-        "compenso forfettario"
-      ]
-    }
-  },
   "Notfall-Pauschale C, Mo-Fr 7-19 Uhr, Sa 7-12 Uhr": {
     "lkn": "AA.30.0030",
     "synonyms": {
@@ -1696,8 +1636,7 @@
     }
   },
   "Notfall-Pauschale F für telemedizinische Konsultationen, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
-    "lkn": "AA.30.0080",
-    "synonyms": {}
+    "lkn": "AA.30.0080"
   },
   "(+) 25%-Zuschlag für telemedizinische Notfallkonsultation F, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr": {
     "lkn": "AA.30.0090",
@@ -2084,34 +2023,6 @@
       ]
     }
   },
-  "Nichtärztliche Blutentnahme (kapilär)": {
-    "lkn": "AK.00.0010",
-    "synonyms": {
-      "de": [
-        "durch Pflegepersonal",
-        "durch medizinisches Assistenzpersonal",
-        "durch Fachpersonal",
-        "nicht vom Arzt",
-        "von der Pflege",
-        "von der MPA"
-      ],
-      "fr": [
-        "Prélèvement sanguin",
-        "Prise de sang",
-        "Collecte de sang"
-      ],
-      "it": [
-        "Prelievo di sangue",
-        "Prelievo ematico",
-        "Prelevamento di sangue",
-        "Raccolta di sangue",
-        "Esame del sangue",
-        "Analisi del sangue",
-        "Puntura per il sangue",
-        "Prendere il sangue"
-      ]
-    }
-  },
   "Nichtärztliche Blutentnahme (venös)": {
     "lkn": "AK.00.0020",
     "synonyms": {
@@ -2349,32 +2260,6 @@
       ]
     }
   },
-  "Nichtärztlicher Atemtest mit Harnstoff {13C} zum Nachweis von Heliobacter pylori": {
-    "lkn": "AK.00.0110",
-    "synonyms": {
-      "de": [
-        "durch Pflegepersonal",
-        "durch medizinisches Fachpersonal",
-        "durch MPA",
-        "durch Assistenzpersonal",
-        "ohne Arzt"
-      ],
-      "fr": [
-        "Test respiratoire",
-        "Test d'haleine",
-        "Épreuve respiratoire",
-        "Test du souffle"
-      ],
-      "it": [
-        "Test respiratorio",
-        "Test del respiro",
-        "Prova del respiro",
-        "Esame del respiro",
-        "Test dell'alito",
-        "Breath test"
-      ]
-    }
-  },
   "Nichtärztliche überwachte Medikamentenverabreichung": {
     "lkn": "AK.00.0120",
     "synonyms": {
@@ -2402,8 +2287,7 @@
     }
   },
   "Nichtärztliche überwachte Urinabgabe bei Alkohol-/Drogenpatienten": {
-    "lkn": "AK.00.0130",
-    "synonyms": {}
+    "lkn": "AK.00.0130"
   },
   "Nichtärztliche Leistungen im Rahmen des delegierten Chronic Care Managements bei Asthma oder COPD, pro 1 Min.": {
     "lkn": "AK.05.0010",
@@ -2521,31 +2405,6 @@
         "Interventi non medici",
         "Attività di supporto non medico",
         "Servizi di personale paramedico"
-      ]
-    }
-  },
-  "Nichtärztliche, nichtspezialisierte Überwachung, pro 15 Min.": {
-    "lkn": "AM.00.0010",
-    "synonyms": {
-      "de": [
-        "durch Pflegepersonal",
-        "durch medizinisches Fachpersonal",
-        "durch Pflegekräfte",
-        "durch MPA",
-        "durch nicht-ärztliches Personal"
-      ],
-      "fr": [
-        "Surveillance",
-        "Observation",
-        "Monitoring",
-        "Suivi",
-        "Veille"
-      ],
-      "it": [
-        "Sorveglianza",
-        "Monitoraggio",
-        "Osservazione",
-        "Vigilanza"
       ]
     }
   },
@@ -3594,7 +3453,9 @@
         "Bereich",
         "Abteilung",
         "Spezialgebiet",
-        "Disziplin"
+        "Disziplin",
+        "Raum",
+        "Wechsel"
       ],
       "fr": [
         "changement",
@@ -3604,14 +3465,22 @@
         "installation du patient"
       ],
       "it": [
+        "tempo di attesa",
+        "attesa",
+        "tempo di permanenza",
+        "tempo d'attesa",
+        "tempo di accesso",
         "unità funzionale",
-        "reparto",
-        "servizio",
-        "sezione",
-        "ambulatorio",
-        "struttura",
-        "centro",
-        "divisione"
+        "settore",
+        "area",
+        "specialità",
+        "branca",
+        "disciplina",
+        "servizio dermatologia",
+        "ambulatorio dermatologico",
+        "centro dermatologico",
+        "reparto dermatologia",
+        "divisione dermatologia"
       ]
     }
   },
@@ -4365,32 +4234,6 @@
       ]
     }
   },
-  "Wechselzeit spezialisierte, nichtärztliche Überwachung, bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0380",
-    "synonyms": {
-      "de": [
-        "Übergangsphase",
-        "Umstellungsphase",
-        "Zwischenphase",
-        "Anpassungsphase"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Période de transition",
-        "Phase d'adaptation",
-        "Temps de bascule",
-        "Temps de réajustement",
-        "Temps de mise en route"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Periodo di transizione",
-        "Fase di osservazione",
-        "Periodo di monitoraggio",
-        "Sosta assistita"
-      ]
-    }
-  },
   "+ %-Zuschlag bei Kontaktisolation": {
     "lkn": "AR.00.0390",
     "synonyms": {
@@ -4416,309 +4259,6 @@
         "Costo aggiuntivo",
         "Extra",
         "Costo supplementare"
-      ]
-    }
-  },
-  "Wechselzeit spezialisierte, nichtärztliche Überwachung, ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0400",
-    "synonyms": {
-      "de": [
-        "Uebergangsphase",
-        "Anpassungsphase",
-        "Umstellungsphase",
-        "Beobachtungsphase",
-        "Instabilitaetsphase",
-        "kritische Beobachtungszeit"
-      ],
-      "fr": [
-        "Temps de changement",
-        "période de transition",
-        "phase de modification",
-        "gestion de la transition",
-        "suivi de l'évolution",
-        "temps d'adaptation"
-      ],
-      "it": [
-        "sorveglianza",
-        "osservazione",
-        "monitoraggio",
-        "supervisione",
-        "vigilanza",
-        "assistenza",
-        "cura"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0410",
-    "synonyms": {
-      "de": [
-        "Patientenabwicklung",
-        "Patientenmanagement",
-        "Organisatorische Patientenbetreuung",
-        "Patientenflusssteuerung",
-        "Administrative Patientenzeit",
-        "Patientenlogistik",
-        "Ablaufmanagement"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Période d'observation",
-        "Surveillance clinique",
-        "Prise en charge initiale",
-        "Gestion transitoire"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Attesa",
-        "Periodo di attesa"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0420",
-    "synonyms": {
-      "de": [
-        "Aufenthalt in der Notaufnahme",
-        "Wartezeit im Notfallbereich",
-        "Verweildauer in der Notfallstation",
-        "Beobachtungszeit in der Notfallambulanz",
-        "Patientenverbleib Notfall"
-      ],
-      "fr": [
-        "Temps de changement",
-        "transfert de patient",
-        "orientation de patient",
-        "réorientation de patient",
-        "gestion du patient",
-        "prise en charge du patient",
-        "déplacement de patient"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "attesa",
-        "periodo di attesa",
-        "sosta in attesa",
-        "permanenza in attesa"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0430",
-    "synonyms": {
-      "de": [
-        "Übergabe",
-        "Patientenübergabe",
-        "Verlegung",
-        "Patientenverlegung",
-        "Umplatzierung",
-        "Transportbegleitung"
-      ],
-      "fr": [
-        "Changement",
-        "Mise en place",
-        "Installation",
-        "Préparation",
-        "Réglage",
-        "Ajustement",
-        "Transfert",
-        "Prise en charge initiale",
-        "Mise en condition"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "periodo di osservazione",
-        "sosta in osservazione",
-        "permanenza in osservazione"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0440",
-    "synonyms": {
-      "de": [
-        "Verlegungszeit",
-        "Umlagerungszeit",
-        "Übergabezeit"
-      ],
-      "fr": [
-        "Temps de changement",
-        "temps de transfert",
-        "temps de déplacement",
-        "temps de transition",
-        "gestion du transfert",
-        "préparation au transfert",
-        "accompagnement du patient"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Attesa",
-        "Periodo di attesa",
-        "Sosta",
-        "Permanenza in attesa"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation Schockraum, bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0450",
-    "synonyms": {
-      "de": [
-        "Übergangszeit",
-        "Umstellungszeit",
-        "Transferzeit",
-        "Übergabezeit"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Temps de transition",
-        "Période de stabilisation",
-        "Surveillance en phase critique",
-        "Gestion de l'évolution clinique",
-        "Prise en charge transitoire",
-        "Observation en phase aiguë"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Attesa",
-        "Periodo di attesa",
-        "Sosta",
-        "Permanenza",
-        "Periodo di osservazione"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Notfallstation Schockraum, ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0460",
-    "synonyms": {
-      "de": [
-        "Stabilisierungsphase",
-        "Übergangsphase",
-        "Beobachtungsphase"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Gestion de l'évolution clinique",
-        "Adaptation thérapeutique",
-        "Phase de transition clinique",
-        "Suivi évolutif",
-        "Prise en charge dynamique"
-      ],
-      "it": [
-        "Pronto Soccorso",
-        "PS",
-        "Emergenza",
-        "Dipartimento d'emergenza",
-        "DEA",
-        "Urgenze"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0470",
-    "synonyms": {
-      "de": [
-        "Übergangszeit",
-        "Vorbereitungszeit",
-        "Rüstzeit",
-        "Bereitstellungszeit",
-        "Patientenübergabe",
-        "Arbeitswechsel"
-      ],
-      "fr": [
-        "Temps de changement",
-        "préparation de l'unité",
-        "mise en place du poste",
-        "gestion de la transition",
-        "installation du patient",
-        "aménagement du lit"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Fase di transizione",
-        "Periodo di attesa",
-        "Tempo di preparazione al ricovero",
-        "Tempo di preparazione al trasferimento"
-      ]
-    }
-  },
-  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0480",
-    "synonyms": {
-      "de": [
-        "Übergangsphase",
-        "Umstellungsphase",
-        "Verlegungszeit",
-        "Schichtübergabe"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Gestion d'une évolution clinique",
-        "Réajustement des soins",
-        "Gestion d'une instabilité",
-        "Surveillance d'une phase critique"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Tempo di osservazione",
-        "Tempo di monitoraggio",
-        "Periodo di disponibilità",
-        "Tempo di vigilanza",
-        "Tempo di permanenza in osservazione"
-      ]
-    }
-  },
-  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, bis 60 Minuten Überwachung": {
-    "lkn": "AR.00.0490",
-    "synonyms": {
-      "de": [
-        "Ubergangszeit",
-        "Umstellungszeit",
-        "Anpassungszeit",
-        "Transitionsphase",
-        "Zustandswechselphase"
-      ],
-      "fr": [
-        "Temps de changement",
-        "Temps de transition",
-        "Temps de transfert",
-        "Temps d'installation"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Periodo di transizione",
-        "Periodo di osservazione",
-        "Sosta temporanea",
-        "Attesa per trasferimento",
-        "Attesa per dimissione"
-      ]
-    }
-  },
-  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, ab 60 Minuten Überwachung": {
-    "lkn": "AR.00.0500",
-    "synonyms": {
-      "de": [
-        "Übergangsbetreuung",
-        "Anpassungsphase",
-        "Stabilisierungsphase",
-        "Zustandswechsel-Beobachtung"
-      ],
-      "fr": [
-        "Temps de changement",
-        "gestion de l'évolution",
-        "suivi d'une modification",
-        "adaptation des soins",
-        "réévaluation clinique",
-        "ajustement thérapeutique",
-        "période de transition",
-        "phase d'adaptation"
-      ],
-      "it": [
-        "Tempo di attesa",
-        "Periodo di osservazione",
-        "Fase di transizione",
-        "Periodo di monitoraggio",
-        "Sosta per osservazione",
-        "Permanenza in osservazione"
       ]
     }
   },
@@ -6539,8 +6079,7 @@
     }
   },
   "Ganzkörper-Bestrahlung, jede weitere Fraktion, pro Fraktion": {
-    "lkn": "C00.BG.0020",
-    "synonyms": {}
+    "lkn": "C00.BG.0020"
   },
   "Regionäre Oberflächenhyperthermie zwecks Tumortherapie, pro Fraktion": {
     "lkn": "C00.BH.0010",
@@ -7415,326 +6954,6 @@
         "scansione PET/CT",
         "indagine PET/CT",
         "esame PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI - Radiopharmakon FDG": {
-    "lkn": "C00.XE.Z006",
-    "synonyms": {
-      "de": [
-        "PET-CT Untersuchung",
-        "PET-CT Scan",
-        "PET-CT Bildgebung",
-        "kombinierte PET/CT",
-        "PET und CT Untersuchung"
-      ],
-      "fr": [
-        "TEP/CT",
-        "scanner TEP/CT",
-        "examen TEP/CT",
-        "imagerie TEP/CT",
-        "PET-CT",
-        "TEP-scan",
-        "scintigraphie TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "PET-TAC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI - Radiopharmakon N-13 Ammoniak": {
-    "lkn": "C00.XE.Z007",
-    "synonyms": {
-      "de": [
-        "PET-CT",
-        "PET CT",
-        "PET-Scan mit CT",
-        "PET-Untersuchung mit CT",
-        "kombinierte PET/CT",
-        "Hybrid-PET/CT",
-        "Fusions-PET/CT",
-        "Positronenemissionstomographie-Computertomographie",
-        "PET-Scan",
-        "PET-Untersuchung"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "Scanner TEP",
-        "Examen TEP-CT",
-        "Imagerie TEP-CT",
-        "TEP-scanner"
-      ],
-      "it": [
-        "PET/CT",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT",
-        "PET-TC"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI - Radiopharmakon 82-Rubidium": {
-    "lkn": "C00.XE.Z008",
-    "synonyms": {
-      "de": [
-        "PET-CT-Scan",
-        "PET-CT-Untersuchung",
-        "PET-CT-Bildgebung",
-        "PET-CT-Aufnahme",
-        "Hybrid-Scan PET/CT"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "scanner TEP",
-        "examen TEP-CT",
-        "TEP-scanner"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT",
-        "tomografia PET/CT",
-        "diagnostica PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI - Radiopharmakon F-18-Fluorocholin": {
-    "lkn": "C00.XE.Z011",
-    "synonyms": {
-      "de": [
-        "PET-CT",
-        "PET-CT-Scan",
-        "PET-CT-Untersuchung",
-        "Hybrid-PET-CT"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "TEP-scan",
-        "PET-scan",
-        "examen TEP/CT",
-        "imagerie TEP/CT",
-        "scanner TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT",
-        "diagnostica PET/CT",
-        "tomografia PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI - Radiopharmakon F-18-Ethyltyrosin": {
-    "lkn": "C00.XE.Z010",
-    "synonyms": {
-      "de": [
-        "PET-CT-Untersuchung",
-        "PET-CT-Scan",
-        "PET-CT-Bildgebung",
-        "PET-CT-Aufnahme",
-        "PET-CT-Diagnostik"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "TEP-scanner",
-        "Scanner TEP",
-        "Examen TEP/CT",
-        "Imagerie TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "PET-TAC",
-        "Esame PET/CT",
-        "Scansione PET/CT",
-        "PET con TC"
-      ]
-    }
-  },
-  "PET/CT - Radiopharmakon F-18-DOPA": {
-    "lkn": "C00.XE.Z012",
-    "synonyms": {
-      "de": [
-        "PET/CT-Scan",
-        "PET/CT-Untersuchung",
-        "PET/CT-Bildgebung",
-        "Hybrid-Scan",
-        "Kombinations-Scan",
-        "Ganzkoerper-PET/CT"
-      ],
-      "fr": [
-        "TEP/CT",
-        "TEP-CT",
-        "PET/CT",
-        "PET-CT",
-        "Scanner TEP",
-        "Scanner PET",
-        "Imagerie TEP/CT",
-        "Examen TEP/CT",
-        "Exploration TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "Esame PET/CT",
-        "Scansione PET/CT",
-        "Tomografia PET/CT",
-        "Indagine PET/CT",
-        "Accertamento PET/CT",
-        "Diagnostica PET/CT"
-      ]
-    }
-  },
-  "PET/CT - Radiopharmakon 68 Gallium DOTATATE": {
-    "lkn": "C00.XE.Z013",
-    "synonyms": {
-      "de": [
-        "PET/CT Untersuchung",
-        "PET/CT Scan",
-        "kombinierte PET/CT",
-        "Hybrid-PET/CT"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "TEP-scanner",
-        "PET-scanner",
-        "examen TEP/CT",
-        "bilan TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "PET/TAC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "tomografia PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI – Radiopharmakon PSMA Tracer": {
-    "lkn": "C00.XE.Z014",
-    "synonyms": {
-      "de": [
-        "PET-CT Untersuchung",
-        "PET-CT Scan",
-        "PET-CT Bildgebung",
-        "Hybrid-PET-CT",
-        "kombiniertes PET-CT"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "PET-CT",
-        "Scanner TEP/CT",
-        "Examen TEP/CT",
-        "Imagerie TEP/CT",
-        "TEP-scanner",
-        "TEP"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT",
-        "tomografia PET/CT",
-        "PET con TC"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI – Radiopharmakon DOTA-Peptide": {
-    "lkn": "C00.XE.Z015",
-    "synonyms": {
-      "de": [
-        "PET-CT Untersuchung",
-        "PET-CT Scan",
-        "Positronenemissionstomographie-Computertomographie"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET-CT",
-        "Scanner TEP/CT",
-        "Examen TEP/CT",
-        "Imagerie TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-CT",
-        "TAC PET",
-        "esame PET/CT",
-        "indagine PET/CT",
-        "scansione PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI – Radiopharmakon H215O": {
-    "lkn": "C00.XE.Z016",
-    "synonyms": {
-      "de": [
-        "PET-CT",
-        "PET-CT-Scan",
-        "PET-CT-Untersuchung",
-        "PET-CT-Bildgebung",
-        "PET-CT-Diagnostik",
-        "Positronenemissionstomographie-Computertomographie",
-        "PET-Scan mit CT",
-        "Kombinations-PET/CT-Scan"
-      ],
-      "fr": [
-        "TEP/CT",
-        "PET/CT",
-        "examen TEP/CT",
-        "scanner TEP/CT",
-        "imagerie TEP/CT"
-      ],
-      "it": [
-        "PET/CT",
-        "PET-TC",
-        "PET-TAC",
-        "esame PET/CT",
-        "scansione PET/CT",
-        "indagine PET/CT",
-        "tomografia PET/CT"
-      ]
-    }
-  },
-  "PET/CT oder PET/MRI – Radiopharmakon Amyloid-Tracer": {
-    "lkn": "C00.XE.Z017",
-    "synonyms": {
-      "de": [
-        "PET/CT Untersuchung",
-        "PET/CT Scan",
-        "PET-CT",
-        "PET-CT Bildgebung"
-      ],
-      "fr": [
-        "TEP/CT",
-        "TEP-scan",
-        "scanner TEP/CT",
-        "examen TEP/CT"
-      ],
-      "it": [
-        "PET/CT o PET/MRI",
-        "esame PET",
-        "indagine PET",
-        "scansione PET",
-        "tomografia PET",
-        "scintigrafia PET",
-        "esame di medicina nucleare",
-        "diagnostica PET"
       ]
     }
   },
@@ -8953,8 +8172,7 @@
     }
   },
   "funktionelle perkutane Rhizotomie, jede weitere Wurzel": {
-    "lkn": "C01.FF.Z001",
-    "synonyms": {}
+    "lkn": "C01.FF.Z001"
   },
   "funktionelle perkutane Rhizotomie, Trigeminus": {
     "lkn": "C01.FF.Z002",
@@ -14005,8 +13223,7 @@
     }
   },
   "Rekonstruktion mit Knochentransplantat, inkl. allf. Osteosynthese und/oder mit Rekonstruktion mit Allenthese (Prothese)": {
-    "lkn": "C03.AH.Z002",
-    "synonyms": {}
+    "lkn": "C03.AH.Z002"
   },
   "Mundbodenplastik mit Durchtrennung des M. mylohyoideus": {
     "lkn": "C03.AI.0010",
@@ -14853,37 +14070,6 @@
         "Aspirazione",
         "Rimozione",
         "Cura"
-      ]
-    }
-  },
-  "Fazialisplastik bei Dekompression des N. facialis im Felsenbeinbereich": {
-    "lkn": "C03.GD.Z0015",
-    "synonyms": {
-      "de": [
-        "Gesichtsplastik",
-        "Gesichtsrekonstruktion",
-        "Gesichtschirurgie",
-        "Fazialisnervenplastik",
-        "Wiederherstellungschirurgie im Gesicht"
-      ],
-      "fr": [
-        "Plastie",
-        "Chirurgie réparatrice",
-        "Reconstruction",
-        "Opération de réparation",
-        "Intervention réparatrice",
-        "Réparation",
-        "Chirurgie",
-        "Opération"
-      ],
-      "it": [
-        "Plastica del faciale",
-        "ricostruzione del nervo facciale",
-        "chirurgia plastica del nervo facciale",
-        "intervento plastico al nervo facciale",
-        "riparazione del nervo facciale",
-        "chirurgia del facciale",
-        "plastica facciale"
       ]
     }
   },
@@ -18088,29 +17274,6 @@
       ]
     }
   },
-  "Instillation, Steinextraktion, transkanaläre Steinzertrümmerung, Stenteinlage, Dilatation bei Sialendoskopie": {
-    "lkn": "C03.GH.Z001",
-    "synonyms": {
-      "de": [
-        "Einspuelung",
-        "Spuelung",
-        "Einfuehrung von Fluessigkeit",
-        "Medikamenteneingabe"
-      ],
-      "fr": [
-        "Instillation",
-        "injection",
-        "irrigation",
-        "lavage"
-      ],
-      "it": [
-        "Instillazione",
-        "Irrigazione",
-        "Lavaggio",
-        "Introduzione di liquido"
-      ]
-    }
-  },
   "Neuromonitoring N. fazialis": {
     "lkn": "C03.GH.Z002",
     "synonyms": {
@@ -19569,8 +18732,7 @@
     }
   },
   "periphere Ultraschalluntersuchung (Minisonde) bei Bronchoskopie": {
-    "lkn": "C04.GC.Z008",
-    "synonyms": {}
+    "lkn": "C04.GC.Z008"
   },
   "Thermoplastie bei Bronchoskopie": {
     "lkn": "C04.GC.Z009",
@@ -21060,31 +20222,22 @@
     }
   },
   "Einlegen eines hämodynamischen Assist-Device": {
-    "lkn": "C05.KD.0040",
+    "lkn": "C05.KC.Z004",
     "synonyms": {
       "de": [
         "Einsetzen",
-        "Implantieren",
-        "Einführen",
-        "Platzieren",
-        "Einbringen"
+        "Einbauen",
+        "Platzierung",
+        "Gerät"
       ],
       "fr": [
-        "Mise en place",
-        "Installation",
-        "Insertion",
-        "Implantation",
-        "Pose",
-        "Mise en fonction",
-        "Mise en œuvre"
+        "Implanter",
+        "Installer",
+        "Poser",
+        "Insérer"
       ],
       "it": [
-        "Impianto",
-        "Posizionamento",
-        "Inserimento",
-        "Applicazione",
-        "Messa in sede",
-        "Collocazione"
+        "Dispositivo"
       ]
     }
   },
@@ -22276,8 +21429,7 @@
     }
   },
   "Therapeutische Medikamentenapplikation": {
-    "lkn": "C05.RE.Z003",
-    "synonyms": {}
+    "lkn": "C05.RE.Z003"
   },
   "Stentimplantation bei PTA": {
     "lkn": "C05.RE.Z004",
@@ -23013,8 +22165,7 @@
     }
   },
   "Entfernung eines Cavafilters": {
-    "lkn": "C05.RL.0020",
-    "synonyms": {}
+    "lkn": "C05.RL.0020"
   },
   "Neuroangiografie diagnostisch: hirnversorgende Gefässe": {
     "lkn": "C05.RM.0010",
@@ -23838,11 +22989,15 @@
     "lkn": "C06.CE.0010",
     "synonyms": {
       "de": [
-        "Blinddarm-Operation",
+        "Blinddarmoperation",
+        "Blinddarmentfernung",
+        "Entfernung des Blinddarms",
         "Blinddarm-OP",
-        "Blinddarm-Entfernung",
-        "Wurmfortsatz-Entfernung",
-        "Blinddarmentfernung"
+        "Appendizitis-Operation",
+        "Appendixentfernung",
+        "Appendix-OP",
+        "Operation bei Blinddarmentzündung",
+        "Blinddarmchirurgie"
       ],
       "fr": [
         "Appendicectomie",
@@ -33736,8 +32891,7 @@
     }
   },
   "Versorgung Fehlstellung/Pseudarthrose nach Monteggiafraktur": {
-    "lkn": "C08.FA.0020",
-    "synonyms": {}
+    "lkn": "C08.FA.0020"
   },
   "Versorgung Radiusköpfchenfraktur, geschlossene Reposition": {
     "lkn": "C08.FA.0030",
@@ -34597,35 +33751,6 @@
         "Chirurgia",
         "Cura chirurgica",
         "Procedura chirurgica"
-      ]
-    }
-  },
-  "Sehnenverlängerungsplastik oder Verkürzungsplastik im Unterarmbereich/Handbereich": {
-    "lkn": "C08.FC.Z001",
-    "synonyms": {
-      "de": [
-        "Sehnenverlängerung",
-        "Sehnenverlängerungsoperation",
-        "Sehnenverlängerungseingriff",
-        "Operation zur Sehnenverlängerung",
-        "Sehnen-OP zur Verlängerung",
-        "Tenoplastik zur Verlängerung"
-      ],
-      "fr": [
-        "Plastie tendineuse",
-        "opération du tendon",
-        "chirurgie du tendon",
-        "réparation du tendon",
-        "intervention sur le tendon",
-        "reconstruction tendineuse"
-      ],
-      "it": [
-        "Plastica",
-        "intervento chirurgico",
-        "operazione",
-        "chirurgia",
-        "ricostruzione",
-        "riparazione"
       ]
     }
   },
@@ -35920,20 +35045,30 @@
         "Stabilisierung"
       ],
       "fr": [
-        "Traitement",
-        "Soins",
-        "Prise en charge",
-        "Intervention",
-        "Opération",
-        "Chirurgie",
-        "Réparation"
+        "réduction et fixation percutanée d'une fracture du doigt",
+        "réduction et fixation percutanée d'une luxation du doigt",
+        "embrochage percutané d'une fracture du doigt",
+        "embrochage percutané d'une luxation du doigt",
+        "traitement percutané de fracture digitale",
+        "traitement percutané de luxation digitale",
+        "fixation percutanée doigt",
+        "chirurgie percutanée du doigt",
+        "opération de fracture du doigt par broches",
+        "opération de luxation du doigt par broches"
       ],
       "it": [
-        "Trattamento",
-        "Cura",
-        "Intervento",
-        "Riparazione",
-        "Gestione"
+        "trattamento percutaneo frattura dito con filo metallico",
+        "trattamento percutaneo lussazione dito con filo metallico",
+        "fissazione percutanea frattura dito",
+        "fissazione percutanea lussazione dito",
+        "transfissazione percutanea frattura dito",
+        "transfissazione percutanea lussazione dito",
+        "osteosintesi percutanea dito",
+        "osteosintesi con filo metallico dito",
+        "chirurgia percutanea frattura dito",
+        "chirurgia percutanea lussazione dito",
+        "trattamento frattura digitale con fili metallici",
+        "trattamento lussazione digitale con fili metallici"
       ]
     }
   },
@@ -37074,34 +36209,6 @@
         "Asportazione della sinovia",
         "Debridement sinoviale",
         "Pulizia della membrana sinoviale"
-      ]
-    }
-  },
-  "Anlegen einer Spüldrainage bei Arthroskopie des Hüftgelenks": {
-    "lkn": "C08.SA.Z005",
-    "synonyms": {
-      "de": [
-        "Einlegen",
-        "Platzieren",
-        "Einführen",
-        "Legen",
-        "Einsetzen",
-        "Applizieren"
-      ],
-      "fr": [
-        "Mise en place",
-        "Installation",
-        "Pose",
-        "Application",
-        "Insertion",
-        "Positionnement"
-      ],
-      "it": [
-        "Applicazione",
-        "Posizionamento",
-        "Inserimento",
-        "Installazione",
-        "Collocazione"
       ]
     }
   },
@@ -41374,8 +40481,7 @@
     }
   },
   "Versorgung Volkmann'sche Fraktur bei bimalleolärer Fraktur (trimalleolärer Fraktur)": {
-    "lkn": "C08.PA.Z001",
-    "synonyms": {}
+    "lkn": "C08.PA.Z001"
   },
   "Bandnaht/Bandplastik, Versorgung Gabelsprengung bei Versorgung von Malleolarfrakturen": {
     "lkn": "C08.PA.Z002",
@@ -45008,8 +44114,7 @@
     }
   },
   "Arthroplastik Ellbogen mittels Faszie": {
-    "lkn": "C08.SA.0240",
-    "synonyms": {}
+    "lkn": "C08.SA.0240"
   },
   "Wechsel einer Ellbogen-Totalendoprothese": {
     "lkn": "C08.SA.0250",
@@ -48249,67 +47354,6 @@
       ]
     }
   },
-  "Schulterendoprothese Kopfprothese": {
-    "lkn": "C08.SA.Z002",
-    "synonyms": {
-      "de": [
-        "Schulterprothese",
-        "künstliche Schulter",
-        "Schultergelenkersatz",
-        "Schultergelenksprothese",
-        "Einsetzen einer Schulterprothese"
-      ],
-      "fr": [
-        "Arthroplastie",
-        "Remplacement articulaire",
-        "Chirurgie de remplacement articulaire",
-        "Pose de prothèse articulaire",
-        "Implantation de prothèse articulaire",
-        "Opération de prothèse"
-      ],
-      "it": [
-        "Artroplastica",
-        "intervento di sostituzione articolare",
-        "chirurgia protesica",
-        "sostituzione articolare",
-        "operazione all'articolazione",
-        "rifacimento dell'articolazione"
-      ]
-    }
-  },
-  "Schulterendoprothese Totalprothese": {
-    "lkn": "C08.SA.Z003",
-    "synonyms": {
-      "de": [
-        "Schulterprothese",
-        "künstliches Schultergelenk",
-        "Schultergelenkersatz",
-        "Schulterprothesen-Operation",
-        "Schultergelenk-Operation",
-        "Schulter-OP",
-        "Einsetzen einer Schulterprothese",
-        "Implantation einer Schulterprothese",
-        "Schultergelenk ersetzen"
-      ],
-      "fr": [
-        "Prothèse",
-        "Implant",
-        "Endoprothèse",
-        "Articulation artificielle",
-        "Dispositif de remplacement",
-        "Matériel de remplacement",
-        "Pièce de remplacement"
-      ],
-      "it": [
-        "Artroplastica della spalla",
-        "Intervento di sostituzione della spalla",
-        "Chirurgia protesica della spalla",
-        "Operazione alla spalla con protesi",
-        "Sostituzione dell'articolazione della spalla",
-        "Impianto di protesi alla spalla"
-      ]
-    }
-  },
   "Humerusschaftersatz durch Transplantat/Implantat": {
     "lkn": "C08.SA.Z004",
     "synonyms": {
@@ -49516,34 +48560,6 @@
       ]
     }
   },
-  "Exzision Fremdkörper aus Cutis und Subcutis oder bis 1 cm Tiefe ab Oberfläche": {
-    "lkn": "C09.KD.0010",
-    "synonyms": {
-      "de": [
-        "Entfernung",
-        "Herausschneiden",
-        "Ausschneiden",
-        "Wegschneiden",
-        "chirurgische Entfernung"
-      ],
-      "fr": [
-        "Excision",
-        "Ablation",
-        "Extraction",
-        "Retrait",
-        "Enlèvement"
-      ],
-      "it": [
-        "Escissione",
-        "Asportazione",
-        "Rimozione",
-        "Estrazione",
-        "Togliere",
-        "Intervento di rimozione",
-        "Operazione per togliere"
-      ]
-    }
-  },
   "Exzision Fremdkörper tiefer als Subcutis oder mehr als 1 cm Tiefe ab Oberfläche": {
     "lkn": "C09.KD.0020",
     "synonyms": {
@@ -49572,67 +48588,6 @@
         "Intervento di rimozione",
         "Operazione per togliere",
         "Togliere"
-      ]
-    }
-  },
-  "Wundversorgung ohne Einbezug komplexer Strukturen": {
-    "lkn": "C09.KD.0030",
-    "synonyms": {
-      "de": [
-        "Wundbehandlung",
-        "Wundpflege",
-        "Wundreinigung",
-        "Wunde versorgen",
-        "Wunde behandeln",
-        "Verbandwechsel",
-        "Verband anlegen",
-        "Wundsäuberung"
-      ],
-      "fr": [
-        "Traitement de la plaie",
-        "Soins de plaie",
-        "Pansement de plaie",
-        "Nettoyage de plaie",
-        "Désinfection de plaie",
-        "Toilette de plaie",
-        "Suture de plaie simple",
-        "Fermeture de plaie simple",
-        "Gestion de plaie",
-        "Prise en charge de plaie"
-      ],
-      "it": [
-        "Trattamento",
-        "cura",
-        "medicazione",
-        "gestione"
-      ]
-    }
-  },
-  "Débridement bei offener Wundbehandlung, ohne Einbezug komplexer Strukturen, erste 4 cm2": {
-    "lkn": "C09.KD.0060",
-    "synonyms": {
-      "de": [
-        "Wundreinigung",
-        "Wundsaeuberung",
-        "Wundtoilette",
-        "Entfernung von abgestorbenem Gewebe",
-        "Nekroseentfernung"
-      ],
-      "fr": [
-        "Débridement",
-        "Nettoyage de plaie",
-        "Parage de plaie",
-        "Excision de tissus nécrosés",
-        "Ablation de tissus morts",
-        "Assainissement de plaie"
-      ],
-      "it": [
-        "Débridement",
-        "Sbrigliamento",
-        "Pulizia della ferita",
-        "Detersione della ferita",
-        "Rimozione di tessuto necrotico",
-        "Asportazione di tessuto devitalizzato"
       ]
     }
   },
@@ -49701,101 +48656,6 @@
         "Trattamento lesione",
         "Cura lesione",
         "Medicazione lesione"
-      ]
-    }
-  },
-  "Blasenabtragung alle Regionen": {
-    "lkn": "C09.KD.0100",
-    "synonyms": {
-      "de": [
-        "Blasenoperation",
-        "Blasen-OP",
-        "Blasentumorentfernung",
-        "Blasenpolypenentfernung",
-        "Transurethrale Resektion der Blase",
-        "TURB",
-        "TURBT",
-        "Blasenspiegelung mit Abtragung",
-        "Zystoskopie mit Abtragung",
-        "Blasentumor entfernen",
-        "Blasenpolyp entfernen",
-        "Blasengeschwulst entfernen",
-        "Blase operieren",
-        "Blase wegschneiden",
-        "Blase rausschneiden"
-      ],
-      "fr": [
-        "Excision",
-        "Ablation",
-        "Retrait",
-        "Enlèvement",
-        "Drainage",
-        "Ponction",
-        "Ouverture"
-      ],
-      "it": [
-        "Asportazione",
-        "Rimozione",
-        "Drenaggio",
-        "Svuotamento",
-        "Apertura",
-        "Puntura"
-      ]
-    }
-  },
-  "Débridement bei offener Wundbehandlung, ohne Einbezug komplexer Strukturen, jede weitere 4 cm2": {
-    "lkn": "C09.KD.Z002",
-    "synonyms": {
-      "de": [
-        "Wundreinigung",
-        "Wundsaeuberung",
-        "Wundtoilette",
-        "Ausraeumung der Wunde",
-        "Entfernung von abgestorbenem Gewebe",
-        "Nekroseentfernung",
-        "Wundrevision"
-      ],
-      "fr": [
-        "Débridement",
-        "Nettoyage de plaie",
-        "Parage de plaie",
-        "Excision de tissus nécrosés",
-        "Ablation de tissus morts",
-        "Curetage de plaie",
-        "Détersion de plaie",
-        "Assainissement de plaie"
-      ],
-      "it": [
-        "Débridement",
-        "Sbrigliamento",
-        "Pulizia della ferita",
-        "Rimozione di tessuto necrotico",
-        "Asportazione di tessuto devitalizzato",
-        "Detersione della lesione"
-      ]
-    }
-  },
-  "Inzision/Drainage oberflächlicher/subkutanen Prozess (Hämatom, Abszess, Zyste usw.)": {
-    "lkn": "C09.KE.0010",
-    "synonyms": {
-      "de": [
-        "Schnitt",
-        "Einschnitt",
-        "Aufschneiden",
-        "Eröffnung",
-        "Spaltung"
-      ],
-      "fr": [
-        "Incision",
-        "ouverture",
-        "section"
-      ],
-      "it": [
-        "Incisione",
-        "Taglio",
-        "Apertura",
-        "Piccolo taglio",
-        "Apertura chirurgica"
       ]
     }
   },
@@ -51329,40 +50189,6 @@
       ]
     }
   },
-  "Exzision; Regionen A1, B1, C1, pro Läsion": {
-    "lkn": "C09.KF.0020",
-    "synonyms": {
-      "de": [
-        "Entfernung",
-        "Ausschneidung",
-        "Herausschneiden",
-        "Wegschneiden",
-        "Chirurgischer Eingriff",
-        "Gewebsentfernung",
-        "Hautentfernung"
-      ],
-      "fr": [
-        "Excision",
-        "Ablation",
-        "Exérèse",
-        "Résection",
-        "Enlèvement chirurgical",
-        "Retrait chirurgical",
-        "Opération d'ablation",
-        "Chirurgie d'excision"
-      ],
-      "it": [
-        "Escissione",
-        "Asportazione",
-        "Rimozione",
-        "Ablazione",
-        "Estirpazione",
-        "Resezione",
-        "Rimozione chirurgica",
-        "Asportazione chirurgica"
-      ]
-    }
-  },
   "Exzision; Regionen A2, B2, C2, pro Läsion": {
     "lkn": "C09.KF.0130",
     "synonyms": {
@@ -52066,8 +50892,7 @@
     }
   },
   "Deckung mit heterologenem/alloplastischem Hautersatz; Regionen A2, B2, C1": {
-    "lkn": "C09.KF.Z006",
-    "synonyms": {}
+    "lkn": "C09.KF.Z006"
   },
   "Subkutane Exzision, bis auf die Faszie reichend; alle Regionen": {
     "lkn": "C09.KF.Z007",
@@ -52187,8 +51012,7 @@
     }
   },
   "Deckung mit heterologenem/alloplastischem Hautersatz; Regionen A3, B3, C2": {
-    "lkn": "C09.KF.Z012",
-    "synonyms": {}
+    "lkn": "C09.KF.Z012"
   },
   "Mehrschichtigen Wundverschluss nach Exzision; Regionen A3, B3, C3": {
     "lkn": "C09.KF.Z013",
@@ -57989,41 +56813,6 @@
       ]
     }
   },
-  "Hausärztliche, kleinchirurgische Eingriffe, pro 1 Min.": {
-    "lkn": "CA.00.0080",
-    "synonyms": {
-      "de": [
-        "Praxis-",
-        "Ambulante",
-        "Sprechstunden-",
-        "Grundversorgungs-"
-      ],
-      "fr": [
-        "Petites interventions chirurgicales",
-        "Chirurgie mineure",
-        "Actes de petite chirurgie",
-        "Gestes de petite chirurgie",
-        "Petits actes chirurgicaux",
-        "Interventions chirurgicales mineures",
-        "Petites opérations"
-      ],
-      "it": [
-        "Interventi chirurgici minori",
-        "Piccoli interventi chirurgici",
-        "Chirurgia minore",
-        "Piccola chirurgia",
-        "Procedure chirurgiche minori",
-        "Operazioni minori",
-        "Interventi ambulatoriali",
-        "Chirurgia ambulatoriale",
-        "Piccoli interventi",
-        "Rimozione di piccole lesioni",
-        "Asportazione di piccole neoformazioni",
-        "Sutura di ferite",
-        "Incisione e drenaggio"
-      ]
-    }
-  },
   "Hausärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.": {
     "lkn": "CA.05.0010",
     "synonyms": {
@@ -59405,7 +58194,10 @@
         "Aufpreis",
         "Aufschlag",
         "Zusatzgebuehr",
-        "Mehrkosten"
+        "Mehrkosten",
+        "Kind",
+        "jünger als",
+        "<="
       ],
       "fr": [
         "Supplément",
@@ -59414,14 +58206,19 @@
         "Frais additionnels",
         "Coût supplémentaire",
         "Supplément de prix",
-        "Frais supplémentaires"
+        "enfant",
+        "Frais supplémentaires",
+        "<="
       ],
       "it": [
         "Supplemento",
         "Sovrapprezzo",
         "Maggiorazione",
         "Costo aggiuntivo",
-        "Extra"
+        "Extra",
+        "bambino",
+        "più giovani di",
+        "<="
       ]
     }
   },
@@ -60831,48 +59628,6 @@
       ]
     }
   },
-  "Röntgen Schädel-Spezialaufnahme, erste Darstellung, pro Seite": {
-    "lkn": "GG.00.0030",
-    "synonyms": {
-      "de": [
-        "Röntgenaufnahme",
-        "Röntgenuntersuchung",
-        "Röntgenbild"
-      ],
-      "fr": [
-        "Radiologie",
-        "examen radiologique",
-        "imagerie médicale",
-        "service de radiologie",
-        "radio"
-      ]
-    }
-  },
-  "+ Röntgen Schädel-Spezialaufnahme, jede weitere Darstellung, pro Seite": {
-    "lkn": "GG.00.0040",
-    "synonyms": {
-      "de": [
-        "Röntgenuntersuchung",
-        "Röntgenaufnahme",
-        "Röntgenbild"
-      ],
-      "fr": [
-        "Radiologie",
-        "Rayons X",
-        "Radiographie",
-        "Examen radiologique",
-        "Radio",
-        "Imagerie"
-      ],
-      "it": [
-        "Radiografia speciale del cranio",
-        "Rx cranio speciale",
-        "Esame radiografico speciale del cranio",
-        "Lastra speciale del cranio",
-        "Radiografia mirata del cranio"
-      ]
-    }
-  },
   "Orthopantomografie": {
     "lkn": "GG.00.0050",
     "synonyms": {
@@ -60903,8 +59658,7 @@
     }
   },
   "Röntgen Halswirbelsäule (HWS), inkl. Halsweichteile, Dens, erste Aufnahme": {
-    "lkn": "GG.00.0060",
-    "synonyms": {}
+    "lkn": "GG.00.0060"
   },
   "+ Röntgen Halswirbelsäule (HWS), inkl. Halsweichteile, Dens, jede weitere Aufnahme": {
     "lkn": "GG.00.0070",
@@ -61585,8 +60339,7 @@
     }
   },
   "+ Röntgen Handgelenk, jede weitere Aufnahme, pro Seite": {
-    "lkn": "GG.00.0330",
-    "synonyms": {}
+    "lkn": "GG.00.0330"
   },
   "Röntgen Hand, erste Aufnahme, pro Seite": {
     "lkn": "GG.00.0340",
@@ -62006,8 +60759,7 @@
     }
   },
   "Röntgen Vorfuss/Zehen/Mittelfuss, erste Aufnahme, pro Seite": {
-    "lkn": "GG.00.0500",
-    "synonyms": {}
+    "lkn": "GG.00.0500"
   },
   "+ Röntgen Vorfuss/Zehen/Mittelfuss, jede weitere Aufnahme, pro Seite": {
     "lkn": "GG.00.0510",
@@ -62201,35 +60953,6 @@
         "Agoaspirato",
         "Asportazione di tessuto",
         "Prelevamento di un campione"
-      ]
-    }
-  },
-  "+ Vakuum assistierter minimal invasiver Mammaeingriff im Mammografieraum, pro Seite": {
-    "lkn": "GG.05.0060",
-    "synonyms": {
-      "de": [
-        "Vakuum-assistiert",
-        "Vakuumbiopsie",
-        "Vakuumsaugbiopsie",
-        "Saugbiopsie"
-      ],
-      "fr": [
-        "Intervention mammaire",
-        "procédure mammaire",
-        "acte mammaire",
-        "geste mammaire",
-        "biopsie mammaire",
-        "exérèse mammaire",
-        "prélèvement mammaire"
-      ],
-      "it": [
-        "Intervento mammario",
-        "Operazione al seno",
-        "Procedura al seno",
-        "Trattamento al seno",
-        "Biopsia mammaria",
-        "Asportazione al seno",
-        "Rimozione al seno"
       ]
     }
   },
@@ -63127,59 +61850,6 @@
       "it": [
         "Pielo(uretero)grafia",
         "visualizzazione delle vie urinarie superiori"
-      ]
-    }
-  },
-  "+ Zuschlag für Intervention am oberen Harntrakt, pro Seite, pro 1 Min.": {
-    "lkn": "GG.15.0170",
-    "synonyms": {
-      "de": [
-        "Aufpreis",
-        "Mehrkosten",
-        "Zusatzkosten",
-        "Aufschlag",
-        "Zusatzgebuehr"
-      ],
-      "fr": [
-        "Supplément",
-        "Majoration",
-        "Surcharge",
-        "Frais supplémentaires",
-        "Coût additionnel",
-        "Prestation complémentaire"
-      ],
-      "it": [
-        "Supplemento",
-        "Sovrapprezzo",
-        "Maggiorazione",
-        "Costo aggiuntivo"
-      ]
-    }
-  },
-  "Retrograde Ureteropyelografie durch Ureterkatheter, pro Seite, pro 1 Min.": {
-    "lkn": "GG.15.0180",
-    "synonyms": {
-      "de": [
-        "retrograde Harnleiter-Nierenbecken-Darstellung",
-        "retrograde Pyelografie",
-        "retrograde Ureterografie",
-        "retrograde Kontrastdarstellung der Harnwege",
-        "retrograde Röntgenuntersuchung der Harnwege",
-        "Darstellung der oberen Harnwege retrograd"
-      ],
-      "fr": [
-        "Urétéropyélographie rétrograde",
-        "Urographie rétrograde",
-        "Pyélographie rétrograde",
-        "Opacification rétrograde des voies urinaires"
-      ],
-      "it": [
-        "Ureteropielografia retrograda",
-        "Pielografia retrograda",
-        "Urografia retrograda",
-        "Radiografia retrograda delle vie urinarie",
-        "Esame retrogrado delle vie urinarie",
-        "Studio retrogrado delle vie urinarie"
       ]
     }
   },
@@ -65453,68 +64123,6 @@
       ]
     }
   },
-  "Sonografie-Gelenk-Untersuchung, Hüftgelenk exkl. bei Kindern bis zur 6. Lebenswoche, pro Seite": {
-    "lkn": "GK.20.0040",
-    "synonyms": {
-      "de": [
-        "Gelenk-Ultraschall",
-        "Ultraschalluntersuchung Gelenk",
-        "Gelenk-Sonografie",
-        "Ultraschall-Diagnostik Gelenk",
-        "Gelenk-Schall",
-        "Ultraschall-Bildgebung Gelenk"
-      ],
-      "fr": [
-        "Sonographie",
-        "échographie",
-        "écho",
-        "examen échographique",
-        "ultrasons"
-      ],
-      "it": [
-        "Esame ecografico articolare",
-        "ecografia articolare",
-        "ecografia delle articolazioni",
-        "ultrasuoni articolari",
-        "sonografia articolare",
-        "ecografia di un'articolazione"
-      ]
-    }
-  },
-  "Sonografie-Gelenk-Untersuchung der Hüfte nach Graf bei Kindern bis zur 6. Lebenswoche, pro Seite": {
-    "lkn": "GK.20.0050",
-    "synonyms": {
-      "de": [
-        "Ultraschalluntersuchung",
-        "Ultraschall",
-        "Sono",
-        "Sonographie",
-        "Gelenkuntersuchung",
-        "Hüftultraschall",
-        "Hüftsono",
-        "Hüftsonografie",
-        "Hüftscreening",
-        "Ultraschall-Screening",
-        "Vorsorgeuntersuchung",
-        "Hüftvorsorge"
-      ],
-      "fr": [
-        "Sonographie articulaire",
-        "échographie articulaire",
-        "examen échographique articulaire",
-        "ultrason articulaire"
-      ],
-      "it": [
-        "Ecografia articolare",
-        "Eco articolare",
-        "Ecografia",
-        "Eco",
-        "Ultrasuoni",
-        "Esame ecografico",
-        "Sonografia"
-      ]
-    }
-  },
   "Sonografie-Gelenk-Untersuchung, Kniegelenk, pro Seite": {
     "lkn": "GK.20.0060",
     "synonyms": {
@@ -66443,29 +65051,6 @@
       ]
     }
   },
-  "+ Sonografie-gesteuerte diagnostische Punktion/Biopsie/Aspiration, pro Lokalisation": {
-    "lkn": "GK.35.0010",
-    "synonyms": {
-      "de": [
-        "Ultraschall-gesteuerte",
-        "Ultraschall-gezielte",
-        "unter Ultraschall",
-        "mit Ultraschall",
-        "Ultraschall-unterstützte"
-      ],
-      "fr": [
-        "Ponction",
-        "Prélèvement",
-        "Ponction à l'aiguille",
-        "Prélèvement par aiguille"
-      ],
-      "it": [
-        "Punzione",
-        "Puntura",
-        "Prelievo"
-      ]
-    }
-  },
   "Sonografie-gesteuerte therapeutische Intervention, pro Lokalisation": {
     "lkn": "GK.35.0020",
     "synonyms": {
@@ -66730,36 +65315,6 @@
         "Cateterismo vascolare",
         "Inserimento di catetere vascolare",
         "Posizionamento di accesso vascolare"
-      ]
-    }
-  },
-  "Separater Gefässzugang als prophylaktische Massnahme, nicht sonografie-gesteuert": {
-    "lkn": "GK.35.0130",
-    "synonyms": {
-      "de": [
-        "eigenständig",
-        "unabhängig",
-        "als Einzelmassnahme",
-        "als eigene Leistung"
-      ],
-      "fr": [
-        "Accès vasculaire",
-        "Ponction vasculaire",
-        "Abord vasculaire",
-        "Mise en place d'une voie",
-        "Pose d'un cathéter",
-        "Canulation",
-        "Piqûre"
-      ],
-      "it": [
-        "Accesso vascolare",
-        "Creazione di accesso vascolare",
-        "Posizionamento di accesso vascolare",
-        "Instaurazione di accesso vascolare",
-        "Puntura di vaso sanguigno",
-        "Cannulazione di vaso",
-        "Inserimento di catetere vascolare",
-        "Preparazione di accesso venoso/arterioso"
       ]
     }
   },
@@ -68987,34 +67542,6 @@
         "Valutazione",
         "Parere medico",
         "Colloquio medico"
-      ]
-    }
-  },
-  "+ Zuschlag für geriatrische Umfeldarbeit, pro 1 Min.": {
-    "lkn": "JA.00.0020",
-    "synonyms": {
-      "de": [
-        "Aufpreis",
-        "Aufschlag",
-        "Zusatzgebühr",
-        "Zusatzhonorar",
-        "Sonderzuschlag"
-      ],
-      "fr": [
-        "Supplément",
-        "Majoration",
-        "Frais additionnels",
-        "Prestation additionnelle",
-        "Surcharge",
-        "Indemnité supplémentaire"
-      ],
-      "it": [
-        "Supplemento",
-        "Maggiorazione",
-        "Sovrapprezzo",
-        "Addizionale",
-        "Aumento",
-        "Extra"
       ]
     }
   },
@@ -72369,8 +70896,7 @@
     }
   },
   "Hämatologische Behandlung, pro 1 Min.": {
-    "lkn": "JV.10.0010",
-    "synonyms": {}
+    "lkn": "JV.10.0010"
   },
   "Nachkontrolle des Lebendspenders": {
     "lkn": "JV.10.0020",
@@ -72451,34 +70977,6 @@
         "cura pre-trattamento",
         "valutazione preliminare",
         "preparazione del paziente"
-      ]
-    }
-  },
-  "Nichtärztliche therapeutische Immunabsorption, pro 1 Min.": {
-    "lkn": "JV.10.0050",
-    "synonyms": {
-      "de": [
-        "durch Fachpersonal",
-        "durch Pflegepersonal",
-        "durch medizinisches Fachpersonal"
-      ],
-      "fr": [
-        "Test",
-        "procédure",
-        "séance",
-        "acte",
-        "traitement"
-      ],
-      "it": [
-        "Immunoassorbimento terapeutico",
-        "Immunoassorbimento",
-        "Terapia di immunoassorbimento",
-        "Trattamento di immunoassorbimento",
-        "Aferesi terapeutica",
-        "Plasmaferesi selettiva",
-        "Rimozione di anticorpi",
-        "Depurazione del sangue (da anticorpi)",
-        "Filtrazione immunologica"
       ]
     }
   },
@@ -72636,61 +71134,6 @@
         "formulazione",
         "manipolazione",
         "confezionamento"
-      ]
-    }
-  },
-  "+ Zuschlag für Mehraufwand bei Alphastrahler": {
-    "lkn": "JX.05.0060",
-    "synonyms": {
-      "de": [
-        "Aufpreis",
-        "Aufschlag",
-        "Zusatzkosten",
-        "Mehrkosten",
-        "Ergänzungsgebühr",
-        "Sondergebühr"
-      ],
-      "fr": [
-        "Supplément",
-        "Majoration",
-        "Frais supplémentaires",
-        "Coût additionnel",
-        "Surcharge"
-      ],
-      "it": [
-        "Supplemento",
-        "Sovrapprezzo",
-        "Maggiorazione",
-        "Costo aggiuntivo",
-        "Tariffa aggiuntiva"
-      ]
-    }
-  },
-  "+ Zuschlag für Mehraufwand Radiopharmazeut bei Alphastrahler": {
-    "lkn": "JX.05.0070",
-    "synonyms": {
-      "de": [
-        "Aufpreis",
-        "Zusatzgebühr",
-        "Mehrkosten",
-        "Ergänzungsgebühr",
-        "Aufschlag"
-      ],
-      "fr": [
-        "Supplément",
-        "surcoût",
-        "frais additionnels",
-        "majoration",
-        "prestation additionnelle",
-        "forfait additionnel",
-        "complément de prix"
-      ],
-      "it": [
-        "Supplemento",
-        "Sovrapprezzo",
-        "Costo aggiuntivo",
-        "Maggiorazione",
-        "Tariffa aggiuntiva"
       ]
     }
   },
@@ -73057,33 +71500,6 @@
         "Visita",
         "Consulto",
         "Colloquio"
-      ]
-    }
-  },
-  "Einfache Samenaufbereitung im Rahmen einer Insemintation": {
-    "lkn": "KD.05.0010",
-    "synonyms": {
-      "de": [
-        "Standard-",
-        "Basis-",
-        "unkomplizierte",
-        "routinemaessige",
-        "gaengige"
-      ],
-      "fr": [
-        "Préparation",
-        "traitement du sperme",
-        "conditionnement du sperme",
-        "lavage de sperme",
-        "préparation de l'éjaculat",
-        "traitement de l'éjaculat"
-      ],
-      "it": [
-        "Preparazione",
-        "Trattamento",
-        "Elaborazione",
-        "Allestimento",
-        "Lavorazione"
       ]
     }
   },
@@ -73468,13 +71884,14 @@
         "Check-up"
       ],
       "fr": [
-        "Grand",
-        "complet",
-        "approfondi",
-        "détaillé",
-        "exhaustif",
-        "étendu",
-        "systématique"
+        "examen complet de l'appareil locomoteur",
+        "bilan complet de l'appareil locomoteur",
+        "examen global du système musculosquelettique",
+        "évaluation complète de l'appareil locomoteur",
+        "examen musculosquelettique complet",
+        "bilan musculosquelettique",
+        "examen articulaire complet",
+        "examen ostéo-articulaire complet"
       ],
       "it": [
         "Esame obiettivo",
@@ -73527,13 +71944,16 @@
         "Eingehende"
       ],
       "fr": [
-        "Examen",
-        "Consultation",
-        "Bilan",
-        "Visite médicale",
-        "Évaluation",
-        "Exploration",
-        "Check-up"
+        "examen complet en rhumatologie",
+        "bilan rhumatologique complet",
+        "examen articulaire complet",
+        "examen complet des articulations",
+        "examen musculosquelettique complet",
+        "bilan musculosquelettique complet",
+        "évaluation complète en rhumatologie",
+        "examen global des articulations",
+        "examen ostéo-articulaire complet",
+        "contrôle rhumatologique complet"
       ],
       "it": [
         "Esame",
@@ -77336,37 +75756,6 @@
         "Rimborso",
         "Onorario",
         "Tariffa"
-      ]
-    }
-  },
-  "Expanderfüllung, pro Expander bei Exzisionen und Deckungen": {
-    "lkn": "MK.25.0390",
-    "synonyms": {
-      "de": [
-        "Expander auffüllen",
-        "Expander befüllen",
-        "Expanderinjektion",
-        "Expanderbefüllung",
-        "Expanderauffüllung",
-        "Gewebeexpander füllen",
-        "Gewebeexpander auffüllen",
-        "Gewebeexpander befüllen"
-      ],
-      "fr": [
-        "Remplissage",
-        "Injection",
-        "Gonflage",
-        "Expansion",
-        "Augmentation de volume",
-        "Mise en tension",
-        "Remplir",
-        "Ajout de liquide"
-      ],
-      "it": [
-        "Riempimento",
-        "Iniezione",
-        "Gonfiaggio",
-        "Espansione"
       ]
     }
   },
@@ -90646,123 +89035,16 @@
     }
   },
   "+ Chemische Behandlung von Portioläsionen": {
-    "lkn": "VG.00.0110",
-    "synonyms": {
-      "de": [
-        "kaustische Behandlung",
-        "Ätzbehandlung",
-        "chemische Kauterisation",
-        "Behandlung mit Chemikalien",
-        "Behandlung mit Ätzmitteln",
-        "chemische Verödung"
-      ],
-      "fr": [
-        "Traitement chimique",
-        "Cautérisation chimique",
-        "Application de produit chimique",
-        "Destruction chimique",
-        "Thérapie chimique"
-      ],
-      "it": [
-        "Trattamento chimico",
-        "Cura chimica",
-        "Terapia chimica",
-        "Cauterizzazione chimica",
-        "Ablazione chimica",
-        "Applicazione di sostanze chimiche"
-      ]
-    }
+    "lkn": "VG.00.0110"
   },
   "Lokalbehandlung der Portio/Vagina/Vulva": {
-    "lkn": "VG.00.0120",
-    "synonyms": {
-      "de": [
-        "örtliche Behandlung",
-        "lokale Therapie",
-        "topische Behandlung",
-        "Behandlung vor Ort",
-        "direkte Behandlung"
-      ],
-      "fr": [
-        "Traitement local",
-        "Soin local",
-        "Thérapie locale",
-        "Application locale",
-        "Traitement topique",
-        "Soin topique",
-        "Application topique",
-        "Geste thérapeutique local"
-      ],
-      "it": [
-        "Trattamento locale",
-        "Terapia locale",
-        "Cura locale",
-        "Trattamento topico",
-        "Terapia topica",
-        "Applicazione locale",
-        "Medicazione locale"
-      ]
-    }
+    "lkn": "VG.00.0120"
   },
   "Behandlung intraepithelialer Neoplasien, pro 1 Min.": {
-    "lkn": "VG.00.0130",
-    "synonyms": {
-      "de": [
-        "Therapie",
-        "Eingriff",
-        "Intervention"
-      ],
-      "fr": [
-        "Traitement",
-        "prise en charge",
-        "soin",
-        "thérapie",
-        "gestion",
-        "intervention",
-        "acte"
-      ],
-      "it": [
-        "Trattamento",
-        "Cura",
-        "Terapia",
-        "Intervento",
-        "Procedura",
-        "Asportazione",
-        "Rimozione",
-        "Ablazione",
-        "Escissione"
-      ]
-    }
+    "lkn": "VG.00.0130"
   },
   "Polypenabtragung im Portiobereich, jede Methode": {
-    "lkn": "VG.05.0010",
-    "synonyms": {
-      "de": [
-        "Polypenentfernung",
-        "Polypektomie",
-        "Entfernung von Polypen",
-        "Abtragen von Polypen"
-      ],
-      "fr": [
-        "Avulsion",
-        "Ablation",
-        "Exérèse",
-        "Enlèvement",
-        "Retrait",
-        "Extraction",
-        "Polypectomie"
-      ],
-      "it": [
-        "Ablazione",
-        "Rimozione",
-        "Asportazione",
-        "Escissione",
-        "Curettage",
-        "Diatermocoagulazione",
-        "Vaporizzazione",
-        "Bruciatura"
-      ]
-    }
+    "lkn": "VG.05.0010"
   },
   "Kryotherapie, Elektrotherapie der Portio": {
     "lkn": "VG.05.0020",
@@ -90946,38 +89228,6 @@
         "Trattamento",
         "Terapia",
         "Procedura"
-      ]
-    }
-  },
-  "(+) Vaginaltamponade": {
-    "lkn": "VG.10.0110",
-    "synonyms": {
-      "de": [
-        "Scheidentamponade",
-        "Tamponade der Scheide",
-        "Einlegen eines Vaginaltampons",
-        "Einlegen einer Scheidentamponade",
-        "Vaginale Blutstillung",
-        "Blutstillung in der Scheide",
-        "Tamponade bei Scheidenblutung",
-        "Scheidenblutung stoppen mit Tampon"
-      ],
-      "fr": [
-        "Tamponnement",
-        "tamponnade",
-        "méchage",
-        "pose de tampon",
-        "mise en place d'un tampon",
-        "bourrage",
-        "compression"
-      ],
-      "it": [
-        "Tamponamento",
-        "applicazione di tampone",
-        "posizionamento di tampone",
-        "inserimento di tampone",
-        "medicazione interna",
-        "imballaggio"
       ]
     }
   },
@@ -91435,16 +89685,18 @@
     "lkn": "WA.10.0010",
     "synonyms": {
       "de": [
-        "Anästhesie-Leistung",
-        "Anästhesie-Betreuung",
-        "Anästhesie-Durchführung",
-        "Narkose-Leistung",
-        "Narkose-Betreuung",
-        "Narkose-Durchführung",
-        "Anästhesie-Überwachung",
-        "Narkose-Überwachung",
-        "Anästhesie-Begleitung",
-        "Narkose-Begleitung"
+        "Leistung Anästhesistin",
+        "Betreuung durch Narkosearzt",
+        "Anästhesie-Durchführung durch Narkoseärztin",
+        "Narkose-Leistung durch Anästhesist",
+        "Narkose-Betreuung durch Anästhesistin",
+        "Narkose-Durchführung durch Anästhesist",
+        "Anästhesie-Überwachung durch Narkoseärztin",
+        "Narkose-Überwachung durch Anästhesist",
+        "Anästhesie-Begleitung durch Narkoseärztin",
+        "Narkose-Begleitung durch Anästhesist",
+        "Arbeit Anästhesistin",
+        "Arbeit Anästhesist"
       ],
       "fr": [
         "Activité de l'anesthésiste",
@@ -91472,11 +89724,11 @@
     "lkn": "WA.10.0020",
     "synonyms": {
       "de": [
-        "Leistung",
-        "Betreuung",
-        "Überwachung",
-        "Behandlung",
-        "Arbeit"
+        "Leistung der Narkoseärztin",
+        "Betreuung durch Narkosearzt",
+        "Überwachung durch Anästhesistin",
+        "Behandlung durch Anästhesist",
+        "Arbeit der Anästhesistin"
       ],
       "fr": [
         "Activité de l'anesthésiste",
@@ -91846,8 +90098,7 @@
     }
   },
   "Fachärztliche Unterstützung, pro 1 Min.": {
-    "lkn": "WF.00.0010",
-    "synonyms": {}
+    "lkn": "WF.00.0010"
   },
   "Nichtärztliche Triage und Überwachung im Wartebereich der Notfallstation": {
     "lkn": "WG.00.0010",
@@ -91872,34 +90123,6 @@
         "smistamento",
         "classificazione",
         "prioritizzazione"
-      ]
-    }
-  },
-  "Überwachung nicht monitorisierter Patienten auf der Notfallstation, pro 15 Min.": {
-    "lkn": "WG.00.0020",
-    "synonyms": {
-      "de": [
-        "Beobachtung",
-        "Betreuung",
-        "Beaufsichtigung",
-        "Klinische Überwachung",
-        "Manuelle Überwachung",
-        "Patientenkontrolle",
-        "Verlaufskontrolle"
-      ],
-      "fr": [
-        "Surveillance",
-        "Observation",
-        "Suivi",
-        "Vigilance",
-        "Ronde",
-        "Visite"
-      ],
-      "it": [
-        "Sorveglianza",
-        "osservazione",
-        "vigilanza",
-        "supervisione"
       ]
     }
   },
@@ -91934,86 +90157,6 @@
         "Trattamento medico",
         "Esame medico",
         "Valutazione medica"
-      ]
-    }
-  },
-  "Überwachung monitorisierte, liegende Patienten auf der Notfallstation bis 8 Stunden, pro 30 Min.": {
-    "lkn": "WG.00.0040",
-    "synonyms": {
-      "de": [
-        "Beobachtung",
-        "Monitoring",
-        "Patientenbeobachtung",
-        "Vitalzeichenkontrolle",
-        "Zustandskontrolle",
-        "Betreuung"
-      ],
-      "fr": [
-        "Surveillance monitorisée",
-        "Surveillance continue",
-        "Observation sous monitoring",
-        "Suivi monitorisé",
-        "Surveillance instrumentale",
-        "Surveillance par appareils",
-        "Surveillance électronique"
-      ],
-      "it": [
-        "Sorveglianza",
-        "Monitoraggio",
-        "Osservazione",
-        "Vigilanza"
-      ]
-    }
-  },
-  "Überwachung Schockraum der Notfallstation, erste 30 Min.": {
-    "lkn": "WG.00.0050",
-    "synonyms": {
-      "de": [
-        "Beobachtung",
-        "Monitoring",
-        "Betreuung",
-        "Aufsicht"
-      ],
-      "fr": [
-        "Surveillance",
-        "Observation",
-        "Suivi",
-        "Prise en charge",
-        "Contrôle des fonctions vitales"
-      ],
-      "it": [
-        "Sorveglianza",
-        "Monitoraggio",
-        "Osservazione intensiva",
-        "Vigilanza clinica",
-        "Assistenza continua"
-      ]
-    }
-  },
-  "+ Überwachung Schockraum der Notfallstation, jede weitere 30 Min.": {
-    "lkn": "WG.00.0060",
-    "synonyms": {
-      "de": [
-        "Monitoring",
-        "Patientenüberwachung",
-        "Vitalparameterüberwachung",
-        "Zustandsbeobachtung",
-        "ständige Beobachtung",
-        "Intensivüberwachung"
-      ],
-      "fr": [
-        "Surveillance",
-        "Monitorage",
-        "Observation",
-        "Suivi"
-      ],
-      "it": [
-        "Sorveglianza",
-        "Monitoraggio",
-        "Osservazione",
-        "Vigilanza",
-        "Controllo costante",
-        "Assistenza ravvicinata"
       ]
     }
   },
@@ -92224,6 +90367,1157 @@
         "cura medica",
         "trattamento medico",
         "assistenza medica"
+      ]
+    }
+  },
+  "Spezifische Impfberatung bei franchisebefreiten Impfungen, pro 1 Min.": {
+    "lkn": "AA.00.0090",
+    "synonyms": {
+      "de": [
+        "Impfgespräch",
+        "Impfaufklärung",
+        "Beratung zur Impfung",
+        "Impfberatung",
+        "Impfsprechstunde"
+      ],
+      "fr": [
+        "Conseils spécifiques",
+        "Consultation",
+        "Entretien conseil",
+        "Avis médical",
+        "Information personnalisée",
+        "Recommandations ciblées",
+        "Guidance",
+        "Bilan conseil",
+        "Orientation"
+      ],
+      "it": [
+        "Consulenza specifica",
+        "parere specialistico",
+        "consulto mirato",
+        "consiglio mirato",
+        "orientamento specifico",
+        "informazione specifica",
+        "colloquio specialistico",
+        "visita di consulenza"
+      ]
+    }
+  },
+  "Dringlichkeits-Pauschale B, Mo-Fr 19-22 Uhr, Sa 12-19, So 7-19 Uhr": {
+    "lkn": "AA.30.0020",
+    "synonyms": {
+      "de": [
+        "Notfallbehandlung",
+        "Akutbehandlung",
+        "Eilbehandlung",
+        "Sofortbehandlung",
+        "Notfallversorgung",
+        "Akutversorgung",
+        "Notfallzuschlag",
+        "Dringlichkeitszuschlag",
+        "Eilzuschlag"
+      ],
+      "fr": [
+        "Indemnité",
+        "Forfait",
+        "Prestation",
+        "Honoraires",
+        "Rémunération",
+        "Tarif"
+      ],
+      "it": [
+        "Forfait",
+        "tariffa forfettaria",
+        "importo fisso",
+        "costo fisso",
+        "prezzo fisso",
+        "tariffa unica",
+        "pacchetto",
+        "prestazione forfettaria",
+        "compenso forfettario"
+      ]
+    }
+  },
+  "Nichtärztliche Blutentnahme (kapillär)": {
+    "lkn": "AK.00.0010",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch medizinisches Assistenzpersonal",
+        "durch Fachpersonal",
+        "nicht vom Arzt",
+        "von der Pflege",
+        "von der MPA"
+      ],
+      "fr": [
+        "Prélèvement sanguin",
+        "Prise de sang",
+        "Collecte de sang"
+      ],
+      "it": [
+        "Prelievo di sangue",
+        "Prelievo ematico",
+        "Prelevamento di sangue",
+        "Raccolta di sangue",
+        "Esame del sangue",
+        "Analisi del sangue",
+        "Puntura per il sangue",
+        "Prendere il sangue"
+      ]
+    }
+  },
+  "Nichtärztlicher Atemtest mit Harnstoff {13C} zum Nachweis von Helicobacter pylori": {
+    "lkn": "AK.00.0110",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch medizinisches Fachpersonal",
+        "durch MPA",
+        "durch Assistenzpersonal",
+        "ohne Arzt"
+      ],
+      "fr": [
+        "Test respiratoire",
+        "Test d'haleine",
+        "Épreuve respiratoire",
+        "Test du souffle"
+      ],
+      "it": [
+        "Test respiratorio",
+        "Test del respiro",
+        "Prova del respiro",
+        "Esame del respiro",
+        "Test dell'alito",
+        "Breath test"
+      ]
+    }
+  },
+  "Nichtärztliche, nichtspezialisierte Betreuung/Überwachung, pro 15 Min.": {
+    "lkn": "AM.00.0010",
+    "synonyms": {
+      "de": [
+        "durch Pflegepersonal",
+        "durch medizinisches Fachpersonal",
+        "durch Pflegekräfte",
+        "durch MPA",
+        "durch nicht-ärztliches Personal"
+      ],
+      "fr": [
+        "Surveillance",
+        "Observation",
+        "Monitoring",
+        "Suivi",
+        "Veille"
+      ],
+      "it": [
+        "Sorveglianza",
+        "Monitoraggio",
+        "Osservazione",
+        "Vigilanza"
+      ]
+    }
+  },
+  "Wechselzeit spezialisierte, nichtärztliche Überwachung, <60 Minuten Überwachung": {
+    "lkn": "AR.00.0380",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Umstellungsphase",
+        "Zwischenphase",
+        "Anpassungsphase"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Période de transition",
+        "Phase d'adaptation",
+        "Temps de bascule",
+        "Temps de réajustement",
+        "Temps de mise en route"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Periodo di transizione",
+        "Fase di osservazione",
+        "Periodo di monitoraggio",
+        "Sosta assistita"
+      ]
+    }
+  },
+  "Wechselzeit spezialisierte, nichtärztliche Überwachung, >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0400",
+    "synonyms": {
+      "de": [
+        "Uebergangsphase",
+        "Anpassungsphase",
+        "Umstellungsphase",
+        "Beobachtungsphase",
+        "Instabilitaetsphase",
+        "kritische Beobachtungszeit"
+      ],
+      "fr": [
+        "Temps de changement",
+        "période de transition",
+        "phase de modification",
+        "gestion de la transition",
+        "suivi de l'évolution",
+        "temps d'adaptation"
+      ],
+      "it": [
+        "sorveglianza",
+        "osservazione",
+        "monitoraggio",
+        "supervisione",
+        "vigilanza",
+        "assistenza",
+        "cura"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, <60 Minuten Überwachung": {
+    "lkn": "AR.00.0410",
+    "synonyms": {
+      "de": [
+        "Patientenabwicklung",
+        "Patientenmanagement",
+        "Organisatorische Patientenbetreuung",
+        "Patientenflusssteuerung",
+        "Administrative Patientenzeit",
+        "Patientenlogistik",
+        "Ablaufmanagement"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Période d'observation",
+        "Surveillance clinique",
+        "Prise en charge initiale",
+        "Gestion transitoire"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Attesa",
+        "Periodo di attesa"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, nichtmonitorisierter Patient, >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0420",
+    "synonyms": {
+      "de": [
+        "Aufenthalt in der Notaufnahme",
+        "Wartezeit im Notfallbereich",
+        "Verweildauer in der Notfallstation",
+        "Beobachtungszeit in der Notfallambulanz",
+        "Patientenverbleib Notfall"
+      ],
+      "fr": [
+        "Temps de changement",
+        "transfert de patient",
+        "orientation de patient",
+        "réorientation de patient",
+        "gestion du patient",
+        "prise en charge du patient",
+        "déplacement de patient"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "attesa",
+        "periodo di attesa",
+        "sosta in attesa",
+        "permanenza in attesa"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, <60 Minuten Überwachung": {
+    "lkn": "AR.00.0430",
+    "synonyms": {
+      "de": [
+        "Übergabe",
+        "Patientenübergabe",
+        "Verlegung",
+        "Patientenverlegung",
+        "Umplatzierung",
+        "Transportbegleitung"
+      ],
+      "fr": [
+        "Changement",
+        "Mise en place",
+        "Installation",
+        "Préparation",
+        "Réglage",
+        "Ajustement",
+        "Transfert",
+        "Prise en charge initiale",
+        "Mise en condition"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "periodo di osservazione",
+        "sosta in osservazione",
+        "permanenza in osservazione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation, monitorisierter Patient, >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0440",
+    "synonyms": {
+      "de": [
+        "Verlegungszeit",
+        "Umlagerungszeit",
+        "Übergabezeit"
+      ],
+      "fr": [
+        "Temps de changement",
+        "temps de transfert",
+        "temps de déplacement",
+        "temps de transition",
+        "gestion du transfert",
+        "préparation au transfert",
+        "accompagnement du patient"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Attesa",
+        "Periodo di attesa",
+        "Sosta",
+        "Permanenza in attesa"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation Schockraum, <60 Minuten Überwachung": {
+    "lkn": "AR.00.0450",
+    "synonyms": {
+      "de": [
+        "Übergangszeit",
+        "Umstellungszeit",
+        "Transferzeit",
+        "Übergabezeit"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Temps de transition",
+        "Période de stabilisation",
+        "Surveillance en phase critique",
+        "Gestion de l'évolution clinique",
+        "Prise en charge transitoire",
+        "Observation en phase aiguë"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Attesa",
+        "Periodo di attesa",
+        "Sosta",
+        "Permanenza",
+        "Periodo di osservazione"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Notfallstation Schockraum, >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0460",
+    "synonyms": {
+      "de": [
+        "Stabilisierungsphase",
+        "Übergangsphase",
+        "Beobachtungsphase"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Gestion de l'évolution clinique",
+        "Adaptation thérapeutique",
+        "Phase de transition clinique",
+        "Suivi évolutif",
+        "Prise en charge dynamique"
+      ],
+      "it": [
+        "Pronto Soccorso",
+        "PS",
+        "Emergenza",
+        "Dipartimento d'emergenza",
+        "DEA",
+        "Urgenze"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), <60 Minuten Überwachung": {
+    "lkn": "AR.00.0470",
+    "synonyms": {
+      "de": [
+        "Übergangszeit",
+        "Vorbereitungszeit",
+        "Rüstzeit",
+        "Bereitstellungszeit",
+        "Patientenübergabe",
+        "Arbeitswechsel"
+      ],
+      "fr": [
+        "Temps de changement",
+        "préparation de l'unité",
+        "mise en place du poste",
+        "gestion de la transition",
+        "installation du patient",
+        "aménagement du lit"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Fase di transizione",
+        "Periodo di attesa",
+        "Tempo di preparazione al ricovero",
+        "Tempo di preparazione al trasferimento"
+      ]
+    }
+  },
+  "Wechselzeit Sparte Intensivstation (SGI zertifiziert), >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0480",
+    "synonyms": {
+      "de": [
+        "Übergangsphase",
+        "Umstellungsphase",
+        "Verlegungszeit",
+        "Schichtübergabe"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Gestion d'une évolution clinique",
+        "Réajustement des soins",
+        "Gestion d'une instabilité",
+        "Surveillance d'une phase critique"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Tempo di osservazione",
+        "Tempo di monitoraggio",
+        "Periodo di disponibilità",
+        "Tempo di vigilanza",
+        "Tempo di permanenza in osservazione"
+      ]
+    }
+  },
+  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, <60 Minuten Überwachung": {
+    "lkn": "AR.00.0490",
+    "synonyms": {
+      "de": [
+        "Ubergangszeit",
+        "Umstellungszeit",
+        "Anpassungszeit",
+        "Transitionsphase",
+        "Zustandswechselphase"
+      ],
+      "fr": [
+        "Temps de changement",
+        "Temps de transition",
+        "Temps de transfert",
+        "Temps d'installation"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Periodo di transizione",
+        "Periodo di osservazione",
+        "Sosta temporanea",
+        "Attesa per trasferimento",
+        "Attesa per dimissione"
+      ]
+    }
+  },
+  "Wechselzeit Intermediate Care Unit (IMCU), anerkannt, >=60 Minuten Überwachung": {
+    "lkn": "AR.00.0500",
+    "synonyms": {
+      "de": [
+        "Übergangsbetreuung",
+        "Anpassungsphase",
+        "Stabilisierungsphase",
+        "Zustandswechsel-Beobachtung"
+      ],
+      "fr": [
+        "Temps de changement",
+        "gestion de l'évolution",
+        "suivi d'une modification",
+        "adaptation des soins",
+        "réévaluation clinique",
+        "ajustement thérapeutique",
+        "période de transition",
+        "phase d'adaptation"
+      ],
+      "it": [
+        "Tempo di attesa",
+        "Periodo di osservazione",
+        "Fase di transizione",
+        "Periodo di monitoraggio",
+        "Sosta per osservazione",
+        "Permanenza in osservazione"
+      ]
+    }
+  },
+  "Radiopharmakon FDG": {
+    "lkn": "C00.XE.Z006",
+    "synonyms": {
+      "de": [
+        "PET-CT Untersuchung",
+        "PET-CT Scan",
+        "PET-CT Bildgebung",
+        "kombinierte PET/CT",
+        "PET und CT Untersuchung"
+      ],
+      "fr": [
+        "TEP/CT",
+        "scanner TEP/CT",
+        "examen TEP/CT",
+        "imagerie TEP/CT",
+        "PET-CT",
+        "TEP-scan",
+        "scintigraphie TEP/CT"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-TC",
+        "PET-TAC",
+        "esame PET/CT",
+        "scansione PET/CT",
+        "indagine PET/CT"
+      ]
+    }
+  },
+  "Radiopharmakon N-13 Ammoniak": {
+    "lkn": "C00.XE.Z007",
+    "synonyms": {
+      "de": [
+        "PET-CT",
+        "PET CT",
+        "PET-Scan mit CT",
+        "PET-Untersuchung mit CT",
+        "kombinierte PET/CT",
+        "Hybrid-PET/CT",
+        "Fusions-PET/CT",
+        "Positronenemissionstomographie-Computertomographie",
+        "PET-Scan",
+        "PET-Untersuchung"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET/CT",
+        "Scanner TEP",
+        "Examen TEP-CT",
+        "Imagerie TEP-CT",
+        "TEP-scanner"
+      ],
+      "it": [
+        "PET/CT",
+        "esame PET/CT",
+        "scansione PET/CT",
+        "indagine PET/CT",
+        "PET-TC"
+      ]
+    }
+  },
+  "Radiopharmakon 82-Rubidium": {
+    "lkn": "C00.XE.Z008",
+    "synonyms": {
+      "de": [
+        "PET-CT-Scan",
+        "PET-CT-Untersuchung",
+        "PET-CT-Bildgebung",
+        "PET-CT-Aufnahme",
+        "Hybrid-Scan PET/CT"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET/CT",
+        "scanner TEP",
+        "examen TEP-CT",
+        "TEP-scanner"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-TC",
+        "esame PET/CT",
+        "scansione PET/CT",
+        "indagine PET/CT",
+        "tomografia PET/CT",
+        "diagnostica PET/CT"
+      ]
+    }
+  },
+  "Radiopharmakon F-18-Ethyltyrosin": {
+    "lkn": "C00.XE.Z010",
+    "synonyms": {
+      "de": [
+        "PET-CT-Untersuchung",
+        "PET-CT-Scan",
+        "PET-CT-Bildgebung",
+        "PET-CT-Aufnahme",
+        "PET-CT-Diagnostik"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET/CT",
+        "TEP-scanner",
+        "Scanner TEP",
+        "Examen TEP/CT",
+        "Imagerie TEP/CT"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-TC",
+        "PET-TAC",
+        "Esame PET/CT",
+        "Scansione PET/CT",
+        "PET con TC"
+      ]
+    }
+  },
+  "Radiopharmakon F-18-DOPA": {
+    "lkn": "C00.XE.Z012",
+    "synonyms": {
+      "de": [
+        "PET/CT-Scan",
+        "PET/CT-Untersuchung",
+        "PET/CT-Bildgebung",
+        "Hybrid-Scan",
+        "Kombinations-Scan",
+        "Ganzkoerper-PET/CT"
+      ],
+      "fr": [
+        "TEP/CT",
+        "TEP-CT",
+        "PET/CT",
+        "PET-CT",
+        "Scanner TEP",
+        "Scanner PET",
+        "Imagerie TEP/CT",
+        "Examen TEP/CT",
+        "Exploration TEP/CT"
+      ],
+      "it": [
+        "PET/CT",
+        "Esame PET/CT",
+        "Scansione PET/CT",
+        "Tomografia PET/CT",
+        "Indagine PET/CT",
+        "Accertamento PET/CT",
+        "Diagnostica PET/CT"
+      ]
+    }
+  },
+  "Radiopharmakon PSMA Tracer": {
+    "lkn": "C00.XE.Z014",
+    "synonyms": {
+      "de": [
+        "PET-CT Untersuchung",
+        "PET-CT Scan",
+        "PET-CT Bildgebung",
+        "Hybrid-PET-CT",
+        "kombiniertes PET-CT"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET/CT",
+        "PET-CT",
+        "Scanner TEP/CT",
+        "Examen TEP/CT",
+        "Imagerie TEP/CT",
+        "TEP-scanner",
+        "TEP"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-TC",
+        "esame PET/CT",
+        "scansione PET/CT",
+        "indagine PET/CT",
+        "tomografia PET/CT",
+        "PET con TC"
+      ]
+    }
+  },
+  "Radiopharmakon DOTA-Peptide": {
+    "lkn": "C00.XE.Z015",
+    "synonyms": {
+      "de": [
+        "PET-CT Untersuchung",
+        "PET-CT Scan",
+        "Positronenemissionstomographie-Computertomographie"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET-CT",
+        "Scanner TEP/CT",
+        "Examen TEP/CT",
+        "Imagerie TEP/CT"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-CT",
+        "TAC PET",
+        "esame PET/CT",
+        "indagine PET/CT",
+        "scansione PET/CT"
+      ]
+    }
+  },
+  "Radiopharmakon H215O": {
+    "lkn": "C00.XE.Z016",
+    "synonyms": {
+      "de": [
+        "PET-CT",
+        "PET-CT-Scan",
+        "PET-CT-Untersuchung",
+        "PET-CT-Bildgebung",
+        "PET-CT-Diagnostik",
+        "Positronenemissionstomographie-Computertomographie",
+        "PET-Scan mit CT",
+        "Kombinations-PET/CT-Scan"
+      ],
+      "fr": [
+        "TEP/CT",
+        "PET/CT",
+        "examen TEP/CT",
+        "scanner TEP/CT",
+        "imagerie TEP/CT"
+      ],
+      "it": [
+        "PET/CT",
+        "PET-TC",
+        "PET-TAC",
+        "esame PET/CT",
+        "scansione PET/CT",
+        "indagine PET/CT",
+        "tomografia PET/CT"
+      ]
+    }
+  },
+  "Radiopharmakon Amyloid-Tracer": {
+    "lkn": "C00.XE.Z017",
+    "synonyms": {
+      "de": [
+        "PET/CT Untersuchung",
+        "PET/CT Scan",
+        "PET-CT",
+        "PET-CT Bildgebung"
+      ],
+      "fr": [
+        "TEP/CT",
+        "TEP-scan",
+        "scanner TEP/CT",
+        "examen TEP/CT"
+      ],
+      "it": [
+        "PET/CT o PET/MRI",
+        "esame PET",
+        "indagine PET",
+        "scansione PET",
+        "tomografia PET",
+        "scintigrafia PET",
+        "esame di medicina nucleare",
+        "diagnostica PET"
+      ]
+    }
+  },
+  "Röntgen Schädel-Spezialaufnahme, erste Aufnahme, pro Seite": {
+    "lkn": "GG.00.0030",
+    "synonyms": {
+      "de": [
+        "Röntgenaufnahme",
+        "Röntgenuntersuchung",
+        "Röntgenbild"
+      ],
+      "fr": [
+        "Radiologie",
+        "examen radiologique",
+        "imagerie médicale",
+        "service de radiologie",
+        "radio"
+      ]
+    }
+  },
+  "+ Röntgen Schädel-Spezialaufnahme, jede weitere Aufnahme, pro Seite": {
+    "lkn": "GG.00.0040",
+    "synonyms": {
+      "de": [
+        "Röntgenuntersuchung",
+        "Röntgenaufnahme",
+        "Röntgenbild"
+      ],
+      "fr": [
+        "Radiologie",
+        "Rayons X",
+        "Radiographie",
+        "Examen radiologique",
+        "Radio",
+        "Imagerie"
+      ],
+      "it": [
+        "Radiografia speciale del cranio",
+        "Rx cranio speciale",
+        "Esame radiografico speciale del cranio",
+        "Lastra speciale del cranio",
+        "Radiografia mirata del cranio"
+      ]
+    }
+  },
+  "Sonografie-Gelenk-Untersuchung, Hüftgelenk, pro Seite": {
+    "lkn": "GK.20.0040",
+    "synonyms": {
+      "de": [
+        "Gelenk-Ultraschall",
+        "Ultraschalluntersuchung Gelenk",
+        "Gelenk-Sonografie",
+        "Ultraschall-Diagnostik Gelenk",
+        "Gelenk-Schall",
+        "Ultraschall-Bildgebung Gelenk"
+      ],
+      "fr": [
+        "Sonographie",
+        "échographie",
+        "écho",
+        "examen échographique",
+        "ultrasons"
+      ],
+      "it": [
+        "Esame ecografico articolare",
+        "ecografia articolare",
+        "ecografia delle articolazioni",
+        "ultrasuoni articolari",
+        "sonografia articolare",
+        "ecografia di un'articolazione"
+      ]
+    }
+  },
+  "Sonografie-Gelenk-Untersuchung der Hüfte nach Graf bei Neugeborenen und Säuglingen, pro Seite": {
+    "lkn": "GK.20.0050",
+    "synonyms": {
+      "de": [
+        "Ultraschalluntersuchung",
+        "Ultraschall",
+        "Sono",
+        "Sonographie",
+        "Gelenkuntersuchung",
+        "Hüftultraschall",
+        "Hüftsono",
+        "Hüftsonografie",
+        "Hüftscreening",
+        "Ultraschall-Screening",
+        "Vorsorgeuntersuchung",
+        "Hüftvorsorge"
+      ],
+      "fr": [
+        "Sonographie articulaire",
+        "échographie articulaire",
+        "examen échographique articulaire",
+        "ultrason articulaire"
+      ],
+      "it": [
+        "Ecografia articolare",
+        "Eco articolare",
+        "Ecografia",
+        "Eco",
+        "Ultrasuoni",
+        "Esame ecografico",
+        "Sonografia"
+      ]
+    }
+  },
+  "Sonografie-gesteuerte diagnostische Punktion/Biopsie/Aspiration, pro Lokalisation": {
+    "lkn": "GK.35.0010",
+    "synonyms": {
+      "de": [
+        "Ultraschall-gesteuerte",
+        "Ultraschall-gezielte",
+        "unter Ultraschall",
+        "mit Ultraschall",
+        "Ultraschall-unterstützte"
+      ],
+      "fr": [
+        "Ponction",
+        "Prélèvement",
+        "Ponction à l'aiguille",
+        "Prélèvement par aiguille"
+      ],
+      "it": [
+        "Punzione",
+        "Puntura",
+        "Prelievo"
+      ]
+    }
+  },
+  "+ Separater Gefässzugang als prophylaktische Massnahme, nicht sonografie-gesteuert": {
+    "lkn": "GK.35.0130",
+    "synonyms": {
+      "de": [
+        "eigenständig",
+        "unabhängig",
+        "als Einzelmassnahme",
+        "als eigene Leistung"
+      ],
+      "fr": [
+        "Accès vasculaire",
+        "Ponction vasculaire",
+        "Abord vasculaire",
+        "Mise en place d'une voie",
+        "Pose d'un cathéter",
+        "Canulation",
+        "Piqûre"
+      ],
+      "it": [
+        "Accesso vascolare",
+        "Creazione di accesso vascolare",
+        "Posizionamento di accesso vascolare",
+        "Instaurazione di accesso vascolare",
+        "Puntura di vaso sanguigno",
+        "Cannulazione di vaso",
+        "Inserimento di catetere vascolare",
+        "Preparazione di accesso venoso/arterioso"
+      ]
+    }
+  },
+  "Geriatrische Umfeldarbeit in Awesenheit des Patienten, pro 1 Min.": {
+    "lkn": "JA.00.0020",
+    "synonyms": {
+      "de": [
+        "Aufpreis",
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Zusatzhonorar",
+        "Sonderzuschlag"
+      ],
+      "fr": [
+        "Supplément",
+        "Majoration",
+        "Frais additionnels",
+        "Prestation additionnelle",
+        "Surcharge",
+        "Indemnité supplémentaire"
+      ],
+      "it": [
+        "Supplemento",
+        "Maggiorazione",
+        "Sovrapprezzo",
+        "Addizionale",
+        "Aumento",
+        "Extra"
+      ]
+    }
+  },
+  "Nichtärztliche therapeutische Immunadsorption, pro 1 Min.": {
+    "lkn": "JV.10.0050",
+    "synonyms": {
+      "de": [
+        "durch Fachpersonal",
+        "durch Pflegepersonal",
+        "durch medizinisches Fachpersonal"
+      ],
+      "fr": [
+        "Test",
+        "procédure",
+        "séance",
+        "acte",
+        "traitement"
+      ],
+      "it": [
+        "Immunoassorbimento terapeutico",
+        "Immunoassorbimento",
+        "Terapia di immunoassorbimento",
+        "Trattamento di immunoassorbimento",
+        "Aferesi terapeutica",
+        "Plasmaferesi selettiva",
+        "Rimozione di anticorpi",
+        "Depurazione del sangue (da anticorpi)",
+        "Filtrazione immunologica"
+      ]
+    }
+  },
+  "Einfache Samenaufbereitung im Rahmen einer Insemination": {
+    "lkn": "KD.05.0010",
+    "synonyms": {
+      "de": [
+        "Standard-",
+        "Basis-",
+        "unkomplizierte",
+        "routinemaessige",
+        "gaengige"
+      ],
+      "fr": [
+        "Préparation",
+        "traitement du sperme",
+        "conditionnement du sperme",
+        "lavage de sperme",
+        "préparation de l'éjaculat",
+        "traitement de l'éjaculat"
+      ],
+      "it": [
+        "Preparazione",
+        "Trattamento",
+        "Elaborazione",
+        "Allestimento",
+        "Lavorazione"
+      ]
+    }
+  },
+  "Expanderfüllung, pro Expander": {
+    "lkn": "MK.25.0390",
+    "synonyms": {
+      "de": [
+        "Expander auffüllen",
+        "Expander befüllen",
+        "Expanderinjektion",
+        "Expanderbefüllung",
+        "Expanderauffüllung",
+        "Gewebeexpander füllen",
+        "Gewebeexpander auffüllen",
+        "Gewebeexpander befüllen"
+      ],
+      "fr": [
+        "Remplissage",
+        "Injection",
+        "Gonflage",
+        "Expansion",
+        "Augmentation de volume",
+        "Mise en tension",
+        "Remplir",
+        "Ajout de liquide"
+      ],
+      "it": [
+        "Riempimento",
+        "Iniezione",
+        "Gonfiaggio",
+        "Espansione"
+      ]
+    }
+  },
+  "+ Vaginaltamponade": {
+    "lkn": "VG.10.0110",
+    "synonyms": {
+      "de": [
+        "Scheidentamponade",
+        "Tamponade der Scheide",
+        "Einlegen eines Vaginaltampons",
+        "Einlegen einer Scheidentamponade",
+        "Vaginale Blutstillung",
+        "Blutstillung in der Scheide",
+        "Tamponade bei Scheidenblutung",
+        "Scheidenblutung stoppen mit Tampon"
+      ],
+      "fr": [
+        "Tamponnement",
+        "tamponnade",
+        "méchage",
+        "pose de tampon",
+        "mise en place d'un tampon",
+        "bourrage",
+        "compression"
+      ],
+      "it": [
+        "Tamponamento",
+        "applicazione di tampone",
+        "posizionamento di tampone",
+        "inserimento di tampone",
+        "medicazione interna",
+        "imballaggio"
+      ]
+    }
+  },
+  "Betreuung und Überwachung nicht monitorisierter Patienten auf der Notfallstation, pro 15 Min.": {
+    "lkn": "WG.00.0020",
+    "synonyms": {
+      "de": [
+        "Beobachtung",
+        "Betreuung",
+        "Beaufsichtigung",
+        "Klinische Überwachung",
+        "Manuelle Überwachung",
+        "Patientenkontrolle",
+        "Verlaufskontrolle"
+      ],
+      "fr": [
+        "Surveillance",
+        "Observation",
+        "Suivi",
+        "Vigilance",
+        "Ronde",
+        "Visite"
+      ],
+      "it": [
+        "Sorveglianza",
+        "osservazione",
+        "vigilanza",
+        "supervisione"
+      ]
+    }
+  },
+  "Betreuung und Überwachung monitorisierte, liegende Patienten auf der Notfallstation bis 8 Stunden, pro 30 Min.": {
+    "lkn": "WG.00.0040",
+    "synonyms": {
+      "de": [
+        "Beobachtung",
+        "Monitoring",
+        "Patientenbeobachtung",
+        "Vitalzeichenkontrolle",
+        "Zustandskontrolle",
+        "Betreuung"
+      ],
+      "fr": [
+        "Surveillance monitorisée",
+        "Surveillance continue",
+        "Observation sous monitoring",
+        "Suivi monitorisé",
+        "Surveillance instrumentale",
+        "Surveillance par appareils",
+        "Surveillance électronique"
+      ],
+      "it": [
+        "Sorveglianza",
+        "Monitoraggio",
+        "Osservazione",
+        "Vigilanza"
+      ]
+    }
+  },
+  "Betreuung und Überwachung Schockraum der Notfallstation, erste 30 Min.": {
+    "lkn": "WG.00.0050",
+    "synonyms": {
+      "de": [
+        "Beobachtung",
+        "Monitoring",
+        "Betreuung",
+        "Aufsicht"
+      ],
+      "fr": [
+        "Surveillance",
+        "Observation",
+        "Suivi",
+        "Prise en charge",
+        "Contrôle des fonctions vitales"
+      ],
+      "it": [
+        "Sorveglianza",
+        "Monitoraggio",
+        "Osservazione intensiva",
+        "Vigilanza clinica",
+        "Assistenza continua"
+      ]
+    }
+  },
+  "+ Betreuung und Überwachung Schockraum der Notfallstation, jede weitere 30 Min.": {
+    "lkn": "WG.00.0060",
+    "synonyms": {
+      "de": [
+        "Monitoring",
+        "Patientenüberwachung",
+        "Vitalparameterüberwachung",
+        "Zustandsbeobachtung",
+        "ständige Beobachtung",
+        "Intensivüberwachung"
+      ],
+      "fr": [
+        "Surveillance",
+        "Monitorage",
+        "Observation",
+        "Suivi"
+      ],
+      "it": [
+        "Sorveglianza",
+        "Monitoraggio",
+        "Osservazione",
+        "Vigilanza",
+        "Controllo costante",
+        "Assistenza ravvicinata"
       ]
     }
   }

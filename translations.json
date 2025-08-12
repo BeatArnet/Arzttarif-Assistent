@@ -54,6 +54,8 @@
     ,"qcTestingLang": "Teste {lang}..."
     ,"qcSummary": "Gesamt: {passed} / {total} bestanden."
     ,"qcError": "Fehler"
+    ,"qcTokensLlm1": "LLM1 Tokens (Input/Ausgabe): {in} / {out}"
+    ,"qcTokensLlm2": "LLM2 Tokens (Input/Ausgabe): {in} / {out}"
   },
   "fr": {
     "langLabel": "Langue :",
@@ -110,6 +112,8 @@
     ,"qcTestingLang": "test de {lang}..."
     ,"qcSummary": "Total : {passed} / {total} réussis."
     ,"qcError": "erreur"
+    ,"qcTokensLlm1": "Tokens LLM1 (Entrée/Sortie) : {in} / {out}"
+    ,"qcTokensLlm2": "Tokens LLM2 (Entrée/Sortie) : {in} / {out}"
   },
   "it": {
     "langLabel": "Lingua:",
@@ -166,5 +170,7 @@
     ,"qcTestingLang": "test {lang}..."
     ,"qcSummary": "Totale: {passed} / {total} superati."
     ,"qcError": "errore"
+    ,"qcTokensLlm1": "Token LLM1 (Input/Output): {in} / {out}"
+    ,"qcTokensLlm2": "Token LLM2 (Input/Output): {in} / {out}"
   }
 }

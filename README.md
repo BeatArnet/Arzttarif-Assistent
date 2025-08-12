@@ -8,13 +8,23 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Offizielle Quellen:**
     *   Für verbindliche Tarifinformationen und zur Überprüfung der Resultate konsultieren Sie bitte den offiziellen **OAAT Tarifbrowser**: [https://tarifbrowser.oaat-otma.ch/startPortal](https://tarifbrowser.oaat-otma.ch/startPortal)
     *   Die Ärzteschaft kann sich zudem auf der **Tarifplattform der FMH** orientieren: [https://www.tarifeambulant.fmh.ch/](https://www.tarifeambulant.fmh.ch/)
-*   **Open Source:** Das Projekt ist öffentlich auf GitHub verfügbar: [https://github.com/BeatArnet/Arzttarif-Assistent](https://github.com/BeatArnet/
-*   Keine persönlichen Daten eingeben – KI-Abfragen laufen über Google Gemini.Arzttarif-Assistent)
+*   **Open Source:** Das Projekt ist öffentlich auf GitHub verfügbar: [https://github.com/BeatArnet/Arzttarif-Assistent](https://github.com/BeatArnet/Arzttarif-Assistent)
+*   Keine persönlichen Daten eingeben – KI-Abfragen laufen über Google Gemini.
+*   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
 
-### V2.7 (Aktuell)
+### V2.8 (Aktuell)
+- Synonymverwaltung mit GUI (empfohlen) und CLI (nicht getestet), konfigurierbar in `config.ini`. 
+  Synonymverwaltung unterstützt beim Vergleich der aktuellen zur neuen Tarifversion 
+  (farblich markierte Eintragungen für neue, gelöscht und geänderte LKNs).)
+- Vergleich verschiedener LLM‑Provider und Modelle über `llm_vergleich.py`, inklusive unterschiedliche Provider und Modelle.
+- RAG‑Modus nutzt Embeddings zur massiven Tokenreduktion (Faktor 10) in Kombination mit der Synonymtabelle, so dass (fast) kein Qualitätsverlust entsteht.
+- Aktualisiert auf Tarifversion 1.1c der OAAT‑OTMA AG (Stand 08.08.2025).
+
+### V2.7
 - Erweiterte Logging-Optionen: Granulare Steuerung der LLM-Zwischenschritte über `config.ini`.
+- Erkennt einmalig fehlende `temperature`-Unterstützung von Modellen und speichert dies in `config.ini`.
 
 ### V2.6
 - Optionaler RAG-Modus über `config.ini` schaltbar.
@@ -134,9 +144,11 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
     ```
 5.  **API-Schlüssel konfigurieren:**
     *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
-    *   Füge deinen Google Gemini API-Schlüssel hinzu:
+    *   Hinterlege die notwendigen Schlüssel:
         ```env
         GEMINI_API_KEY="DEIN_API_SCHLUESSEL_HIER"
+        SYNONYM_LLM_API_KEY="DEIN_API_SCHLUESSEL_HIER"
+        SYNONYM_LLM_MODEL="DEIN_MODELL"
         ```
 6.  **Anwendung starten:**
     ```bash
@@ -171,10 +183,12 @@ Während der Pilotphase werden alle eingehenden Meldungen im Repository
 [BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)
 gebündelt.
 
-## Embeddings generieren
+## RAG-Modus und Embeddings generieren
 
-Der optionale RAG-Modus nutzt vorab berechnete Vektoren des Leistungskatalogs.
-Diese werden mit dem Skript `generate_embeddings.py` erzeugt:
+Der optionale RAG-Modus reduziert den Tokenbedarf, indem nur die
+relevantesten Katalogeinträge per Vektor-Suche an das LLM gesendet werden.
+Die dafür benötigten Embeddings des Leistungskatalogs werden mit dem Skript
+`generate_embeddings.py` erzeugt:
 
 ```bash
 python generate_embeddings.py
@@ -195,31 +209,24 @@ die Trefferquote im Leistungskatalog.
 
 ### Synonyme generieren und pflegen
 
-Mit dem Kommandozeilenwerkzeug `python -m synonyms.cli` lässt sich eine erste
-Liste vorgeschlagener Synonyme aus den vorhandenen Katalogdaten ableiten.
-Sofern eine `GEMINI_API_KEY` Umgebungsvariable gesetzt ist und das
-`google-generativeai` Paket installiert wurde, nutzt das Werkzeug die
-Gemini‑API, um mehrsprachige Synonyme vorzuschlagen. Ist kein LLM verfügbar,
-werden keine zusätzlichen Synonyme erzeugt:
+Ein einfaches Tkinter-Werkzeug kann neue Vorschläge aus den vorhandenen
+Katalogdaten ableiten. Welcher LLM-Dienst genutzt wird, lässt sich über die
+Werte `llm_provider` und `llm_model` im Abschnitt `[SYNONYMS]` der Datei
+`config.ini` steuern. Standardmässig wird ein lokaler Ollama‑Server
+(`llm_provider = ollama`) mit dem Modell `gpt-oss-20b` angesprochen. Die
+Adresse kann über die Umgebungsvariable `OLLAMA_URL` angepasst werden. Für den
+Betrieb mit Google Gemini kann `llm_provider = gemini` gesetzt werden.
+
+Bei Verwendung eines externen LLMs muss in der `.env`‑Datei ein
+`SYNONYM_LLM_API_KEY` hinterlegt sein und optional `SYNONYM_LLM_MODEL`
+gesetzt werden. Für Gemini ist zusätzlich das Paket `google-generativeai`
+erforderlich. Ist kein LLM verfügbar, werden keine zusätzlichen Synonyme
+erzeugt:
 
 ```bash
-python -m synonyms.cli generate --output data/synonyms.json
+python -m synonyms
 ```
 
-Wird das Modul ohne Argumente gestartet, erzeugt es automatisch eine Datei
-`data/synonyms.json`. Mit `-v` oder `-vv` kann die Ausführlichkeit der Ausgabe
-gesteigert werden und `--log-file log.txt` schreibt eine detaillierte
-Protokolldatei.
-
-Wer lieber eine einfache grafische Oberfläche nutzt, kann den Generator auch
-mit Tkinter starten. Dazu kann entweder das Modul ausgeführt werden oder die
-Datei direkt gestartet werden:
-
-```bash
-python -m synonyms.gui
-# oder
-python synonyms/gui.py
-```
 Das Fenster zeigt Anzahl und Fortschritt der Anfragen, berechnet die
 voraussichtliche Endzeit und erlaubt das Festlegen des Startindex sowie des
 Ausgabepfades.
@@ -229,26 +236,6 @@ ergänzt werden. Beim Start des Servers wird sie automatisch eingelesen.
 Erfasst der Nutzer einen Begriff aus dieser Liste, wird nun automatisch der
 zugehörige Grundbegriff samt Varianten berücksichtigt.
 
-Zur Umstellung auf das neue Schema mit `concept_id` und Statusfeld steht
-ein Migrationsskript bereit. Ohne bestehende Datei können die in
-`utils.py` definierten Synonyme exportiert werden:
-
-```bash
-python scripts/migrate_synonyms.py data/synonyms.json --from-utils
-```
-
-Alternativ kann eine vorhandene Zuordnung im alten Format übergeben
-werden:
-
-```bash
-python scripts/migrate_synonyms.py data/synonyms_new.json old.json
-```
-
-Die erzeugte Datei enthält eine Liste von Einträgen mit folgenden Feldern:
-`concept_id`, `canonical_terms`, `synonyms` und `status` (standardmässig
-`approved`).
-
-
 ### Aktivierung in der Konfiguration
 
 In `config.ini` kann das Feature unter dem Abschnitt `[Synonyms]` aktiviert
@@ -257,11 +244,23 @@ werden:
 ```ini
 [Synonyms]
 enabled = 1
-catalog_path = data/synonyms.json
+catalog_filename = synonyms.json
 ```
 
 Steht `enabled` auf `0`, nutzt der Assistent ausschliesslich die in
 `utils.py` hinterlegte Basismenge `SYNONYM_MAP`.
+
+### Verwendung im System
+
+Der Synonymkatalog wirkt sich an zwei Stellen aus:
+
+1. **Embeddings:** `generate_embeddings.py` lädt `data/synonyms.json` und fügt
+   alle Varianten zu den Katalogtexten hinzu, bevor der Vektor berechnet wird.
+   So landen auch umgangssprachliche Begriffe in der semantischen Suche.
+2. **LLM 1 / Stichwortsuche:** Beim Analysieren der Nutzereingabe erweitert
+   `server.py` die Anfrage über `expand_query` um Synonyme. Direkte Treffer
+   liefern sofort die hinterlegte LKN, während die Embedding‑Suche den
+   unveränderten Ausgangstext verwendet.
 
 ### Format `data/synonyms.json`
 
@@ -282,13 +281,23 @@ Beispiel:
 }
 ```
 
-Dieses Format wird von `synonym_cli.py` erzeugt und von `synonyms.storage`
+Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage`
 eingelesen. Vorherige Dateien ohne `lkn`-Feld oder ohne Sprachaufteilung werden
 weiterhin unterstützt.
 
 **Hinweis zu den Tokenanforderungen:** Ohne RAG müssen mehr als 600 000 Tokens an
 das LLM geschickt werden. Mit RAG reichen etwa 10 000 Tokens für eine typische
 Anfrage.
+
+## LLM-Vergleich
+
+Mit `llm_vergleich.py` können verschiedene LLM-Provider und Modelle automatisiert
+gegeneinander getestet werden. In `llm_vergleich_results.json` lässt sich für jede
+Stufe optional ein eigener Provider samt Modell (`Stage1Provider`/`Stage1Model`
+und `Stage2Provider`/`Stage2Model`) definieren; fehlen diese Felder, gelten
+`Provider` und `Model` für beide Stufen. Das Skript führt alle Beispiele aus
+`data/baseline_results.json` aus und speichert für jedes Modell Korrektheitsrate,
+Laufzeit sowie den verbrauchten Tokenumfang.
 
 ## Unittests mit `pytest`
 
