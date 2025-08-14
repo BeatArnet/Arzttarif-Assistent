@@ -34,7 +34,7 @@ redo_stack: List[Dict[str, Dict]] = []
 save_callback: Optional[Callable[[Dict[str, List[str]]], None]] = None
 on_generate: Optional[Callable[[str], None]] = None  # optional callback
 
-root: Optional[tk.Misc] = None
+root: Optional[tk.Tk | tk.Toplevel] = None
 created_root: bool = False
 
 status_var: Optional[tk.StringVar] = None
@@ -118,6 +118,47 @@ def move_items(lang: str, items: List[str], from_list: str):
         set_status(dup_msg)
     render_lang(lang)
 
+def _ask_string_dialog(
+    title: str, prompt: str, initialvalue: str, parent: tk.Tk | tk.Toplevel
+) -> str | None:
+    dialog = tk.Toplevel(parent)
+    dialog.title(title)
+    dialog.transient(parent)
+    dialog.grab_set()
+
+    result = None
+
+    def on_ok(event=None):
+        nonlocal result
+        result = entry.get()
+        dialog.destroy()
+
+    def on_cancel(event=None):
+        dialog.destroy()
+
+    ttk.Label(dialog, text=prompt).grid(row=0, column=0, padx=5, pady=5, sticky="w")
+
+    entry_var = tk.StringVar(value=initialvalue)
+    entry = ttk.Entry(dialog, textvariable=entry_var, width=80)
+    entry.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+    entry.focus_set()
+    entry.selection_range(0, tk.END)
+
+    btn_frame = ttk.Frame(dialog)
+    btn_frame.grid(row=2, column=0, padx=5, pady=5, sticky="e")
+
+    ok_btn = ttk.Button(btn_frame, text="OK", command=on_ok)
+    ok_btn.pack(side="left", padx=5)
+
+    cancel_btn = ttk.Button(btn_frame, text="Abbrechen", command=on_cancel)
+    cancel_btn.pack(side="left")
+
+    dialog.bind("<Return>", on_ok)
+    dialog.bind("<Escape>", on_cancel)
+
+    parent.wait_window(dialog)
+    return result
+
 def edit_selected(lang: str):
     lb = _require(SECTIONS[lang].current_listbox, f"{lang}.current_listbox")
     sel = lb.curselection()
@@ -125,7 +166,7 @@ def edit_selected(lang: str):
         return
     idx = sel[0]
     old_text = lb.get(idx)
-    new_text = simpledialog.askstring(
+    new_text = _ask_string_dialog(
         "Bearbeiten",
         "Synonym:",
         initialvalue=old_text,
@@ -408,7 +449,7 @@ def _build_section(parent: tk.Widget, lang: str, title_text: str, row_offset: in
     left_frame = ttk.Frame(row)
     left_frame.grid(row=0, column=0, sticky="n")
 
-    current_listbox = tk.Listbox(left_frame, selectmode=tk.EXTENDED, width=32, height=10)
+    current_listbox = tk.Listbox(left_frame, selectmode=tk.EXTENDED, width=42, height=10)
     current_listbox.grid(row=0, column=0, sticky="nsew")
     current_scroll = ttk.Scrollbar(left_frame, orient=tk.VERTICAL, command=current_listbox.yview)
     current_scroll.grid(row=0, column=1, sticky="ns")
@@ -426,7 +467,7 @@ def _build_section(parent: tk.Widget, lang: str, title_text: str, row_offset: in
     right_frame = ttk.Frame(row)
     right_frame.grid(row=0, column=2, sticky="n")
 
-    suggest_listbox = tk.Listbox(right_frame, selectmode=tk.EXTENDED, width=32, height=10)
+    suggest_listbox = tk.Listbox(right_frame, selectmode=tk.EXTENDED, width=42, height=10)
     suggest_listbox.grid(row=0, column=0, sticky="nsew")
     suggest_scroll = ttk.Scrollbar(right_frame, orient=tk.VERTICAL, command=suggest_listbox.yview)
     suggest_scroll.grid(row=0, column=1, sticky="ns")
@@ -463,7 +504,7 @@ def _build_section(parent: tk.Widget, lang: str, title_text: str, row_offset: in
 def open_synonym_editor(
     data: Dict[str, Dict[str, List[str]] | Dict[str, List[Dict[str, str]]]],
     on_save: Optional[Callable[[Dict[str, List[str]]], None]] = None,
-    master: Optional[tk.Misc] = None,
+    master: Optional[tk.Tk | tk.Toplevel] = None,
     lkn: Optional[str] = None,
     beschreibung_de: Optional[str] = None,
     on_generate_callback: Optional[Callable[[str], None]] = None,
@@ -603,8 +644,12 @@ def open_synonym_editor(
     # Initial render
     render_all()
 
-    if created_root:
-        r.mainloop()
+    if not created_root and master is not None:
+        r.transient(master)
+        r.grab_set()
+        master.wait_window(r)
+    elif created_root:
+        cast(tk.Tk, r).mainloop()
 
 # ---------------------------------------------------------------------
 # Manual test

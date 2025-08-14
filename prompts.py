@@ -1,8 +1,10 @@
 from typing import List, Optional
 
 
+from typing import List, Optional
+
 def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_variants: Optional[List[str]] = None) -> str:
-    """Return the Stage 1 prompt in the requested language."""
+    """Return the Stage 1 prompt in the requested language (FR/IT hardened for Regel A, DE wie gehabt)."""
     # Build the synonym block if query_variants are provided and contain more than the original query.
     synonym_block = ""
     if query_variants and len(query_variants) > 1:
@@ -25,6 +27,14 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
 **Tâche :** Extrayez du "Texte de traitement" les numéros de catalogue de prestations (LKN) corrects, calculez leur quantité et retournez le résultat exactement au format JSON requis. AUCUN bloc de code Markdown dans la réponse finale.
 {synonym_block}
 
+**CONTRAINTES NON NÉGOCIABLES (PRIORITÉ MAXIMALE) :**
+1) Consultation avec durée totale D > 5 min ⇒ la sortie DOIT contenir exactement :
+   - 1× AA/CA.00.0010
+   - (D − 5)× AA/CA.00.0020
+2) Ne JAMAIS dupliquer .0010 ; ne JAMAIS remplacer .0020 par un autre LKN.
+3) Si "médecin de famille" est mentionné ⇒ utiliser CA.* ; sinon AA.*.
+4) La sortie doit couvrir 100 % des minutes déclarées (contrôle d’exhaustivité).
+
 **Contexte : LKAAT_Leistungskatalog**
 (Ceci est la seule source pour les LKN valides, leurs descriptions et leurs types. N'utilisez **que** des LKN présents ci-dessous.)
 --- Leistungskatalog Start ---
@@ -37,21 +47,19 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
 *   Lisez l'intégralité du "Texte de traitement".
 *   Identifiez toutes les activités individuelles facturables. Elles sont souvent séparées par des mots comme "plus", "et", "ensuite" ou par la ponctuation.
     *   Exemple A : "Consultation médecin de famille 15 min plus 10 minutes de conseil enfant" -> Activité 1 : "Consultation médecin de famille 15 min", Activité 2 : "10 minutes de conseil enfant".
-    *   Exemple B : "Articulation temporo-mandibulaire, luxation. Réposition fermée avec anesthésie par anesthésiste" -> Activité 1 : "Réposition fermée articulation temporo-mandibulaire", Activité 2 : "Anesthésie par anesthésiste".
-*   Associez toujours les détails comme les durées à la bonne activité.
+    *   Exemple B : "Articulation temporo-mandibulaire, luxation. Réposition fermée avec anesthésie par anesthésiste" -> Activité 1 : "Réposition fermée", Activité 2 : "Anesthésie par anesthésiste".
+*   Associez toujours les durées à la bonne activité.
 *   Si un LKN au format "AA.NN.NNNN" (p.ex. "AA.00.0010") ou "ANN.AA.NNNN" (p.ex. "C08.SA.0700") [A=lettre, N=chiffre] est trouvé, il est priorisé **s'il existe mot à mot dans le contexte**.
 
 **Étape 2 : Identification des LKN (par activité)**
 *   Pour chaque activité, trouvez le LKN correspondant **uniquement** dans le catalogue ci-dessus.
-*   **Utilisez vos connaissances médicales :** Comprenez les synonymes et les périphrases (p.ex. "ablation de verrue" = "exérèse de lésion cutanée bénigne", "cathétérisme cardiaque gauche" = "coronarographie").
+*   **Utilisez vos connaissances médicales :** Comprenez les synonymes et périphrases (p.ex. "ablation de verrue" = "exérèse de lésion cutanée bénigne").
 *   **Règle d'anesthésie :** Si une anesthésie réalisée par un anesthésiste est décrite, utilisez un code du chapitre WA.10 **présent dans le contexte**. Sans indication de durée -> `WA.10.0010`. Avec indication de durée -> choisissez le `WA.10.00x0` exact disponible.
 
 **Étape 3 : APPLICATION DES RÈGLES DE QUANTITÉ (CRITIQUE !)**
-Appliquez UNE des règles suivantes pour chaque LKN trouvée :
-
 *   **RÈGLE A : Consultations (Chapitres AA & CA)**
     *   **Condition :** L'activité est une "consultation", "entretien", "entretien conseil" avec une durée.
-    *   **Choix du chapitre :** Choisissez le chapitre `CA` si le texte mentionne "médecin de famille", sinon le chapitre `AA`.
+    *   **Choix du chapitre :** `CA` si le texte mentionne "médecin de famille", sinon `AA`.
     *   **Calcul :**
         1.  **LKN de base** (`AA.00.0010` ou `CA.00.0010` "5 premières min") : la `menge` est TOUJOURS `1`.
         2.  **LKN supplémentaire** (`AA.00.0020` ou `CA.00.0020` "chaque min suppl.") : à ajouter UNIQUEMENT si la durée > 5 min. La `menge` est alors exactement : `(durée totale en minutes - 5)`.
@@ -70,7 +78,7 @@ Appliquez UNE des règles suivantes pour chaque LKN trouvée :
 
 *   **RÈGLE C : Autres prestations (par défaut)**
     *   **Condition :** Les règles A et B ne s'appliquent pas.
-    *   **Calcul :** `menge = 1`. Exception : Si le texte mentionne un nombre clair (p.ex. "trois injections", "deux lésions"), utilisez ce nombre. Pour "bilatéral" ("beidseits"), `menge = 2` si le LKN est défini unilatéral.
+    *   **Calcul :** `menge = 1`. Exception : Si le texte mentionne un nombre clair (p.ex. "trois injections", "deux lésions"), utilisez ce nombre. Pour "bilatéral", `menge = 2` si le LKN est défini unilatéral.
 
 **Étape 4 : Validation stricte**
 *   **CRITIQUE :** Pour CHAQUE LKN potentielle, vérifiez qu'elle existe **exactement (sensible à la casse, caractère par caractère)** dans le contexte du catalogue. Rejetez sinon.
@@ -81,11 +89,19 @@ Appliquez UNE des règles suivantes pour chaque LKN trouvée :
 *   Déduisez `seitigkeit` si indiqué ("gauche", "droite", "bilatéral"), sinon laissez `"unbekannt"`.
 *   Les unités de temps entamées comptent comme une unité entière.
 
-**Étape 6 : Création du JSON**
-*   Rassemblez tous les LKN validés et les informations extraites.
-*   **Vérification avant sortie (Consultations) :** si Règle A et `durée > 5`, assurez-vous que `identified_leistungen` contient la base **et** la quantité exacte de `…0020`. Si manquante, **ajoutez-la**.
-*   `begruendung_llm` : Rédigez une justification **courte** dans la même langue que ces instructions.
-*   **IMPORTANT :** Si aucun LKN ne correspond, retournez `identified_leistungen: []`.
+**AUTO-VÉRIFICATION AVANT SORTIE (Check-list)**
+- Ai-je extrait une durée D lorsque présente ? (ex. "10 min" ⇒ D=10)
+- Si consultation et D>5 ⇒ ai-je EXACTEMENT 1× …0010 et (D-5)× …0020 ?
+- Le chapitre (AA vs CA) suit-il la règle "médecin de famille" ⇒ CA ?
+- Si un point est manquant, je le CORRIGE avant de répondre.
+
+**Exemples canoniques (sans backticks)**
+Exemple 1 — "Consultation 5 minutes":
+{{"identified_leistungen":[{{"lkn":"AA.00.0010","typ":"E","menge":1}}],"extracted_info":{{"dauer_minuten":5,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Consultation 5 min → base uniquement."}}
+Exemple 2 — "Consultation 10 minutes":
+{{"identified_leistungen":[{{"lkn":"AA.00.0010","typ":"E","menge":1}},{{"lkn":"AA.00.0020","typ":"E","menge":5}}],"extracted_info":{{"dauer_minuten":10,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Règle A : 1×0010 + (10-5)=5×0020."}}
+Exemple 3 — "Médecin de famille 12 minutes":
+{{"identified_leistungen":[{{"lkn":"CA.00.0010","typ":"E","menge":1}},{{"lkn":"CA.00.0020","typ":"E","menge":7}}],"extracted_info":{{"dauer_minuten":12,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Chapitre CA car 'médecin de famille' ; 12→1×0010+7×0020."}}
 
 **Format de sortie : UNIQUEMENT un objet JSON valide (pas de backticks, pas d’autre texte).**
 ```json
@@ -115,6 +131,14 @@ Réponse JSON:"""
 **Compito:** Estrai dal "Testo di trattamento" i codici LKN corretti, calcola la loro quantità e restituisci il risultato esattamente nel formato JSON richiesto. NESSUN blocco Markdown nel risultato finale.
 {synonym_block}
 
+**VINCOLI NON NEGOZIABILI (PRIORITÀ MASSIMA):**
+1) Consultazione con durata totale D > 5 min ⇒ l'output DEVE contenere esattamente:
+   - 1× AA/CA.00.0010
+   - (D − 5)× AA/CA.00.0020
+2) NON duplicare mai .0010; NON sostituire .0020 con altri LKN.
+3) Se è menzionato "medico di base" ⇒ usare CA.* ; altrimenti AA.*.
+4) L'output deve coprire il 100% dei minuti dichiarati (controllo di completezza).
+
 **Contesto: LKAAT_Leistungskatalog**
 (Questa è l'unica fonte per LKN validi, descrizioni e tipi. Usa **solo** LKN presenti qui sotto.)
 --- Leistungskatalog Start ---
@@ -128,7 +152,7 @@ Réponse JSON:"""
 *   Identifica tutte le singole attività fatturabili (separate da "più", "e", "dopo" o punteggiatura).
     *   Esempio A: "Consultazione medico di base 15 min più 10 minuti consulenza bambino" -> due attività.
     *   Esempio B: "Articolazione temporo-mandibolare, lussazione. Riduzione chiusa con anestesia da anestesista" -> due attività.
-*   Se un LKN nel formato "AA.NN.NNNN" o "ANN.AA.NNNN" è trovato nel testo, prioritizzalo **se esiste nel contesto**.
+*   Se un LKN nel formato "AA.NN.NNNN" o "ANN.AA.NNNN" è trovato nel testo, prioritizzalo **solo se esiste nel contesto**.
 
 **Passaggio 2: Identificazione LKN (per attività)**
 *   Trova l'LKN corrispondente **solo** nel catalogo sopra.
@@ -143,7 +167,7 @@ Réponse JSON:"""
         2.  Aggiuntiva (`AA.00.0020`/`CA.00.0020`, "ogni min successivo"): solo se durata > 5 min, `menge = durata_totale - 5`.
     *   **Controllo completezza tempo (obbligatorio):**
         *   Se `durata_totale > 5`, l'output DEVE contenere **esattamente** `1× AA/CA.00.0010` **e** `(durata_totale − 5)× AA/CA.00.0020`.
-        *   Non duplicare mai la posizione base; non sostituire le minuti aggiuntive con altre LKN.
+        *   Non duplicare mai la posizione base; non sostituire i minuti aggiuntivi con altro LKN.
         *   Esempi canonici:
             - 5 min → 1× AA.00.0010 (nessuna 0020)
             - 6 min → 1× AA.00.0010 + 1× AA.00.0020
@@ -151,7 +175,7 @@ Réponse JSON:"""
             - 20 min → 1× AA.00.0010 + 15× AA.00.0020
 
 *   **REGOLA B: Altre prestazioni a tempo**
-    *   `menge = durata / unità`. Arrotonda **per eccesso** alle unità.
+    *   `menge = durata / unità`. Arrotonda **per eccesso** alle unità intere.
 
 *   **REGOLA C: Altre prestazioni**
     *   `menge = 1`, salvo numeri espliciti; "bilaterale" -> `menge = 2` se LKN unilaterale.
@@ -163,13 +187,21 @@ Réponse JSON:"""
 **Passaggio 5: Estrazione contesto**
 *   Estrai solo se esplicito; altrimenti `null`.
 *   Imposta `seitigkeit` se indicato ("sinistra", "destra", "bilaterale"), altrimenti `"unbekannt"`.
-*   Unità di tempo iniziate contano come unità intere.
+*   Le unità di tempo iniziate contano come unità intere.
 
-**Passaggio 6: Output JSON**
-*   Assembla LKN e informazioni estratte.
-*   **Verifica prima dell'output (Consultazioni):** se REGOLA A e `durata > 5`, assicurati che `identified_leistungen` contenga la base **e** la quantità esatta di `…0020`. Se mancante, **aggiungila**.
-*   `begruendung_llm`: breve motivazione nella **stessa lingua** di queste istruzioni.
-*   Se nessun LKN corrisponde: `identified_leistungen: []`.
+**AUTO-VERIFICA PRIMA DELL’OUTPUT (Check-list)**
+- Ho estratto una durata D quando presente? (es. "10 min" ⇒ D=10)
+- Se consultazione e D>5 ⇒ ho **esattamente** 1× …0010 e (D-5)× …0020?
+- Il capitolo (AA vs CA) segue la regola "medico di base" ⇒ CA?
+- Se manca qualcosa, la **correggo** prima di rispondere.
+
+**Esempi canonici (senza backticks)**
+Esempio 1 — "Consultazione 5 min":
+{{"identified_leistungen":[{{"lkn":"AA.00.0010","typ":"E","menge":1}}],"extracted_info":{{"dauer_minuten":5,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Consultazione 5 min → solo base."}}
+Esempio 2 — "Consultazione 10 minuti":
+{{"identified_leistungen":[{{"lkn":"AA.00.0010","typ":"E","menge":1}},{{"lkn":"AA.00.0020","typ":"E","menge":5}}],"extracted_info":{{"dauer_minuten":10,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Regola A: 1×0010 + (10-5)=5×0020."}}
+Esempio 3 — "Medico di base 12 minuti":
+{{"identified_leistungen":[{{"lkn":"CA.00.0010","typ":"E","menge":1}},{{"lkn":"CA.00.0020","typ":"E","menge":7}}],"extracted_info":{{"dauer_minuten":12,"menge_allgemein":null,"alter":null,"geschlecht":null,"seitigkeit":"unbekannt","anzahl_prozeduren":null}},"begruendung_llm":"Capitolo CA perché 'medico di base' ; 12→1×0010+7×0020."}}
 
 **Formato di output: SOLO un oggetto JSON valido (niente backtick, nessun altro testo).**
 ```json
@@ -193,7 +225,7 @@ Réponse JSON:"""
 }}
 Testo di trattamento: "{user_input}"
 Risposta JSON:"""
-    else:  # DE (German) - OPTIMIZED PROMPT
+    else:  # DE (German) - vorhandene optimierte Version beibehalten
         return f"""**Rolle:** Du bist ein KI-Experte für Schweizer Arzttarife (TARDOC/Pauschalen).
 **Antwortsprache:** Antworte ausschliesslich auf Deutsch (neutral).
 **Aufgabe:** Extrahiere aus dem "Behandlungstext" die korrekten LKNs, berechne ihre Menge und gib **nur** ein gültiges JSON zurück. **Keine** Markdown-Codeblöcke im Output.
@@ -318,7 +350,6 @@ Beschreibung: {tardoc_desc}
 Antwort-Format:
 Nur eine kommagetrennte Liste passender LKN-Codes (z.B. PZ.01.0010,PZ.01.0020). Wenn kein Kandidat passt, exakt NONE. Keine Erklärungen, kein Markdown.
 Priorisierte Liste (nur Liste oder NONE):"""
-
 
 def get_stage2_ranking_prompt(user_input: str, potential_pauschalen_text: str, lang: str) -> str:
     """Return the Stage 2 ranking prompt in the requested language."""
