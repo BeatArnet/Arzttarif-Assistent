@@ -43,7 +43,12 @@ def open_diff_window(
     window = _tk.Toplevel(master)
     window.title("Synonymliste vs. Leistungskatalog")
 
-    tree = _ttk.Treeview(window, columns=("lkn", "syn", "cat", "status"), show="headings")
+    tree = _ttk.Treeview(
+        window,
+        columns=("lkn", "syn", "cat", "status"),
+        show="headings",
+        selectmode="extended",
+    )
     tree.heading("lkn", text="LKN")
     tree.heading("syn", text="Synonym-Liste")
     tree.heading("cat", text="Leistungskatalog")
@@ -100,15 +105,15 @@ def open_diff_window(
         for row in compute_rows():
             tree.insert("", "end", values=row, tags=(row[3],))
 
-    def selected_values() -> Tuple[str, str, str, str] | None:
-        sel = tree.selection()
-        if not sel:
-            return None
-        vals = tree.item(sel[0], "values")
-        return vals  # type: ignore
+    def selected_rows() -> List[Tuple[str, str, str, str]]:
+        return [tuple(tree.item(i, "values")) for i in tree.selection()]  # type: ignore
+
+    def selected_first() -> Tuple[str, str, str, str] | None:
+        rows = selected_rows()
+        return rows[0] if rows else None
 
     def delete_selected() -> None:
-        sel = selected_values()
+        sel = selected_first()
         if not sel:
             return
         lkn, syn_desc, _, status = sel
@@ -124,41 +129,30 @@ def open_diff_window(
         refresh()
 
     def generate_selected() -> None:
-        sel = selected_values()
-        if not sel:
+        rows = selected_rows()
+        if not rows:
             return
-        lkn, _, cat_desc, status = sel
-        if status != "added":
+        if any(status != "added" for _, _, _, status in rows):
             _messagebox.showinfo(
                 "Hinweis", "Nur grün markierte Einträge können generiert werden."
             )
             return
-        base = {"de": cat_desc}
+        terms = [{"de": cat_desc, "lkn": lkn} for lkn, _, cat_desc, _ in rows]
         try:
-            entry = next(iter(generator.propose_synonyms_incremental([base])))
+            entries = list(generator.propose_synonyms_incremental(terms))
         except Exception:
-            entry = SynonymEntry(base_term=cat_desc, lkn=lkn)
-        data = {
-            lang: {"current": [], "suggestions": entry.by_lang.get(lang, [])}
-            for lang in ("de", "fr", "it")
-        }
-
-        def on_save(result: Dict[str, List[str]]) -> None:
-            combined = [s for lst in result.values() for s in lst]
-            new_entry = SynonymEntry(
-                base_term=cat_desc, synonyms=combined, lkn=lkn, by_lang=result
-            )
-            catalog.entries[cat_desc] = new_entry
-            rebuild_index()
-            storage.save_synonyms(catalog, catalog_path)
+            entries = [
+                SynonymEntry(base_term=t["de"], lkn=t.get("lkn"))  # type: ignore[arg-type]
+                for t in terms
+            ]
+        for entry in entries:
+            catalog.entries[entry.base_term] = entry
+        rebuild_index()
+        storage.save_synonyms(catalog, catalog_path)
         refresh()
 
-        _synonyms_tk.open_synonym_editor(
-            data, on_save, master=window, lkn=lkn, beschreibung_de=cat_desc
-        )
-
     def adopt_selected() -> None:
-        sel = selected_values()
+        sel = selected_first()
         if not sel:
             return
         lkn, syn_desc, cat_desc, status = sel
@@ -190,5 +184,36 @@ def open_diff_window(
         text="Beschreibung übernehmen",
         command=adopt_selected,
     ).pack(side="left", padx=5)
+
+    def edit_added(event) -> None:
+        sel = selected_first()
+        if not sel:
+            return
+        lkn, _, cat_desc, status = sel
+        if status != "added":
+            return
+
+        data = {
+            lang: {"current": [], "suggestions": []}
+            for lang in ("de", "fr", "it")
+        }
+
+        def on_save(result: Dict[str, List[str]]) -> None:
+            combined = [s for lst in result.values() for s in lst]
+            if not combined:
+                return # do not save empty entries
+            new_entry = SynonymEntry(
+                base_term=cat_desc, synonyms=combined, lkn=lkn, by_lang=result
+            )
+            catalog.entries[cat_desc] = new_entry
+            rebuild_index()
+            storage.save_synonyms(catalog, catalog_path)
+            refresh()
+
+        _synonyms_tk.open_synonym_editor(
+            data, on_save, master=window, lkn=lkn, beschreibung_de=cat_desc
+        )
+
+    tree.bind("<Double-1>", edit_added)
 
     refresh()

@@ -55,7 +55,8 @@
         "Behandlung",
         "Konsultation",
         "Sprechstundenbesuch",
-        "Sprechzimmerbesuch"
+        "Sprechzimmerbesuch",
+        "jede angefangene Minute"
       ],
       "fr": [
         "Consultation médicale",
@@ -63,7 +64,9 @@
         "rendez-vous médical",
         "examen médical",
         "visite médicale",
-        "consultation chez le docteur"
+        "consultation chez le docteur",
+        "additionnel",
+        "par minute additionnelle"
       ],
       "it": [
         "Consultazione medica",
@@ -73,7 +76,8 @@
         "Appuntamento dal medico",
         "Visita di controllo",
         "Visita generale",
-        "Visita specialistica"
+        "Visita specialistica",
+        "per ogni minuto aggiuntivo"
       ]
     }
   },
@@ -20221,48 +20225,71 @@
       ]
     }
   },
-  "Einlegen eines hämodynamischen Assist-Device": {
-    "lkn": "C05.KC.Z004",
-    "synonyms": {
-      "de": [
-        "Einsetzen",
-        "Einbauen",
-        "Platzierung",
-        "Gerät"
-      ],
-      "fr": [
-        "Implanter",
-        "Installer",
-        "Poser",
-        "Insérer"
-      ],
-      "it": [
-        "Dispositivo"
-      ]
-    }
-  },
   "Einlage eines provisorischen Schrittmachers": {
-    "lkn": "C05.KG.0010",
+    "lkn": "C05.KC.Z005",
     "synonyms": {
       "de": [
+        "Aerztliche Gebuehrenordnung",
+        "Medizinischer Leistungskatalog",
+        "Tarmed",
+        "Tarifordnung fuer Aerzte",
+        "Leistungsbeschreibung",
+        "Prozedurname",
+        "Behandlungsbezeichnung",
+        "Abrechnungsposition",
+        "Implantation",
         "Einsetzen",
-        "Anlegen",
+        "Anlage",
         "Platzierung",
-        "Legen"
+        "temporaeren",
+        "voruebergehenden",
+        "interimistischen",
+        "vorlaeufigen",
+        "Herzschrittmachers",
+        "Impulsgebers",
+        "Herzstimulators",
+        "Pace-Makers"
       ],
       "fr": [
+        "Tarif medical suisse",
+        "Nomenclature des actes medicaux (Suisse)",
+        "Tarification des prestations medicales",
+        "Description de la prestation",
+        "Intitule de l'acte",
+        "Designation de la procedure",
+        "Libelle de l'acte",
         "Mise en place",
-        "Implantation",
         "Insertion",
-        "Pose"
+        "Pose",
+        "provisoire",
+        "temporaire",
+        "transitoire",
+        "interimaire",
+        "pacemaker",
+        "stimulateur cardiaque",
+        "regulateur cardiaque",
+        "appareil de stimulation cardiaque"
       ],
       "it": [
+        "Tariffario medico svizzero",
+        "Nomenclatore delle prestazioni mediche (Svizzera)",
+        "Tariffa delle prestazioni sanitarie",
+        "Descrizione della prestazione",
+        "Denominazione dell'intervento",
+        "Titolo della procedura",
+        "Voce di tariffa",
         "Impianto",
         "Inserimento",
         "Posizionamento",
-        "Applicazione",
-        "Messa in sede",
-        "Collocazione"
+        "Collocazione",
+        "provvisorio",
+        "temporaneo",
+        "transitorio",
+        "interinale",
+        "pace-maker",
+        "stimolatore cardiaco",
+        "regolatore cardiaco",
+        "apparecchio di stimolazione cardiaca"
       ]
     }
   },
@@ -40457,26 +40484,67 @@
     "lkn": "C08.SA.1180",
     "synonyms": {
       "de": [
+        "Gebührenordnung",
+        "Honorarordnung",
+        "Leistungstarif",
+        "Leistungsbeschreibung",
+        "Dienstleistungsbezeichnung",
+        "Abrechnungsposition",
         "Behandlung",
         "Therapie",
-        "Operation",
-        "Eingriff"
+        "Management",
+        "Betreuung",
+        "Zweiknöchelfraktur",
+        "Sprunggelenksfraktur",
+        "Knöchelbruch",
+        "Chirurgische Reposition",
+        "operative Einrichtung",
+        "offene Einstellung",
+        "Interne Fixation",
+        "Osteosynthese",
+        "innere Stabilisierung"
       ],
       "fr": [
+        "Tarif médical",
+        "grille tarifaire",
+        "barème d'honoraires",
+        "Désignation de la prestation",
+        "libellé de l'acte",
+        "description du service",
+        "Traitement",
+        "prise en charge",
+        "soins",
+        "gestion",
+        "Fracture bimalléolaire",
+        "fracture des deux malléoles",
+        "fracture de la cheville",
         "Réduction ouverte",
-        "Réduction chirurgicale",
-        "Réalignement osseux chirurgical",
-        "Remise en place chirurgicale",
-        "Chirurgie pour réduire la fracture",
-        "Réparation chirurgicale de fracture"
+        "réduction chirurgicale",
+        "repositionnement chirurgical",
+        "Fixation interne",
+        "ostéosynthèse",
+        "stabilisation interne"
       ],
       "it": [
+        "Tariffario medico",
+        "tariffario delle prestazioni",
+        "onorario medico",
+        "Descrizione della prestazione",
+        "voce di tariffario",
+        "denominazione del servizio",
         "Trattamento",
-        "Cura",
-        "Intervento",
-        "Operazione",
-        "Procedura",
-        "Gestione"
+        "gestione",
+        "cura",
+        "assistenza",
+        "Frattura bimalleolare",
+        "frattura dei due malleoli",
+        "frattura della caviglia",
+        "Riduzione aperta",
+        "riduzione chirurgica",
+        "riposizionamento chirurgico",
+        "Fissazione interna",
+        "osteosintesi",
+        "stabilizzazione interna"
       ]
     }
   },
@@ -91518,6 +91586,804 @@
         "Vigilanza",
         "Controllo costante",
         "Assistenza ravvicinata"
+      ]
+    }
+  },
+  "Radiopharmakon F-18-Fluorocholin": {
+    "lkn": "C00.XE.Z009",
+    "synonyms": {
+      "de": [
+        "Radiopharmazeutikum",
+        "radioaktives Arzneimittel",
+        "Tracer (radiopharmaceutisch)",
+        "PET-Tracer",
+        "Bildgebender Tracer",
+        "Positronen-Emissions-Tomografie (PET)",
+        "PET-Untersuchung",
+        "PET-Bildgebung"
+      ],
+      "fr": [
+        "radiopharmaceutique",
+        "médicament radiopharmaceutique",
+        "traceur radiopharmaceutique",
+        "traceur PET",
+        "imagerie PET",
+        "examen PET",
+        "imagerie médicale"
+      ],
+      "it": [
+        "radiofarmaco",
+        "radiofarmaco radiotracciante",
+        "radiofarmaco radiattivo",
+        "tracciante PET",
+        "fluorocholina marcata con 18F",
+        "fluorocholina 18F",
+        "fluorocholina marcata con fluor-18",
+        "imaging PET"
+      ]
+    }
+  },
+  "Fazialisplastik bei Dekompression des N. facialis im Felsenbeinbereich": {
+    "lkn": "C01.GD.Z015",
+    "synonyms": {
+      "de": [
+        "Fazialisdekompression",
+        "Fazialisnerven-Entlastungsoperation",
+        "Entlastungs-OP des Fazialisnervs",
+        "Nervus facialis-Dekompression",
+        "Nervus facialis-Entlastungsoperation",
+        "Gesichtsnerven-Entlastung",
+        "Druckentlastung des Fazialisnervs"
+      ],
+      "fr": [
+        "décompression du nerf facial",
+        "libération du nerf facial",
+        "plastie du nerf facial",
+        "nerf facial (VII) crânien"
+      ],
+      "it": [
+        "decompressione del nervo facciale",
+        "liberazione del nervo facciale",
+        "nervo facciale (VII)"
+      ]
+    }
+  },
+  "Sialendoskopie mit Instillation, Steinextraktion, transkanaläre Steinzertrümmerung, Stenteinlage, Dilatation": {
+    "lkn": "C03.GH.0110",
+    "synonyms": {
+      "de": [
+        "Endoskopische Untersuchung der Speichelgänge",
+        "Spülung des Speichelgangs",
+        "Steinentfernung aus dem Speichelgang",
+        "Lithotripsie durch den Speichelgang",
+        "Weitung des Speichelgangs",
+        "Stentsetzung im Speichelgang"
+      ],
+      "fr": [
+        "Endoscopie des canaux salivaires",
+        "extraction du calcul salivaire",
+        "lithotripsie transcanalaire",
+        "dilatation du conduit salivaire"
+      ],
+      "it": [
+        "sialendoscopia",
+        "rimozione del calcolo salivare",
+        "litotrissia transcanalare",
+        "dilatazione del dotto salivare"
+      ]
+    }
+  },
+  "Schulterendoprothese Kopfprothese": {
+    "lkn": "C08.SA.1440",
+    "synonyms": {
+      "de": [
+        "Schulterendoprothese",
+        "Schultergelenkendoprothese",
+        "Schultergelenkersatz",
+        "Schulterprothese",
+        "Schultergelenkprothese",
+        "Endoprothese des Schultergelenks",
+        "Humeruskopfprothese",
+        "Kopfprothese des Humeruskopfs",
+        "Schulterarthroplastik",
+        "Kunstgelenk der Schulter"
+      ],
+      "fr": [
+        "arthroplastie de l’épaule",
+        "prothèse d’épaule",
+        "arthroplastie partielle de l’épaule",
+        "arthroplastie totale de l’épaule",
+        "endoprothèse de l’épaule",
+        "prothèse de l’articulation de l’épaule",
+        "remplacement prothétique de l’épaule",
+        "prothèse gléno-humérale",
+        "prothèse de la tête humérale",
+        "arthroplastie de la tête humérale"
+      ],
+      "it": [
+        "spalla",
+        "protesi della spalla",
+        "endoprotesi della spalla",
+        "artroplastica della spalla",
+        "protesi dell’articolazione della spalla",
+        "protesi della testa dell’omero",
+        "protesi testa omerale",
+        "sostituzione protesica della spalla"
+      ]
+    }
+  },
+  "Schulterendoprothese Totalprothese": {
+    "lkn": "C08.SA.1450",
+    "synonyms": {
+      "de": [
+        "Prothese"
+      ]
+    }
+  },
+  "Sehnenverlängerungsplastik oder Verkürzungsplastik im Unterarmbereich/Handbereich": {
+    "lkn": "C08.FC.0090",
+    "synonyms": {
+      "de": [
+        "Sehnenoperation",
+        "Sehnenrekonstruktion",
+        "Sehnenkorrektur",
+        "Laengenanpassung (der Sehnen)",
+        "Laengenveraenderung (der Sehnen)",
+        "Verlaengerung (von Sehnen)",
+        "Kuerzung (von Sehnen)",
+        "chirurgischer Eingriff (an Sehnen)",
+        "Elongationsplastik",
+        "Straffungsplastik",
+        "Unterarmregion",
+        "Handregion",
+        "distaler Armbereich"
+      ],
+      "fr": [
+        "Chirurgie tendineuse",
+        "Reconstruction tendineuse",
+        "Correction tendineuse",
+        "Allongement tendineux",
+        "Raccourcissement tendineux",
+        "Plastie d'allongement (tendon)",
+        "Plastie de raccourcissement (tendon)",
+        "Intervention chirurgicale (tendon)",
+        "Région de l'avant-bras",
+        "Région de la main",
+        "Zone distale du bras"
+      ],
+      "it": [
+        "Chirurgia tendinea",
+        "Ricostruzione tendinea",
+        "Correzione tendinea",
+        "Allungamento tendineo",
+        "Accorciamento tendineo",
+        "Plastica di allungamento (tendine)",
+        "Plastica di accorciamento (tendine)",
+        "Intervento chirurgico (tendine)",
+        "Regione dell'avambraccio",
+        "Regione della mano",
+        "Zona distale del braccio"
+      ]
+    }
+  },
+  "Anlegen einer Spüldrainage bei Arthroskopie des Hüftgelenks": {
+    "lkn": "C08.KB.Z005"
+  },
+  "Vakuum assistierter minimal invasiver Mammaeingriff": {
+    "lkn": "C09.AB.0100",
+    "synonyms": {
+      "de": [
+        "Vakuum-assistierte Brustintervention",
+        "Minimal-invasive Brustprozedur mit Unterdruck",
+        "Schonender Mammaeingriff mit Vakuum-Unterstuetzung",
+        "Vakuum-gestuetzte, gewebeschonende Brustbehandlung"
+      ],
+      "fr": [
+        "Intervention mammaire assistée par aspiration",
+        "Procédure mammaire mini-invasive sous vide",
+        "Exérèse mammaire mini-invasive sous vide"
+      ],
+      "it": [
+        "Intervento mammario assistito da vuoto"
+      ]
+    }
+  },
+  "Retrograde Ureteropyelografie durch Ureterkatheter": {
+    "lkn": "C11.EB.0160"
+  },
+  "Nephroureterostomien": {
+    "lkn": "C11.EC.0060",
+    "synonyms": {
+      "de": [
+        "Aerztetarif Schweiz",
+        "Medizintarif",
+        "Gebuehrenordnung",
+        "Tarmed",
+        "Eingriffsbezeichnung",
+        "Prozedurname",
+        "Leistungsbeschreibung",
+        "Art des Eingriffs",
+        "Nieren-Harnleiter-Operationen",
+        "Harnwegsanastomosen",
+        "rekonstruktive Urologie"
+      ],
+      "fr": [
+        "Tarif medical suisse",
+        "honoraires medicaux",
+        "nomenclature des actes",
+        "designation de l'acte",
+        "nom de l'intervention",
+        "description de la prestation",
+        "libelle de l'acte",
+        "interventions nephro-ureterales",
+        "anastomoses nephro-ureterales",
+        "chirurgie des voies urinaires superieures",
+        "procedures urologiques reconstructives"
+      ],
+      "it": [
+        "Tariffario medico svizzero",
+        "onorari medici",
+        "elenco prestazioni mediche",
+        "denominazione della prestazione",
+        "nome dell'intervento",
+        "descrizione della procedura",
+        "voce di tariffario",
+        "interventi nefroureterali",
+        "anastomosi nefroureterali",
+        "chirurgia delle vie urinarie superiori",
+        "procedure urologiche ricostruttive"
+      ]
+    }
+  },
+  "Interventionen bei perkutaner antegrader Pyelographie/Pyeloureterographie\nKatheterwechsel\nRendez-Vous Maneuver": {
+    "lkn": "C11.EC.0070",
+    "synonyms": {
+      "de": [
+        "Eingriffe",
+        "Prozeduren",
+        "Behandlungen",
+        "durch die Haut",
+        "transkutan",
+        "über die Haut",
+        "vorwärtsgerichtet",
+        "in Flussrichtung",
+        "in normaler Flussrichtung",
+        "Nierenbecken- und Harnleiterdarstellung",
+        "Darstellung der oberen Harnwege",
+        "Urographie",
+        "Katheteraustausch",
+        "Austausch des Katheters",
+        "Schlauchwechsel",
+        "Treffpunkt-Manöver",
+        "kombinierte Kathetertechnik",
+        "Rendezvous-Technik"
+      ],
+      "fr": [
+        "Actes médicaux",
+        "procédures",
+        "traitements",
+        "à travers la peau",
+        "transcutanée",
+        "par voie cutanée",
+        "dans le sens du flux",
+        "vers l'avant",
+        "en direction normale",
+        "imagerie des voies urinaires supérieures",
+        "urographie",
+        "examen des reins et uretères",
+        "remplacement de cathéter",
+        "échange de cathéter",
+        "substitution de sonde",
+        "technique de rencontre de cathéters",
+        "manœuvre combinée",
+        "technique du point de rencontre"
+      ],
+      "it": [
+        "Procedure mediche",
+        "atti medici",
+        "trattamenti",
+        "attraverso la pelle",
+        "transcutanea",
+        "per via cutanea",
+        "nel senso del flusso",
+        "in avanti",
+        "in direzione normale",
+        "imaging delle vie urinarie superiori",
+        "urografia",
+        "sostituzione catetere",
+        "ricambio catetere",
+        "mutamento di sonda",
+        "tecnica di incontro dei cateteri",
+        "manovra combinata",
+        "tecnica del punto di incontro"
+      ]
+    }
+  },
+  "+ Wundversorgung ohne Einbezug komplexer Strukturen, jeder weitere 1 cm": {
+    "lkn": "MK.15.0050",
+    "synonyms": {
+      "de": [
+        "Wundbehandlung",
+        "Wundpflege",
+        "Versorgung einer Verletzung",
+        "ohne Beteiligung",
+        "ohne Involvierung",
+        "nicht umfassend",
+        "tiefer liegender Strukturen",
+        "komplizierter anatomischer Gegebenheiten",
+        "wichtiger Gewebe",
+        "pro zusaetzlichem Zentimeter",
+        "fuer jeden weiteren Zentimeter"
+      ],
+      "fr": [
+        "Soins de plaie",
+        "traitement de plaie",
+        "pansement",
+        "sans implication",
+        "sans atteinte",
+        "non complexe",
+        "structures profondes",
+        "structures anatomiques complexes",
+        "tissus importants",
+        "par centimètre supplémentaire",
+        "pour chaque centimètre additionnel"
+      ],
+      "it": [
+        "Cura della ferita",
+        "trattamento della ferita",
+        "medicazione",
+        "senza coinvolgimento",
+        "senza interessamento",
+        "non complesso",
+        "strutture profonde",
+        "strutture anatomiche complesse",
+        "tessuti importanti",
+        "per ogni centimetro aggiuntivo",
+        "per ogni ulteriore centimetro"
+      ]
+    }
+  },
+  "Débridement bei offener Wundbehandlung, ohne Einbezug komplexer Strukturen, erste 4 cm2": {
+    "lkn": "MK.15.0060",
+    "synonyms": {
+      "de": [
+        "Wundreinigung",
+        "Wundsaeuberung",
+        "Wundtoilette",
+        "Gewebeabtragung",
+        "offener Wundversorgung",
+        "Behandlung offener Wunden",
+        "Versorgung offener Verletzungen",
+        "komplexer Gewebe",
+        "tieferer Strukturen",
+        "komplizierter anatomischer Bereiche",
+        "die ersten vier Quadratzentimeter",
+        "anfaengliche 4 cm2",
+        "primaere 4 cm2"
+      ],
+      "fr": [
+        "Nettoyage de plaie",
+        "parage de plaie",
+        "détersion",
+        "excision de tissus nécrotiques",
+        "traitement de plaie ouverte",
+        "soins de plaies non fermées",
+        "gestion de blessures ouvertes",
+        "structures complexes",
+        "tissus profonds",
+        "structures anatomiques majeures",
+        "premiers 4 cm2",
+        "surface initiale de 4 cm2",
+        "les quatre premiers centimètres carrés"
+      ],
+      "it": [
+        "Pulizia della ferita",
+        "sbrigliamento",
+        "detersione",
+        "rimozione di tessuti necrotici",
+        "trattamento di ferita aperta",
+        "cura di lesioni non chiuse",
+        "gestione di piaghe aperte",
+        "strutture complesse",
+        "tessuti profondi",
+        "strutture anatomiche maggiori",
+        "primi 4 cm2",
+        "superficie iniziale di 4 cm2",
+        "i primi quattro centimetri quadrati"
+      ]
+    }
+  },
+  "+ Nachbereitung Débridement bei offener Wundbehandlung ohne Einbezug komplexer Strukturen, pro 1 Min.": {
+    "lkn": "MK.15.0070"
+  },
+  "+ Débridement bei offener Wundbehandlung, ohne Einbezug komplexer Strukturen, jede weitere 4 cm2": {
+    "lkn": "MK.15.0080",
+    "synonyms": {
+      "de": [
+        "Wundreinigung",
+        "Wundsäuberung",
+        "Entfernung von abgestorbenem Gewebe",
+        "Wundtoilette",
+        "Behandlung offener Wunden",
+        "Versorgung offener Verletzungen",
+        "Therapie von offenen Läsionen",
+        "ohne Beteiligung komplexer Strukturen",
+        "oberflächlich (impliziert)",
+        "pro zusätzliche 4 Quadratzentimeter",
+        "je weitere 4 cm2"
+      ],
+      "fr": [
+        "Débridement",
+        "Nettoyage de plaie",
+        "Excision de tissus nécrosés",
+        "Ablation de tissus morts",
+        "Traitement de plaie ouverte",
+        "Soin de plaie ouverte",
+        "sans implication de structures complexes",
+        "n'impliquant pas de structures profondes",
+        "sans atteinte de structures nobles",
+        "superficiel (impliqué)",
+        "pour chaque 4 cm2 additionnels",
+        "chaque 4 cm2 supplémentaire"
+      ],
+      "it": [
+        "Debridement",
+        "Sbrigliamento",
+        "Pulizia della ferita",
+        "Rimozione di tessuto necrotico",
+        "Trattamento di ferita aperta",
+        "Cura di ferita aperta",
+        "Gestione di lesione aperta",
+        "senza coinvolgimento di strutture complesse",
+        "non coinvolgendo strutture profonde",
+        "senza interessamento di strutture nobili",
+        "superficiale (implicito)",
+        "per ogni ulteriore 4 cm2",
+        "per ogni 4 cm2 aggiuntivi",
+        "ogni 4 cm2 in più"
+      ]
+    }
+  },
+  "Blasenabtragung alle Regionen, pro 1 Min.": {
+    "lkn": "MK.15.0100",
+    "synonyms": {
+      "de": [
+        "Entfernung von Hautblasen",
+        "Exzision von Hautläsionen",
+        "Hautblasenentfernung",
+        "Bläschenentfernung",
+        "Vesikelabtragung",
+        "Entfernung von Blasen (Haut)",
+        "Ablation von Hautläsionen",
+        "Exzision von Bläschen",
+        "Entfernung von Hautbläschen",
+        "Abtragung von Vesikeln",
+        "Exzision von Hautblasen",
+        "Abtragung von Hautbläschen",
+        "Entfernung von Hautblasen (alle Körperbereiche)",
+        "Exzision von Hautläsionen (alle Körperregionen)",
+        "Abtragung von Hautveränderungen (alle Zonen)",
+        "Hautblasenentfernung (pro Minute)",
+        "Bläschenentfernung (je Minute)",
+        "Vesikelabtragung (pro 60 Sekunden)"
+      ],
+      "fr": [
+        "Excision de bulles cutanées",
+        "Ablation de vésicules",
+        "Retrait de cloques",
+        "Évacuation de phlyctènes",
+        "Excision de lésions cutanées",
+        "Ablation de cloques (cutanées)",
+        "Retrait de vésicules (épidermiques)",
+        "Excision de phlyctènes (cutanées)",
+        "Évacuation de bulles cutanées",
+        "Ablation de lésions cutanées",
+        "Excision de vésicules (toutes zones)",
+        "Retrait de phlyctènes (par minute)"
+      ],
+      "it": [
+        "Escissione di bolle cutanee",
+        "Rimozione di vescicole",
+        "Asportazione di lesioni cutanee",
+        "Drenaggio di flittene",
+        "Escissione di bolle (della pelle)",
+        "Rimozione di flittene (cutanee)",
+        "Asportazione di vescicole (epidermiche)",
+        "Ablazione di lesioni cutanee",
+        "Drenaggio di flittene (al minuto)"
+      ]
+    }
+  },
+  "+ Zuschlag für mehrschichtigen Wundverschluss nach Exzision; Regionen A1, B1, C1": {
+    "lkn": "MK.25.0060",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Ergänzungsgebühr",
+        "Exzision: Entfernung (chirurgisch)",
+        "Exzision: Ausschneidung",
+        "Exzision: Resektion",
+        "Exzision: Herausschneiden"
+      ],
+      "fr": [
+        "Supplément",
+        "Majoration",
+        "Surtaxe",
+        "Frais additionnels",
+        "Exérèse",
+        "Ablation (chirurgicale)",
+        "Résection",
+        "Enlèvement (chirurgical)"
+      ],
+      "it": [
+        "Supplemento",
+        "Maggiorazione",
+        "Sovrapprezzo",
+        "Costo aggiuntivo",
+        "Escissione",
+        "Asportazione (chirurgica)",
+        "Resezione",
+        "Rimozione (chirurgica)"
+      ]
+    }
+  },
+  "+ Deckung mit heterologenem/alloplastischem Hautersatz; Regionen A2, B2, C1": {
+    "lkn": "MK.25.0080",
+    "synonyms": {
+      "de": [
+        "Hauttransplantation",
+        "Hautverpflanzung",
+        "Wundverschluss mit Hautersatz",
+        "Hautdeckung",
+        "Hauttransplantat",
+        "Fremdhautersatz",
+        "Kunsthaut",
+        "synthetischer Hautersatz",
+        "artfremder Hautersatz",
+        "künstliches Hautmaterial",
+        "Körperbereiche",
+        "Zonen",
+        "Areale",
+        "Körperregionen"
+      ],
+      "fr": [
+        "Greffe cutanée",
+        "recouvrement cutané",
+        "transplantation de peau",
+        "substitut cutané hétérologue",
+        "peau artificielle",
+        "substitut cutané synthétique",
+        "greffon d'une autre espèce",
+        "régions corporelles",
+        "zones du corps",
+        "aires"
+      ],
+      "it": [
+        "Innesto cutaneo",
+        "copertura cutanea",
+        "trapianto di pelle",
+        "sostituto cutaneo eterologo",
+        "pelle artificiale",
+        "sostituto cutaneo sintetico",
+        "innesto da altra specie",
+        "regioni corporee",
+        "zone del corpo",
+        "aree"
+      ]
+    }
+  },
+  "+ Zuschlag für subkutane Exzision, bis auf die Faszie reichend; alle Regionen": {
+    "lkn": "MK.25.0090",
+    "synonyms": {
+      "de": [
+        "Faszie: Bindegewebshülle, Muskelhaut, Aponeurose"
+      ],
+      "fr": [
+        "Faszie: Fascia, aponévrose, membrane conjonctive"
+      ],
+      "it": [
+        "Faszie: Fascia, aponeurosi, membrana connettiva"
+      ]
+    }
+  },
+  "+ Zuschlag für subkutane Exzision, bis unter die Faszie, Muskel, Knorpel, Knochen; alle Regionen": {
+    "lkn": "MK.25.0100",
+    "synonyms": {
+      "de": [
+        "Zuschlag",
+        "Aufpreis",
+        "Zusatzgebuehr",
+        "Mehrkosten",
+        "Ergaenzung",
+        "Zuschlagsposition",
+        "Aufschlag",
+        "subkutane",
+        "unter der Haut liegend",
+        "unterhaut-",
+        "hypodermal",
+        "subkutan",
+        "Exzision",
+        "Entfernung",
+        "Herausschneiden",
+        "Resektion",
+        "Ausschneidung",
+        "Abtragung",
+        "chirurgische Entfernung",
+        "bis unter die",
+        "bis zur Schicht von",
+        "bis in die Tiefe von",
+        "reichend bis unter",
+        "bis zur Ebene von",
+        "Faszie",
+        "Bindegewebshuelle",
+        "Muskelhuelle",
+        "Muskel",
+        "Muskelgewebe",
+        "Muskulatur",
+        "Knorpel",
+        "Knorpelgewebe",
+        "Knochen",
+        "Knochengewebe",
+        "Skelett",
+        "Regionen",
+        "Koerperbereiche",
+        "Zonen",
+        "Gebiete",
+        "Lokalisationen"
+      ],
+      "fr": [
+        "Supplément",
+        "surcoût",
+        "majoration",
+        "frais additionnels",
+        "complément",
+        "sous-cutané",
+        "hypodermique",
+        "sous la peau",
+        "excision",
+        "ablation",
+        "résection",
+        "enlèvement chirurgical",
+        "extirpation",
+        "jusqu'à la couche de",
+        "atteignant la profondeur de",
+        "jusqu'au niveau de",
+        "sous",
+        "fascia",
+        "aponévrose",
+        "enveloppe conjonctive",
+        "muscle",
+        "tissu musculaire",
+        "musculature",
+        "cartilage",
+        "tissu cartilagineux",
+        "os",
+        "tissu osseux",
+        "squelette",
+        "régions",
+        "zones",
+        "aires",
+        "localisations",
+        "parties du corps"
+      ],
+      "it": [
+        "Supplemento",
+        "sovrapprezzo",
+        "maggiorazione",
+        "costo aggiuntivo",
+        "integrazione",
+        "sottocutaneo",
+        "ipodermico",
+        "sotto la pelle",
+        "escissione",
+        "asportazione",
+        "resezione",
+        "rimozione chirurgica",
+        "estirpazione",
+        "fino allo strato di",
+        "raggiungendo la profondità di",
+        "fino al livello di",
+        "sotto",
+        "fascia",
+        "aponeurosi",
+        "guaina connettivale",
+        "muscolo",
+        "tessuto muscolare",
+        "muscolatura",
+        "cartilagine",
+        "tessuto cartilagineo",
+        "osso",
+        "tessuto osseo",
+        "scheletro",
+        "regioni",
+        "zone",
+        "aree",
+        "localizzazioni",
+        "parti del corpo"
+      ]
+    }
+  },
+  "+ %-Zuschlag für weitreichende Wundrandmobilisation bei Exzisionen, Narbenkorrekturen oder Hebedefektverschluss": {
+    "lkn": "MK.25.0120",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Zusatzgebuehr",
+        "Ergaenzung",
+        "Mehrkosten",
+        "umfassende",
+        "ausgedehnte",
+        "erhebliche",
+        "grossflaechige",
+        "Mobilisierung des Wundrandes",
+        "Gewebemobilisation am Wundrand",
+        "Unterminierung des Wundrandes",
+        "Wundrandloesung",
+        "Entfernungen",
+        "Ausschneidungen",
+        "Resektionen",
+        "Herausschneidungen",
+        "Narbenrevisionen",
+        "Narbenbehandlungen",
+        "Narbenoperationen",
+        "aesthetische Narbenkorrekturen",
+        "Verschluss der Entnahmestelle",
+        "Deckung des Hebedefekts",
+        "Verschluss des Spenderareals",
+        "Verschluss der Transplantatentnahmestelle"
+      ],
+      "fr": [
+        "Supplément",
+        "majoration",
+        "frais additionnels",
+        "surcoût",
+        "étendue",
+        "importante",
+        "significative",
+        "large",
+        "profonde",
+        "décollement des tissus péri-lésionnels",
+        "avancement des lambeaux cutanés",
+        "excisions",
+        "ablations",
+        "résections",
+        "enlèvements",
+        "corrections de cicatrices",
+        "révisions de cicatrices",
+        "plasties de cicatrices",
+        "traitements de cicatrices",
+        "fermeture du site donneur",
+        "fermeture du site de prélèvement",
+        "recouvrement du défaut de prélèvement",
+        "fermeture de la zone donneuse"
+      ],
+      "it": [
+        "Supplemento",
+        "maggiorazione",
+        "costo aggiuntivo",
+        "spesa extra",
+        "estesa",
+        "ampia",
+        "significativa",
+        "profonda",
+        "considerevole",
+        "mobilizzazione dei margini della ferita",
+        "scollamento dei tessuti perilesionali",
+        "liberazione dei bordi della ferita",
+        "avanzamento dei lembi cutanei",
+        "escissioni",
+        "asportazioni",
+        "resezioni",
+        "rimozioni",
+        "correzioni di cicatrici",
+        "revisioni di cicatrici",
+        "trattamenti di cicatrici",
+        "chirurgia delle cicatrici",
+        "chiusura del sito donatore",
+        "chiusura del sito di prelievo",
+        "copertura del difetto di prelievo",
+        "chiusura dell'area donatrice"
       ]
     }
   }
