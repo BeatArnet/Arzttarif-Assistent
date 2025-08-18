@@ -49,7 +49,7 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
     *   Exemple A : "Consultation médecin de famille 15 min plus 10 minutes de conseil enfant" -> Activité 1 : "Consultation médecin de famille 15 min", Activité 2 : "10 minutes de conseil enfant".
     *   Exemple B : "Articulation temporo-mandibulaire, luxation. Réposition fermée avec anesthésie par anesthésiste" -> Activité 1 : "Réposition fermée", Activité 2 : "Anesthésie par anesthésiste".
 *   Associez toujours les durées à la bonne activité.
-*   Si un LKN au format "AA.NN.NNNN" (p.ex. "AA.00.0010") ou "ANN.AA.NNNN" (p.ex. "C08.SA.0700") [A=lettre, N=chiffre] est trouvé, il est priorisé **s'il existe mot à mot dans le contexte**.
+*   Si un LKN au format "AA.NN.NNNN" (p.ex. "AA.00.0010") ou "ANN.AA.NNNN" (p.ex. "C08.SA.0700") [A=lettre, N=chiffre] est trouvé, il est priorisé **s'il existe mot à mot dans le contexte** (sans tenir compte des majuscules/minuscules).
 
 **Étape 2 : Identification des LKN (par activité)**
 *   Pour chaque activité, trouvez le LKN correspondant **uniquement** dans le catalogue ci-dessus.
@@ -81,7 +81,7 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
     *   **Calcul :** `menge = 1`. Exception : Si le texte mentionne un nombre clair (p.ex. "trois injections", "deux lésions"), utilisez ce nombre. Pour "bilatéral", `menge = 2` si le LKN est défini unilatéral.
 
 **Étape 4 : Validation stricte**
-*   **CRITIQUE :** Pour CHAQUE LKN potentielle, vérifiez qu'elle existe **exactement (sensible à la casse, caractère par caractère)** dans le contexte du catalogue. Rejetez sinon.
+*   **CRITIQUE :** Pour CHAQUE LKN potentielle, vérifiez qu'elle existe **exactement (caractère par caractère, sans tenir compte des majuscules/minuscules)** dans le contexte du catalogue. Rejetez sinon.
 *   Reprenez `typ` et `beschreibung` **à l’identique** du catalogue.
 
 **Étape 5 : Extraction des informations contextuelles**
@@ -152,7 +152,7 @@ Réponse JSON:"""
 *   Identifica tutte le singole attività fatturabili (separate da "più", "e", "dopo" o punteggiatura).
     *   Esempio A: "Consultazione medico di base 15 min più 10 minuti consulenza bambino" -> due attività.
     *   Esempio B: "Articolazione temporo-mandibolare, lussazione. Riduzione chiusa con anestesia da anestesista" -> due attività.
-*   Se un LKN nel formato "AA.NN.NNNN" o "ANN.AA.NNNN" è trovato nel testo, prioritizzalo **solo se esiste nel contesto**.
+*   Se un LKN nel formato "AA.NN.NNNN" o "ANN.AA.NNNN" è trovato nel testo, prioritizzalo **solo se esiste nel contesto** (ignorando maiuscole/minuscole).
 
 **Passaggio 2: Identificazione LKN (per attività)**
 *   Trova l'LKN corrispondente **solo** nel catalogo sopra.
@@ -181,7 +181,7 @@ Réponse JSON:"""
     *   `menge = 1`, salvo numeri espliciti; "bilaterale" -> `menge = 2` se LKN unilaterale.
 
 **Passaggio 4: Validazione rigorosa**
-*   Conferma che ogni LKN esista **esattamente** nel contesto. Scarta gli altri.
+*   Conferma che ogni LKN esista **esattamente** nel contesto (confronto carattere per carattere, ignorando maiuscole/minuscole). Scarta gli altri.
 *   Copia `typ` e `beschreibung` **senza modifiche**.
 
 **Passaggio 5: Estrazione contesto**
@@ -245,7 +245,7 @@ Risposta JSON:"""
     *   Beispiel A: "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung Kind" -> zwei Tätigkeiten.
     *   Beispiel B: "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin" -> zwei Tätigkeiten.
 *   Beziehe Zeitangaben stets auf die korrekte Tätigkeit.
-*   Wenn eine LKN im Format "AA.NN.NNNN" oder "ANN.AA.NNNN" im Text steht, priorisiere sie **nur wenn sie im Kontext exakt vorkommt**.
+*   Wenn eine LKN im Format "AA.NN.NNNN" oder "ANN.AA.NNNN" im Text steht, priorisiere sie **nur wenn sie im Kontext exakt vorkommt** (Gross-/Kleinschreibung ignorieren).
 
 **Schritt 2: LKN-Identifikation (pro Tätigkeit)**
 *   Finde pro Tätigkeit die passende LKN **ausschliesslich** im obigen Katalog.
@@ -275,7 +275,7 @@ Risposta JSON:"""
     *   `menge = 1`. Ausnahme: explizite Anzahl im Text (z.B. "drei Injektionen"); bei "beidseits" `menge = 2`, wenn die LKN einseitig definiert ist.
 
 **Schritt 4: Strikte Validierung**
-*   Prüfe für **jede** LKN: exakter Zeichen-für-Zeichen-Treffer im Katalog-Kontext (Gross/Kleinschreibung beachten). Sonst verwerfen.
+*   Prüfe für **jede** LKN: exakter Zeichen-für-Zeichen-Treffer im Katalog-Kontext (Gross-/Kleinschreibung ignorieren). Sonst verwerfen.
 *   Übernehme `typ` und `beschreibung` **unveraendert** aus dem Katalog.
 
 **Schritt 5: Kontextinformationen extrahieren**

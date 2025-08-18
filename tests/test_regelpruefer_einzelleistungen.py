@@ -110,3 +110,12 @@ def test_moegliche_zusatzpositionen_does_not_restrict_when_explicit(monkeypatch)
     result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
     assert result["abrechnungsfaehig"]
     assert result["fehler"] == []
+
+
+def test_case_insensitive_lkn_and_begleit():
+    regelwerk = {
+        "C06.CE.0010": [{"Typ": "Nur als Zuschlag zu", "LKN": "C00.YY.0260"}]
+    }
+    fall = {"LKN": "c06.ce.0010", "Begleit_LKNs": ["c00.yy.0260"]}
+    result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
+    assert result["abrechnungsfaehig"]
