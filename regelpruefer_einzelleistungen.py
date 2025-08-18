@@ -61,6 +61,7 @@ def lade_regelwerk(path: str) -> dict:
             if not lkn:
                 logger.warning("WARNUNG: Regelobjekt ohne LKN gefunden: %s", entry)
                 continue
+            lkn = str(lkn).upper()
             rules = entry.get("Regeln") or []
             mapping[lkn] = rules
         return mapping
@@ -99,10 +100,13 @@ def pruefe_abrechnungsfaehigkeit(
           - abrechnungsfaehig (bool): True, wenn alle Regeln erfüllt sind.
           - fehler (list): Liste der Regelverstösse (Fehlermeldungen).
     """
-    lkn = fall.get("LKN")
+    lkn = str(fall.get("LKN") or "").upper()
     menge = fall.get("Menge", 0) or 0
-    begleit = fall.get("Begleit_LKNs") or []
-    leistungsgruppen_map = leistungsgruppen_map or {}
+    begleit = [str(code).upper() for code in (fall.get("Begleit_LKNs") or [])]
+    leistungsgruppen_map = {
+        str(k).upper(): {str(c).upper() for c in v}
+        for k, v in (leistungsgruppen_map or {}).items()
+    }
     # Kontextdaten
     alter = fall.get("Alter")
     geschlecht = fall.get("Geschlecht")
@@ -138,6 +142,8 @@ def pruefe_abrechnungsfaehigkeit(
         # --- Nur als Zuschlag zu ---
         elif typ == REGEL_ZUSCHLAG_ZU:
             parent = rule.get("LKN")
+            if isinstance(parent, str):
+                parent = parent.upper()
             if parent and parent not in begleit:
                 allowed = False
                 errors.append(f"Nur als Zuschlag zu {parent} zulässig (Basis fehlt)")
@@ -147,6 +153,7 @@ def pruefe_abrechnungsfaehigkeit(
             zusatz = rule.get("LKNs") or rule.get("LKN") or []
             if isinstance(zusatz, str):
                 zusatz = [zusatz]
+            zusatz = [str(z).upper() for z in zusatz]
             moegliche_zusatzpositionen.extend(zusatz)
 
         # --- Nicht kumulierbar mit (inkl. Varianten) ---
@@ -154,6 +161,7 @@ def pruefe_abrechnungsfaehigkeit(
             not_with = rule.get("LKNs") or rule.get("LKN") or []
             if isinstance(not_with, str):
                 not_with = [not_with]
+            not_with = [str(nw).upper() for nw in not_with]
             type_match = REGEX_NICHT_KUMULIERBAR_VARIANT.match(typ)
             if type_match and type_match.group(1):
                 typen_filter = [
@@ -167,7 +175,7 @@ def pruefe_abrechnungsfaehigkeit(
                 code
                 for code in begleit
                 if code in not_with
-                and (not typen_filter or code[:1].upper() in typen_filter)
+                and (not typen_filter or code[:1] in typen_filter)
             ]
             if konflikt:
                 allowed = False
@@ -181,17 +189,18 @@ def pruefe_abrechnungsfaehigkeit(
                 allowed_entries = [allowed_entries]
 
             def match_entry(entry: str) -> bool:
-                entry = entry.strip()
-                if entry.startswith("Kapitel"):
-                    prefix = entry.replace("Kapitel", "").strip()
+                entry_str = entry.strip()
+                entry_upper = entry_str.upper()
+                if entry_upper.startswith("KAPITEL"):
+                    prefix = entry_upper.replace("KAPITEL", "").strip()
                     return any(code.startswith(prefix) for code in begleit)
-                if entry.startswith("Leistungsgruppe"):
-                    gruppe = entry.replace("Leistungsgruppe", "").strip()
+                if entry_upper.startswith("LEISTUNGSGRUPPE"):
+                    gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
                     group_lkns = leistungsgruppen_map.get(gruppe)
                     if group_lkns is None:
                         return True  # Ohne Mapping keine Prüfung
                     return any(code in group_lkns for code in begleit)
-                return any(entry == code for code in begleit)
+                return any(entry_upper == code for code in begleit)
 
             if not any(match_entry(e) for e in allowed_entries):
                 allowed = False
@@ -202,6 +211,7 @@ def pruefe_abrechnungsfaehigkeit(
             entries = rule.get("LKNs") or rule.get("LKN") or []
             if isinstance(entries, str):
                 entries = [entries]
+            entries = [str(e).upper() for e in entries]
             moegliche_zusatzpositionen.extend(entries)
             hat_kumulierbar_regel = True
             continue  # Auswertung (nur bei expliziter Kumulation) erfolgt nach der Schleife
@@ -332,19 +342,20 @@ def pruefe_abrechnungsfaehigkeit(
 
         def code_erlaubt(code: str) -> bool:
             for entry in moegliche_zusatzpositionen:
-                entry = entry.strip()
-                if entry.startswith("Kapitel"):
-                    prefix = entry.replace("Kapitel", "").strip()
+                e_str = entry.strip()
+                e_upper = e_str.upper()
+                if e_upper.startswith("KAPITEL"):
+                    prefix = e_upper.replace("KAPITEL", "").strip()
                     if code.startswith(prefix):
                         return True
-                elif entry.startswith("Leistungsgruppe"):
-                    gruppe = entry.replace("Leistungsgruppe", "").strip()
+                elif e_upper.startswith("LEISTUNGSGRUPPE"):
+                    gruppe = e_upper.replace("LEISTUNGSGRUPPE", "").strip()
                     group_lkns = leistungsgruppen_map.get(gruppe)
                     if group_lkns is None:
                         return True  # Ohne Mapping keine Prüfung
                     if code in group_lkns:
                         return True
-                elif code == entry:
+                elif code == e_upper:
                     return True
             return False
 
