@@ -172,28 +172,63 @@ def _filter_cross_language_synonyms(by_lang: Dict[str, List[str]]) -> Dict[str, 
     return filtered
 
 
+# _split_components was unused; removed to simplify module
+
+
 def _extract_json(text: str) -> Dict[str, object]:
-    """Return JSON data from ``text`` by scanning for the first JSON object."""
+    """Return JSON data from ``text``.
 
-    try:
-        return json.loads(text)
-    except Exception:
-        fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
-        if fence:
-            snippet = fence.group(1)
-        else:
-            match = re.search(r"\{.*?\}", text, re.S)
-            if match:
-                snippet = match.group(0)
-            else:
-                raise
+    The language model occasionally wraps multiple JSON objects into a
+    longer answer.  This helper scans the text for *all* JSON snippets and
+    merges them into a single dictionary.  When no JSON object can be
+    extracted a :class:`ValueError` is raised.
+    """
 
-    for candidate in (snippet, snippet.replace("'", '"')):
-        try:
-            return json.loads(candidate)
-        except Exception:
-            continue
-    raise
+    def _parse(snippet: str) -> Dict[str, object] | None:
+        for candidate in (snippet, snippet.replace("'", '"')):
+            try:
+                obj = json.loads(candidate)
+            except Exception:
+                continue
+            if isinstance(obj, dict):
+                return obj
+        return None
+
+    result = _parse(text)
+    if result is not None:
+        return result
+
+    objects: List[Dict[str, object]] = []
+    for match in re.finditer(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S):
+        obj = _parse(match.group(1))
+        if obj is not None:
+            objects.append(obj)
+
+    if not objects:
+        for match in re.finditer(r"\{.*?\}", text, re.S):
+            obj = _parse(match.group(0))
+            if obj is not None:
+                objects.append(obj)
+
+    if not objects:
+        raise ValueError("No JSON object found")
+
+    if len(objects) == 1:
+        return objects[0]
+
+    merged: Dict[str, object] = {}
+    for obj in objects:
+        for key, val in obj.items():
+            if isinstance(val, list):
+                existing = merged.get(key)
+                if isinstance(existing, list):
+                    existing.extend(val)
+                else:
+                    # start a new list to preserve type information for linters
+                    merged[key] = list(val)
+            elif key not in merged:
+                merged[key] = val
+    return merged
 
 
 def _build_prompt(term_data: Dict[str, str]) -> str:
@@ -204,9 +239,10 @@ def _build_prompt(term_data: Dict[str, str]) -> str:
         "Arzttarif Schweiz. "
         "Leistungsbezeichnung: '"
         f"{term}'.\n"
-        "Gib funktionale, kontextbezogene Synonyme für die wichtigsten medizinischen und alltagssprachlichen Begriffe in den Sprachen DE, FR und IT zurück.\n"
-        'Format: {"de": ["..."], "fr": ["..."], "it": ["..."]}\n'
+        "Gib funktionale, kontextbezogene Synonyme für die wichtigsten medizinischen und alltagssprachlichen Begriffe getrennt nach einzelnen Komponenten in den Sprachen DE, FR und IT zurück.\n"
+        'Format: {"de": {"<Begriff1>": ["..."], "<Begriff2>": ["..."]}, "fr": {...}, "it": {...}}\n'
         "Synonyme mit Umlauten (ä, ö, ü, é, è, à usw.) und 'ss' statt 'ß' im Deutschen.\n"
+        "Antworte ausschließlich im JSON-Format ohne weitere Erläuterungen.\n"
     )
     if fr:
         prompt += f"Französisch: '{fr}'.\n"
@@ -233,7 +269,7 @@ def _stop_ollama_model_once() -> None:
 
 
 
-def _query_llm(term_data: Dict[str, str]) -> Dict[str, List[str]]:
+def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
     provider = LLM_PROVIDER
     prompt = _build_prompt(term_data)
     content: str
@@ -311,13 +347,18 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, List[str]]:
             raise RuntimeError(f"{provider} error: {e}") from e
     logging.info("LLM raw response: %s", content)
     data = _extract_json(content)
-    result: Dict[str, List[str]] = {}
+    result: Dict[str, Dict[str, List[str]]] = {}
     for lang in ("de", "fr", "it"):
-        vals = data.get(lang) or []
-        if isinstance(vals, list):
-            result[lang] = [str(v).strip() for v in vals if isinstance(v, str)]
+        vals = data.get(lang) or {}
+        if isinstance(vals, dict):
+            inner: Dict[str, List[str]] = {}
+            for comp, syns in vals.items():
+                if not isinstance(comp, str) or not isinstance(syns, list):
+                    continue
+                inner[comp] = [str(v).strip() for v in syns if isinstance(v, str)]
+            result[lang] = inner
         else:
-            result[lang] = []
+            result[lang] = {}
     return result
 
 
@@ -359,25 +400,47 @@ def propose_synonyms_incremental(
             translations = None
 
         logging.info("LLM request for %s (%s)", term_de, lkn or "-")
-        by_lang: Dict[str, List[str]] = {}
         term_data = {"de": term_de}
         if translations:
             term_data.update(translations)
         try:
-            by_lang = _query_llm(term_data)
+            raw_components = _query_llm(term_data)
         except Exception as e:  # pragma: no cover - network failures
             logging.warning("LLM lookup failed for '%s': %s", term_de, e)
-            by_lang = {lang: [] for lang in languages}
+            raw_components = {lang: {} for lang in languages}
 
-        by_lang = _filter_cross_language_synonyms(by_lang)
+        # aggregate per-language synonyms before filtering
+        by_lang_unfiltered: Dict[str, List[str]] = {}
+        for lang in languages:
+            comps = raw_components.get(lang, {})
+            flat: List[str] = []
+            for syns in comps.values():
+                flat.extend(syns)
+            by_lang_unfiltered[lang] = _clean_variants(flat)
+
+        by_lang = _filter_cross_language_synonyms(by_lang_unfiltered)
+
+        # filter components to match cleaned language lists
+        components: Dict[str, Dict[str, List[str]]] = {}
+        for lang in languages:
+            comps = raw_components.get(lang, {})
+            cleaned: Dict[str, List[str]] = {}
+            allowed = set(by_lang.get(lang, []))
+            for comp, syns in comps.items():
+                vals = [s for s in _clean_variants(syns) if s in allowed]
+                if vals:
+                    cleaned[comp] = vals
+            components[lang] = cleaned
 
         # aggregate all language lists for the synonyms field
-        synonyms: List[str] = []
-        for lang in languages:
-            vals = _clean_variants(by_lang.get(lang, []))
-            by_lang[lang] = vals
-            synonyms.extend(vals)
+        synonyms = _clean_variants(
+            [syn for items in by_lang.values() for syn in items]
+        )
 
-        synonyms = _clean_variants(synonyms)
-
-        yield SynonymEntry(base_term=term_de, synonyms=synonyms, lkn=lkn, by_lang=by_lang)
+        yield SynonymEntry(
+            base_term=term_de,
+            synonyms=synonyms,
+            lkn=lkn,
+            by_lang=by_lang,
+            components=components,
+        )

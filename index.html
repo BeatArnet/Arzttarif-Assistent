@@ -64,13 +64,18 @@
         #languageSelect { width: auto; margin-bottom: 0; }
         #beispielSelect { width: 100%; max-width: 630px; }
         #chopInput, #icdInput { margin-bottom: 0; }
-        #chopInput, #icdInput {
-            background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCc+PHBhdGggZD0nTTcgMTBsNSA1IDUtNScvPjwvc3ZnPg==");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            background-size: 16px 16px;
-            padding-right: 30px;
+        /* Einheitliche Bootstrap-ähnliche Carets für alle drei Listen */
+        #beispielSelect, #chopInput, #icdInput {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23555'><path d='M7 10l5 5 5-5z'/></svg>") no-repeat right 0.75rem center/1rem auto;
+            padding-right: 2rem; /* Platz für Caret wie bei Bootstrap */
+            background-color: #fff; /* Sicher: weisser Hintergrund wie die anderen Felder */
         }
+        /* Klickfläche für Caret (zeigt Zeiger-Cursor) */
+        .caret-hitbox { position:absolute; top:0; right:0; width: 2rem; height: 100%; cursor: pointer; background: transparent; }
+        .caret-hitbox:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,94,184,0.25); border-radius: 4px; }
         .input-frame {
             margin-top: 20px;
             border: 1px solid var(--border-color);
@@ -511,6 +516,31 @@
         .chop-option:hover { background: var(--primary-light); }
         .icd-option { padding: 2px 4px; cursor: pointer; }
         .icd-option:hover { background: var(--primary-light); }
+        /* Dezenter, kleiner ICD‑Toggle im App‑Farbschema */
+        .icd-toggle-btn {
+            font-size: 0.78em;               /* etwas kleiner */
+            padding: 3px 8px;                /* kompakter */
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            color: var(--primary);
+            background: linear-gradient(to bottom, #f0f6fd, var(--primary-light));
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+            transition: background .15s ease, box-shadow .15s ease, transform .05s ease, color .15s ease;
+            user-select: none;
+        }
+        .icd-toggle-btn:hover { background: linear-gradient(to bottom, #e8f2fd, var(--primary-light)); }
+        .icd-toggle-btn:active { transform: translateY(1px); }
+        .icd-toggle-btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,94,184,0.25);
+        }
+        .icd-toggle-btn[aria-pressed="true"] {
+            color: #fff;
+            border-color: #004a8f;
+            background: linear-gradient(to bottom, #2f77c7, var(--primary));
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+        }
+        /* entfernt: separate Caret-Buttons, wir nutzen wieder Hintergrund‑Pfeile */
 </style>
 </head>
 <body>
@@ -583,8 +613,9 @@
         </select>
 
         <label id="chopLabel" for="chopInput">Über den CHOP-Code suchen:</label>
-        <div id="chopContainer" style="position:relative;max-width:630px;">
+    <div id="chopContainer" style="position:relative;max-width:630px;">
             <input type="text" id="chopInput" autocomplete="off" placeholder="CHOP-Code oder Text" style="width:100%;">
+            <div id="chopCaretHitbox" class="caret-hitbox" role="button" aria-label="CHOP-Liste öffnen/schließen" tabindex="0"></div>
             <div id="chopDropdown" class="hidden chop-dropdown"></div>
         </div>
 
@@ -594,11 +625,19 @@
 
     <label id="gtinLabel" for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
     <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
-    <label id="icdLabel" for="icdInput">Hauptdiagnose ICD (optional):</label>
+    <div id="icdHeaderRow" style="display:flex; align-items:center; justify-content:space-between; max-width:630px; gap:8px;">
+        <label id="icdLabel" for="icdInput" style="margin:0;">Hauptdiagnose ICD (optional):</label>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button id="icdFilterToggle" type="button" class="icd-toggle-btn" style="display:none;"></button>
+            <input type="hidden" id="icdToggleState" name="icdToggleState" value="0">
+        </div>
+    </div>
     <div id="icdContainer" style="position:relative;max-width:630px;">
         <input type="text" id="icdInput" autocomplete="off" placeholder="z.B. K35.8, J45.9" style="width:100%;">
+        <div id="icdCaretHitbox" class="caret-hitbox" role="button" aria-label="ICD-Liste öffnen/schließen" tabindex="0"></div>
         <div id="icdDropdown" class="hidden icd-dropdown"></div>
     </div>
+    
 
     <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; margin-bottom: 15px; max-width: 630px;">
         <div style="align-self: center;">
@@ -748,11 +787,16 @@
             await loadChopResults(0, {reset:true});
         }
 
-        async function onChopFocus(e){
+        async function openChopDropdown(){
             chopTerm = chopQuery;
             chopStart = 0;
             chopEnd = 0;
             await loadChopResults(0, {reset:true});
+        }
+
+        async function onChopFocus(e){
+            if (window.__lastChopPointerInArrowZone) { window.__lastChopPointerInArrowZone = false; return; }
+            await openChopDropdown();
         }
 
         async function onChopScroll(e){
@@ -778,11 +822,29 @@
             const rect = input.getBoundingClientRect();
             if(e.clientX > rect.right - 30){
                 e.preventDefault();
-                onChopFocus(e);
+                const dd = document.getElementById('chopDropdown');
+                if (dd.classList.contains('hidden')) {
+                    window.__lastChopPointerInArrowZone = false; // explizites Öffnen über Caret
+                    openChopDropdown();
+                } else {
+                    hideChopDropdown();
+                }
             }
         }
 
         async function fetchIcd(term, lang, offset = 0){
+            // Wenn eine Pauschale aktiv ist und der Umschalter auf "passende Diagnosen" steht,
+            // filtere lokal mit den vom Backend gelieferten potential_icds.
+            const pot = Array.isArray(window.selectedPauschaleDetails && window.selectedPauschaleDetails.potential_icds) ? window.selectedPauschaleDetails.potential_icds : [];
+            if (window.icdFilterMode === 'pauschale' && pot.length > 0){
+                try { console.debug('[ICD] local filter active; candidates:', pot.length); } catch(e){}
+                const q = (term || '').toLowerCase();
+                const mapped = pot.map(x => ({ code: String(x.Code||'').trim(), text: String(x.Code_Text||'').trim(), tabelle: String(x.Tabelle||'') }));
+                const filtered = mapped.filter(r => !q || r.code.toLowerCase().includes(q) || r.text.toLowerCase().includes(q));
+                const start = Math.max(0, offset|0);
+                return filtered.slice(start, start + ICD_LIMIT);
+            }
+            try { console.debug('[ICD] server fetch; mode:', window.icdFilterMode, 'pot:', pot.length); } catch(e){}
             const url = `/api/icd?q=${encodeURIComponent(term)}&lang=${lang}&offset=${offset}`;
             const resp = await fetch(url);
             if(!resp.ok) return [];
@@ -799,7 +861,7 @@
 
         function createIcdDiv(r){
             const div = document.createElement('div');
-            div.textContent = `${r.code} - ${r.text} [${r.tabelle}]`;
+            div.textContent = `${r.code} - ${r.text}`;
             div.className = 'icd-option';
             div.addEventListener('mousedown', () => {
                 document.getElementById('icdInput').value = r.code;
@@ -844,11 +906,16 @@
             await loadIcdResults(0, {reset:true});
         }
 
-        async function onIcdFocus(){
+        async function openIcdDropdown(){
             icdTerm = icdQuery;
             icdStart = 0;
             icdEnd = 0;
             await loadIcdResults(0, {reset:true});
+        }
+
+        async function onIcdFocus(){
+            if (window.__lastIcdPointerInArrowZone) { window.__lastIcdPointerInArrowZone = false; return; }
+            await openIcdDropdown();
         }
 
         async function onIcdScroll(e){
@@ -870,9 +937,18 @@
             const rect = input.getBoundingClientRect();
             if(e.clientX > rect.right - 30){
                 e.preventDefault();
-                onIcdFocus(e);
+                const dd = document.getElementById('icdDropdown');
+                if (dd.classList.contains('hidden')) {
+                    window.__lastIcdPointerInArrowZone = false; // explizites Öffnen über Caret
+                    openIcdDropdown();
+                } else {
+                    hideIcdDropdown();
+                }
             }
         }
+
+        // ICD-Umschalter: Click-Handler wird zentral in calculator.js gesetzt, 
+        // um doppelte Umschaltung zu vermeiden.
 
         let currentLang = 'de';
         function applyLanguage(lang){
@@ -895,6 +971,11 @@
             document.getElementById('chopLabel').textContent = t('chopLabel', lang);
             document.getElementById('chopInput').placeholder = t('chopPlaceholder', lang);
             document.getElementById('useIcdLabel').textContent = t('useIcd', lang);
+            const icdBtn = $('icdFilterToggle');
+            if (icdBtn){
+                icdBtn.textContent = t('icdToggleMatching', lang);
+                icdBtn.setAttribute('aria-pressed', window.icdFilterMode === 'pauschale' ? 'true' : 'false');
+            }
             document.getElementById('analyzeButton').textContent = t('analyzeButton', lang);
             document.getElementById('spinner').textContent = t('loading', lang);
             const qLink = document.getElementById('qualityLink');
@@ -969,17 +1050,63 @@
         document.getElementById('feedbackModalOverlay').addEventListener('click',e=>{if(e.target.id==='feedbackModalOverlay'&&!isResizing)toggleFeedback();});
         document.getElementById('chopInput').addEventListener('input', onChopInput);
         document.getElementById('chopInput').addEventListener('blur', onChopBlur);
+        document.getElementById('chopInput').addEventListener('mousedown', (e)=>{
+            const rect = e.currentTarget.getBoundingClientRect();
+            window.__lastChopPointerInArrowZone = (e.clientX > rect.right - 30);
+        });
         document.getElementById('chopInput').addEventListener('focus', onChopFocus);
+        // Klick im rechten Bereich des Eingabefeldes öffnet die Liste (wie ein Select‑Caret)
         document.getElementById('chopInput').addEventListener('click', onChopArrow);
         document.getElementById('chopDropdown').addEventListener('scroll', onChopScroll);
+        // Caret-Hitboxen: Finger-Cursor + Toggle-Verhalten wie bei Pfeilzone
+        const chopHit = document.getElementById('chopCaretHitbox');
+        if (chopHit) {
+            chopHit.addEventListener('click', (e)=>{
+                e.preventDefault();
+                const dd = document.getElementById('chopDropdown');
+                if (dd.classList.contains('hidden')) { openChopDropdown(); document.getElementById('chopInput').focus(); }
+                else { hideChopDropdown(); }
+            });
+            chopHit.addEventListener('keydown', (e)=>{
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chopHit.click(); }
+            });
+        }
         document.getElementById('icdInput').addEventListener('input', onIcdInput);
         document.getElementById('icdInput').addEventListener('blur', onIcdBlur);
+        document.getElementById('icdInput').addEventListener('mousedown', (e)=>{
+            const rect = e.currentTarget.getBoundingClientRect();
+            window.__lastIcdPointerInArrowZone = (e.clientX > rect.right - 30);
+        });
         document.getElementById('icdInput').addEventListener('focus', onIcdFocus);
         document.getElementById('icdInput').addEventListener('click', onIcdArrow);
         document.getElementById('icdDropdown').addEventListener('scroll', onIcdScroll);
+        const icdHit = document.getElementById('icdCaretHitbox');
+        if (icdHit) {
+            icdHit.addEventListener('click', (e)=>{
+                e.preventDefault();
+                const dd = document.getElementById('icdDropdown');
+                if (dd.classList.contains('hidden')) { openIcdDropdown(); document.getElementById('icdInput').focus(); }
+                else { hideIcdDropdown(); }
+            });
+            icdHit.addEventListener('keydown', (e)=>{
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); icdHit.click(); }
+            });
+        }
         document.addEventListener('DOMContentLoaded',()=>{
             loadTranslations().then(initLanguage);
         });
+        // Exportiere Hide-Funktionen global für andere Skripte
+        window.hideIcdDropdown = hideIcdDropdown;
+        window.hideChopDropdown = hideChopDropdown;
+
+        // Hilfsfunktion: nur aktualisieren, wenn Dropdown sichtbar
+        window.refreshIcdIfOpen = function(){
+            const dd = document.getElementById('icdDropdown');
+            if (dd && !dd.classList.contains('hidden')) {
+                icdStart = 0; icdEnd = 0; icdTerm = icdQuery; // beibehaltene Suche
+                loadIcdResults(0, {reset:true});
+            }
+        };
 
         function toggleFeedback(){
             const overlay = document.getElementById('feedbackModalOverlay');

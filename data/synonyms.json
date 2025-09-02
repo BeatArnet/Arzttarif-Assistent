@@ -20226,71 +20226,136 @@
     }
   },
   "Einlage eines provisorischen Schrittmachers": {
-    "lkn": "C05.KC.Z005",
+    "lkn": "C05.KG.0010",
     "synonyms": {
-      "de": [
-        "Aerztliche Gebuehrenordnung",
-        "Medizinischer Leistungskatalog",
-        "Tarmed",
-        "Tarifordnung fuer Aerzte",
-        "Leistungsbeschreibung",
-        "Prozedurname",
-        "Behandlungsbezeichnung",
-        "Abrechnungsposition",
-        "Implantation",
-        "Einsetzen",
-        "Anlage",
-        "Platzierung",
-        "temporaeren",
-        "voruebergehenden",
-        "interimistischen",
-        "vorlaeufigen",
-        "Herzschrittmachers",
-        "Impulsgebers",
-        "Herzstimulators",
-        "Pace-Makers"
-      ],
-      "fr": [
-        "Tarif medical suisse",
-        "Nomenclature des actes medicaux (Suisse)",
-        "Tarification des prestations medicales",
-        "Description de la prestation",
-        "Intitule de l'acte",
-        "Designation de la procedure",
-        "Libelle de l'acte",
-        "Mise en place",
-        "Insertion",
-        "Pose",
-        "provisoire",
-        "temporaire",
-        "transitoire",
-        "interimaire",
-        "pacemaker",
-        "stimulateur cardiaque",
-        "regulateur cardiaque",
-        "appareil de stimulation cardiaque"
-      ],
-      "it": [
-        "Tariffario medico svizzero",
-        "Nomenclatore delle prestazioni mediche (Svizzera)",
-        "Tariffa delle prestazioni sanitarie",
-        "Descrizione della prestazione",
-        "Denominazione dell'intervento",
-        "Titolo della procedura",
-        "Voce di tariffa",
-        "Impianto",
-        "Inserimento",
-        "Posizionamento",
-        "Collocazione",
-        "provvisorio",
-        "temporaneo",
-        "transitorio",
-        "interinale",
-        "pace-maker",
-        "stimolatore cardiaco",
-        "regolatore cardiaco",
-        "apparecchio di stimolazione cardiaca"
-      ]
+      "de": {
+        "Einlage": [
+          "Einsetzen",
+          "Anlage",
+          "Platzierung",
+          "Einfuehrung",
+          "Applikation"
+        ],
+        "provisorischen": [
+          "temporaeren",
+          "voruebergehenden",
+          "zeitweiligen",
+          "vorlaeufigen",
+          "interimistischen"
+        ],
+        "Schrittmachers": [
+          "Herzschrittmachers",
+          "Stimulators",
+          "Impulsgebers"
+        ]
+      },
+      "fr": {
+        "Einlage": [
+          "Mise en place",
+          "Insertion",
+          "Pose",
+          "Installation",
+          "Introduction"
+        ],
+        "provisorischen": [
+          "temporaire",
+          "provisoire",
+          "transitoire",
+          "passager",
+          "interimaire"
+        ],
+        "Schrittmachers": [
+          "Stimulateur cardiaque",
+          "Pace-maker",
+          "Appareil de stimulation cardiaque"
+        ]
+      },
+      "it": {
+        "Einlage": [
+          "Inserimento",
+          "Posizionamento",
+          "Collocazione",
+          "Applicazione",
+          "Introduzione"
+        ],
+        "provisorischen": [
+          "temporaneo",
+          "provvisorio",
+          "transitorio",
+          "interinale",
+          "passeggero"
+        ],
+        "Schrittmachers": [
+          "Stimolatore cardiaco",
+          "Pacemaker",
+          "Apparecchio di stimolazione cardiaca"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Einlage": [
+          "Einsetzen",
+          "Anlage",
+          "Platzierung",
+          "Einfuehrung",
+          "Applikation"
+        ],
+        "provisorischen": [
+          "temporaeren",
+          "voruebergehenden",
+          "zeitweiligen",
+          "vorlaeufigen",
+          "interimistischen"
+        ],
+        "Schrittmachers": [
+          "Herzschrittmachers",
+          "Stimulators",
+          "Impulsgebers"
+        ]
+      },
+      "fr": {
+        "Einlage": [
+          "Mise en place",
+          "Insertion",
+          "Pose",
+          "Installation",
+          "Introduction"
+        ],
+        "provisorischen": [
+          "temporaire",
+          "provisoire",
+          "transitoire",
+          "passager",
+          "interimaire"
+        ],
+        "Schrittmachers": [
+          "Stimulateur cardiaque",
+          "Pace-maker",
+          "Appareil de stimulation cardiaque"
+        ]
+      },
+      "it": {
+        "Einlage": [
+          "Inserimento",
+          "Posizionamento",
+          "Collocazione",
+          "Applicazione",
+          "Introduzione"
+        ],
+        "provisorischen": [
+          "temporaneo",
+          "provvisorio",
+          "transitorio",
+          "interinale",
+          "passeggero"
+        ],
+        "Schrittmachers": [
+          "Stimolatore cardiaco",
+          "Pacemaker",
+          "Apparecchio di stimolazione cardiaca"
+        ]
+      }
     }
   },
   "Rotablation": {
@@ -40481,71 +40546,166 @@
     }
   },
   "Versorgung bimalleoläre Fraktur, offene Reposition, innere Schienung": {
-    "lkn": "C08.SA.1180",
+    "lkn": "C08.PA.0060",
     "synonyms": {
-      "de": [
-        "Gebührenordnung",
-        "Honorarordnung",
-        "Leistungstarif",
-        "Leistungsbeschreibung",
-        "Dienstleistungsbezeichnung",
-        "Abrechnungsposition",
-        "Behandlung",
-        "Therapie",
-        "Management",
-        "Betreuung",
-        "Zweiknöchelfraktur",
-        "Sprunggelenksfraktur",
-        "Knöchelbruch",
-        "Chirurgische Reposition",
-        "operative Einrichtung",
-        "offene Einstellung",
-        "Interne Fixation",
-        "Osteosynthese",
-        "innere Stabilisierung"
-      ],
-      "fr": [
-        "Tarif médical",
-        "grille tarifaire",
-        "barème d'honoraires",
-        "Désignation de la prestation",
-        "libellé de l'acte",
-        "description du service",
-        "Traitement",
-        "prise en charge",
-        "soins",
-        "gestion",
-        "Fracture bimalléolaire",
-        "fracture des deux malléoles",
-        "fracture de la cheville",
-        "Réduction ouverte",
-        "réduction chirurgicale",
-        "repositionnement chirurgical",
-        "Fixation interne",
-        "ostéosynthèse",
-        "stabilisation interne"
-      ],
-      "it": [
-        "Tariffario medico",
-        "tariffario delle prestazioni",
-        "onorario medico",
-        "Descrizione della prestazione",
-        "voce di tariffario",
-        "denominazione del servizio",
-        "Trattamento",
-        "gestione",
-        "cura",
-        "assistenza",
-        "Frattura bimalleolare",
-        "frattura dei due malleoli",
-        "frattura della caviglia",
-        "Riduzione aperta",
-        "riduzione chirurgica",
-        "riposizionamento chirurgico",
-        "Fissazione interna",
-        "osteosintesi",
-        "stabilizzazione interna"
-      ]
+      "de": {
+        "Versorgung": [
+          "Behandlung",
+          "Therapie",
+          "Management",
+          "Betreuung",
+          "Intervention"
+        ],
+        "bimalleoläre Fraktur": [
+          "Zweiknöchelfraktur",
+          "Sprunggelenksfraktur",
+          "Knöchelbruch",
+          "Bruch des Sprunggelenks"
+        ],
+        "offene Reposition": [
+          "Chirurgische Reposition",
+          "operative Reposition",
+          "Freilegung und Reposition",
+          "offene Einstellung"
+        ],
+        "innere Schienung": [
+          "Interne Fixation",
+          "Osteosynthese",
+          "innere Stabilisierung",
+          "Plattenosteosynthese",
+          "Schraubenosteosynthese"
+        ]
+      },
+      "fr": {
+        "Versorgung": [
+          "Traitement",
+          "prise en charge",
+          "gestion",
+          "intervention",
+          "soins"
+        ],
+        "bimalleoläre Fraktur": [
+          "Fracture bimalléolaire",
+          "fracture de la cheville",
+          "fracture des deux malléoles"
+        ],
+        "offene Reposition": [
+          "Réduction ouverte",
+          "repositionnement chirurgical",
+          "réduction à ciel ouvert"
+        ],
+        "innere Schienung": [
+          "Fixation interne",
+          "ostéosynthèse",
+          "stabilisation interne",
+          "ostéosynthèse par plaque et vis"
+        ]
+      },
+      "it": {
+        "Versorgung": [
+          "Trattamento",
+          "gestione",
+          "cura",
+          "intervento",
+          "assistenza"
+        ],
+        "bimalleoläre Fraktur": [
+          "Frattura bimalleolare",
+          "frattura della caviglia",
+          "frattura delle due malleoli"
+        ],
+        "offene Reposition": [
+          "Riduzione aperta",
+          "riposizionamento chirurgico",
+          "riduzione a cielo aperto"
+        ],
+        "innere Schienung": [
+          "Fissazione interna",
+          "osteosintesi",
+          "stabilizzazione interna",
+          "osteosintesi con placca e viti"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Versorgung": [
+          "Behandlung",
+          "Therapie",
+          "Management",
+          "Betreuung",
+          "Intervention"
+        ],
+        "bimalleoläre Fraktur": [
+          "Zweiknöchelfraktur",
+          "Sprunggelenksfraktur",
+          "Knöchelbruch",
+          "Bruch des Sprunggelenks"
+        ],
+        "offene Reposition": [
+          "Chirurgische Reposition",
+          "operative Reposition",
+          "Freilegung und Reposition",
+          "offene Einstellung"
+        ],
+        "innere Schienung": [
+          "Interne Fixation",
+          "Osteosynthese",
+          "innere Stabilisierung",
+          "Plattenosteosynthese",
+          "Schraubenosteosynthese"
+        ]
+      },
+      "fr": {
+        "Versorgung": [
+          "Traitement",
+          "prise en charge",
+          "gestion",
+          "intervention",
+          "soins"
+        ],
+        "bimalleoläre Fraktur": [
+          "Fracture bimalléolaire",
+          "fracture de la cheville",
+          "fracture des deux malléoles"
+        ],
+        "offene Reposition": [
+          "Réduction ouverte",
+          "repositionnement chirurgical",
+          "réduction à ciel ouvert"
+        ],
+        "innere Schienung": [
+          "Fixation interne",
+          "ostéosynthèse",
+          "stabilisation interne",
+          "ostéosynthèse par plaque et vis"
+        ]
+      },
+      "it": {
+        "Versorgung": [
+          "Trattamento",
+          "gestione",
+          "cura",
+          "intervento",
+          "assistenza"
+        ],
+        "bimalleoläre Fraktur": [
+          "Frattura bimalleolare",
+          "frattura della caviglia",
+          "frattura delle due malleoli"
+        ],
+        "offene Reposition": [
+          "Riduzione aperta",
+          "riposizionamento chirurgico",
+          "riduzione a cielo aperto"
+        ],
+        "innere Schienung": [
+          "Fissazione interna",
+          "osteosintesi",
+          "stabilizzazione interna",
+          "osteosintesi con placca e viti"
+        ]
+      }
     }
   },
   "Versorgung Volkmann'sche Fraktur bei bimalleolärer Fraktur (trimalleolärer Fraktur)": {
@@ -42374,7 +42534,9 @@
         "OP",
         "chirurgischer Eingriff",
         "Eingriff",
-        "Chirurgie"
+        "Chirurgie",
+        "Grosszehenfehlstellung",
+        "Wiederherstellungsoperation"
       ],
       "fr": [
         "Opération d'hallux valgus",
@@ -42383,14 +42545,18 @@
         "Correction d'oignon",
         "Opération de l'oignon",
         "Chirurgie de l'oignon",
-        "Traitement chirurgical de l'hallux valgus"
+        "Traitement chirurgical de l'hallux valgus",
+        "Déformation du gros orteil"
       ],
       "it": [
         "Intervento chirurgico",
         "Operazione",
         "Chirurgia",
         "Procedura chirurgica",
-        "Trattamento chirurgico"
+        "Trattamento chirurgico",
+        "Deformità dell'alluce",
+        "ricostruzione estetica",
+        "chirurgia ricostruttiva"
       ]
     }
   },
@@ -73965,7 +74131,15 @@
       "de": [
         "Haut-",
         "Hautarzt-",
-        "Hautkrankheiten-"
+        "Hautkrankheiten-",
+        "Hautärztliche",
+        "Hautbezogene",
+        "Kutane",
+        "Begutachtung",
+        "Kontrolle",
+        "Check-up",
+        "Inspektion",
+        "Abklärung"
       ],
       "fr": [
         "Examen",
@@ -73975,7 +74149,13 @@
         "Visite",
         "Dépistage",
         "Vérification",
-        "Exploration"
+        "Exploration",
+        "Cutanée",
+        "De la peau",
+        "Relative à la peau",
+        "Inspection",
+        "Évaluation",
+        "Diagnostic"
       ],
       "it": [
         "Esame",
@@ -73984,7 +74164,10 @@
         "Valutazione",
         "Accertamento",
         "Consulto",
-        "Ispezione"
+        "Ispezione",
+        "Cutaneo",
+        "Della pelle",
+        "Relativo alla pelle"
       ]
     }
   },
@@ -92385,6 +92568,1850 @@
         "copertura del difetto di prelievo",
         "chiusura dell'area donatrice"
       ]
+    }
+  },
+  "Einlegen eines hämodynamischen Assist-Device": {
+    "lkn": "C05.KD.0040",
+    "synonyms": {
+      "de": {
+        "Einlegen": [
+          "einsetzen",
+          "implantieren",
+          "einführen",
+          "platzieren",
+          "applizieren",
+          "anbringen"
+        ],
+        "hämodynamischen": [
+          "kreislaufunterstützend",
+          "blutflussregulierend",
+          "zirkulationsbeeinflussend",
+          "herz-kreislauf-bezogen",
+          "den Blutkreislauf betreffend"
+        ],
+        "Assist-Device": [
+          "Unterstützungssystem",
+          "Hilfsgerät",
+          "Beistandsvorrichtung",
+          "Unterstützungsvorrichtung",
+          "Assistenzsystem",
+          "Hilfsmittel",
+          "Unterstützungsinstrument"
+        ]
+      },
+      "fr": {
+        "Einlegen": [
+          "insérer",
+          "implanter",
+          "introduire",
+          "placer",
+          "poser",
+          "installer"
+        ],
+        "hämodynamischen": [
+          "hémodynamique",
+          "circulatoire",
+          "cardiovasculaire",
+          "relatif au flux sanguin",
+          "lié à la circulation sanguine"
+        ],
+        "Assist-Device": [
+          "dispositif d'assistance",
+          "appareil de soutien",
+          "système d'aide",
+          "instrument d'assistance",
+          "équipement de support",
+          "dispositif de support"
+        ]
+      },
+      "it": {
+        "Einlegen": [
+          "inserire",
+          "impiantare",
+          "introdurre",
+          "posizionare",
+          "applicare",
+          "installare"
+        ],
+        "hämodynamischen": [
+          "emodinamico",
+          "circolatorio",
+          "cardiovascolare",
+          "relativo al flusso sanguigno",
+          "legato alla circolazione sanguigna"
+        ],
+        "Assist-Device": [
+          "dispositivo di assistenza",
+          "apparecchio di supporto",
+          "sistema di aiuto",
+          "strumento di assistenza",
+          "attrezzatura di supporto",
+          "dispositivo di supporto"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Einlegen": [
+          "einsetzen",
+          "implantieren",
+          "einführen",
+          "platzieren",
+          "applizieren",
+          "anbringen"
+        ],
+        "hämodynamischen": [
+          "kreislaufunterstützend",
+          "blutflussregulierend",
+          "zirkulationsbeeinflussend",
+          "herz-kreislauf-bezogen",
+          "den Blutkreislauf betreffend"
+        ],
+        "Assist-Device": [
+          "Unterstützungssystem",
+          "Hilfsgerät",
+          "Beistandsvorrichtung",
+          "Unterstützungsvorrichtung",
+          "Assistenzsystem",
+          "Hilfsmittel",
+          "Unterstützungsinstrument"
+        ]
+      },
+      "fr": {
+        "Einlegen": [
+          "insérer",
+          "implanter",
+          "introduire",
+          "placer",
+          "poser",
+          "installer"
+        ],
+        "hämodynamischen": [
+          "hémodynamique",
+          "circulatoire",
+          "cardiovasculaire",
+          "relatif au flux sanguin",
+          "lié à la circulation sanguine"
+        ],
+        "Assist-Device": [
+          "dispositif d'assistance",
+          "appareil de soutien",
+          "système d'aide",
+          "instrument d'assistance",
+          "équipement de support",
+          "dispositif de support"
+        ]
+      },
+      "it": {
+        "Einlegen": [
+          "inserire",
+          "impiantare",
+          "introdurre",
+          "posizionare",
+          "applicare",
+          "installare"
+        ],
+        "hämodynamischen": [
+          "emodinamico",
+          "circolatorio",
+          "cardiovascolare",
+          "relativo al flusso sanguigno",
+          "legato alla circolazione sanguigna"
+        ],
+        "Assist-Device": [
+          "dispositivo di assistenza",
+          "apparecchio di supporto",
+          "sistema di aiuto",
+          "strumento di assistenza",
+          "attrezzatura di supporto",
+          "dispositivo di supporto"
+        ]
+      }
+    }
+  },
+  "Exzision Fremdkörper aus Cutis und Subcutis oder bis 1 cm Tiefe ab Oberfläche, jede Lokalisation, pro 1 Min.": {
+    "lkn": "MK.15.0010",
+    "synonyms": {
+      "de": [
+        "Entfernung",
+        "Herausschneiden",
+        "Ausschneidung",
+        "Resektion",
+        "Operation",
+        "Objekt",
+        "Partikel",
+        "Eindringling",
+        "Splitter",
+        "Stachel",
+        "Haut und Unterhaut",
+        "Hautschichten",
+        "Dermis und Hypodermis",
+        "Epidermis, Dermis und Subkutis",
+        "bis zu einem Zentimeter tief",
+        "nicht tiefer als 1 cm",
+        "oberflaechennah",
+        "beliebige Stelle",
+        "an jeder Koerperstelle"
+      ],
+      "fr": [
+        "Ablation",
+        "Retrait",
+        "Enlèvement",
+        "Résection",
+        "Opération",
+        "objet étranger",
+        "particule",
+        "intrus",
+        "éclat",
+        "fragment",
+        "couches de la peau",
+        "peau et tissu sous-cutané",
+        "tissus cutanés",
+        "derme et hypoderme",
+        "jusqu'à 1 cm de profondeur",
+        "superficiel",
+        "moins d'un centimètre de profondeur",
+        "n'importe quel endroit",
+        "peu importe l'emplacement"
+      ],
+      "it": [
+        "Rimozione",
+        "Asportazione",
+        "Estrazione",
+        "Resezione",
+        "Intervento",
+        "oggetto estraneo",
+        "particella",
+        "intruso",
+        "scheggia",
+        "frammento",
+        "strati della pelle",
+        "pelle e tessuto sottocutaneo",
+        "tessuti cutanei",
+        "derma e ipoderma",
+        "entro 1 cm di profondità",
+        "superficiale",
+        "qualsiasi posizione",
+        "indipendentemente dalla sede"
+      ]
+    }
+  },
+  "+ %-Zuschlag für tiefe Rekonstruktion": {
+    "lkn": "MK.25.0110",
+    "synonyms": {
+      "de": [
+        "Aufschlag",
+        "Zusatzgebühr",
+        "Supplement",
+        "tiefgreifende",
+        "umfassende",
+        "ausgedehnte",
+        "Wiederherstellung",
+        "Neuaufbau",
+        "Wiederaufbau",
+        "Restauration"
+      ],
+      "fr": [
+        "réparation",
+        "chirurgie reconstructive",
+        "reconstitution",
+        "interne",
+        "intrinsèque",
+        "étendue",
+        "complète",
+        "en profondeur"
+      ],
+      "it": [
+        "riorganizzazione",
+        "interna",
+        "intrinseca",
+        "estesa",
+        "completa",
+        "in profondità"
+      ]
+    }
+  },
+  "Wundversorgung ohne Einbezug komplexer Strukturen, erster cm": {
+    "lkn": "MK.15.0030",
+    "synonyms": {
+      "de": {
+        "Wundversorgung": [
+          "Wundbehandlung",
+          "Wundmanagement",
+          "Wundpflege",
+          "Wundversorgungsmassnahme"
+        ],
+        "ohne Einbezug": [
+          "ohne Beteiligung",
+          "ohne Beruecksichtigung",
+          "ohne Involvierung",
+          "exklusive",
+          "ausgenommen"
+        ],
+        "komplexer Strukturen": [
+          "komplizierter Strukturen",
+          "tieferer Strukturen",
+          "anatomisch anspruchsvoller Strukturen",
+          "komplexer Gewebe"
+        ],
+        "erster cm": [
+          "erster Zentimeter",
+          "initialer Zentimeter",
+          "oberflaechlicher Bereich (bis 1 cm)",
+          "erste Schicht"
+        ]
+      },
+      "fr": {
+        "Wundversorgung": [
+          "Soin de plaie",
+          "Traitement de plaie",
+          "Gestion de plaie",
+          "Pansement"
+        ],
+        "ohne Einbezug": [
+          "sans implication",
+          "sans inclusion",
+          "sans prise en compte",
+          "à l'exclusion de",
+          "excepté"
+        ],
+        "komplexer Strukturen": [
+          "structures complexes",
+          "structures profondes",
+          "structures anatomiquement exigeantes",
+          "tissus complexes"
+        ],
+        "erster cm": [
+          "premier cm",
+          "premier centimètre",
+          "centimètre initial",
+          "zone superficielle (jusqu'à 1 cm)"
+        ]
+      },
+      "it": {
+        "Wundversorgung": [
+          "Cura della ferita",
+          "Trattamento della ferita",
+          "Gestione della ferita",
+          "Medicazione"
+        ],
+        "ohne Einbezug": [
+          "senza coinvolgimento",
+          "senza inclusione",
+          "senza considerare",
+          "esclusione di",
+          "eccetto"
+        ],
+        "komplexer Strukturen": [
+          "strutture complesse",
+          "strutture profonde",
+          "strutture anatomicamente impegnative",
+          "tessuti complessi"
+        ],
+        "erster cm": [
+          "primo cm",
+          "primo centimetro",
+          "centimetro iniziale"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Wundversorgung": [
+          "Wundbehandlung",
+          "Wundmanagement",
+          "Wundpflege",
+          "Wundversorgungsmassnahme"
+        ],
+        "ohne Einbezug": [
+          "ohne Beteiligung",
+          "ohne Beruecksichtigung",
+          "ohne Involvierung",
+          "exklusive",
+          "ausgenommen"
+        ],
+        "komplexer Strukturen": [
+          "komplizierter Strukturen",
+          "tieferer Strukturen",
+          "anatomisch anspruchsvoller Strukturen",
+          "komplexer Gewebe"
+        ],
+        "erster cm": [
+          "erster Zentimeter",
+          "initialer Zentimeter",
+          "oberflaechlicher Bereich (bis 1 cm)",
+          "erste Schicht"
+        ]
+      },
+      "fr": {
+        "Wundversorgung": [
+          "Soin de plaie",
+          "Traitement de plaie",
+          "Gestion de plaie",
+          "Pansement"
+        ],
+        "ohne Einbezug": [
+          "sans implication",
+          "sans inclusion",
+          "sans prise en compte",
+          "à l'exclusion de",
+          "excepté"
+        ],
+        "komplexer Strukturen": [
+          "structures complexes",
+          "structures profondes",
+          "structures anatomiquement exigeantes",
+          "tissus complexes"
+        ],
+        "erster cm": [
+          "premier cm",
+          "premier centimètre",
+          "centimètre initial",
+          "zone superficielle (jusqu'à 1 cm)"
+        ]
+      },
+      "it": {
+        "Wundversorgung": [
+          "Cura della ferita",
+          "Trattamento della ferita",
+          "Gestione della ferita",
+          "Medicazione"
+        ],
+        "ohne Einbezug": [
+          "senza coinvolgimento",
+          "senza inclusione",
+          "senza considerare",
+          "esclusione di",
+          "eccetto"
+        ],
+        "komplexer Strukturen": [
+          "strutture complesse",
+          "strutture profonde",
+          "strutture anatomicamente impegnative",
+          "tessuti complessi"
+        ],
+        "erster cm": [
+          "primo cm",
+          "primo centimetro",
+          "centimetro iniziale"
+        ]
+      }
+    }
+  },
+  "+ Nachbereitung Wundversorgung ohne Einbezug komplexer Strukturen, pro 1 Min.": {
+    "lkn": "MK.15.0040",
+    "synonyms": {
+      "de": [
+        "zusätzlich",
+        "ergänzend",
+        "Zuschlag",
+        "Wundbehandlung",
+        "Wundmanagement",
+        "Wundversorgungsmassnahmen",
+        "Wundtherapie",
+        "ohne Beteiligung",
+        "ohne Miteinbezug",
+        "komplizierter Strukturen",
+        "anspruchsvoller Strukturen",
+        "komplexer anatomischer Gebilde",
+        "schwieriger Strukturen",
+        "tiefer liegender Strukturen",
+        "je Minute",
+        "minütlich",
+        "pro Minute",
+        "für jede Minute"
+      ],
+      "fr": [
+        "post-traitement",
+        "achèvement",
+        "soins complémentaires",
+        "traitement de plaie",
+        "soins de plaie",
+        "gestion de plaie",
+        "pansement",
+        "thérapie de plaie",
+        "sans atteinte",
+        "sans implication",
+        "sans participation",
+        "sans engagement",
+        "n'impliquant pas",
+        "excluant",
+        "structures complexes",
+        "structures compliquées",
+        "structures anatomiques complexes",
+        "éléments complexes",
+        "tissus complexes",
+        "par minute",
+        "à la minute",
+        "pour chaque minute",
+        "par période d'une minute"
+      ],
+      "it": [
+        "aggiuntivo",
+        "supplementare",
+        "extra",
+        "senza coinvolgimento",
+        "senza implicazione",
+        "senza partecipazione",
+        "non coinvolgendo",
+        "strutture complesse",
+        "strutture complicate",
+        "strutture anatomiche complesse",
+        "elementi complessi",
+        "tessuti complessi",
+        "per minuto",
+        "al minuto",
+        "per ogni minuto",
+        "ogni minuto"
+      ]
+    }
+  },
+  "Inzision/Drainage oberflächlicher/subkutanen Prozess (Hämatom, Abszess, Zyste usw.)": {
+    "lkn": "MK.20.0010",
+    "synonyms": {
+      "de": [
+        "Entleerung",
+        "Absaugung",
+        "Abfluss",
+        "epidermisch",
+        "dermal",
+        "an der Oberfläche",
+        "äusserlich",
+        "subkutan",
+        "unter der Haut",
+        "Läsion",
+        "Bluterguss",
+        "Blutansammlung",
+        "Eiteransammlung",
+        "Eiterbeule",
+        "Furunkel",
+        "Geschwür",
+        "Beule mit Eiter",
+        "flüssigkeitsgefüllter Hohlraum"
+      ],
+      "fr": [
+        "Coupe",
+        "ouverture chirurgicale",
+        "ouverture",
+        "Évacuation",
+        "évacuation de liquide",
+        "écoulement",
+        "vidange",
+        "cutané",
+        "épidermique",
+        "dermique",
+        "en surface",
+        "hypodermique",
+        "sous-dermique",
+        "sous la peau",
+        "sous-épidermique",
+        "Lésion",
+        "affection",
+        "altération",
+        "masse",
+        "Épanchement sanguin",
+        "formation",
+        "Collection de pus",
+        "foyer purulent",
+        "furoncle",
+        "Bouton de pus",
+        "pustule",
+        "poche de pus",
+        "Cavité remplie de liquide",
+        "vésicule",
+        "bulle"
+      ],
+      "it": [
+        "sezione",
+        "apertura chirurgica",
+        "apertura",
+        "Evacuazione",
+        "scarico",
+        "aspirazione",
+        "cutaneo",
+        "epidermico",
+        "dermico",
+        "in superficie",
+        "sulla pelle",
+        "sub-dermico",
+        "sotto la pelle",
+        "sottoepidermico",
+        "Lesione",
+        "affezione",
+        "massa",
+        "Raccolta di sangue",
+        "ecchimosi",
+        "versamento ematico",
+        "Livido",
+        "versamento di sangue",
+        "Raccolta di pus",
+        "focolaio purulento",
+        "foruncolo",
+        "bolla di pus",
+        "sacca di pus"
+      ]
+    }
+  },
+  "Vor- und Nachbereitung zur Exzision, Region A1, B1, C1": {
+    "lkn": "MK.25.0010",
+    "synonyms": {
+      "de": {
+        "Vor- und Nachbereitung": [
+          "prä- und postoperative Versorgung",
+          "perioperative Betreuung",
+          "Begleitmassnahmen",
+          "vorbereitende und nachbereitende Schritte",
+          "Vorbereitung und Nachsorge"
+        ],
+        "Exzision": [
+          "chirurgische Entfernung",
+          "Resektion",
+          "Ausschneidung",
+          "operatives Entfernen",
+          "Gewebeentnahme",
+          "Ablation",
+          "Herausschneiden",
+          "Entfernung",
+          "Operation"
+        ],
+        "Region": [
+          "Lokalisationsbereich",
+          "Körperbereich",
+          "anatomischer Bereich",
+          "Behandlungszone",
+          "spezifische Körperstelle",
+          "Operationsgebiet",
+          "Körperstelle",
+          "Zone"
+        ]
+      },
+      "fr": {
+        "Préparation et suivi": [
+          "soins pré- et post-opératoires",
+          "mesures préopératoires et postopératoires",
+          "prise en charge périopératoire",
+          "accompagnement pré- et post-intervention",
+          "préparation et surveillance",
+          "avant et après l'opération"
+        ],
+        "Excision": [
+          "ablation chirurgicale",
+          "résection",
+          "enlèvement chirurgical",
+          "prélèvement",
+          "extirpation",
+          "retrait",
+          "opération"
+        ],
+        "Région": [
+          "zone anatomique",
+          "site opératoire",
+          "localisation corporelle",
+          "aire de traitement",
+          "partie du corps spécifique",
+          "secteur",
+          "endroit"
+        ]
+      },
+      "it": {
+        "Preparazione e post-cura": [
+          "misure pre e post-operatorie",
+          "assistenza perioperatoria",
+          "gestione pre e post-intervento",
+          "preparazione e monitoraggio post-intervento",
+          "cure pre e post-chirurgiche",
+          "prima e dopo l'operazione"
+        ],
+        "Escissione": [
+          "rimozione chirurgica",
+          "resezione",
+          "asportazione chirurgica",
+          "prelievo",
+          "ablazione",
+          "asportazione",
+          "operazione"
+        ],
+        "Regione": [
+          "area anatomica",
+          "sito operatorio",
+          "localizzazione corporea",
+          "zona di trattamento",
+          "parte specifica del corpo",
+          "settore",
+          "punto"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Vor- und Nachbereitung": [
+          "prä- und postoperative Versorgung",
+          "perioperative Betreuung",
+          "Begleitmassnahmen",
+          "vorbereitende und nachbereitende Schritte",
+          "Vorbereitung und Nachsorge"
+        ],
+        "Exzision": [
+          "chirurgische Entfernung",
+          "Resektion",
+          "Ausschneidung",
+          "operatives Entfernen",
+          "Gewebeentnahme",
+          "Ablation",
+          "Herausschneiden",
+          "Entfernung",
+          "Operation"
+        ],
+        "Region": [
+          "Lokalisationsbereich",
+          "Körperbereich",
+          "anatomischer Bereich",
+          "Behandlungszone",
+          "spezifische Körperstelle",
+          "Operationsgebiet",
+          "Körperstelle",
+          "Zone"
+        ]
+      },
+      "fr": {
+        "Préparation et suivi": [
+          "soins pré- et post-opératoires",
+          "mesures préopératoires et postopératoires",
+          "prise en charge périopératoire",
+          "accompagnement pré- et post-intervention",
+          "préparation et surveillance",
+          "avant et après l'opération"
+        ],
+        "Excision": [
+          "ablation chirurgicale",
+          "résection",
+          "enlèvement chirurgical",
+          "prélèvement",
+          "extirpation",
+          "retrait",
+          "opération"
+        ],
+        "Région": [
+          "zone anatomique",
+          "site opératoire",
+          "localisation corporelle",
+          "aire de traitement",
+          "partie du corps spécifique",
+          "secteur",
+          "endroit"
+        ]
+      },
+      "it": {
+        "Preparazione e post-cura": [
+          "misure pre e post-operatorie",
+          "assistenza perioperatoria",
+          "gestione pre e post-intervento",
+          "preparazione e monitoraggio post-intervento",
+          "cure pre e post-chirurgiche",
+          "prima e dopo l'operazione"
+        ],
+        "Escissione": [
+          "rimozione chirurgica",
+          "resezione",
+          "asportazione chirurgica",
+          "prelievo",
+          "ablazione",
+          "asportazione",
+          "operazione"
+        ],
+        "Regione": [
+          "area anatomica",
+          "sito operatorio",
+          "localizzazione corporea",
+          "zona di trattamento",
+          "parte specifica del corpo",
+          "settore",
+          "punto"
+        ]
+      }
+    }
+  },
+  "Exzision; Regionen A1, B1, C1, pro Läsion": {
+    "lkn": "MK.25.0020",
+    "synonyms": {
+      "de": {
+        "Exzision": [
+          "Entfernung",
+          "Ausschneidung",
+          "Resektion",
+          "Ablation",
+          "Herausschneiden",
+          "Wegschneiden"
+        ],
+        "Regionen": [
+          "Körperbereiche",
+          "Körperregionen",
+          "Lokalisationen",
+          "Areale",
+          "Stellen",
+          "Zonen"
+        ],
+        "A1, B1, C1": [
+          "spezifische Körperareale",
+          "definierte Lokalisationen",
+          "klassifizierte Zonen",
+          "bestimmte Stellen",
+          "genaue Bereiche",
+          "festgelegte Zonen"
+        ],
+        "Läsion": [
+          "Verletzung",
+          "Schädigung",
+          "Gewebeveränderung",
+          "pathologische Veränderung",
+          "Affektion",
+          "Wunde",
+          "Schaden",
+          "Befund"
+        ],
+        "pro Läsion": [
+          "je Läsion",
+          "pro Befund",
+          "je pathologischer Veränderung",
+          "pro Stelle",
+          "für jede Veränderung"
+        ]
+      },
+      "fr": {
+        "Exzision": [
+          "résection",
+          "extirpation",
+          "enlèvement chirurgical",
+          "retrait",
+          "coupe"
+        ],
+        "Regionen": [
+          "zones corporelles",
+          "aires anatomiques",
+          "localisations",
+          "endroits",
+          "zones",
+          "parties du corps"
+        ],
+        "A1, B1, C1": [
+          "aires corporelles spécifiques",
+          "localisations définies",
+          "zones classifiées",
+          "endroits précis",
+          "zones déterminées",
+          "parties spécifiques"
+        ],
+        "Läsion": [
+          "atteinte",
+          "altération tissulaire",
+          "anomalie",
+          "blessure",
+          "affection",
+          "dommage",
+          "problème"
+        ],
+        "pro Läsion": [
+          "par lésion",
+          "par atteinte",
+          "par altération",
+          "par anomalie",
+          "par blessure",
+          "pour chaque problème"
+        ]
+      },
+      "it": {
+        "Exzision": [
+          "Asportazione",
+          "resezione",
+          "rimozione chirurgica",
+          "ablazione",
+          "rimozione",
+          "taglio"
+        ],
+        "Regionen": [
+          "aree corporee",
+          "zone anatomiche",
+          "localizzazioni",
+          "zone",
+          "punti",
+          "parti del corpo"
+        ],
+        "A1, B1, C1": [
+          "aree corporee specifiche",
+          "localizzazioni definite",
+          "zone classificate",
+          "punti precisi",
+          "zone determinate",
+          "parti specifiche"
+        ],
+        "Läsion": [
+          "alterazione",
+          "danno tissutale",
+          "anomalia",
+          "ferita",
+          "affezione",
+          "problema",
+          "segno"
+        ],
+        "pro Läsion": [
+          "per lesione",
+          "per alterazione",
+          "per danno",
+          "per anomalia",
+          "per ferita",
+          "per ogni problema"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Exzision": [
+          "Entfernung",
+          "Ausschneidung",
+          "Resektion",
+          "Ablation",
+          "Herausschneiden",
+          "Wegschneiden"
+        ],
+        "Regionen": [
+          "Körperbereiche",
+          "Körperregionen",
+          "Lokalisationen",
+          "Areale",
+          "Stellen",
+          "Zonen"
+        ],
+        "A1, B1, C1": [
+          "spezifische Körperareale",
+          "definierte Lokalisationen",
+          "klassifizierte Zonen",
+          "bestimmte Stellen",
+          "genaue Bereiche",
+          "festgelegte Zonen"
+        ],
+        "Läsion": [
+          "Verletzung",
+          "Schädigung",
+          "Gewebeveränderung",
+          "pathologische Veränderung",
+          "Affektion",
+          "Wunde",
+          "Schaden",
+          "Befund"
+        ],
+        "pro Läsion": [
+          "je Läsion",
+          "pro Befund",
+          "je pathologischer Veränderung",
+          "pro Stelle",
+          "für jede Veränderung"
+        ]
+      },
+      "fr": {
+        "Exzision": [
+          "résection",
+          "extirpation",
+          "enlèvement chirurgical",
+          "retrait",
+          "coupe"
+        ],
+        "Regionen": [
+          "zones corporelles",
+          "aires anatomiques",
+          "localisations",
+          "endroits",
+          "zones",
+          "parties du corps"
+        ],
+        "A1, B1, C1": [
+          "aires corporelles spécifiques",
+          "localisations définies",
+          "zones classifiées",
+          "endroits précis",
+          "zones déterminées",
+          "parties spécifiques"
+        ],
+        "Läsion": [
+          "atteinte",
+          "altération tissulaire",
+          "anomalie",
+          "blessure",
+          "affection",
+          "dommage",
+          "problème"
+        ],
+        "pro Läsion": [
+          "par lésion",
+          "par atteinte",
+          "par altération",
+          "par anomalie",
+          "par blessure",
+          "pour chaque problème"
+        ]
+      },
+      "it": {
+        "Exzision": [
+          "Asportazione",
+          "resezione",
+          "rimozione chirurgica",
+          "ablazione",
+          "rimozione",
+          "taglio"
+        ],
+        "Regionen": [
+          "aree corporee",
+          "zone anatomiche",
+          "localizzazioni",
+          "zone",
+          "punti",
+          "parti del corpo"
+        ],
+        "A1, B1, C1": [
+          "aree corporee specifiche",
+          "localizzazioni definite",
+          "zone classificate",
+          "punti precisi",
+          "zone determinate",
+          "parti specifiche"
+        ],
+        "Läsion": [
+          "alterazione",
+          "danno tissutale",
+          "anomalia",
+          "ferita",
+          "affezione",
+          "problema",
+          "segno"
+        ],
+        "pro Läsion": [
+          "per lesione",
+          "per alterazione",
+          "per danno",
+          "per anomalia",
+          "per ferita",
+          "per ogni problema"
+        ]
+      }
+    }
+  },
+  "+ Zuschlag für intraoperative Blutstillung, pro 1 Min.": {
+    "lkn": "MK.25.0030",
+    "synonyms": {
+      "de": {
+        "Arzttarif": [
+          "Gebuehrenordnung Arzt",
+          "Aerztetarif",
+          "Honorartarif Arzt",
+          "Tarifordnung Arzt"
+        ],
+        "Schweiz": [
+          "Eidgenossenschaft",
+          "Helvetien",
+          "Schweizerische Eidgenossenschaft"
+        ],
+        "Leistungsbezeichnung": [
+          "Leistungstitel",
+          "Dienstleistungsbeschreibung",
+          "Positionsbezeichnung",
+          "Leistungsposition"
+        ],
+        "Zuschlag": [
+          "Aufschlag",
+          "Mehrpreis",
+          "Zusatzgebuehr",
+          "Ergaenzungsgebuehr",
+          "Extragebuehr"
+        ],
+        "intraoperative": [
+          "waehrend der Operation",
+          "operationsbegleitend",
+          "waehrend des Eingriffs"
+        ],
+        "Blutstillung": [
+          "Haemostase",
+          "Blutungsstillung",
+          "Stillung der Blutung",
+          "Blutungsmanagement"
+        ],
+        "pro 1 Min.": [
+          "je Minute",
+          "minuetlich",
+          "pro Minute",
+          "fuer jede Minute"
+        ]
+      },
+      "fr": {
+        "Arzttarif": [
+          "Tarif medical",
+          "Bareme des honoraires medicaux",
+          "Grille tarifaire medecin"
+        ],
+        "Schweiz": [
+          "Suisse",
+          "Confederation suisse",
+          "Helvetie"
+        ],
+        "Leistungsbezeichnung": [
+          "Designation de la prestation",
+          "Libelle de la prestation",
+          "Intitule de la prestation"
+        ],
+        "Zuschlag": [
+          "Supplement",
+          "Surtaxe",
+          "Majoration",
+          "Cout additionnel"
+        ],
+        "intraoperative": [
+          "intra-operatoire",
+          "pendant l'operation",
+          "au cours de l'intervention"
+        ],
+        "Blutstillung": [
+          "Hemostase",
+          "Arret de l'hemorragie",
+          "Controle du saignement"
+        ],
+        "pro 1 Min.": [
+          "par minute",
+          "a la minute",
+          "pour chaque minute"
+        ]
+      },
+      "it": {
+        "Arzttarif": [
+          "Tariffario medico",
+          "Nomenclatore tariffario medico",
+          "Tariffe mediche"
+        ],
+        "Schweiz": [
+          "Svizzera",
+          "Confederazione Svizzera",
+          "Elvezia"
+        ],
+        "Leistungsbezeichnung": [
+          "Descrizione della prestazione",
+          "Denominazione della prestazione",
+          "Voce di prestazione"
+        ],
+        "Zuschlag": [
+          "Supplemento",
+          "Sovrapprezzo",
+          "Maggiorazione",
+          "Costo aggiuntivo"
+        ],
+        "intraoperative": [
+          "intraoperatorio",
+          "durante l'intervento",
+          "in corso di operazione"
+        ],
+        "Blutstillung": [
+          "Emostasi",
+          "Arresto dell'emorragia",
+          "Controllo del sanguinamento"
+        ],
+        "pro 1 Min.": [
+          "al minuto",
+          "per minuto",
+          "ogni minuto"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Arzttarif": [
+          "Gebuehrenordnung Arzt",
+          "Aerztetarif",
+          "Honorartarif Arzt",
+          "Tarifordnung Arzt"
+        ],
+        "Schweiz": [
+          "Eidgenossenschaft",
+          "Helvetien",
+          "Schweizerische Eidgenossenschaft"
+        ],
+        "Leistungsbezeichnung": [
+          "Leistungstitel",
+          "Dienstleistungsbeschreibung",
+          "Positionsbezeichnung",
+          "Leistungsposition"
+        ],
+        "Zuschlag": [
+          "Aufschlag",
+          "Mehrpreis",
+          "Zusatzgebuehr",
+          "Ergaenzungsgebuehr",
+          "Extragebuehr"
+        ],
+        "intraoperative": [
+          "waehrend der Operation",
+          "operationsbegleitend",
+          "waehrend des Eingriffs"
+        ],
+        "Blutstillung": [
+          "Haemostase",
+          "Blutungsstillung",
+          "Stillung der Blutung",
+          "Blutungsmanagement"
+        ],
+        "pro 1 Min.": [
+          "je Minute",
+          "minuetlich",
+          "pro Minute",
+          "fuer jede Minute"
+        ]
+      },
+      "fr": {
+        "Arzttarif": [
+          "Tarif medical",
+          "Bareme des honoraires medicaux",
+          "Grille tarifaire medecin"
+        ],
+        "Schweiz": [
+          "Suisse",
+          "Confederation suisse",
+          "Helvetie"
+        ],
+        "Leistungsbezeichnung": [
+          "Designation de la prestation",
+          "Libelle de la prestation",
+          "Intitule de la prestation"
+        ],
+        "Zuschlag": [
+          "Supplement",
+          "Surtaxe",
+          "Majoration",
+          "Cout additionnel"
+        ],
+        "intraoperative": [
+          "intra-operatoire",
+          "pendant l'operation",
+          "au cours de l'intervention"
+        ],
+        "Blutstillung": [
+          "Hemostase",
+          "Arret de l'hemorragie",
+          "Controle du saignement"
+        ],
+        "pro 1 Min.": [
+          "par minute",
+          "a la minute",
+          "pour chaque minute"
+        ]
+      },
+      "it": {
+        "Arzttarif": [
+          "Tariffario medico",
+          "Nomenclatore tariffario medico",
+          "Tariffe mediche"
+        ],
+        "Schweiz": [
+          "Svizzera",
+          "Confederazione Svizzera",
+          "Elvezia"
+        ],
+        "Leistungsbezeichnung": [
+          "Descrizione della prestazione",
+          "Denominazione della prestazione",
+          "Voce di prestazione"
+        ],
+        "Zuschlag": [
+          "Supplemento",
+          "Sovrapprezzo",
+          "Maggiorazione",
+          "Costo aggiuntivo"
+        ],
+        "intraoperative": [
+          "intraoperatorio",
+          "durante l'intervento",
+          "in corso di operazione"
+        ],
+        "Blutstillung": [
+          "Emostasi",
+          "Arresto dell'emorragia",
+          "Controllo del sanguinamento"
+        ],
+        "pro 1 Min.": [
+          "al minuto",
+          "per minuto",
+          "ogni minuto"
+        ]
+      }
+    }
+  },
+  "+ Umlagerung im Zusammenhang mit Exzision von multifokalen Hautprozessen": {
+    "lkn": "MK.25.0040",
+    "synonyms": {
+      "de": {
+        "Umlagerung": [
+          "Repositionierung",
+          "Umpositionierung",
+          "Lagewechsel",
+          "Neupositionierung",
+          "Umlagern des Patienten"
+        ],
+        "im Zusammenhang mit": [
+          "in Verbindung mit",
+          "betreffend",
+          "bezüglich",
+          "im Kontext von",
+          "assoziiert mit"
+        ],
+        "Exzision": [
+          "Entfernung",
+          "Herausschneiden",
+          "Ausschneidung",
+          "Resektion",
+          "Abtragung"
+        ],
+        "multifokalen": [
+          "mehrherdigen",
+          "vielherdigen",
+          "an mehreren Stellen auftretenden",
+          "multipel auftretenden"
+        ],
+        "Hautprozessen": [
+          "Hautveränderungen",
+          "Hautläsionen",
+          "Hauterkrankungen",
+          "Hautbefunden",
+          "Hautwucherungen"
+        ]
+      },
+      "fr": {
+        "Umlagerung": [
+          "Repositionnement",
+          "Changement de position",
+          "Déplacement du patient",
+          "Réajustement de la position"
+        ],
+        "im Zusammenhang mit": [
+          "en lien avec",
+          "en relation avec",
+          "concernant",
+          "relatif à",
+          "associé à"
+        ],
+        "Exzision": [
+          "Excision",
+          "Ablation",
+          "Résection",
+          "Retrait chirurgical",
+          "Enlèvement"
+        ],
+        "multifokalen": [
+          "multifocaux",
+          "à foyers multiples",
+          "plurifocaux",
+          "apparaissant en plusieurs points"
+        ],
+        "Hautprozessen": [
+          "Lésions cutanées",
+          "Affections cutanées",
+          "Processus cutanés",
+          "Altérations cutanées",
+          "Croissances cutanées"
+        ]
+      },
+      "it": {
+        "Umlagerung": [
+          "Riposizionamento",
+          "Cambiamento di posizione",
+          "Spostamento del paziente",
+          "Riadattamento della posizione"
+        ],
+        "im Zusammenhang mit": [
+          "in relazione a",
+          "in connessione con",
+          "riguardante",
+          "relativo a",
+          "associato a"
+        ],
+        "Exzision": [
+          "Escissione",
+          "Asportazione",
+          "Resezione",
+          "Rimozione chirurgica",
+          "Ablazione"
+        ],
+        "multifokalen": [
+          "multifocali",
+          "a focolai multipli",
+          "plurifocali"
+        ],
+        "Hautprozessen": [
+          "Lesioni cutanee",
+          "Affezioni cutanee",
+          "Processi cutanei",
+          "Alterazioni cutanee",
+          "Crescite cutanee"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Umlagerung": [
+          "Repositionierung",
+          "Umpositionierung",
+          "Lagewechsel",
+          "Neupositionierung",
+          "Umlagern des Patienten"
+        ],
+        "im Zusammenhang mit": [
+          "in Verbindung mit",
+          "betreffend",
+          "bezüglich",
+          "im Kontext von",
+          "assoziiert mit"
+        ],
+        "Exzision": [
+          "Entfernung",
+          "Herausschneiden",
+          "Ausschneidung",
+          "Resektion",
+          "Abtragung"
+        ],
+        "multifokalen": [
+          "mehrherdigen",
+          "vielherdigen",
+          "an mehreren Stellen auftretenden",
+          "multipel auftretenden"
+        ],
+        "Hautprozessen": [
+          "Hautveränderungen",
+          "Hautläsionen",
+          "Hauterkrankungen",
+          "Hautbefunden",
+          "Hautwucherungen"
+        ]
+      },
+      "fr": {
+        "Umlagerung": [
+          "Repositionnement",
+          "Changement de position",
+          "Déplacement du patient",
+          "Réajustement de la position"
+        ],
+        "im Zusammenhang mit": [
+          "en lien avec",
+          "en relation avec",
+          "concernant",
+          "relatif à",
+          "associé à"
+        ],
+        "Exzision": [
+          "Excision",
+          "Ablation",
+          "Résection",
+          "Retrait chirurgical",
+          "Enlèvement"
+        ],
+        "multifokalen": [
+          "multifocaux",
+          "à foyers multiples",
+          "plurifocaux",
+          "apparaissant en plusieurs points"
+        ],
+        "Hautprozessen": [
+          "Lésions cutanées",
+          "Affections cutanées",
+          "Processus cutanés",
+          "Altérations cutanées",
+          "Croissances cutanées"
+        ]
+      },
+      "it": {
+        "Umlagerung": [
+          "Riposizionamento",
+          "Cambiamento di posizione",
+          "Spostamento del paziente",
+          "Riadattamento della posizione"
+        ],
+        "im Zusammenhang mit": [
+          "in relazione a",
+          "in connessione con",
+          "riguardante",
+          "relativo a",
+          "associato a"
+        ],
+        "Exzision": [
+          "Escissione",
+          "Asportazione",
+          "Resezione",
+          "Rimozione chirurgica",
+          "Ablazione"
+        ],
+        "multifokalen": [
+          "multifocali",
+          "a focolai multipli",
+          "plurifocali"
+        ],
+        "Hautprozessen": [
+          "Lesioni cutanee",
+          "Affezioni cutanee",
+          "Processi cutanei",
+          "Alterazioni cutanee",
+          "Crescite cutanee"
+        ]
+      }
+    }
+  },
+  "+ Zuschlag für Nachexzision innerhalb der gleichen operativen Versorgung": {
+    "lkn": "MK.25.0050",
+    "synonyms": {
+      "de": {
+        "Zuschlag": [
+          "Aufpreis",
+          "Zusatzgebühr",
+          "Mehrkosten",
+          "Aufschlag",
+          "Ergänzungsgebühr",
+          "Zusatzentgelt"
+        ],
+        "Nachexzision": [
+          "Re-Exzision",
+          "Wiederholungsexzision",
+          "Nachschnitt",
+          "erneute Exzision",
+          "zweite Exzision",
+          "Revisions-Exzision"
+        ],
+        "innerhalb der gleichen operativen Versorgung": [
+          "im Rahmen derselben Operation",
+          "während desselben chirurgischen Eingriffs",
+          "bei ein und derselben Operation",
+          "innerhalb des gleichen Eingriffs",
+          "im Zuge der ursprünglichen Operation"
+        ]
+      },
+      "fr": {
+        "Supplément": [
+          "Surtaxe",
+          "Frais additionnels",
+          "Coût additionnel",
+          "Majoration",
+          "Frais supplémentaires",
+          "Charge additionnelle"
+        ],
+        "Ré-excision": [
+          "Excision secondaire",
+          "Excision de reprise",
+          "Nouvelle excision",
+          "Excision répétée",
+          "Réintervention pour excision",
+          "Excision complémentaire"
+        ],
+        "dans le cadre de la même prise en charge opératoire": [
+          "pendant la même procédure chirurgicale",
+          "pour la même opération"
+        ]
+      },
+      "it": {
+        "Supplemento": [
+          "Sovrapprezzo",
+          "Costo aggiuntivo",
+          "Spese aggiuntive",
+          "Maggiorazione",
+          "Aumento di prezzo",
+          "Oneri aggiuntivi"
+        ],
+        "Riescisione": [
+          "Escissione secondaria",
+          "Nuova escissione",
+          "Escissione di revisione",
+          "Escissione ripetuta",
+          "Re-intervento per escissione",
+          "Escissione complementare"
+        ],
+        "nell'ambito della stessa prestazione operatoria": [
+          "durante lo stesso intervento chirurgico",
+          "nella stessa procedura operatoria",
+          "nel contesto della stessa operazione",
+          "per lo stesso atto chirurgico",
+          "con la stessa operazione"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Zuschlag": [
+          "Aufpreis",
+          "Zusatzgebühr",
+          "Mehrkosten",
+          "Aufschlag",
+          "Ergänzungsgebühr",
+          "Zusatzentgelt"
+        ],
+        "Nachexzision": [
+          "Re-Exzision",
+          "Wiederholungsexzision",
+          "Nachschnitt",
+          "erneute Exzision",
+          "zweite Exzision",
+          "Revisions-Exzision"
+        ],
+        "innerhalb der gleichen operativen Versorgung": [
+          "im Rahmen derselben Operation",
+          "während desselben chirurgischen Eingriffs",
+          "bei ein und derselben Operation",
+          "innerhalb des gleichen Eingriffs",
+          "im Zuge der ursprünglichen Operation"
+        ]
+      },
+      "fr": {
+        "Supplément": [
+          "Surtaxe",
+          "Frais additionnels",
+          "Coût additionnel",
+          "Majoration",
+          "Frais supplémentaires",
+          "Charge additionnelle"
+        ],
+        "Ré-excision": [
+          "Excision secondaire",
+          "Excision de reprise",
+          "Nouvelle excision",
+          "Excision répétée",
+          "Réintervention pour excision",
+          "Excision complémentaire"
+        ],
+        "dans le cadre de la même prise en charge opératoire": [
+          "pendant la même procédure chirurgicale",
+          "pour la même opération"
+        ]
+      },
+      "it": {
+        "Supplemento": [
+          "Sovrapprezzo",
+          "Costo aggiuntivo",
+          "Spese aggiuntive",
+          "Maggiorazione",
+          "Aumento di prezzo",
+          "Oneri aggiuntivi"
+        ],
+        "Riescisione": [
+          "Escissione secondaria",
+          "Nuova escissione",
+          "Escissione di revisione",
+          "Escissione ripetuta",
+          "Re-intervento per escissione",
+          "Escissione complementare"
+        ],
+        "nell'ambito della stessa prestazione operatoria": [
+          "durante lo stesso intervento chirurgico",
+          "nella stessa procedura operatoria",
+          "nel contesto della stessa operazione",
+          "per lo stesso atto chirurgico",
+          "con la stessa operazione"
+        ]
+      }
+    }
+  },
+  "+ Deckung mit heterologenem/alloplastischem Hautersatz; Regionen A1, B1": {
+    "lkn": "MK.25.0070",
+    "synonyms": {
+      "de": {
+        "Deckung": [
+          "Abdeckung",
+          "Verschluss",
+          "Bedeckung",
+          "Überdeckung",
+          "Rekonstruktion",
+          "Transplantation"
+        ],
+        "heterologenem/alloplastischem": [
+          "Fremdmaterial",
+          "kunstlich",
+          "synthetisch",
+          "nicht-korpereigen",
+          "artfremd",
+          "xenogen",
+          "alloplastisch"
+        ],
+        "Hautersatz": [
+          "Hautsubstitut",
+          "Ersatzhaut",
+          "kunstliche Haut",
+          "Hauttransplantat",
+          "Hauttransplantationsmaterial"
+        ],
+        "Regionen A1, B1": [
+          "Korperbereiche",
+          "Korperregionen",
+          "Zonen",
+          "Areale",
+          "Behandlungsgebiete",
+          "betroffene Stellen"
+        ]
+      },
+      "fr": {
+        "Deckung": [
+          "Couverture",
+          "recouvrement",
+          "fermeture",
+          "greffe",
+          "reparation",
+          "reconstruction"
+        ],
+        "heterologenem/alloplastischem": [
+          "Materiel etranger",
+          "artificiel",
+          "synthetique",
+          "non-biologique",
+          "xenogenique",
+          "alloplastique"
+        ],
+        "Hautersatz": [
+          "Substitut cutane",
+          "greffe cutanee",
+          "peau artificielle",
+          "peau de remplacement",
+          "materiel de greffe cutanee"
+        ],
+        "Regionen A1, B1": [
+          "Zones corporelles",
+          "aires",
+          "secteurs",
+          "parties du corps",
+          "zones de traitement",
+          "regions anatomiques"
+        ]
+      },
+      "it": {
+        "Deckung": [
+          "Copertura",
+          "rivestimento",
+          "chiusura",
+          "innesto",
+          "riparazione",
+          "ricostruzione"
+        ],
+        "heterologenem/alloplastischem": [
+          "Materiale estraneo",
+          "artificiale",
+          "sintetico",
+          "non-biologico",
+          "xenogenico",
+          "alloplastico"
+        ],
+        "Hautersatz": [
+          "Sostituto cutaneo",
+          "innesto cutaneo",
+          "pelle artificiale",
+          "pelle di ricambio",
+          "materiale per innesto cutaneo"
+        ],
+        "Regionen A1, B1": [
+          "Zone corporee",
+          "aree",
+          "settori",
+          "parti del corpo",
+          "zone di trattamento",
+          "regioni anatomiche"
+        ]
+      }
+    },
+    "components": {
+      "de": {
+        "Deckung": [
+          "Abdeckung",
+          "Verschluss",
+          "Bedeckung",
+          "Überdeckung",
+          "Rekonstruktion",
+          "Transplantation"
+        ],
+        "heterologenem/alloplastischem": [
+          "Fremdmaterial",
+          "kunstlich",
+          "synthetisch",
+          "nicht-korpereigen",
+          "artfremd",
+          "xenogen",
+          "alloplastisch"
+        ],
+        "Hautersatz": [
+          "Hautsubstitut",
+          "Ersatzhaut",
+          "kunstliche Haut",
+          "Hauttransplantat",
+          "Hauttransplantationsmaterial"
+        ],
+        "Regionen A1, B1": [
+          "Korperbereiche",
+          "Korperregionen",
+          "Zonen",
+          "Areale",
+          "Behandlungsgebiete",
+          "betroffene Stellen"
+        ]
+      },
+      "fr": {
+        "Deckung": [
+          "Couverture",
+          "recouvrement",
+          "fermeture",
+          "greffe",
+          "reparation",
+          "reconstruction"
+        ],
+        "heterologenem/alloplastischem": [
+          "Materiel etranger",
+          "artificiel",
+          "synthetique",
+          "non-biologique",
+          "xenogenique",
+          "alloplastique"
+        ],
+        "Hautersatz": [
+          "Substitut cutane",
+          "greffe cutanee",
+          "peau artificielle",
+          "peau de remplacement",
+          "materiel de greffe cutanee"
+        ],
+        "Regionen A1, B1": [
+          "Zones corporelles",
+          "aires",
+          "secteurs",
+          "parties du corps",
+          "zones de traitement",
+          "regions anatomiques"
+        ]
+      },
+      "it": {
+        "Deckung": [
+          "Copertura",
+          "rivestimento",
+          "chiusura",
+          "innesto",
+          "riparazione",
+          "ricostruzione"
+        ],
+        "heterologenem/alloplastischem": [
+          "Materiale estraneo",
+          "artificiale",
+          "sintetico",
+          "non-biologico",
+          "xenogenico",
+          "alloplastico"
+        ],
+        "Hautersatz": [
+          "Sostituto cutaneo",
+          "innesto cutaneo",
+          "pelle artificiale",
+          "pelle di ricambio",
+          "materiale per innesto cutaneo"
+        ],
+        "Regionen A1, B1": [
+          "Zone corporee",
+          "aree",
+          "settori",
+          "parti del corpo",
+          "zone di trattamento",
+          "regioni anatomiche"
+        ]
+      }
     }
   }
 }

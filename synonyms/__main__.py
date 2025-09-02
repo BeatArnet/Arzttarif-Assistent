@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 from typing import List, Tuple, Callable, Any, TYPE_CHECKING, Dict, cast
+import sys
 import queue
 import configparser
 import json
@@ -130,10 +131,21 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         frm.pack(fill="x", pady=5)
         ttk.Label(frm, text="Start index:").pack(side="left")
         ttk.Entry(frm, textvariable=self.start_var, width=8).pack(side="left")
-        ttk.Button(frm, text="Start", command=self.start).pack(side="left", padx=5)
-        ttk.Button(frm, text="Stop", command=self.stop).pack(side="left")
+        # "Start" ist redundant zur Aktion "Synonyme generieren" und wird entfernt
         ttk.Button(frm, text="Synonyme generieren", command=self.start).pack(side="left", padx=5)
+        ttk.Button(frm, text="Stop", command=self.stop).pack(side="left")
+        ttk.Button(frm, text="Embeddings erstellen", command=self._create_embeddings).pack(side="left", padx=5)
         ttk.Button(frm, text="Katalog-Vergleich", command=self._open_diff_view).pack(side="left", padx=5)
+
+        # --- Suche (nach oben verschoben) ---
+        search_frame = ttk.Frame(self)
+        search_frame.pack(fill="x", pady=(0, 5))
+        ttk.Label(search_frame, text="Suche:").pack(side="left")
+        self.search_var = tk.StringVar()
+        ttk.Entry(search_frame, textvariable=self.search_var).pack(side="left", expand=True, fill="x")
+        self.search_var.trace_add("write", lambda *_: self._apply_filter())
+        self.search_count_var = tk.StringVar(value="0 Treffer")
+        ttk.Label(search_frame, textvariable=self.search_count_var).pack(side="left", padx=5)
 
         # --- Statuszeile ---
         stat = ttk.Frame(self)
@@ -170,6 +182,7 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self.tree.tag_configure("removed", background="#ffd6d6")
         self.tree.tag_configure("changed", background="#fff2cc")
         self.tree.tag_configure("unchanged", background="")
+        self.tree.tag_configure("syn_highlight", foreground="blue")
 
         self.tree.pack(fill="both", expand=True, padx=5, pady=5)
         self.tree.bind("<Double-1>", self._on_double_click)
@@ -181,6 +194,8 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self.only_changed_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(filter_frame, text="Nur neue", variable=self.only_new_var, command=self._apply_filter).pack(side="left", padx=5)
         ttk.Checkbutton(filter_frame, text="Nur geänderte", variable=self.only_changed_var, command=self._apply_filter).pack(side="left")
+
+        
 
         # --- Log-Widget ---
         self.log_widget = ScrolledText(self, height=8, state="disabled")
@@ -204,6 +219,8 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self._status_map: Dict[str, str] = {}
         self._item_status: Dict[str, str] = {}
         self._batch = 0
+        # Embedding-Thread (separat vom Synonym-Thread)
+        self._emb_thread: threading.Thread | None = None
 
         # Index für Doppelklick nach LKN
         self._by_lkn: Dict[str, SynonymEntry] = {}
@@ -666,14 +683,114 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
     def _apply_filter(self) -> None:
         show_new = self.only_new_var.get()
         show_changed = self.only_changed_var.get()
+        search = self.search_var.get().strip().lower() if hasattr(self, "search_var") else ""
+        count = 0
         for item, status in list(self._item_status.items()):
-            visible = True
+            values = self.tree.item(item, "values")
+            lkn, term, syns = values[0], values[1], values[2]
+            matches_search = True
+            syn_match = False
+            if search:
+                lkn_val = str(lkn).lower()
+                term_val = str(term).lower()
+                syn_val = str(syns).lower()
+                matches_search = (
+                    search in lkn_val or search in term_val or search in syn_val
+                )
+                syn_match = search in syn_val
+            visible = matches_search
             if show_new or show_changed:
-                visible = ((status == "added" and show_new) or (status == "changed" and show_changed))
+                visible = visible and (
+                    (status == "added" and show_new)
+                    or (status == "changed" and show_changed)
+                )
             if visible:
                 self.tree.reattach(item, "", "end")
+                tags = [status]
+                if syn_match:
+                    tags.append("syn_highlight")
+                self.tree.item(item, tags=tags)
+                count += 1
             else:
                 self.tree.detach(item)
+        if hasattr(self, "search_count_var"):
+            self.search_count_var.set(f"{count} Treffer")
+
+    # ---------- Embeddings ----------
+    def _create_embeddings(self) -> None:
+        if self._emb_thread and self._emb_thread.is_alive():
+            return
+        # Starte das bestehende Tool generate_embeddings.py in einem Thread
+        self._emb_thread = threading.Thread(target=self._run_embeddings_script, daemon=True)
+        self._emb_thread.start()
+
+    def _run_embeddings_script(self) -> None:
+        class _QueueWriter:
+            def __init__(self, put_line: Callable[[str], None]) -> None:
+                self._buf = ""
+                self._put = put_line
+
+            def write(self, s: str) -> int:  # type: ignore[override]
+                if not isinstance(s, str):
+                    s = str(s)
+                # tqdm nutzt \r für Fortschritts-Updates; in neue Zeilen verwandeln
+                s = s.replace("\r", "\n")
+                self._buf += s
+                while "\n" in self._buf:
+                    line, self._buf = self._buf.split("\n", 1)
+                    if line:
+                        self._put(line)
+                return len(s)
+
+            def flush(self) -> None:  # type: ignore[override]
+                if self._buf:
+                    self._put(self._buf)
+                    self._buf = ""
+
+        def _put_to_log(line: str) -> None:
+            self._queue.put((self._append_log, (line,)))
+
+        old_out, old_err = sys.stdout, sys.stderr
+        sys.stdout = _QueueWriter(_put_to_log)  # type: ignore[assignment]
+        sys.stderr = _QueueWriter(_put_to_log)  # type: ignore[assignment]
+        try:
+            import generate_embeddings as ge
+            logging.info("Embeddings: starte Generierung über generate_embeddings.main() ...")
+            ge.main()
+            out_path = str(DATA_DIR / "leistungskatalog_embeddings.json")
+            self._queue.put((self._finish_embeddings, (out_path,)))
+        except SystemExit as e:
+            msg = str(e) or "Abgebrochen"
+            self._queue.put((self._show_error, ("Embeddings", msg)))
+        except Exception as e:
+            self._queue.put((self._show_error, ("Embeddings", f"Fehlgeschlagen: {e}",)))
+        finally:
+            try:
+                sys.stdout = old_out  # type: ignore[assignment]
+                sys.stderr = old_err  # type: ignore[assignment]
+            except Exception:
+                pass
+
+    def _finish_embeddings(self, out_path: str) -> None:
+        try:
+            messagebox.showinfo("Embeddings", f"Embeddings erstellt: {out_path}")
+        except Exception:
+            pass
+
+    def _show_error(self, title: str, msg: str) -> None:
+        try:
+            messagebox.showerror(title, msg)
+        except Exception:
+            pass
+
+    def _append_log(self, line: str) -> None:  # pragma: no cover - GUI
+        try:
+            self.log_widget.configure(state="normal")
+            self.log_widget.insert("end", line + "\n")
+            self.log_widget.yview("end")
+            self.log_widget.configure(state="disabled")
+        except Exception:
+            pass
 
 def main() -> None:
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")

@@ -13,12 +13,14 @@ class SynonymEntry:
         synonyms: Alternative spellings or phrasings aggregated over all languages.
         lkn: Optional tariff code (Leistungs­kennnummer).
         by_lang: Mapping of language code to synonyms in that language.
+        components: Per-language mapping of base term components to their synonyms.
     """
 
     base_term: str
     synonyms: List[str] = field(default_factory=list)
     lkn: str | None = None
     by_lang: Dict[str, List[str]] = field(default_factory=dict)
+    components: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
 
 @dataclass
 class SynonymCatalog:
