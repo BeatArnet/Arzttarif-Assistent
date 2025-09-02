@@ -43,30 +43,80 @@ def load_synonyms(path: str | Path) -> SynonymCatalog:
     for base, value in data.items():
         syns: list[str] = []
         by_lang: dict[str, list[str]] = {}
+        components: dict[str, dict[str, list[str]]] = {}
         lkn = None
+        comp_val = None
         if isinstance(value, dict):
             # new format with language separation
             lkn = value.get("lkn") or value.get("LKN")
-            if "synonyms" in value and isinstance(value["synonyms"], dict):
-                for lang, items in value["synonyms"].items():
-                    variants = [str(s).strip() for s in items if isinstance(s, str)]
-                    by_lang[lang] = variants
-                    syns.extend(variants)
+            syn_val = value.get("synonyms")
+            if isinstance(syn_val, dict):
+                for lang, items in syn_val.items():
+                    if isinstance(items, dict):
+                        inner: dict[str, list[str]] = {}
+                        lang_syns: list[str] = []
+                        for comp, syn_list in items.items():
+                            if isinstance(comp, str) and isinstance(syn_list, list):
+                                cleaned = [
+                                    str(s).strip() for s in syn_list if isinstance(s, str)
+                                ]
+                                if cleaned:
+                                    inner[comp] = cleaned
+                                    lang_syns.extend(cleaned)
+                        if inner:
+                            components[lang] = inner
+                            by_lang[lang] = lang_syns
+                            syns.extend(lang_syns)
+                    elif isinstance(items, list):
+                        variants = [str(s).strip() for s in items if isinstance(s, str)]
+                        by_lang[lang] = variants
+                        syns.extend(variants)
             else:
                 syns.extend(list(value.get("synonyms", [])))
+
             # backward compatibility for top-level language keys
             for lang in ("de", "fr", "it", "en"):  # common language codes
-                if lang in value:
-                    variants = [str(s).strip() for s in value[lang] if isinstance(s, str)]
+                items = value.get(lang)
+                if isinstance(items, list):
+                    variants = [str(s).strip() for s in items if isinstance(s, str)]
                     by_lang.setdefault(lang, []).extend(variants)
                     syns.extend(variants)
+
+            comp_val = value.get("components")
         else:
             syns.extend(list(value))
+
+        if isinstance(comp_val, dict):
+            for lang, mapping in comp_val.items():
+                if not isinstance(mapping, dict):
+                    continue
+                inner: dict[str, list[str]] = {}
+                lang_syns: list[str] = []
+                for comp, syn_list in mapping.items():
+                    if isinstance(comp, str) and isinstance(syn_list, list):
+                        cleaned = [
+                            str(s).strip() for s in syn_list if isinstance(s, str)
+                        ]
+                        if cleaned:
+                            inner[comp] = cleaned
+                            lang_syns.extend(cleaned)
+                if inner:
+                    components[lang] = inner
+                    if lang in by_lang:
+                        by_lang[lang].extend(
+                            s for s in lang_syns if s not in by_lang[lang]
+                        )
+                    else:
+                        by_lang[lang] = lang_syns
+                    for s in lang_syns:
+                        if s not in syns:
+                            syns.append(s)
         entry = SynonymEntry(
             base_term=base,
             synonyms=syns,
             lkn=str(lkn) if lkn is not None else None,
             by_lang=by_lang,
+            components=components,
         )
         catalog.entries[base] = entry
         # update reverse lookup index (case-insensitive)
@@ -87,10 +137,22 @@ def save_synonyms(catalog: SynonymCatalog, path: str | Path) -> None:
         obj: dict[str, object] = {}
         if entry.lkn is not None:
             obj["lkn"] = entry.lkn
-        if entry.by_lang:
+        if entry.components:
+            obj["synonyms"] = {
+                lang: {comp: syns for comp, syns in mapping.items() if syns}
+                for lang, mapping in entry.components.items()
+                if mapping
+            }
+        elif entry.by_lang:
             obj["synonyms"] = {lang: syns for lang, syns in entry.by_lang.items() if syns}
         elif entry.synonyms:
             obj["synonyms"] = entry.synonyms
+        if entry.components:
+            obj["components"] = {
+                lang: {comp: syns for comp, syns in mapping.items() if syns}
+                for lang, mapping in entry.components.items()
+                if mapping
+            }
         data[base] = obj if obj else []
    
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -140,3 +202,5 @@ def validate_catalog(catalog: SynonymCatalog) -> None:
             raise ValueError(f"Invalid LKN for {base}")
         if not isinstance(entry.by_lang, dict):
             raise ValueError(f"Invalid language mapping for {base}")
+        if not isinstance(entry.components, dict):
+            raise ValueError(f"Invalid components for {base}")

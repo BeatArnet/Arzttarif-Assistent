@@ -37,7 +37,11 @@ def test_incremental_returns_entry_with_lkn_and_by_lang(tmp_path, monkeypatch):
     def fake_query(data: Dict[str, str]):
         assert mod.LLM_PROVIDER == "ollama"
         term = data["de"]
-        return {"de": [f"{term}-de"], "fr": [f"{term}-fr"], "it": [f"{term}-it"]}
+        return {
+            "de": {term: [f"{term}-de"]},
+            "fr": {term: [f"{term}-fr"]},
+            "it": {term: [f"{term}-it"]},
+        }
 
     monkeypatch.setattr(mod, "_query_llm", fake_query)
     base_terms = [{"de": "Foo", "fr": "Foo", "it": "Foo", "lkn": "L1"}]
@@ -49,6 +53,11 @@ def test_incremental_returns_entry_with_lkn_and_by_lang(tmp_path, monkeypatch):
     assert entry.lkn == "L1"
     assert entry.by_lang == {"de": ["Foo-de"], "fr": ["Foo-fr"], "it": ["Foo-it"]}
     assert set(entry.synonyms) == {"Foo-de", "Foo-fr", "Foo-it"}
+    assert entry.components == {
+        "de": {"Foo": ["Foo-de"]},
+        "fr": {"Foo": ["Foo-fr"]},
+        "it": {"Foo": ["Foo-it"]},
+    }
 
 
 def test_propose_synonyms_filters_german(tmp_path, monkeypatch):
@@ -58,13 +67,19 @@ def test_propose_synonyms_filters_german(tmp_path, monkeypatch):
     mod = importlib.reload(generator)
 
     def fake_query(data: Dict[str, str]):
-        return {"de": ["arzt"], "fr": ["arzt", "médecin"], "it": ["arzt", "medico"]}
+        return {
+            "de": {"Arzt": ["arzt"]},
+            "fr": {"Médecin": ["arzt", "médecin"]},
+            "it": {"Medico": ["arzt", "medico"]},
+        }
 
     monkeypatch.setattr(mod, "_query_llm", fake_query)
     base_terms = [{"de": "Arzt", "fr": "Médecin", "it": "Medico"}]
     entry = next(mod.propose_synonyms_incremental(base_terms))
     assert "arzt" not in entry.by_lang["fr"]
     assert "arzt" not in entry.by_lang["it"]
+    assert entry.components["fr"] == {"Médecin": ["médecin"]}
+    assert entry.components["it"] == {"Medico": ["medico"]}
 
 
 def test_extract_json_handles_fenced_block():
@@ -77,5 +92,16 @@ def test_extract_json_single_quotes():
     text = "{'canonical': 'foo', 'synonyms': ['bar']}"
     data = _extract_json(text)
     assert data == {"canonical": "foo", "synonyms": ["bar"]}
+
+
+def test_extract_json_merges_multiple_blocks():
+    text = (
+        "Intro\n"
+        "```json\n{\"de\": [\"a\"], \"fr\": [\"b\"]}\n```\n"
+        "Zwischen\n"
+        "```json\n{\"de\": [\"c\"], \"it\": [\"d\"]}\n```"
+    )
+    data = _extract_json(text)
+    assert data == {"de": ["a", "c"], "fr": ["b"], "it": ["d"]}
 
 

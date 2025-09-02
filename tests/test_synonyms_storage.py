@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 import pytest
 
@@ -13,15 +12,23 @@ def test_load_missing_returns_empty(tmp_path):
 
 
 def test_save_roundtrip(tmp_path):
-    entry = SynonymEntry("foo", ["bar"], lkn="L1", by_lang={"de": ["bar"]})
+    entry = SynonymEntry(
+        "foo",
+        ["bar"],
+        lkn="L1",
+        by_lang={"de": ["bar"]},
+        components={"de": {"foo": ["bar"]}},
+    )
     catalog = SynonymCatalog(entries={"foo": entry})
     path = tmp_path / "syn.json"
     save_synonyms(catalog, path)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert raw["foo"]["synonyms"] == {"de": {"foo": ["bar"]}}
     loaded = load_synonyms(path)
     assert loaded.entries["foo"].synonyms == ["bar"]
     assert loaded.entries["foo"].by_lang == {"de": ["bar"]}
     assert loaded.entries["foo"].lkn == "L1"
-
+    assert loaded.entries["foo"].components == {"de": {"foo": ["bar"]}}
 
 def test_load_utf16_file(tmp_path):
     catalog = {"foo": ["bar"]}
@@ -30,14 +37,33 @@ def test_load_utf16_file(tmp_path):
     loaded = load_synonyms(path)
     assert loaded.entries["foo"].synonyms == ["bar"]
 
+
+def test_load_old_list_format(tmp_path):
+    data = {"foo": ["bar", "baz"]}
+    path = tmp_path / "syn.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    loaded = load_synonyms(path)
+    assert loaded.entries["foo"].synonyms == ["bar", "baz"]
+    assert loaded.entries["foo"].by_lang == {}
+    assert loaded.entries["foo"].components == {}
+
 def test_load_new_format(tmp_path):
-    data = {"foo": {"lkn": "L2", "synonyms": {"de": ["bar"], "fr": ["baz"]}}}
+    data = {
+        "foo": {
+            "lkn": "L2",
+            "synonyms": {"de": {"foo": ["bar"]}, "fr": {"foo": ["baz"]}},
+        }
+    }
     path = tmp_path / "syn.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     loaded = load_synonyms(path)
     assert set(loaded.entries["foo"].synonyms) == {"bar", "baz"}
     assert loaded.entries["foo"].by_lang == {"de": ["bar"], "fr": ["baz"]}
     assert loaded.entries["foo"].lkn == "L2"
+    assert loaded.entries["foo"].components == {
+        "de": {"foo": ["bar"]},
+        "fr": {"foo": ["baz"]},
+    }
 
 def test_load_with_control_chars(tmp_path):
     path = tmp_path / "syn.json"
@@ -53,7 +79,16 @@ def test_load_utf8_bom(tmp_path):
     assert loaded.entries["foo"].synonyms == ["bar"]
 
 def test_validate_catalog_success():
-    catalog = SynonymCatalog(entries={"foo": SynonymEntry("foo", ["bar"], by_lang={"de": ["bar"]})})
+    catalog = SynonymCatalog(
+        entries={
+            "foo": SynonymEntry(
+                "foo",
+                ["bar"],
+                by_lang={"de": ["bar"]},
+                components={"de": {"foo": ["bar"]}},
+            )
+        }
+    )
     validate_catalog(catalog)
 
 
@@ -61,5 +96,6 @@ def test_validate_catalog_invalid():
     catalog = SynonymCatalog(entries={"foo": SynonymEntry("foo", [])})
     catalog.entries["foo"].synonyms = "bad"  # type: ignore
     catalog.entries["foo"].by_lang = []  # type: ignore
+    catalog.entries["foo"].components = []  # type: ignore
     with pytest.raises(ValueError):
         validate_catalog(catalog)

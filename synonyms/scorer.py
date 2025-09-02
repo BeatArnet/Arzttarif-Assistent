@@ -1,10 +1,19 @@
-"""Logic for scoring synonym suggestions."""
+"""Logic for scoring synonym suggestions and normalization helpers."""
 
 from __future__ import annotations
 
 from difflib import SequenceMatcher
 
-from .normalizer import normalize_term
+
+def normalize_term(term: str) -> str:
+    """Return a standardized representation of ``term`` for matching."""
+
+    if not isinstance(term, str):
+        return ""
+
+    # Lowercase and strip whitespace.  More elaborate logic such as accent
+    # removal could be added here in the future.
+    return term.lower().strip()
 
 
 def score_synonym(candidate: str, base: str) -> float:

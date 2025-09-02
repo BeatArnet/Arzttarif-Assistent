@@ -43,6 +43,62 @@ let lastUserInput = "";
 let progressTimes = {};
 let elapsedTimer = null;
 let llm1BarInterval = null;
+// ICD-Filtermodus: 'all' | 'pauschale'
+let icdFilterMode = 'all';
+// Spiegeln auf window, damit inline-Scripts (index.html) darauf zugreifen können
+window.icdFilterMode = icdFilterMode;
+window.selectedPauschaleDetails = selectedPauschaleDetails;
+
+function getHiddenIcdToggleInput(){
+    return document.getElementById('icdToggleState');
+}
+
+function loadSavedIcdToggleMode(){
+    const saved = localStorage.getItem('icdToggleState');
+    return saved === '1' ? 'pauschale' : 'all';
+}
+
+function persistIcdToggleMode(mode){
+    const hidden = getHiddenIcdToggleInput();
+    const v = (mode === 'pauschale') ? '1' : '0';
+    if (hidden) hidden.value = v;
+    try { localStorage.setItem('icdToggleState', v); } catch(_) {}
+}
+
+function setIcdFilterMode(mode){
+    icdFilterMode = (mode === 'pauschale') ? 'pauschale' : 'all';
+    window.icdFilterMode = icdFilterMode;
+    const btn = document.getElementById('icdFilterToggle');
+    if (btn) {
+        btn.textContent = t('icdToggleMatching');
+        btn.setAttribute('aria-pressed', icdFilterMode === 'pauschale' ? 'true' : 'false');
+    }
+    persistIcdToggleMode(icdFilterMode);
+    // Nach Umschalten nur aktualisieren, wenn die Liste bereits offen ist
+    try { if (typeof window.refreshIcdIfOpen === 'function') window.refreshIcdIfOpen(); } catch(_){}
+}
+
+function showIcdToggle(show){
+    const btn = document.getElementById('icdFilterToggle');
+    if (!btn) return;
+    btn.style.display = show ? 'inline-block' : 'none';
+    if (show) {
+        btn.onclick = () => setIcdFilterMode(icdFilterMode === 'pauschale' ? 'all' : 'pauschale');
+        // Bei Anzeige initialen Zustand aus localStorage übernehmen
+        const initialMode = loadSavedIcdToggleMode();
+        setIcdFilterMode(initialMode);
+    }
+}
+
+function updateSelectedPauschaleDetails(details){
+    selectedPauschaleDetails = details || null;
+    window.selectedPauschaleDetails = selectedPauschaleDetails;
+}
+
+// Exporte für index.html Inline-Skript
+window.setIcdFilterMode = setIcdFilterMode;
+window.showIcdToggle = showIcdToggle;
+window.updateSelectedPauschaleDetails = updateSelectedPauschaleDetails;
 
 // Dynamische Übersetzungen
 const DYN_TEXT = {
@@ -973,6 +1029,9 @@ document.addEventListener("DOMContentLoaded", () => {
     mouseSpinnerElement = $('mouseSpinner');
     loadIcdCheckboxState();
     loadData();
+    // Initial: Umschalter verbergen bis Ergebnis vorliegt
+    showIcdToggle(false);
+    setIcdFilterMode('all');
 
     // --- Modal Close Handlers ---
     const modals = [
@@ -1074,6 +1133,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ─── 3 · Hauptlogik (Button‑Click) ────────────────────────────────────────
 async function getBillingAnalysis() {
+    // Vor einem neuen Request: Pauschalen-Kontext zurücksetzen
+    try { showIcdToggle(false); } catch(e) {}
+    try { setIcdFilterMode('all'); } catch(e) {}
+    try { updateSelectedPauschaleDetails(null); } catch(e) {}
+    // Offene Dropdowns schliessen, damit Analyse nicht automatisch eine Liste öffnet
+    try { if (typeof window.hideIcdDropdown === 'function') window.hideIcdDropdown(); } catch(e) {}
+    try { if (typeof window.hideChopDropdown === 'function') window.hideChopDropdown(); } catch(e) {}
     console.log("[getBillingAnalysis] Funktion gestartet.");
     const userInput = $("userInput").value.trim();
     let mappedInput = userInput;
@@ -1191,12 +1257,24 @@ async function getBillingAnalysis() {
                 finalResultHeader = `<p class="final-result-header success"><b>${tDyn('billingPauschale')}</b></p>`;
                 if (abrechnung.details) {
                     finalResultDetailsHtml = displayPauschale(abrechnung);
-                    selectedPauschaleDetails = abrechnung.details;
+                    updateSelectedPauschaleDetails(abrechnung.details);
                     evaluatedPauschalenList = Array.isArray(abrechnung.evaluated_pauschalen) ? abrechnung.evaluated_pauschalen : [];
+                    // Toggle nur anzeigen, wenn sinnvolle ICD-Liste vorhanden
+                    const hasPotential = Array.isArray(selectedPauschaleDetails?.potential_icds) && selectedPauschaleDetails.potential_icds.length > 0;
+                    showIcdToggle(!!hasPotential);
+                    if (hasPotential) {
+                        // Wähle gespeicherten Zustand (1 = pauschale) oder default 'all'
+                        const savedMode = loadSavedIcdToggleMode();
+                        setIcdFilterMode(savedMode);
+                    } else {
+                        setIcdFilterMode('all');
+                    }
                 } else {
                     finalResultDetailsHtml = `<p class='error'>${tDyn('errorPauschaleMissing')}</p>`;
-                    selectedPauschaleDetails = null;
+                    updateSelectedPauschaleDetails(null);
                     evaluatedPauschalenList = [];
+                    showIcdToggle(false);
+                    setIcdFilterMode('all');
                 }
                 break;
             case "TARDOC":
@@ -1207,6 +1285,11 @@ async function getBillingAnalysis() {
                  } else {
                      finalResultDetailsHtml = `<p><i>${tDyn('noTardoc')}</i></p>`;
                  }
+                 // Kein Umschalter für TARDOC
+                 updateSelectedPauschaleDetails(null);
+                 evaluatedPauschalenList = [];
+                 showIcdToggle(false);
+                 setIcdFilterMode('all');
                 break;
             case "Error":
                 console.error("[getBillingAnalysis] Abrechnungstyp: Error", abrechnung.message);

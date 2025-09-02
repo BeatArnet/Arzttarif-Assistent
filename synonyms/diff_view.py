@@ -79,6 +79,12 @@ def open_diff_window(
         for base, entry in catalog.entries.items():
             if entry.lkn:
                 syn_by_lkn[str(entry.lkn).strip()] = base
+        for lkn, data in leistungskatalog.items():
+            if lkn in syn_by_lkn:
+                continue
+            desc = str(data.get("Beschreibung", "")).strip()
+            if desc in catalog.entries:
+                syn_by_lkn[lkn] = desc
         rows: List[Tuple[str, str, str, str]] = []
         all_lkns = set(syn_by_lkn) | set(leistungskatalog)
         for lkn in all_lkns:
@@ -199,12 +205,24 @@ def open_diff_window(
         }
 
         def on_save(result: Dict[str, List[str]]) -> None:
-            combined = [s for lst in result.values() for s in lst]
+            """Persist edited synonyms for the selected catalogue entry."""
+
+            cleaned_by_lang: Dict[str, List[str]] = {}
+            for lang, syns in result.items():
+                cleaned = [s.strip() for s in syns if isinstance(s, str) and s.strip()]
+                if cleaned:
+                    # preserve order while removing duplicates
+                    cleaned_by_lang[lang] = list(dict.fromkeys(cleaned))
+
+            combined = [s for lst in cleaned_by_lang.values() for s in lst]
             if not combined:
                 return # do not save empty entries
+
             new_entry = SynonymEntry(
-                base_term=cat_desc, synonyms=combined, lkn=lkn, by_lang=result
-            )
+                base_term=cat_desc,
+                synonyms=combined,
+                lkn=lkn,
+                by_lang=cleaned_by_lang,            )
             catalog.entries[cat_desc] = new_entry
             rebuild_index()
             storage.save_synonyms(catalog, catalog_path)
