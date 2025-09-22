@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import configparser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import threading
+import time
 
 if TYPE_CHECKING:  # pragma: no cover - type hinting only
     from openai import OpenAI
@@ -26,7 +29,7 @@ FIXED_SAMPLING_MODELS = {"gpt-5-nano"}
 
 _CONFIG = configparser.ConfigParser()
 _CONFIG_FILE = Path(__file__).with_name("config.ini")
-_CONFIG.read(_CONFIG_FILE, encoding="utf-8")
+_CONFIG.read(_CONFIG_FILE, encoding="utf-8-sig")
 
 _UNSUPPORTED_TEMPERATURE_MODELS = set()
 if _CONFIG.has_section("LLM_CAPABILITIES"):
@@ -37,9 +40,13 @@ if _CONFIG.has_section("LLM_CAPABILITIES"):
             )
 
 
+_APP_VERSION = _CONFIG.get("APP", "version", fallback="dev")
+_UA_PRODUCT = os.getenv("APP_USER_AGENT_PRODUCT") or _CONFIG.get("APP", "user_agent_product", fallback="ArzttarifAssistent")
+_USER_AGENT = f"{_UA_PRODUCT}/{_APP_VERSION}"
+
 def _persist_temperature_flag(model: str, supported: bool) -> None:
     try:
-        _CONFIG.read(_CONFIG_FILE, encoding="utf-8")
+        _CONFIG.read(_CONFIG_FILE, encoding="utf-8-sig")
         if "LLM_CAPABILITIES" not in _CONFIG:
             _CONFIG["LLM_CAPABILITIES"] = {}
         _CONFIG["LLM_CAPABILITIES"][
@@ -55,12 +62,50 @@ def _persist_temperature_flag(model: str, supported: bool) -> None:
 _client_singleton: Optional["OpenAI"] = None
 
 
+# Globale LLM-Call-Drossel gemäss config.ini
+def _read_llm_min_interval() -> float:
+    try:
+        if _CONFIG.has_section("LLM"):
+            val = int(_CONFIG.get("LLM", "min_call_interval_seconds", fallback="0") or 0)
+            # Begrenze auf 0..1000 Sekunden
+            val = max(0, min(1000, val))
+            return float(val)
+    except Exception:
+        pass
+    return 0.0
+
+_THROTTLE_LOCK = threading.Lock()
+_LAST_CALL_TS: float = 0.0
+
+def enforce_llm_min_interval() -> None:
+    """Erzwingt den konfigurierten Mindestabstand zwischen zwei LLM-Aufrufen.
+
+    Liest den Wert aus [LLM] min_call_interval_seconds (0..1000).
+    Thread-sicher, prozesslokal.
+    """
+    interval = _read_llm_min_interval()
+    if interval <= 0:
+        return
+    now = time.monotonic()
+    with _THROTTLE_LOCK:
+        global _LAST_CALL_TS
+        elapsed = now - _LAST_CALL_TS if _LAST_CALL_TS else interval
+        if elapsed < interval:
+            wait = interval - elapsed
+            try:
+                logging.info("LLM_THROTTLE_WAIT: Warte %.2fs (min %.2fs) bis zum nächsten Aufruf.", wait, interval)
+            except Exception:
+                pass
+            time.sleep(wait)
+        _LAST_CALL_TS = time.monotonic()
+
+
 def get_client() -> "OpenAI":
     """Return a lazily constructed global OpenAI client instance."""
     global _client_singleton
     if _client_singleton is None:
         from openai import OpenAI  # type: ignore  # pragma: no cover - optional dependency
-        _client_singleton = OpenAI()
+        _client_singleton = OpenAI(default_headers={"User-Agent": _USER_AGENT})
     return _client_singleton
 
 
@@ -103,6 +148,18 @@ def _is_unsupported_temperature_error(exc: Exception) -> bool:
     return ("temperature" in msg) and ("unsupported" in msg or "only the default" in msg)
 
 
+def _is_unsupported_param_error(exc: Exception, param_name: str) -> bool:
+    """Detects typical unsupported parameter errors in OpenAI-compatible APIs."""
+    payload = _extract_error_payload(exc)
+    err = payload.get("error") or {}
+    if err.get("code") in {"unsupported_value", "invalid_request_error"} and err.get("param") == param_name:
+        return True
+    # Fallback by message substring
+    msg = (err.get("message") or "") + " " + str(getattr(exc, "message", "")) + " " + str(exc)
+    msg = msg.lower()
+    return (param_name.lower() in msg) and ("unsupported" in msg or "invalid" in msg)
+
+
 def chat_completion_safe(
     *,
     model: str,
@@ -124,8 +181,27 @@ def chat_completion_safe(
         )
         kwargs.pop("temperature", None)
     try:
+        # Drossel vor dem eigentlichen Request
+        enforce_llm_min_interval()
         return client.chat.completions.create(model=model, messages=messages, **kwargs)
     except Exception as e:
+        # 1) Fallback: 'max_tokens' → 'max_completion_tokens' (neue OpenAI-Modelle)
+        if (
+            ("max_tokens" in kwargs)
+            and _is_unsupported_param_error(e, "max_tokens")
+        ):
+            logging.warning(
+                "'%s' verlangt 'max_completion_tokens' statt 'max_tokens' – wiederhole mit umbenanntem Parameter.",
+                model,
+            )
+            clean_kwargs = dict(kwargs)
+            value = clean_kwargs.pop("max_tokens", None)
+            if value is not None:
+                clean_kwargs["max_completion_tokens"] = value
+            # Kein zusätzlicher Wait bei unmittelbarem Retry aufgrund von Parametern
+            return client.chat.completions.create(
+                model=model, messages=messages, **clean_kwargs
+            )
         if _is_unsupported_temperature_error(e) and "temperature" in kwargs:
             logging.warning(
                 "'%s' unterstützt 'temperature' nicht – speichere in config und wiederhole ohne 'temperature'.",
@@ -135,6 +211,28 @@ def chat_completion_safe(
             _persist_temperature_flag(model, False)
             clean_kwargs = dict(kwargs)
             clean_kwargs.pop("temperature", None)
+            # Kein zusätzlicher Wait bei unmittelbarem Retry aufgrund von Parametern
+            return client.chat.completions.create(
+                model=model, messages=messages, **clean_kwargs
+            )
+        # Gracefully drop unsupported response_format (often not implemented by clones)
+        try:
+            extra_body = dict(kwargs.get("extra_body") or {})
+        except Exception:
+            extra_body = {}
+        has_resp_fmt = ("response_format" in kwargs) or ("response_format" in extra_body)
+        if has_resp_fmt and _is_unsupported_param_error(e, "response_format"):
+            logging.warning(
+                "'%s' unterstützt 'response_format' nicht – entferne und wiederhole.",
+                model,
+            )
+            clean_kwargs = dict(kwargs)
+            clean_kwargs.pop("response_format", None)
+            if "extra_body" in clean_kwargs:
+                eb = dict(clean_kwargs["extra_body"] or {})
+                eb.pop("response_format", None)
+                clean_kwargs["extra_body"] = eb
+            # Kein zusätzlicher Wait bei unmittelbarem Retry aufgrund von Parametern
             return client.chat.completions.create(
                 model=model, messages=messages, **clean_kwargs
             )

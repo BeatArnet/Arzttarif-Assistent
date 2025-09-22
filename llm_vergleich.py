@@ -8,8 +8,10 @@ from typing import Any, Dict, List, Tuple
 
 try:
     import tkinter as tk
+    from tkinter import ttk
 except Exception:  # pragma: no cover - optional GUI
     tk = None
+    ttk = None
 
 from utils import count_tokens
 
@@ -101,6 +103,92 @@ class QCStatus:
         if self.root:
             self.root.destroy()
 
+    def show_summary(self, models: List[Dict[str, Any]]) -> None:
+        """Zeigt nach Abschluss eine Tabelle mit den wichtigsten Kennzahlen.
+
+        Spalten:
+        - Modell
+        - Zeitbedarf (MM:SS)
+        - Korrekt beantwortet
+        - n Input Token
+        - n Output Token
+        - Geschätzte Kosten [CHF]
+        """
+        if not self.root or tk is None or ttk is None:
+            # Fallback: Textuelle Ausgabe in Konsole
+            print("\nLLM-Vergleich – Zusammenfassung:")
+            for m in models:
+                provider = str(m.get("Provider") or m.get("Stage1Provider") or "?")
+                model = str(m.get("Model") or m.get("Stage1Model") or "?")
+                name = f"{provider}/{model}".strip("/")
+                secs = float(m.get("Runtime_Seconds") or 0.0)
+                mm = int(secs // 60)
+                ss = int(secs % 60)
+                passed = int(m.get("Passed") or 0)
+                total = int(m.get("Total_Tests") or 0)
+                pct = float(m.get("Prozent_Korrekt") or 0.0)
+                input_t = int(m.get("InputTokens") or 0)
+                output_t = int(m.get("OutputTokens") or 0)
+                cost = float(m.get("InputToken_CHF") or 0.0) + float(m.get("OutputToken_CHF") or 0.0)
+                print(f"- {name:28}  {mm:02d}:{ss:02d}  {passed}/{total} ({pct:.2f}%)  in:{input_t}  out:{output_t}  CHF {cost:.6f}")
+            try:
+                input("\n[Enter] zum Beenden … ")
+            except Exception:
+                pass
+            return
+
+        # GUI: bestehende Widgets ersetzen
+        for child in list(self.root.children.values()):
+            try:
+                child.destroy()
+            except Exception:
+                pass
+        self.root.title("LLM Vergleich – Zusammenfassung")
+        cols = ("Modell", "Zeit", "Korrekt", "Input Tokens", "Output Tokens", "Kosten [CHF]")
+        tree = ttk.Treeview(self.root, columns=cols, show="headings", height=max(6, len(models)))
+        for c in cols:
+            tree.heading(c, text=c)
+        tree.column("Modell", width=320, anchor="w")
+        tree.column("Zeit", width=80, anchor="center")
+        tree.column("Korrekt", width=140, anchor="center")
+        tree.column("Input Tokens", width=120, anchor="e")
+        tree.column("Output Tokens", width=120, anchor="e")
+        tree.column("Kosten [CHF]", width=120, anchor="e")
+
+        # Einträge füllen
+        for m in models:
+            provider = str(m.get("Provider") or m.get("Stage1Provider") or "?")
+            model = str(m.get("Model") or m.get("Stage1Model") or "?")
+            name = f"{provider}/{model}".strip("/")
+            secs = float(m.get("Runtime_Seconds") or 0.0)
+            mm = int(secs // 60)
+            ss = int(secs % 60)
+            passed = int(m.get("Passed") or 0)
+            total = int(m.get("Total_Tests") or 0)
+            pct = float(m.get("Prozent_Korrekt") or 0.0)
+            input_t = int(m.get("InputTokens") or 0)
+            output_t = int(m.get("OutputTokens") or 0)
+            cost = float(m.get("InputToken_CHF") or 0.0) + float(m.get("OutputToken_CHF") or 0.0)
+            tree.insert(
+                "",
+                "end",
+                values=(
+                    name,
+                    f"{mm:02d}:{ss:02d}",
+                    f"{passed}/{total} ({pct:.2f}%)",
+                    f"{input_t}",
+                    f"{output_t}",
+                    f"{cost:.6f}",
+                ),
+            )
+        tree.pack(fill="both", expand=True, padx=8, pady=8)
+
+        btn = tk.Button(self.root, text="Ende", command=self.root.destroy)
+        btn.pack(pady=(0, 8))
+        # GUI offen halten, bis Benutzer schließt
+        self.root.update()
+        self.root.mainloop()
+
 
 def _build_examples(baseline: Dict[str, Any]) -> List[Tuple[str, str, str]]:
     examples: List[Tuple[str, str, str]] = []
@@ -126,13 +214,32 @@ def run_qc(entry: Dict[str, Any], models: List[Dict[str, Any]], status: QCStatus
     examples = _build_examples(baseline_data)
     total_examples = len(examples)
 
-    entry.setdefault("Total_Tests", total_examples)
-    progress_index = entry.get("Progress_Index", 0)
-    passed = entry.get("Passed", 0)
-    input_tokens = entry.get("InputTokens", 0)
-    output_tokens = entry.get("OutputTokens", 0)
-    remarks: List[Dict[str, Any]] = entry.get("Bemerkungen", [])
-    runtime_seconds = entry.get("Runtime_Seconds", 0.0)
+    # Immer frischen Lauf starten: Vorhandene Resultate überschreiben
+    progress_index = 0
+    passed = 0
+    input_tokens = 0
+    output_tokens = 0
+    remarks: List[Dict[str, Any]] = []
+    runtime_seconds = 0.0
+
+    # Direkt persistieren, damit ein Neustart saubere Werte zeigt
+    entry.update(
+        {
+            "Total_Tests": total_examples,
+            "Progress_Index": progress_index,
+            "Passed": passed,
+            "InputTokens": input_tokens,
+            "OutputTokens": output_tokens,
+            "Bemerkungen": remarks,
+            "Runtime_Seconds": runtime_seconds,
+        }
+    )
+    # Zusammenfassungen werden am Ende neu berechnet; hier optional auf 0 setzen
+    entry["Prozent_Korrekt"] = 0.0
+    entry["InputToken_CHF"] = 0.0
+    entry["OutputToken_CHF"] = 0.0
+    entry["Zeit_Stunden"] = 0.0
+    save_models(models)
 
     status.set_model(f"S1:{s1_provider}/{s1_model} | S2:{s2_provider}/{s2_model}")
     start_time = time.time()
@@ -147,28 +254,48 @@ def run_qc(entry: Dict[str, Any], models: List[Dict[str, Any]], status: QCStatus
     with app.test_client() as client:
         for idx in range(progress_index, total_examples):
             ex_id, lang, query = examples[idx]
-            if log_file is None:
-                input_tokens += count_tokens(query)
 
             resp = client.post("/api/test-example", json={"id": int(ex_id), "lang": lang})
             if resp.status_code != 200:
                 remarks.append({"id": ex_id, "lang": lang, "error": f"HTTP {resp.status_code}"})
             else:
                 data = resp.get_json() or {}
-                if log_file is None:
+
+                # Tokenzählung: bevorzugt vom Server gemeldete token_usage; sonst Logdatei; sonst Heuristik
+                counted = False
+                tu = data.get("token_usage") or {}
+                try:
+                    if isinstance(tu, dict):
+                        in_sum = 0
+                        out_sum = 0
+                        for stage in (tu.get("llm_stage1"), tu.get("llm_stage2")):
+                            if isinstance(stage, dict):
+                                in_sum += int(stage.get("input_tokens") or 0)
+                                out_sum += int(stage.get("output_tokens") or 0)
+                        if (in_sum + out_sum) > 0:
+                            input_tokens += in_sum
+                            output_tokens += out_sum
+                            counted = True
+                except Exception:
+                    counted = False
+
+                if not counted and log_file is not None:
+                    new_in, new_out = _read_new_tokens(log_file)
+                    input_tokens += new_in
+                    output_tokens += new_out
+                    counted = True
+
+                if not counted:
+                    # Fallback: einfache Schätzung über Query- und Result-Text
+                    input_tokens += count_tokens(query)
                     result_text = json.dumps(data.get("result", {}), ensure_ascii=False)
                     output_tokens += count_tokens(result_text)
+
                 if data.get("passed"):
                     passed += 1
                 else:
                     diff = data.get("diff", "")
                     remarks.append({"id": ex_id, "lang": lang, "error": diff})
-
-            # Token aus Logdatei nach dem Request lesen
-            if log_file is not None:
-                new_in, new_out = _read_new_tokens(log_file)
-                input_tokens += new_in
-                output_tokens += new_out
 
             progress_index = idx + 1
             runtime_seconds += time.time() - start_time
@@ -203,8 +330,13 @@ def main() -> None:
     try:
         for entry in models:
             run_qc(entry, models, status)
+        # Nach Abschluss: Zusammenfassung anzeigen und auf Ende warten
+        status.show_summary(models)
     finally:
-        status.close()
+        try:
+            status.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

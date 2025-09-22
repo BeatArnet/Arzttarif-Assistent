@@ -1,0 +1,944 @@
+[
+    {
+        "DignitaetCode": "0000",
+        "DignitaetText": "Keine qualitative Dignität",
+        "DignitaetText_f": "Pas de valeur intrinsèque qualitative",
+        "DignitaetText_i": "Nessun valore intrinseco qualitativo"
+    },
+    {
+        "DignitaetCode": "0008",
+        "DignitaetText": "Nephrologie",
+        "DignitaetText_f": "Néphrologie",
+        "DignitaetText_i": "Nefrologia"
+    },
+    {
+        "DignitaetCode": "0009",
+        "DignitaetText": "Allergologie und klinische Immunologie",
+        "DignitaetText_f": "Allergologie et immunologie clinique",
+        "DignitaetText_i": "Allergologia ed immunologia clinica"
+    },
+    {
+        "DignitaetCode": "0010",
+        "DignitaetText": "Medizinische Onkologie",
+        "DignitaetText_f": "Oncologie médicale",
+        "DignitaetText_i": "Oncologia medica"
+    },
+    {
+        "DignitaetCode": "0011",
+        "DignitaetText": "Handchirurgie",
+        "DignitaetText_f": "Chirurgie de la main",
+        "DignitaetText_i": "Chirurgia della mano"
+    },
+    {
+        "DignitaetCode": "0014",
+        "DignitaetText": "Neuropädiatrie",
+        "DignitaetText_f": "Neuropédiatrie",
+        "DignitaetText_i": "Neuropediatria"
+    },
+    {
+        "DignitaetCode": "0015",
+        "DignitaetText": "Nuklearmedizin",
+        "DignitaetText_f": "Médecine nucléaire",
+        "DignitaetText_i": "Medicina nucleare"
+    },
+    {
+        "DignitaetCode": "0016",
+        "DignitaetText": "Radio-Onkologie / Strahlentherapie",
+        "DignitaetText_f": "Radio-oncologie / radiothérapie",
+        "DignitaetText_i": "Radio-oncologia / radioterapia"
+    },
+    {
+        "DignitaetCode": "0017",
+        "DignitaetText": "SP Phoniatrie",
+        "DignitaetText_f": "FA Phoniatrie",
+        "DignitaetText_i": "FA Foniatria"
+    },
+    {
+        "DignitaetCode": "0021",
+        "DignitaetText": "Angiologie",
+        "DignitaetText_f": "Angiologie",
+        "DignitaetText_i": "Angiologia"
+    },
+    {
+        "DignitaetCode": "0022",
+        "DignitaetText": "Intensivmedizin",
+        "DignitaetText_f": "Médecine intensive",
+        "DignitaetText_i": "Medicina Intensiva"
+    },
+    {
+        "DignitaetCode": "0024",
+        "DignitaetText": "SP Diagnostische Neuroradiologie",
+        "DignitaetText_f": "FA Neuroradiologie diagnostique",
+        "DignitaetText_i": "FA Neuroradiologia diagnostica"
+    },
+    {
+        "DignitaetCode": "0025",
+        "DignitaetText": "SP Invasive Neuroradiologie",
+        "DignitaetText_f": "FA Neuroradiologie invasive",
+        "DignitaetText_i": "FA Neuroradiologia invasiva"
+    },
+    {
+        "DignitaetCode": "0026",
+        "DignitaetText": "Infektiologie",
+        "DignitaetText_f": "Infectiologie",
+        "DignitaetText_i": "Infettivologia"
+    },
+    {
+        "DignitaetCode": "0027",
+        "DignitaetText": "SP Infektionsprävention und -kontrolle im Gesundheitswesen",
+        "DignitaetText_f": "FA Prévention et contrôle des infections dans le secteur de la santé",
+        "DignitaetText_i": "FA Prevenzione e controllo delle infezioni nel settore sanitario"
+    },
+    {
+        "DignitaetCode": "0100",
+        "DignitaetText": "Anästhesiologie",
+        "DignitaetText_f": "Anesthésiologie",
+        "DignitaetText_i": "Anestesiologia"
+    },
+    {
+        "DignitaetCode": "0200",
+        "DignitaetText": "Chirurgie",
+        "DignitaetText_f": "Chirurgie",
+        "DignitaetText_i": "Chirurgia"
+    },
+    {
+        "DignitaetCode": "0201",
+        "DignitaetText": "SP Spezialisierte Traumatologie (SGC und SO)",
+        "DignitaetText_f": "FA Traumatologie spécialisée (SSC et SO)",
+        "DignitaetText_i": "FA Traumatologia specializzata"
+    },
+    {
+        "DignitaetCode": "0202",
+        "DignitaetText": "SP Viszeralchirurgie (SGVC)",
+        "DignitaetText_f": "FA Chirurgie viscérale (SSCV)",
+        "DignitaetText_i": "FA Chirurgia viscerale (SSCV)"
+    },
+    {
+        "DignitaetCode": "0203",
+        "DignitaetText": "SP chirurgische Senologie",
+        "DignitaetText_f": "FA Sénologie chirurgicale",
+        "DignitaetText_i": "FA Senologia chirurgica"
+    },
+    {
+        "DignitaetCode": "0300",
+        "DignitaetText": "Dermatologie und Venerologie",
+        "DignitaetText_f": "Dermatologie et vénéréologie",
+        "DignitaetText_i": "Dermatologia e venereologia"
+    },
+    {
+        "DignitaetCode": "0400",
+        "DignitaetText": "Gynäkologie und Geburtshilfe",
+        "DignitaetText_f": "Gynécologie et obstétrique",
+        "DignitaetText_i": "Ginecologia e ostetricia"
+    },
+    {
+        "DignitaetCode": "0401",
+        "DignitaetText": "SP Fetomaternale Medizin",
+        "DignitaetText_f": "FA Médecine foeto-maternelle",
+        "DignitaetText_i": "FA Medicina maternofetale"
+    },
+    {
+        "DignitaetCode": "0402",
+        "DignitaetText": "SP Operative Gynäkologie und Geburtshilfe",
+        "DignitaetText_f": "FA Gynécologie-obstétrique opératoire",
+        "DignitaetText_i": "FA Ginecologia e ostetricia operative"
+    },
+    {
+        "DignitaetCode": "0403",
+        "DignitaetText": "SP Gynäkologische Onkologie",
+        "DignitaetText_f": "FA Oncologie gynécologique",
+        "DignitaetText_i": "FA Oncologia ginecologica"
+    },
+    {
+        "DignitaetCode": "0404",
+        "DignitaetText": "SP Reproduktionsmedizin und gynäkologische Endokrinologie",
+        "DignitaetText_f": "FA Médecine de reproduction et endocrinologie gynécologique",
+        "DignitaetText_i": "FA Medicina riproduttiva e endocrinologia ginecologica"
+    },
+    {
+        "DignitaetCode": "0405",
+        "DignitaetText": "SP Urogynäkologie",
+        "DignitaetText_f": "FA Urogynécologie",
+        "DignitaetText_i": "FA Uroginecologia"
+    },
+    {
+        "DignitaetCode": "0406",
+        "DignitaetText": "SP gynäkologische Senologie",
+        "DignitaetText_f": "FA Sénologie gynécologique",
+        "DignitaetText_i": "FA Senologia ginecologica"
+    },
+    {
+        "DignitaetCode": "0500",
+        "DignitaetText": "Innere Medizin",
+        "DignitaetText_f": "Médecine interne",
+        "DignitaetText_i": "Medicina Interna"
+    },
+    {
+        "DignitaetCode": "0501",
+        "DignitaetText": "Endokrinologie-Diabetologie",
+        "DignitaetText_f": "Endocrinologie-diabétologie",
+        "DignitaetText_i": "Endocrinologia-Diabetologia"
+    },
+    {
+        "DignitaetCode": "0502",
+        "DignitaetText": "Gastroenterologie",
+        "DignitaetText_f": "Gastroentérologie",
+        "DignitaetText_i": "Gastroenterologia"
+    },
+    {
+        "DignitaetCode": "0503",
+        "DignitaetText": "Hämatologie",
+        "DignitaetText_f": "Hématologie",
+        "DignitaetText_i": "Ematologia"
+    },
+    {
+        "DignitaetCode": "0504",
+        "DignitaetText": "Kardiologie",
+        "DignitaetText_f": "Cardiologie",
+        "DignitaetText_i": "Cardiologia"
+    },
+    {
+        "DignitaetCode": "0505",
+        "DignitaetText": "Pneumologie",
+        "DignitaetText_f": "Pneumologie",
+        "DignitaetText_i": "Pneumologia"
+    },
+    {
+        "DignitaetCode": "0506",
+        "DignitaetText": "Rheumatologie",
+        "DignitaetText_f": "Rhumatologie",
+        "DignitaetText_i": "Reumatologia"
+    },
+    {
+        "DignitaetCode": "0510",
+        "DignitaetText": "SP Hepatologie",
+        "DignitaetText_f": "FA Hépatologie",
+        "DignitaetText_i": "FA Epatologia"
+    },
+    {
+        "DignitaetCode": "0600",
+        "DignitaetText": "Neurochirurgie",
+        "DignitaetText_f": "Neurochirurgie",
+        "DignitaetText_i": "Neurochirurgia"
+    },
+    {
+        "DignitaetCode": "0700",
+        "DignitaetText": "Neurologie",
+        "DignitaetText_f": "Neurologie",
+        "DignitaetText_i": "Neurologia"
+    },
+    {
+        "DignitaetCode": "0750",
+        "DignitaetText": "SP Neuropathologie (SSNPath)",
+        "DignitaetText_f": "FA Neuropathologie (SSNPath)",
+        "DignitaetText_i": "FA Neuropatologia (SSNPath)"
+    },
+    {
+        "DignitaetCode": "0800",
+        "DignitaetText": "Ophthalmologie",
+        "DignitaetText_f": "Ophtalmologie",
+        "DignitaetText_i": "Oftalmologia"
+    },
+    {
+        "DignitaetCode": "0810",
+        "DignitaetText": "SP Ophthalmochirurgie",
+        "DignitaetText_f": "FA Ophtalmochirurgie",
+        "DignitaetText_i": "FA Oftalmo-chirurgia"
+    },
+    {
+        "DignitaetCode": "0900",
+        "DignitaetText": "Orthopädische Chirurgie und Traumotologie des Bewegungsapparates",
+        "DignitaetText_f": "Chirurgie orthopédique et traumatologie de l'appreil locomoteur",
+        "DignitaetText_i": "Chirurgia ortopedica e traumatologia dell'apparato locomotore"
+    },
+    {
+        "DignitaetCode": "1000",
+        "DignitaetText": "Oto-Rhino-Laryngologie",
+        "DignitaetText_f": "Oto-Rhino-Laryngologie",
+        "DignitaetText_i": "Otorinolaringología"
+    },
+    {
+        "DignitaetCode": "1005",
+        "DignitaetText": "SP Hals- und Gesichtschirurgie",
+        "DignitaetText_f": "FA Chirurgie cervico-faciale",
+        "DignitaetText_i": "FA Chirurgia cervico-facciale"
+    },
+    {
+        "DignitaetCode": "1100",
+        "DignitaetText": "Kinder- und Jugendmedizin",
+        "DignitaetText_f": "Pédiatrie",
+        "DignitaetText_i": "Pediatria"
+    },
+    {
+        "DignitaetCode": "1101",
+        "DignitaetText": "SP Neonatologie",
+        "DignitaetText_f": "FA Néonatologie",
+        "DignitaetText_i": "FA Neonatologia"
+    },
+    {
+        "DignitaetCode": "1200",
+        "DignitaetText": "Pathologie",
+        "DignitaetText_f": "Pathologie",
+        "DignitaetText_i": "Patologia"
+    },
+    {
+        "DignitaetCode": "1201",
+        "DignitaetText": "SP Molekularpathologie",
+        "DignitaetText_f": "FA Pathologie moléculaire",
+        "DignitaetText_i": "FA Patologia molecolare"
+    },
+    {
+        "DignitaetCode": "1202",
+        "DignitaetText": "SP Zytopathologie",
+        "DignitaetText_f": "FA Cytopathologie",
+        "DignitaetText_i": "FA Citopatologia"
+    },
+    {
+        "DignitaetCode": "1300",
+        "DignitaetText": "Physikalische Medizin und Rehabilitation",
+        "DignitaetText_f": "Médecine physique et réadaptation",
+        "DignitaetText_i": "Medicina fisica e riabilitativa"
+    },
+    {
+        "DignitaetCode": "1400",
+        "DignitaetText": "Psychiatrie und Psychotherapie",
+        "DignitaetText_f": "Psychiatrie et psychothérapie",
+        "DignitaetText_i": "Psichiatria e psicoterapia"
+    },
+    {
+        "DignitaetCode": "1401",
+        "DignitaetText": "SP Forensische Psychiatrie und -psychotherapie",
+        "DignitaetText_f": "FA Psychiatrie et psychothérapie forensique",
+        "DignitaetText_i": "FA Psichiatria e psicoterapia forensi"
+    },
+    {
+        "DignitaetCode": "1402",
+        "DignitaetText": "SP Konsiliar- und Liaisonpsychiatrie",
+        "DignitaetText_f": "FA Psychiatrie de consultation et de liaison",
+        "DignitaetText_i": "FA Psichiatria di consultazione e di liaison"
+    },
+    {
+        "DignitaetCode": "1403",
+        "DignitaetText": "SP Psychiatrie und Psychotherapie der Abhängigkeitserkrankungen",
+        "DignitaetText_f": "FA Psychiatrie et psychothérapie des addictions",
+        "DignitaetText_i": "FA Psichiatria e psicoterapia delle dipendenze"
+    },
+    {
+        "DignitaetCode": "1500",
+        "DignitaetText": "Kinder- und Jugendpsychiatrie und -psychotherapie",
+        "DignitaetText_f": "Psychiatrie et psychothérapie d'enfants et d'adolescents",
+        "DignitaetText_i": "Psichiatria e psicoterapia infantile e adolescenziale"
+    },
+    {
+        "DignitaetCode": "1501",
+        "DignitaetText": "SP Forensische Kinder- und Jugendpsychiatrie und -psychotherapie",
+        "DignitaetText_f": "FA Psychiatrie et psychothérapie forensique pour enfants et adolescents",
+        "DignitaetText_i": "FA Psichiatria e psicoterapia forensi per bambini e adolescenti"
+    },
+    {
+        "DignitaetCode": "1600",
+        "DignitaetText": "Radiologie",
+        "DignitaetText_f": "Radiologie",
+        "DignitaetText_i": "Radiologia"
+    },
+    {
+        "DignitaetCode": "1601",
+        "DignitaetText": "SP Pädiatrische Radiologie",
+        "DignitaetText_f": "FA Radiologie pédiatrique",
+        "DignitaetText_i": "FA Radiologia pediatrica"
+    },
+    {
+        "DignitaetCode": "1700",
+        "DignitaetText": "Tropen- und Reisemedizin",
+        "DignitaetText_f": "Médecine tropicale et médicine des voyages",
+        "DignitaetText_i": "Medicina tropicale"
+    },
+    {
+        "DignitaetCode": "1800",
+        "DignitaetText": "Urologie",
+        "DignitaetText_f": "Urologie",
+        "DignitaetText_i": "Urologia"
+    },
+    {
+        "DignitaetCode": "1801",
+        "DignitaetText": "SP Operative Urologie",
+        "DignitaetText_f": "FA Urologie opératoire",
+        "DignitaetText_i": "FA Urologia operativa"
+    },
+    {
+        "DignitaetCode": "1802",
+        "DignitaetText": "SP Neuro-Urologie",
+        "DignitaetText_f": "FA Neuro-urologie",
+        "DignitaetText_i": "FA Neuro-urologia"
+    },
+    {
+        "DignitaetCode": "1803",
+        "DignitaetText": "SP Urologie der Frau",
+        "DignitaetText_f": "FA Urologie de la femme",
+        "DignitaetText_i": "FA Urologia femminile"
+    },
+    {
+        "DignitaetCode": "1900",
+        "DignitaetText": "Kinderchirurgie",
+        "DignitaetText_f": "Chirurgie pédiatrique",
+        "DignitaetText_i": "Chirurgia pediatrica"
+    },
+    {
+        "DignitaetCode": "1901",
+        "DignitaetText": "SP Spezialisierte Kinderchirurgie (SGKC)",
+        "DignitaetText_f": "FA Chirurgie pédiatrique spécialisée (SSCP)",
+        "DignitaetText_i": "FA Chirurgia pediatrica specialistica (SSCP)"
+    },
+    {
+        "DignitaetCode": "2000",
+        "DignitaetText": "Plastische, Rekonstruktive und Ästhetische Chirurgie",
+        "DignitaetText_f": "Chirurgie plastique, reconstructive et esthétique",
+        "DignitaetText_i": "Chirurgia plastica, ricostruttiva ed estetica"
+    },
+    {
+        "DignitaetCode": "2100",
+        "DignitaetText": "Mund-, Kiefer- und Gesichtschirurgie",
+        "DignitaetText_f": "Chirurgie orale et maxillo-faciale",
+        "DignitaetText_i": "Chirurgia orale e maxillo-facciale"
+    },
+    {
+        "DignitaetCode": "2200",
+        "DignitaetText": "Medizinische Genetik",
+        "DignitaetText_f": "Génétique médicale",
+        "DignitaetText_i": "Genetica medica"
+    },
+    {
+        "DignitaetCode": "2300",
+        "DignitaetText": "SP Wirbelsäulenchirurgie (SGNC und SO)",
+        "DignitaetText_f": "FA Chirurgie de la colonne vertébrale (SSNC et SO)",
+        "DignitaetText_i": "FA Chirurgia della colonna vertebrale (SSNC e SO)"
+    },
+    {
+        "DignitaetCode": "2900",
+        "DignitaetText": "Herz- und thorakale Gefässchirurgie",
+        "DignitaetText_f": "Chirurgie cardiaque, vasculaire et thoracique",
+        "DignitaetText_i": "Chirurgia cardiaca e vascolare toracica"
+    },
+    {
+        "DignitaetCode": "3000",
+        "DignitaetText": "Praktischer Arzt / Praktische Ärztin",
+        "DignitaetText_f": "Médecin praticien",
+        "DignitaetText_i": "Medico generico"
+    },
+    {
+        "DignitaetCode": "3010",
+        "DignitaetText": "Allgemeine Innere Medizin",
+        "DignitaetText_f": "Médecine interne générale",
+        "DignitaetText_i": "Medicina interna generale"
+    },
+    {
+        "DignitaetCode": "3020",
+        "DignitaetText": "Klinische Pharmakologie und Toxikologie",
+        "DignitaetText_f": "Pharmacologie et toxicologie cliniques",
+        "DignitaetText_i": "Farmacologia e tossicologia clinica"
+    },
+    {
+        "DignitaetCode": "4000",
+        "DignitaetText": "Pharmazeutische Medizin",
+        "DignitaetText_f": "Médecine pharmaceutique",
+        "DignitaetText_i": "Medicina farmaceutica"
+    },
+    {
+        "DignitaetCode": "4100",
+        "DignitaetText": "Prävention und Public Health",
+        "DignitaetText_f": "Prévention et santé publique",
+        "DignitaetText_i": "Prevenzione e salute pubblica (Public Health)"
+    },
+    {
+        "DignitaetCode": "4200",
+        "DignitaetText": "Rechtsmedizin",
+        "DignitaetText_f": "Médecine légale",
+        "DignitaetText_i": "Medicina legale"
+    },
+    {
+        "DignitaetCode": "5000",
+        "DignitaetText": "FA Abhängigkeitserkrankungen (SSAM)",
+        "DignitaetText_f": "AFC Médecine de l’addiction (SSAM)",
+        "DignitaetText_i": "AFC Medicina delle dipendenze (SSAM)"
+    },
+    {
+        "DignitaetCode": "5001",
+        "DignitaetText": "FA Endoskopisch Retrograde Cholangio-Pankreatographie ERCP (SGG)",
+        "DignitaetText_f": "AFC Cholangio-pancréatographie endoscopique rétrograde ERCP (SSG)",
+        "DignitaetText_i": "AFC Colangio pancreatografia retrograda endoscopica ERCP (SGG)"
+    },
+    {
+        "DignitaetCode": "5002",
+        "DignitaetText": "FA Praxislabor (KHM)",
+        "DignitaetText_f": "AFC Pratique du laboratoire au cabinet médical (CMPR)",
+        "DignitaetText_i": "AFC Pratica di laboratorio (CMPR)"
+    },
+    {
+        "DignitaetCode": "5003",
+        "DignitaetText": "FA Strahlenschutz in der Kardiologie / pädiatrischen Kardiologie (SGK / SGPK)",
+        "DignitaetText_f": "AFC Radioprotection en cardiologie / cardiologie pédiatrique (SSC / SSCP)",
+        "DignitaetText_i": "AFC Radioprotezione nella cardiologia / cardiologia pediatrica (SSC / SSCP)"
+    },
+    {
+        "DignitaetCode": "5004",
+        "DignitaetText": "FA Strahlenschutz in der Gastroenterologie (SGG)",
+        "DignitaetText_f": "AFC Radioprotection en gastroentérologie (SSG)",
+        "DignitaetText_i": "AFC Radioprotezione nella gastroenterologia (SSG)"
+    },
+    {
+        "DignitaetCode": "5005",
+        "DignitaetText": "FA Strahlenschutz in der Pneumologie (SGP) und in der pädiatrischen Pneumologie (SGPP)",
+        "DignitaetText_f": "AFC Radioprotection en pneumologie (SSP) et en pneumologie pédiatrique (SSPP)",
+        "DignitaetText_i": "AFC Radioprotezione in pneumologia (SSP) e en pneumologia pediatrica (SSPP)"
+    },
+    {
+        "DignitaetCode": "5006",
+        "DignitaetText": "FA Röntgenaufnahmen im niedrigen und mittleren Dosisbereich (KHM)",
+        "DignitaetText_f": "AFC Examens radiologiques dans les domaines des doses faibles et modérées (CMPR)",
+        "DignitaetText_i": "AFC Radiografie in ambito di dose debole e media (KHM)"
+    },
+    {
+        "DignitaetCode": "5007",
+        "DignitaetText": "FA Vertrauensarzt (SGV)",
+        "DignitaetText_f": "AFC Médecin-conseil (SSMC)",
+        "DignitaetText_i": "AFC Medico di fiducia (SSMF)"
+    },
+    {
+        "DignitaetCode": "5010",
+        "DignitaetText": "FA Targeted neonatal echocardiography TNE (SGPK / SGN)",
+        "DignitaetText_f": "AFC Targeted neonatal echocardiography TNE (SSCP / SSN)",
+        "DignitaetText_i": "AFC Targeted neonatal echocardiography TNE (SSCP / SSN)"
+    },
+    {
+        "DignitaetCode": "5011",
+        "DignitaetText": "FA Strahlenschutz in der Chirurgie (SGC)",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie (SSC)",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia (SSC)"
+    },
+    {
+        "DignitaetCode": "5012",
+        "DignitaetText": "FA Strahlenschutz in der Neurochirurgie (SGNC)",
+        "DignitaetText_f": "AFC Radioprotection en neurochirurgie (SSNC)",
+        "DignitaetText_i": "AFC Radioprotezione in neurochirurgia (SSNC)"
+    },
+    {
+        "DignitaetCode": "5013",
+        "DignitaetText": "FA Strahlenschutz Orthopädische Chirurgie und Traumatologie des Bewegungsapparates",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie orthopédique et traumatologie de l’appareil locomoteur",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia ortopedica e traumatologia dell’apparato locomotore"
+    },
+    {
+        "DignitaetCode": "5014",
+        "DignitaetText": "FA Strahlenschutz in der Thoraxchirurgie (SGT)",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie thoracique (SST)",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia toracica (SST)"
+    },
+    {
+        "DignitaetCode": "5015",
+        "DignitaetText": "FA Strahlenschutz in der Kinderchirurgie (SGKC) und Kindernotfallmedizin (PEMS)",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie pédiatrique (SSCP) et en médecine d’urgence pédiatrique (PEMS)",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia pediatrica (SSCP) e nella medicina d’urgenza pediatrica (PEMS)"
+    },
+    {
+        "DignitaetCode": "5016",
+        "DignitaetText": "FA Strahlenschutz in der interventionellen Schmerztherapie (SSIPM)",
+        "DignitaetText_f": "AFC Radioprotection en traitement interventionnel de la douleur (SSIPM)",
+        "DignitaetText_i": "AFC Radioprotezione nella gestione interventistica del dolore (SSIPM)"
+    },
+    {
+        "DignitaetCode": "5017",
+        "DignitaetText": "FA Strahlenschutz in der Handchirurgie (SGH)",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie de la main (SSCM)",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia della mano (SSCM)"
+    },
+    {
+        "DignitaetCode": "8999",
+        "DignitaetText": "FA Manualtherapie I",
+        "DignitaetText_f": "AFC Médecine manuelle I",
+        "DignitaetText_i": "AFC Medicina Manuale I"
+    },
+    {
+        "DignitaetCode": "9900",
+        "DignitaetText": "Allgemeine Medizin",
+        "DignitaetText_f": "Médecine générale",
+        "DignitaetText_i": "Medicina generale"
+    },
+    {
+        "DignitaetCode": "9906",
+        "DignitaetText": "FA Manualtherapie II",
+        "DignitaetText_f": "AFC Médecine manuelle II",
+        "DignitaetText_i": "AFC Medicina Manuale II"
+    },
+    {
+        "DignitaetCode": "9911",
+        "DignitaetText": "FA Interventionelle Schmerztherapie (SSIPM)",
+        "DignitaetText_f": "AFC Traitement interventionnel de la douleur (SSIPM)",
+        "DignitaetText_i": "AFC Terapia intervenzionale del dolore (SSIPM)"
+    },
+    {
+        "DignitaetCode": "9912",
+        "DignitaetText": "SP Interventionelle Schmerztherapie (SSIPM)",
+        "DignitaetText_f": "FA Traitement interventionnel de la douleur (SSIPM)",
+        "DignitaetText_i": "FA Terapia intervenzionale del dolore (SSIPM)"
+    },
+    {
+        "DignitaetCode": "9916",
+        "DignitaetText": "FA Schwangerschaftsultraschall (SGUM)",
+        "DignitaetText_f": "AFC Ultrasonographie prénatale (SSUM)",
+        "DignitaetText_i": "AFC Ecografia prenatale (SSUM)"
+    },
+    {
+        "DignitaetCode": "9918",
+        "DignitaetText": "FA Akupunktur - Chinesische Arzneitherapie - TCM (ASA)",
+        "DignitaetText_f": "AFC Acupuncture et pharmacothérapie chinoise - MTC (ASA)",
+        "DignitaetText_i": "AFC Agopuntura e farmacoterapia cinese - MTC (ASA)"
+    },
+    {
+        "DignitaetCode": "9919",
+        "DignitaetText": "FA Neuraltherapie (SANTH)",
+        "DignitaetText_f": "AFC Thérapie neurale (SMSTN)",
+        "DignitaetText_i": "AFC Terapia neurale (SMSTN)"
+    },
+    {
+        "DignitaetCode": "9920",
+        "DignitaetText": "FA Homöopathie (SVHA)",
+        "DignitaetText_f": "AFC Homéopathie (SSMH)",
+        "DignitaetText_i": "AFC Omeopatia (SSMH)"
+    },
+    {
+        "DignitaetCode": "9921",
+        "DignitaetText": "FA Phytotherapie (SMGP)",
+        "DignitaetText_f": "AFC Phytothérapie (SSPM)",
+        "DignitaetText_i": "AFC Fitoterapia (SSFM)"
+    },
+    {
+        "DignitaetCode": "9922",
+        "DignitaetText": "FA Ärztin oder Arzt für anthroposophisch erweiterte Medizin (VAOAS)",
+        "DignitaetText_f": "AFC Praticien-ne en médecine élargie par l’anthroposophie (VAOAS)",
+        "DignitaetText_i": "AFC Medico in medicina antroposofica ampliata (ASMOA)"
+    },
+    {
+        "DignitaetCode": "9924",
+        "DignitaetText": "FA Zerebrovaskuläre Sonographie (SGKN)",
+        "DignitaetText_f": "AFC Sonographie cérébrovasculaires (SSNC)",
+        "DignitaetText_i": "AFC Malattie cerebrovascolari (SSNC)"
+    },
+    {
+        "DignitaetCode": "9926",
+        "DignitaetText": "FA Schlafmedizin (SGSSC)",
+        "DignitaetText_f": "AFC Médecine du sommeil (SSSSC)",
+        "DignitaetText_i": "AFC Medicina del sonno (SSRSMSC)"
+    },
+    {
+        "DignitaetCode": "9928",
+        "DignitaetText": "FA Tauch- und Hyperbarmedizin (SUHMS)",
+        "DignitaetText_f": "AFC Médecine de plongée et médecine hyperbare (SUHMS)",
+        "DignitaetText_i": "AFC Medicina subacquea e medicina iperbarica (SUHMS)"
+    },
+    {
+        "DignitaetCode": "9929",
+        "DignitaetText": "FA Gastroskopie (SGG)",
+        "DignitaetText_f": "AFC Gastroscopie (SGG)",
+        "DignitaetText_i": "AFC Gastroscopia (SGG)"
+    },
+    {
+        "DignitaetCode": "9931",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Bewegungsapparat",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module appareil locomoteur",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo apparato locomotore"
+    },
+    {
+        "DignitaetCode": "9932",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Gefässe",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module vaisseaux",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo vasi"
+    },
+    {
+        "DignitaetCode": "9933",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Gynäkologie",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module gynécologie",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo ginecologia"
+    },
+    {
+        "DignitaetCode": "9934",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Halsorgane",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module organes de cou",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo organi di collo"
+    },
+    {
+        "DignitaetCode": "9935",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Mammasonographie",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module ultrasonographie mammaire",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo sonografia mammella"
+    },
+    {
+        "DignitaetCode": "9936",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Pädiatrie",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module pédiatrie",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo pediatria"
+    },
+    {
+        "DignitaetCode": "9937",
+        "DignitaetText": "FA Sonographie (SGUM) - Modul Abdomen",
+        "DignitaetText_f": "AFC Ultrasonographie (SSUM) - module abdomen",
+        "DignitaetText_i": "AFC Sonografia (SSUM) - modulo addome"
+    },
+    {
+        "DignitaetCode": "9940",
+        "DignitaetText": "FA Hüftsonographie nach Graf beim Neugeborenen und Säugling (SGUM)",
+        "DignitaetText_f": "AFC Sonographie de la hanche selon Graf chez le nouveau-né et le nourrisson (SSUM)",
+        "DignitaetText_i": "AFC Sonografia dell'anca secondo Graf per i neonati e i lattanti (SSUM)"
+    },
+    {
+        "DignitaetCode": "9941",
+        "DignitaetText": "FA Laserbehandlungen der Haut und hautnahen Schleimhäute (FMCH)",
+        "DignitaetText_f": "AFC Laserthérapie de la peau et des muqueuses orificielles (FMCH)",
+        "DignitaetText_i": "AFC Trattamenti laser della pelle e delle mucose vicine alla pelle (FMCH)"
+    },
+    {
+        "DignitaetCode": "9942",
+        "DignitaetText": "FA Präklinische Notfallmedizin / Notarzt (SGNOR)",
+        "DignitaetText_f": "AFC Médecine d'urgence préhospitalière / médecin d'urgence (SSMUS)",
+        "DignitaetText_i": "AFC Medicina d'emergenza preospedaliera / medico d’urgenza (SSMUS)"
+    },
+    {
+        "DignitaetCode": "9943",
+        "DignitaetText": "SP Klinische Notfallmedizin (SGNOR)",
+        "DignitaetText_f": "FA Médecine d’urgence hospitalière (SSMUS)",
+        "DignitaetText_i": "FA Medicina d’urgenza ospedaliera (SSMUS)"
+    },
+    {
+        "DignitaetCode": "9945",
+        "DignitaetText": "FA Elektroencephalographie (SGKN)",
+        "DignitaetText_f": "AFC Electroencéphalographie (SSNC)",
+        "DignitaetText_i": "AFC Elettroencefalografia (SSNC)"
+    },
+    {
+        "DignitaetCode": "9946",
+        "DignitaetText": "FA Elektroneuromyographie (SGKN)",
+        "DignitaetText_f": "AFC Electroneuromyographie (SSNC)",
+        "DignitaetText_i": "AFC Elettroneuromiografia (SSNC)"
+    },
+    {
+        "DignitaetCode": "9948",
+        "DignitaetText": "FA Interventionelle Angiologie (SGA)",
+        "DignitaetText_f": "AFC Angiologie interventionnelle (SSA)",
+        "DignitaetText_i": "AFC Angiologia interventistica (SSA)"
+    },
+    {
+        "DignitaetCode": "9950",
+        "DignitaetText": "FA Delegierte Psychotherapie (FMPP)",
+        "DignitaetText_f": "AFC Psychothérapie déléguée (FMPP)",
+        "DignitaetText_i": "AFC Psicoterapia delegata (FMPP)"
+    },
+    {
+        "DignitaetCode": "9951",
+        "DignitaetText": "SP Psychosomatische und Psychosoziale Medizin (SAPPM)",
+        "DignitaetText_f": "FA Médecine psychosomatique et psychosociale (ASMPP)",
+        "DignitaetText_i": "FA Medicina psicosomatica e psicosociale (ASPPM)"
+    },
+    {
+        "DignitaetCode": "9952",
+        "DignitaetText": "FA Endovenöse thermische Ablation von Stammvenen bei Varikose (USGG)",
+        "DignitaetText_f": "AFC Ablation thermique endoveineuse de veines saphènes en cas de varices tronculaires (USSMV)",
+        "DignitaetText_i": "AFC Ablazione endovenosa termica della vena grande safena e della vena piccola safena (USSMV)"
+    },
+    {
+        "DignitaetCode": "9955",
+        "DignitaetText": "FA Phlebologie (USGG)",
+        "DignitaetText_f": "AFC Phlébologie (USGG)",
+        "DignitaetText_i": "AFC Flebologia (USSMV)"
+    },
+    {
+        "DignitaetCode": "9956",
+        "DignitaetText": "FA Strahlenschutz in der Angiologie (SGA)",
+        "DignitaetText_f": "AFC Radioprotection en angiologie (SSA)",
+        "DignitaetText_i": "AFC Radioprotezione in angiologia (SSA)"
+    },
+    {
+        "DignitaetCode": "9957",
+        "DignitaetText": "FA Dermatologische Radiotherapie (SGDV)",
+        "DignitaetText_f": "AFC Radiothérapie dermatologique (SSDV)",
+        "DignitaetText_i": "AFC Radioterapia dermatologica (SSDV)"
+    },
+    {
+        "DignitaetCode": "9958",
+        "DignitaetText": "FA Strahlenschutz in der Physikalischen Medizin und Rehabilitation und Rheumatologie (SGPMR / SGR)",
+        "DignitaetText_f": "AFC Radioprotection en médecine physique et réadaptation et en rhumatologie (SSMPR / SSR)",
+        "DignitaetText_i": "AFC Radioprotezione in medicina fisica e riabilitazione e in reumatologia (SSMFR / SSR)"
+    },
+    {
+        "DignitaetCode": "9959",
+        "DignitaetText": "FA Digitale Volumentomographie in der Mund-, Kiefer- und Gesichtschirurgie und Oto-Rhino-Laryngologie (SGMKG / SGORL)",
+        "DignitaetText_f": "AFC Tomographie volumique numérisée en chirurgie orale et maxillo-faciale et en oto-rhino-laryngologie (SSCOMF / SSORL)",
+        "DignitaetText_i": "AFC Tomografia volumetrica digitale in chirurgia oro-maxillo-facciale e in otorinolaringoiatria (SSCOMF / SSORL)"
+    },
+    {
+        "DignitaetCode": "9960",
+        "DignitaetText": "FA Interventionelle Psychiatrie (SGIP)",
+        "DignitaetText_f": "AFC Psychiatrie interventionnelle (SSPI)",
+        "DignitaetText_i": "AFC Psichiatria interventistica (SSPI)"
+    },
+    {
+        "DignitaetCode": "9964",
+        "DignitaetText": "SP Ernährungsmedizin (GESKES)",
+        "DignitaetText_f": "FA Nutrition clinique (SSNC)",
+        "DignitaetText_i": "FA Nutrizione clinica (SSNC)"
+    },
+    {
+        "DignitaetCode": "9965",
+        "DignitaetText": "FA Strahlenschutz in der Herz- und thorakalen Gefässchirurgie (SGHC)",
+        "DignitaetText_f": "AFC Radioprotection en chirurgie cardiaque et vasculaire thoracique (SSCC)",
+        "DignitaetText_i": "AFC Radioprotezione in chirurgia cardiaca e vascolare toracica (SSCC)"
+    },
+    {
+        "DignitaetCode": "9970",
+        "DignitaetText": "SP Neuropädiatrie",
+        "DignitaetText_f": "FA Neuropédiatrie",
+        "DignitaetText_i": "FA Neuropediatria"
+    },
+    {
+        "DignitaetCode": "9971",
+        "DignitaetText": "SP Pädiatrische Endokrinologie-Diabetologie",
+        "DignitaetText_f": "FA Endocrinologie-diabétologie pédiatrique",
+        "DignitaetText_i": "FA Endocrinologia-diabetologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9972",
+        "DignitaetText": "SP Pädiatrische Gastroenterologie, Hepatologie und Ernährung",
+        "DignitaetText_f": "FA Gastroentérologie, hépatologie et nutrition pédiatriques",
+        "DignitaetText_i": "FA Gastroenterologia, epatologia e nutrizione pediatrica"
+    },
+    {
+        "DignitaetCode": "9973",
+        "DignitaetText": "SP Pädiatrische Kardiologie",
+        "DignitaetText_f": "FA Cardiologie pédiatrique",
+        "DignitaetText_i": "FA Cardiologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9974",
+        "DignitaetText": "SP Pädiatrische Nephrologie",
+        "DignitaetText_f": "FA Néphrologie pédiatrique",
+        "DignitaetText_i": "FA Nefrologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9975",
+        "DignitaetText": "SP Pädiatrische Onkologie-Hämatologie",
+        "DignitaetText_f": "FA Onco-hématologie pédiatrique",
+        "DignitaetText_i": "FA Oncologia-ematologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9976",
+        "DignitaetText": "SP Pädiatrische Pneumologie",
+        "DignitaetText_f": "FA Pneumologie pédiatrique",
+        "DignitaetText_i": "FA Pneumologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9977",
+        "DignitaetText": "SP Pädiatrische Rheumatologie",
+        "DignitaetText_f": "FA Rhumatologie pédiatrique",
+        "DignitaetText_i": "FA Reumatologia pediatrica"
+    },
+    {
+        "DignitaetCode": "9978",
+        "DignitaetText": "Gefässchirurgie",
+        "DignitaetText_f": "Chirurgie vasculaire",
+        "DignitaetText_i": "Chirurgia vascolare"
+    },
+    {
+        "DignitaetCode": "9979",
+        "DignitaetText": "Thoraxchirurgie",
+        "DignitaetText_f": "Chirurgie thoracique",
+        "DignitaetText_i": "Chirurgia toracica"
+    },
+    {
+        "DignitaetCode": "9980",
+        "DignitaetText": "SP Manuelle Medizin (SAMM)",
+        "DignitaetText_f": "FA Médecine manuelle (SAMM)",
+        "DignitaetText_i": "FA Medicina manuale (SAMM)"
+    },
+    {
+        "DignitaetCode": "9983",
+        "DignitaetText": "SP Kindernotfallmedizin",
+        "DignitaetText_f": "FA Médecine d'urgence pédiatrique",
+        "DignitaetText_i": "FA Medicina d'urgenza pediatrica"
+    },
+    {
+        "DignitaetCode": "9984",
+        "DignitaetText": "SP Palliativmedizin (palliative ch)",
+        "DignitaetText_f": "FA Médecine palliative (palliative ch)",
+        "DignitaetText_i": "FA Medicina palliativa (palliative ch)"
+    },
+    {
+        "DignitaetCode": "9985",
+        "DignitaetText": "SP Alterspsychiatrie und -psychotherapie",
+        "DignitaetText_f": "FA Psychiatrie et psychothérapie de la personne âgée",
+        "DignitaetText_i": "FA Psichiatria e psicoterapia geriatriche"
+    },
+    {
+        "DignitaetCode": "9986",
+        "DignitaetText": "Arbeitsmedizin",
+        "DignitaetText_f": "Médecine du travail",
+        "DignitaetText_i": "Medicina del lavoro"
+    },
+    {
+        "DignitaetCode": "9987",
+        "DignitaetText": "FA Medizinische Hypnose (SMSH/GHypS)",
+        "DignitaetText_f": "AFC Hypnose médicale (SMSH/SHypS)",
+        "DignitaetText_i": "AFC Ipnosi medica (SMSH/GHypS)"
+    },
+    {
+        "DignitaetCode": "9989",
+        "DignitaetText": "Alle (Konsilium)",
+        "DignitaetText_f": "Toutes les valeurs intrinsèques (consilium)",
+        "DignitaetText_i": "Tutti (consulto)"
+    },
+    {
+        "DignitaetCode": "9990",
+        "DignitaetText": "SP Entwicklungspädiatrie",
+        "DignitaetText_f": "FA Pédiatrie du développement",
+        "DignitaetText_i": "FA Pediatria dello sviluppo"
+    },
+    {
+        "DignitaetCode": "9991",
+        "DignitaetText": "SP Dermatopathologie",
+        "DignitaetText_f": "FA Dermatopathologie",
+        "DignitaetText_i": "FA Dermatopatologia"
+    },
+    {
+        "DignitaetCode": "9992",
+        "DignitaetText": "SP Altersmedizin (Geriatrie)",
+        "DignitaetText_f": "FA Gériatrie",
+        "DignitaetText_i": "FA Geriatria"
+    },
+    {
+        "DignitaetCode": "9993",
+        "DignitaetText": "FA Sportmedizin (SGSM)",
+        "DignitaetText_f": "AFC Médecine du sport (SSMS)",
+        "DignitaetText_i": "AFC Medicina sportiva (SGSM)"
+    },
+    {
+        "DignitaetCode": "9996",
+        "DignitaetText": "FA Point of Care-Ultraschall POCUS (SGUM)",
+        "DignitaetText_f": "AFC Ultrasonographie Point-of-Care - POCUS (SSUM)",
+        "DignitaetText_i": "AFC POCUS point of care ultrasound / ecografia «point of care» (SSUM)"
+    },
+    {
+        "DignitaetCode": "9997",
+        "DignitaetText": "SP Sport- und Bewegungsmedizin (SEMS)",
+        "DignitaetText_f": "FA Médecine du sport et de l’exercice (SEMS)",
+        "DignitaetText_i": "FA Medicina sportiva e dell'esercizio fisico (SEMS)"
+    },
+    {
+        "DignitaetCode": "9998",
+        "DignitaetText": "-",
+        "DignitaetText_f": "-",
+        "DignitaetText_i": "-"
+    },
+    {
+        "DignitaetCode": "9999",
+        "DignitaetText": "Alle",
+        "DignitaetText_f": "Toutes les valeurs intrinsèques",
+        "DignitaetText_i": "Tutti"
+    }
+]

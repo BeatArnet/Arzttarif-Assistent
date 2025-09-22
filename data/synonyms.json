@@ -13,7 +13,10 @@
         "Arztkonsultation",
         "Konsultation beim Arzt",
         "Konsultation durch den Arzt",
-        "erste fünf Minuten"
+        "erste fünf Minuten",
+        "initiale 5 Minuten",
+        "die ersten 5 Minuten",
+        "anfängliche 5 Minuten"
       ],
       "fr": [
         "Consultation médicale",
@@ -25,7 +28,9 @@
         "accueil médical",
         "anamnèse",
         "cinq premières minutes",
-        "5 premières minutes"
+        "5 premières minutes",
+        "5 minutes initiales",
+        "les 5 premières minutes"
       ],
       "it": [
         "Consultazione medica",
@@ -38,7 +43,9 @@
         "Primo contatto medico",
         "Visita dal medico",
         "cinque minuti iniziali",
-        "Primi cinque minuti"
+        "Primi cinque minuti",
+        "5 minuti iniziali",
+        "i primi 5 minuti"
       ]
     }
   },

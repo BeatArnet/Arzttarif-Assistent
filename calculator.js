@@ -1,4 +1,5 @@
 // calculator.js - Vollständige Version (06.05.2025)
+console.info('calculator.js build 2025-09-22T1215 loaded');
 // Arbeitet mit zweistufigem Backend (Mapping-Ansatz). Holt lokale Details zur Anzeige.
 // Mit Mouse Spinner & strukturierter Ausgabe
 
@@ -18,8 +19,15 @@ function loadTranslations(){
 }
 function t(key, lang){
     lang = lang || (typeof currentLang !== 'undefined' ? currentLang : 'de');
-    if(!translations[lang]) lang='de';
-    return (translations[lang] && translations[lang][key]) || translations.de[key] || key;
+    const langMap = translations[lang];
+    const defaultMap = translations.de;
+    if (langMap && Object.prototype.hasOwnProperty.call(langMap, key) && langMap[key] != null) {
+        return langMap[key];
+    }
+    if (defaultMap && Object.prototype.hasOwnProperty.call(defaultMap, key) && defaultMap[key] != null) {
+        return defaultMap[key];
+    }
+    return key;
 }
 
 // ─── 0 · Globale Datencontainer ─────────────────────────────────────────────
@@ -54,8 +62,13 @@ function getHiddenIcdToggleInput(){
 }
 
 function loadSavedIcdToggleMode(){
-    const saved = localStorage.getItem('icdToggleState');
-    return saved === '1' ? 'pauschale' : 'all';
+    try {
+        const saved = localStorage.getItem('icdToggleState');
+        return saved === '1' ? 'pauschale' : 'all';
+    } catch (err) {
+        console.warn('Unable to read icdToggleState from localStorage:', err);
+        return 'all';
+    }
 }
 
 function persistIcdToggleMode(mode){
@@ -99,6 +112,44 @@ function updateSelectedPauschaleDetails(details){
 window.setIcdFilterMode = setIcdFilterMode;
 window.showIcdToggle = showIcdToggle;
 window.updateSelectedPauschaleDetails = updateSelectedPauschaleDetails;
+
+function stripHtml(input) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = input;
+    return tmp.textContent || tmp.innerText || '';
+}
+
+function logFrontendInteraction(eventType, payload = {}) {
+    try {
+        const body = JSON.stringify({
+            eventType,
+            payload,
+            timestamp: Date.now()
+        });
+        const url = '/api/frontend-log';
+        console.debug('[frontend-log]', eventType, payload);
+        if (typeof fetch === 'function') {
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+                keepalive: true
+            }).catch((err) => {
+                console.warn('Unable to send frontend log via fetch:', err);
+            });
+        } else if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+            const ok = navigator.sendBeacon(url, body);
+            if (!ok) {
+                console.warn('navigator.sendBeacon returned false for frontend log');
+            }
+        } else {
+            console.debug('No available transport for frontend log.');
+        }
+    } catch (err) {
+        console.warn('Unable to send frontend log:', err);
+    }
+}
+
 
 // Dynamische Übersetzungen
 const DYN_TEXT = {
@@ -412,18 +463,31 @@ function createInfoLink(code, type) {
 }
 
 function showModal(modalOverlayId, htmlContent) {
+    logFrontendInteraction('modal-open-attempt', { modalOverlayId });
     const modalOverlay = $(modalOverlayId);
     if (!modalOverlay) {
-        console.error(`Modal overlay with ID ${modalOverlayId} not found.`);
+        const message = `Modal overlay with ID ${modalOverlayId} not found.`;
+        console.error(message);
+        logFrontendInteraction('modal-open-failed', { modalOverlayId, reason: 'overlay-not-found' });
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+            window.alert(stripHtml(htmlContent) || 'Information nicht verfuegbar.');
+        }
         return;
     }
     const contentDiv = modalOverlay.querySelector('.info-modal > div[id$="Content"]');
     if (!contentDiv) {
-        console.error(`Content div not found within ${modalOverlayId}.`);
+        const message = `Content div not found within ${modalOverlayId}.`;
+        console.error(message);
+        logFrontendInteraction('modal-open-failed', { modalOverlayId, reason: 'content-not-found' });
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+            window.alert(stripHtml(htmlContent) || 'Information nicht verfuegbar.');
+        }
         return;
     }
     contentDiv.innerHTML = htmlContent;
     modalOverlay.style.display = 'block';
+    console.debug('[modal] opened', modalOverlayId);
+    logFrontendInteraction('modal-open-success', { modalOverlayId });
 
     const modalDialog = modalOverlay.querySelector('.info-modal');
     if (modalDialog) {
@@ -1026,6 +1090,15 @@ async function loadData() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    console.debug('popup instrumentation ready');
+    logFrontendInteraction('frontend-init', { href: window.location.href });
+    loadTranslations().then(() => {
+        try {
+            setIcdFilterMode(icdFilterMode);
+        } catch (err) {
+            console.warn('Unable to apply translations during init:', err);
+        }
+    }).catch((err) => console.error('Failed to load translations:', err));
     mouseSpinnerElement = $('mouseSpinner');
     loadIcdCheckboxState();
     loadData();
@@ -1071,61 +1144,92 @@ document.addEventListener("DOMContentLoaded", () => {
         const link = e.target.closest('a.info-link');
         if (link) {
             e.preventDefault();
-            const code = (link.dataset.code || '').trim();
-            const type = link.dataset.type;
-            let html = '';
-
-            // --- Build HTML content based on link type ---
-            if (type === 'lkn') html = buildLknInfoHtmlFromCode(code);
-            else if (type === 'chapter') html = buildChapterInfoHtml(code);
-            else if (type === 'group') html = buildGroupInfoHtml(code);
-            else if (type === 'diagnosis') html = buildDiagnosisInfoHtmlFromCode(code);
-            else if (type === 'lkn_table' || type === 'icd_table') {
+            try {
+                const code = (link.dataset.code || '').trim();
+                const type = link.dataset.type;
                 const dataContent = link.dataset.content;
-                if (dataContent) {
-                    try {
-                        const jsonData = JSON.parse(dataContent);
-                        html = buildTablePopup(jsonData, code);
-                    } catch (err) {
-                        console.error("Error parsing JSON data for popup: ", err);
-                        html = `<p>Error loading table data.</p>`;
+                console.debug('[info-link] click', { type, code });
+                logFrontendInteraction('info-link-click', {
+                    type,
+                    code,
+                    hasContent: Boolean(dataContent),
+                    contentLength: dataContent ? dataContent.length : 0
+                });
+                let html = '';
+
+                // --- Build HTML content based on link type ---
+                if (type === 'lkn') {
+                    html = buildLknInfoHtmlFromCode(code);
+                } else if (type === 'chapter') {
+                    html = buildChapterInfoHtml(code);
+                } else if (type === 'group') {
+                    html = buildGroupInfoHtml(code);
+                } else if (type === 'diagnosis') {
+                    html = buildDiagnosisInfoHtmlFromCode(code);
+                } else if (type === 'lkn_table' || type === 'icd_table') {
+                    if (dataContent) {
+                        try {
+                            const jsonData = JSON.parse(dataContent);
+                            html = buildTablePopup(jsonData, code);
+                        } catch (err) {
+                            console.error("Error parsing JSON data for popup: ", err);
+                            logFrontendInteraction('info-link-json-error', {
+                                type,
+                                code,
+                                contentLength: dataContent.length,
+                                message: (err && err.message) ? err.message : String(err)
+                            });
+                            html = `<p>Error loading table data.</p>`;
+                        }
+                    } else {
+                        html = `<p>No data available for this table.</p>`;
                     }
                 } else {
-                    html = `<p>No data available for this table.</p>`;
+                    console.warn(`Unknown info-link type: ${type} for code: ${code}`);
+                    logFrontendInteraction('info-link-unknown-type', { type, code });
+                    html = `<p>Information for code ${escapeHtml(code)} (type: ${escapeHtml(type)}) not available.</p>`;
                 }
-            } else {
-                console.warn(`Unknown info-link type: ${type} for code: ${code}`);
-                html = `<p>Information for code ${escapeHtml(code)} (type: ${escapeHtml(type)}) not available.</p>`;
-            }
 
-            // --- Decide which modal to show ---
-            const isInsideModal = e.target.closest('.info-modal');
-            if (isInsideModal) {
-                // If the click is inside any modal, open the nested one
-                showModal('infoModalNestedOverlay', html);
-            } else {
-                // Otherwise, open the first-level detail modal
-                showModal('infoModalDetailOverlay', html);
+                // --- Decide which modal to show ---
+                const isInsideModal = e.target.closest('.info-modal');
+                if (isInsideModal) {
+                    logFrontendInteraction('info-link-open-modal', { target: 'nested', type, code });
+                    // If the click is inside any modal, open the nested one
+                    showModal('infoModalNestedOverlay', html);
+                } else {
+                    logFrontendInteraction('info-link-open-modal', { target: 'detail', type, code });
+                    // Otherwise, open the first-level detail modal
+                    showModal('infoModalDetailOverlay', html);
+                }
+            } catch (handlerError) {
+                console.error('info-link handler failed', handlerError);
+                logFrontendInteraction('info-link-handler-error', { message: (handlerError && handlerError.message) ? handlerError.message : String(handlerError) });
             }
         }
 
         const pLink = e.target.closest('a.pauschale-exp-link');
         if (pLink) {
             e.preventDefault();
-            const code = (pLink.dataset.code || '').trim();
-            // Find the pauschale in evaluatedPauschalenList and show its bedingungs_pruef_html in the detail modal
-            const pauschaleEntry = evaluatedPauschalenList.find(p => String(p.code).toUpperCase() === code.toUpperCase() || String(p.details?.Pauschale).toUpperCase() === code.toUpperCase());
-            if (pauschaleEntry && pauschaleEntry.bedingungs_pruef_html) {
-                let headerHtml = `<h2>${tDyn('condDetails')} (${escapeHtml(code)})</h2>`;
-                // Add overall logic status to the header of the detail modal
-                const logicStatusKey = pauschaleEntry.is_valid_structured ? 'logicOk' : 'logicNotOk';
-                const logicStatusText = tDyn(logicStatusKey);
-                const logicStatusColor = pauschaleEntry.is_valid_structured ? 'var(--accent)' : 'var(--danger)';
-                headerHtml += `<p style="font-weight:bold; color:${logicStatusColor}; margin-top:-10px; margin-bottom:15px;">${escapeHtml(logicStatusText)}</p>`;
+            try {
+                const code = (pLink.dataset.code || '').trim();
+                logFrontendInteraction('pauschale-expansion-click', { code });
+                // Find the pauschale in evaluatedPauschalenList and show its bedingungs_pruef_html in the detail modal
+                const pauschaleEntry = evaluatedPauschalenList.find(p => String(p.code).toUpperCase() === code.toUpperCase() || String(p.details?.Pauschale).toUpperCase() === code.toUpperCase());
+                if (pauschaleEntry && pauschaleEntry.bedingungs_pruef_html) {
+                    let headerHtml = `<h2>${tDyn('condDetails')} (${escapeHtml(code)})</h2>`;
+                    // Add overall logic status to the header of the detail modal
+                    const logicStatusKey = pauschaleEntry.is_valid_structured ? 'logicOk' : 'logicNotOk';
+                    const logicStatusText = tDyn(logicStatusKey);
+                    const logicStatusColor = pauschaleEntry.is_valid_structured ? 'var(--accent)' : 'var(--danger)';
+                    headerHtml += `<p style="font-weight:bold; color:${logicStatusColor}; margin-top:-10px; margin-bottom:15px;">${escapeHtml(logicStatusText)}</p>`;
 
-                showModal('infoModalDetailOverlay', headerHtml + pauschaleEntry.bedingungs_pruef_html);
-            } else {
-                showModal('infoModalDetailOverlay', `<p>Details für Pauschale ${escapeHtml(code)} nicht gefunden oder keine Bedingungs-HTML vorhanden.</p>`);
+                    showModal('infoModalDetailOverlay', headerHtml + pauschaleEntry.bedingungs_pruef_html);
+                } else {
+                    showModal('infoModalDetailOverlay', `<p>Details für Pauschale ${escapeHtml(code)} nicht gefunden oder keine Bedingungs-HTML vorhanden.</p>`);
+                }
+            } catch (handlerError) {
+                console.error('pauschale-exp-link handler failed', handlerError);
+                logFrontendInteraction('pauschale-expansion-error', { message: (handlerError && handlerError.message) ? handlerError.message : String(handlerError) });
             }
         }
     });
@@ -1344,18 +1448,25 @@ async function getBillingAnalysis() {
 // Funktion zum Speichern/Laden des Checkbox-Status
 function saveIcdCheckboxState() {
     const checkbox = $('useIcdCheckbox');
-    if (checkbox) {
-        localStorage.setItem('useIcdRelevance', checkbox.checked);
+    if (!checkbox) return;
+    try {
+        localStorage.setItem('useIcdRelevance', checkbox.checked ? 'true' : 'false');
+    } catch (err) {
+        console.warn('Unable to persist useIcdRelevance in localStorage:', err);
     }
 }
 
 function loadIcdCheckboxState() {
     const checkbox = $('useIcdCheckbox');
-    if (checkbox) {
-        const savedState = localStorage.getItem('useIcdRelevance');
-        checkbox.checked = (savedState === null || savedState === 'true');
-        checkbox.addEventListener('change', saveIcdCheckboxState);
+    if (!checkbox) return;
+    let savedState = null;
+    try {
+        savedState = localStorage.getItem('useIcdRelevance');
+    } catch (err) {
+        console.warn('Unable to read useIcdRelevance from localStorage:', err);
     }
+    checkbox.checked = (savedState === null || savedState === 'true');
+    checkbox.addEventListener('change', saveIcdCheckboxState);
 }
 
 // Generiert den <details> Block für LLM Stufe 1 Ergebnisse
@@ -1778,3 +1889,4 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // Mache die Hauptfunktion global verfügbar
 window.getBillingAnalysis = getBillingAnalysis;
+

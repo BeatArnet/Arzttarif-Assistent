@@ -96,7 +96,8 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         # --- Konfiguration und Pfade ---
         self._config = configparser.ConfigParser()
         try:
-            self._config.read(CONFIG_PATH)
+            # Use utf-8-sig to gracefully handle BOM if present
+            self._config.read(CONFIG_PATH, encoding="utf-8-sig")
         except Exception:
             logging.exception("CONFIG lesen fehlgeschlagen")
 

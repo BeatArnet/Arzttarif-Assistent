@@ -28,7 +28,7 @@ Der "Arzttarif-Assistent" ist eine Webanwendung, die medizinische Leistungstexte
 *   **Backend:** Flask (Python) Anwendung (`server.py`).
 *   **Frontend:** HTML, CSS und Vanilla JavaScript (`index.html`, `calculator.js`).
 *   **Daten:** JSON-Dateien im `./data`-Verzeichnis, die direkt im Git-Repository gespeichert werden.
-*   **KI-Service:** Google Gemini API.
+*   **KI-Service:** Konfigurierbar (z. B. SwissAI/Apertus – OpenAI‑kompatibel, Google Gemini, OpenAI, Ollama‑Gateway).
 
 ## 2. Voraussetzungen
 
@@ -36,7 +36,7 @@ Der "Arzttarif-Assistent" ist eine Webanwendung, die medizinische Leistungstexte
     *   Python (Version 3.9 oder höher)
     *   `pip` (Python Package Installer)
     *   Git
-    *   Ein Google Gemini API Key
+    *   Ein API‑Key für den gewünschten LLM‑Provider (z. B. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `APERTUS_API_KEY`).
 *   **Für Deployment:**
     *   Ein Git-Hosting-Konto (z.B. GitHub).
     *   Ein Hosting-Anbieter-Konto (z.B. Render.com).
@@ -73,33 +73,32 @@ Embedding-Suche sinkt der Bedarf auf rund 10 000 Tokens pro Anfrage.
 
 **3.5. Synonymverwaltung aktualisieren (optional)**
 Um Synonyme zu erweitern oder neu zu generieren, steht das Paket im
-Verzeichnis `synonyms/` zur Verfügung. Starte das GUI mit
-`python synonyms/synonyms.py` oder verwende die Kommandozeile:
+Verzeichnis `synonyms/` zur Verfügung. Starte den GUI‑Editor mit:
 ```bash
-python -m synonyms.cli generate --output data/synonyms.json
+python -m synonyms
 ```
-Nach Änderungen muss der Server neu gestartet und gegebenenfalls die
+Nach Änderungen muss der Server neu gestartet und – falls der RAG‑Modus aktiv ist – die
 Embeddings neu erstellt werden.
 
 **3.6. Umgebungsvariablen konfigurieren**
-Erstelle eine Datei namens `.env` im Projektstammverzeichnis (diese Datei wird durch `.gitignore` ignoriert).
-Inhalt der `.env`-Datei:
+Erstelle eine Datei namens `.env` im Projektstammverzeichnis (diese Datei wird durch `.gitignore` ignoriert). Typische Variablen:
 ```env
-SYNONYM_LLM_API_KEY="DEIN_API_KEY"
-SYNONYM_LLM_MODEL="DEIN_MODELL"
-GITHUB_TOKEN="DEIN_GITHUB_TOKEN"
+# LLM-Provider (nur die benötigten setzen)
+GEMINI_API_KEY="..."
+OPENAI_API_KEY="..."
+APERTUS_API_KEY="..."
+APERTUS_BASE_URL="https://api.publicai.co/v1"    # optional, falls abweichend
+OLLAMA_BASE_URL="http://localhost:11434/v1"      # optional für OpenAI-kompatibles Gateway
+
+# Synonym-Generator (falls externer Provider genutzt werden soll)
+SYNONYM_LLM_API_KEY="..."
+SYNONYM_LLM_MODEL="gemini-2.5-flash"
+
+# Optional: Feedback → GitHub-Issues
+GITHUB_TOKEN="..."
 GITHUB_REPO="USER/REPO"
 ```
-Ersetze `DEIN_API_KEY` und `DEIN_MODELL` durch deine Werte. Die Verwendung des LLMs wird in
-`config.ini` über `llm_provider` und `llm_model` (Abschnitt `[SYNONYMS]`)
-gesteuert. Standardmässig ist ein lokaler Ollama‑Server mit dem Modell
-`gpt-oss-20b` konfiguriert. Für Gemini setze `llm_provider = gemini` und
-hinterlege den API‑Schlüssel in `SYNONYM_LLM_API_KEY`. Bei Bedarf kann die Ollama‑Adresse über
-`OLLAMA_URL` in der `.env` überschrieben werden. Wenn du Feedback automatisch als
-GitHub-Issue erfassen möchtest, musst du zusätzlich `GITHUB_TOKEN` und
-`GITHUB_REPO` setzen. `GITHUB_REPO` sollte im Format
-`benutzername/repository` angegeben werden. **Der bereitgestellte Token läuft am
-19.07.2026 ab.**
+Die Zuordnung des LLMs erfolgt in `config.ini` unter `[LLM1UND2]` über `stage1_provider/_model` und `stage2_provider/_model`. Für den Synonym‑Editor wird der Provider in `[SYNONYMS]` festgelegt (`llm_provider`, `llm_model`).
 
 **3.7. Anwendung lokal starten**
 ```bash
@@ -132,7 +131,7 @@ Tokenverbrauch pro Konfiguration zurück in die JSON.
 2.  **Build Command:** `pip install -r requirements.txt`
 3.  **Start Command:** `gunicorn server:app --timeout 120`
 4.  **Instance Type:** Wähle einen passenden Plan. **Wichtig:** Aufgrund des RAM-Bedarfs der Daten (>512 MB) ist mindestens der **"Standard"**-Plan erforderlich.
-5.  **Environment Variables:** Füge eine Umgebungsvariable `GEMINI_API_KEY` mit deinem API-Schlüssel hinzu.
+5.  **Environment Variables:** Füge den API‑Key des gewählten Providers (z. B. `APERTUS_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) hinzu und passe `config.ini` an.
 
 **4.3. Deployment**
 Nach dem Erstellen des Services deployt Render automatisch. Die öffentliche URL wird im Dashboard angezeigt.
