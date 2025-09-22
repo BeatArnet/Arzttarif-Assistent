@@ -8,6 +8,10 @@ from regelpruefer_pauschale import (
     determine_applicable_pauschale,
 )
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+with open(ROOT / "data/PAUSCHALEN_Pauschalen.json", encoding="utf-8") as f:
+    PAUSCHALEN_MAP = {item["Pauschale"]: item for item in json.load(f)}
+
 class TestPauschaleLogic(unittest.TestCase):
     def test_c00_10a_requires_operation_and_anesthesia(self):
         """Real data for C00.10A should not match without a C00.70_11/12 code."""
@@ -27,7 +31,7 @@ class TestPauschaleLogic(unittest.TestCase):
 
         self.assertFalse(
             evaluate_pauschale_logic_orchestrator(
-                pauschale_code="C00.10A", context=context, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict
+                pauschale_code="C00.10A", context=context, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP
             )
         )
 
@@ -49,7 +53,137 @@ class TestPauschaleLogic(unittest.TestCase):
 
         self.assertFalse(
             evaluate_pauschale_logic_orchestrator(
-                pauschale_code="C03.26D", context=context, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict
+                pauschale_code="C03.26D", context=context, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP
+            )
+        )
+
+    def test_c06_00a_ast_or_logic(self):
+        """C06.00A should honour OR-chains via AST connectors."""
+        root = pathlib.Path(__file__).resolve().parents[1]
+        with open(root / "data/PAUSCHALEN_Bedingungen.json", encoding="utf-8") as f:
+            bedingungen = json.load(f)
+        with open(root / "data/PAUSCHALEN_Tabellen.json", encoding="utf-8") as f:
+            tabellen = json.load(f)
+
+        tab_dict = {}
+        for row in tabellen:
+            name = row.get("Tabelle")
+            if name:
+                tab_dict.setdefault(str(name).lower(), []).append(row)
+
+        context_valid = {
+            "ICD": ["K35.32"],
+            "LKN": ["C06.CE.0010"],
+            "useIcd": True,
+        }
+
+        self.assertTrue(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C06.00A",
+                context=context_valid,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP,
+            )
+        )
+
+        context_missing_icd = {
+            "ICD": [],
+            "LKN": ["C06.CE.0010"],
+            "useIcd": True,
+        }
+
+        self.assertFalse(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C06.00A",
+                context=context_missing_icd,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP,
+            )
+        )
+
+        context_icd_optional = {
+            "ICD": [],
+            "LKN": ["C06.CE.0010"],
+            "useIcd": False,
+        }
+
+        self.assertTrue(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C06.00A",
+                context=context_icd_optional,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP,
+            )
+        )
+
+    def test_c11_50b_requires_icd_even_if_disabled(self):
+        """C11.50B should not match when only anesthesia and reduction LKNs are present without ICDs."""
+        root = pathlib.Path(__file__).resolve().parents[1]
+        with open(root / "data/PAUSCHALEN_Bedingungen.json", encoding="utf-8") as f:
+            bedingungen = json.load(f)
+        with open(root / "data/PAUSCHALEN_Tabellen.json", encoding="utf-8") as f:
+            tabellen = json.load(f)
+
+        tab_dict = {}
+        for row in tabellen:
+            name = row.get("Tabelle")
+            if name:
+                tab_dict.setdefault(str(name).lower(), []).append(row)
+
+        context_no_icd = {
+            "ICD": [],
+            "LKN": ["C08.GD.0030", "WA.10.0010"],
+            "useIcd": False,
+        }
+
+        self.assertFalse(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C11.50B",
+                context=context_no_icd,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict,
+                pauschalen_dict=PAUSCHALEN_MAP,
+            )
+        )
+
+
+    def test_c08_50a_selected_for_jaw_dislocation(self):
+        """C08.50A should match jaw luxation scenarios while C11.51B should not."""
+        root = pathlib.Path(__file__).resolve().parents[1]
+        with open(root / "data/PAUSCHALEN_Bedingungen.json", encoding="utf-8") as f:
+            bedingungen = json.load(f)
+        with open(root / "data/PAUSCHALEN_Tabellen.json", encoding="utf-8") as f:
+            tabellen = json.load(f)
+
+        tab_dict = {}
+        for row in tabellen:
+            name = row.get("Tabelle")
+            if name:
+                tab_dict.setdefault(str(name).lower(), []).append(row)
+
+        context_valid = {
+            "ICD": ["S03.0"],
+            "LKN": ["C03.AH.0010", "WA.10.0010"],
+            "useIcd": True,
+        }
+
+        self.assertTrue(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C08.50A",
+                context=context_valid,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict,
+                pauschalen_dict=PAUSCHALEN_MAP,
+            )
+        )
+
+        self.assertFalse(
+            evaluate_pauschale_logic_orchestrator(
+                pauschale_code="C11.51B",
+                context=context_valid,
+                all_pauschale_bedingungen_data=bedingungen,
+                tabellen_dict_by_table=tab_dict,
+                pauschalen_dict=PAUSCHALEN_MAP,
             )
         )
 
@@ -74,7 +208,7 @@ class TestPauschaleLogic(unittest.TestCase):
 
         self.assertTrue(
             evaluate_pauschale_logic_orchestrator(
-                pauschale_code="C04.51B", context=context_ok, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, debug=True
+                pauschale_code="C04.51B", context=context_ok, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP, debug=True
             )
         )
 
@@ -83,7 +217,7 @@ class TestPauschaleLogic(unittest.TestCase):
             "LKN": ["C04.GC.0020", "C04.GC.Z005"], # Lavage C04.GC.Z001 is missing
         }
         self.assertTrue(
-            evaluate_pauschale_logic_orchestrator(pauschale_code="C04.51B", context=context_missing_lavage, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, debug=True)
+            evaluate_pauschale_logic_orchestrator(pauschale_code="C04.51B", context=context_missing_lavage, all_pauschale_bedingungen_data=bedingungen, tabellen_dict_by_table=tab_dict, pauschalen_dict=PAUSCHALEN_MAP, debug=True)
         )
 
     def test_score_based_selection(self):

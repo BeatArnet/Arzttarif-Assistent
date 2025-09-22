@@ -1,0 +1,315 @@
+{
+  "1": {
+    "query": {
+      "de": "Hausärztliche Konsultation von 17 Minuten",
+      "fr": "Consultation du médecin de famille de 17 minutes",
+      "it": "Consultazione del medico di famiglia di 17 minuti"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "CA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "CA.00.0020",
+          "qty": 12
+        }
+      ]
+    },
+    "current": {}
+  },
+  "2": {
+    "query": {
+      "de": "Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie",
+      "fr": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes); temps de changement, salle traitement dermatologique",
+      "it": "Consulenza di 10 minuti e rimozione della verruca con cucchiaio affilato in 5 minuti, con tempo di attesa per la dermatologia"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "AA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "AA.00.0020",
+          "qty": 5
+        },
+        {
+          "code": "MK.05.0070",
+          "qty": 5
+        },
+        {
+          "code": "AR.00.0030",
+          "qty": 1
+        }
+      ]
+    },
+    "current": {}
+  },
+  "3": {
+    "query": {
+      "de": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
+      "fr": "Consultation de 25 minutes, examen rhumatologique complet",
+      "it": "Consultazione medica di 25 minuti, grande esame reumatologico"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "AA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "AA.00.0020",
+          "qty": 15
+        },
+        {
+          "code": "KF.05.0050",
+          "qty": 1
+        }
+      ]
+    },
+    "current": {}
+  },
+  "4": {
+    "query": {
+      "de": "Konsultation 15 Minuten",
+      "fr": "Consultation médicale de 15 minutes",
+      "it": "Consultazione medica di 15 minuti"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "AA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "AA.00.0020",
+          "qty": 10
+        }
+      ]
+    },
+    "current": {}
+  },
+  "5": {
+    "query": {
+      "de": "Hausärztliche Konsultation von 25 Minuten",
+      "fr": "Consultation du médecin de famille de 25 minutes",
+      "it": "Consultazione del medico di famiglia di 25 minuti"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "CA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "CA.00.0020",
+          "qty": 15
+        }
+      ]
+    },
+    "current": {}
+  },
+  "6": {
+    "query": {
+      "de": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung; Kind 8 jährig",
+      "fr": "Consultation du médecin de famille 15 min; plus 10 min de conseil; supplement enfant de 8 ans",
+      "it": "Consultazione del medico di base 15 minuti più 10 minuti di consulenza; supplemento per bambini di 8 anni"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "CA.00.0010",
+          "qty": 1
+        },
+        {
+          "code": "CA.00.0020",
+          "qty": 10
+        },
+        {
+          "code": "CA.00.0030",
+          "qty": 10
+        },
+        {
+          "code": "CG.15.0010",
+          "qty": 1
+        }
+      ]
+    },
+    "current": {}
+  },
+  "7": {
+    "query": {
+      "de": "Kiefergelenk, Luxation. Geschlossene Reposition",
+      "fr": "Articulation temporo-mandibulaire, luxation, réduction fermée",
+      "it": "Articolazione temporo-mandibolare, lussazione, riduzione a cielo chiuso"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.50E",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "8": {
+    "query": {
+      "de": "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin",
+      "fr": "Articulation temporo-mandibulaire, luxation, réduction fermée avec anesthésie réalisée par l'anesthésiste",
+      "it": "Articolazione temporo-mandibolare, lussazione, riduzione a cielo chiuso con anestesia eseguita dall'anestesista"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.50A",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "9": {
+    "query": {
+      "de": "Aufklärung des Patienten und Leberbiopsie durch die Haut",
+      "fr": "Information du patient et biopsie hépatique percutanée",
+      "it": "Spiegazione al paziente e biopsia epatica percutanea"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C07.50Z",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "10": {
+    "query": {
+      "de": "Blinddarmentfernung",
+      "fr": "Appendicectomie",
+      "it": "Appendicectomia"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C06.00A",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "11": {
+    "query": {
+      "de": "Korrekturop eines Hallux valgus rechts",
+      "fr": "Correction d'un hallux valgus droit",
+      "it": "Osteotomia di alluce valgo destro"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.43A",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "12": {
+    "query": {
+      "de": "Bronchoskopie mit Lavage",
+      "fr": "Bronchoscopie avec lavage",
+      "it": "Broncoscopia con lavaggio"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C04.51B",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "13": {
+    "query": {
+      "de": "Rechtsherzkatheter",
+      "fr": "Cathétérisme cardiaque droite",
+      "it": "Cateterismo cardiaco destra"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C05.10B",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "14": {
+    "query": {
+      "de": "Fingerfraktur, Nagelung",
+      "fr": "Fracture du doigt, enclouage",
+      "it": "Frattura del dito, chiodaggio"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.30F",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "15": {
+    "query": {
+      "de": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
+      "fr": "Fracture du doigt, enclouage avec anesthésie par un anesthésiste",
+      "it": "Frattura delle dita, chiodatura con anestesia praticata da un'anestesista"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.30E",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "16": {
+    "query": {
+      "de": "Implantation Hypoglossusstimulator",
+      "fr": "Implantation stimulateur du nerf hypoglosse",
+      "it": "Impianto stimolatore del nervo ipoglosso"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C01.05B",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "17": {
+    "query": {
+      "de": "Diabetes Betreuung MPK 20 Minuten",
+      "fr": "Suivi du diabète CMA 20 minutes",
+      "it": "Cura del diabete CMA 20 minuti"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "AK.05.0020",
+          "qty": 20
+        }
+      ]
+    },
+    "current": {}
+  }
+}

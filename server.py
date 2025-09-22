@@ -6,7 +6,7 @@ import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Union
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Union, cast
 
 if TYPE_CHECKING:
     from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
@@ -130,6 +130,11 @@ else:
 
         def abort(code: int) -> None:
             raise Exception(f"abort {code}")
+
+# Typing alias for chat message param to satisfy static analyzers
+from typing import TypeAlias
+
+_MsgParam: TypeAlias = Dict[str, Any]
 try:
     import requests
     RequestsHTTPError = requests.exceptions.HTTPError
@@ -184,10 +189,11 @@ from utils import (
 from synonyms.expander import expand_query, set_synonyms_enabled
 from synonyms import storage
 from synonyms.models import SynonymCatalog
-from openai_wrapper import chat_completion_safe
+from openai_wrapper import chat_completion_safe, enforce_llm_min_interval, ChatCompletionMessageParam
 import configparser
 
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 
 # Configure logging
@@ -253,7 +259,8 @@ def _get_base_url(provider: str) -> Optional[str]:
 # Lese optionale Einstellungen aus config.ini
 config = configparser.ConfigParser()
 config_file = Path(__file__).with_name("config.ini")
-config.read(config_file, encoding='utf-8')
+# Nutze utf-8-sig, um ein evtl. vorhandenes BOM (\ufeff) robust zu behandeln
+config.read(config_file, encoding='utf-8-sig')
 
 
 def _get_stage_settings(stage: str) -> tuple[str, str]:
@@ -284,6 +291,8 @@ if LOG_LEVEL not in logging._nameToLevel:
 LOG_INPUT_TEXT = config.getint('LOGGING', 'input_text', fallback=1) == 1
 LOG_TOKENS = config.getint('LOGGING', 'tokens', fallback=1) == 1
 LOG_OUTPUT_TEXT = config.getint('LOGGING', 'output_text', fallback=1) == 1
+# Neu: Immer Rohantwort loggen (1) vs. nur bei Fehler (0)
+LOG_RAW_OUTPUT_ALWAYS = config.getint('LOGGING', 'raw_output_always', fallback=0) == 1
 LOG_S1_PARSED_JSON_INITIAL = config.getint('LOGGING', 's1_parsed_json_initial', fallback=1) == 1
 LOG_S1_PARSED_JSON_BEFORE_VALIDATION = (
     config.getint('LOGGING', 's1_parsed_json_before_validation', fallback=1) == 1
@@ -323,6 +332,46 @@ else:
     detail_handler.setLevel(level)
     detail_logger.setLevel(level)
 
+# Optional: Dateibasiertes Logging (RotatingFileHandler) per config.ini
+try:
+    LOG_FILE_ENABLED = config.getint('LOGGING', 'file_enabled', fallback=0) == 1
+except Exception:
+    LOG_FILE_ENABLED = False
+LOG_FILE_PATH = config.get('LOGGING', 'file_path', fallback='')
+try:
+    LOG_FILE_MAX_BYTES = max(0, config.getint('LOGGING', 'file_max_bytes', fallback=1048576))
+except Exception:
+    LOG_FILE_MAX_BYTES = 1048576
+try:
+    LOG_FILE_BACKUP_COUNT = max(0, config.getint('LOGGING', 'file_backup_count', fallback=5))
+except Exception:
+    LOG_FILE_BACKUP_COUNT = 5
+LOG_FILE_LEVEL_NAME = config.get('LOGGING', 'file_level', fallback=LOG_LEVEL).upper()
+LOG_FILE_LEVEL = logging._nameToLevel.get(LOG_FILE_LEVEL_NAME, level)
+
+if LOG_FILE_ENABLED and LOG_FILE_PATH:
+    try:
+        log_path = Path(LOG_FILE_PATH)
+        if log_path.parent and not log_path.parent.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            LOG_FILE_PATH,
+            maxBytes=LOG_FILE_MAX_BYTES,
+            backupCount=LOG_FILE_BACKUP_COUNT,
+            encoding='utf-8',
+        )
+        file_handler.setLevel(LOG_FILE_LEVEL)
+        file_handler.setFormatter(formatter)
+        # An Root-Logger anhängen
+        root_logger.addHandler(file_handler)
+        # Auch Detail-Logger schreibt in Datei
+        detail_logger.addHandler(file_handler)
+    except Exception as _file_log_exc:
+        try:
+            logger.warning("Dateilogs konnten nicht initialisiert werden: %s", _file_log_exc)
+        except Exception:
+            pass
+
 # Ensure that Werkzeug's startup messages (including the server URLs) are
 # always visible so users know where to access the HTML GUI. We attach a
 # dedicated handler and disable propagation to prevent these logs from being
@@ -333,6 +382,21 @@ werkzeug_handler = SafeEncodingStreamHandler(sys.stdout)
 werkzeug_handler.setFormatter(formatter)
 werkzeug_logger.addHandler(werkzeug_handler)
 werkzeug_logger.propagate = False
+
+# Falls Dateilogs aktiv sind, auch Werkzeug-Logs in Datei schreiben
+if LOG_FILE_ENABLED and LOG_FILE_PATH:
+    try:
+        werkzeug_file_handler = RotatingFileHandler(
+            LOG_FILE_PATH,
+            maxBytes=LOG_FILE_MAX_BYTES,
+            backupCount=LOG_FILE_BACKUP_COUNT,
+            encoding='utf-8',
+        )
+        werkzeug_file_handler.setLevel(LOG_FILE_LEVEL)
+        werkzeug_file_handler.setFormatter(formatter)
+        werkzeug_logger.addHandler(werkzeug_file_handler)
+    except Exception:
+        pass
 
 USE_RAG = config.getint('RAG', 'enabled', fallback=0) == 1
 APP_VERSION = config.get('APP', 'version', fallback='unknown')
@@ -398,15 +462,90 @@ BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
 BEISPIELE_PATH = DATA_DIR / "beispiele.json"
 CHOP_PATH = DATA_DIR / "CHOP_Katalog.json"
 
+# OpenAI-kompatible API-Settings (Apertus, OpenAI, Ollama-OAI)
+try:
+    OPENAI_TIMEOUT = config.getint('OPENAI', 'timeout', fallback=120)
+except Exception:
+    OPENAI_TIMEOUT = 120
+try:
+    OPENAI_MAX_OUTPUT_TOKENS = config.getint('OPENAI', 'max_output_tokens', fallback=800)
+except Exception:
+    OPENAI_MAX_OUTPUT_TOKENS = 2000
+try:
+    OPENAI_MAX_OUTPUT_TOKENS_APERTUS = config.getint('OPENAI', 'max_output_tokens_apertus', fallback=OPENAI_MAX_OUTPUT_TOKENS)
+except Exception:
+    OPENAI_MAX_OUTPUT_TOKENS_APERTUS = OPENAI_MAX_OUTPUT_TOKENS
+try:
+    OPENAI_TOKEN_BUDGET_DEFAULT = config.getint('OPENAI', 'token_budget_default', fallback=6000)
+except Exception:
+    OPENAI_TOKEN_BUDGET_DEFAULT = 6000
+try:
+    OPENAI_TOKEN_BUDGET_APERTUS = config.getint('OPENAI', 'token_budget_apertus', fallback=4000)
+except Exception:
+    OPENAI_TOKEN_BUDGET_APERTUS = 4000
+try:
+    OPENAI_TRIM_APERTUS_ENABLED = config.getint('OPENAI', 'trim_apertus_enabled', fallback=1) == 1
+except Exception:
+    OPENAI_TRIM_APERTUS_ENABLED = True
+try:
+    OPENAI_TRIM_MAX_PASSES = config.getint('OPENAI', 'trim_max_passes', fallback=3)
+except Exception:
+    OPENAI_TRIM_MAX_PASSES = 3
+try:
+    OPENAI_TRIM_MIN_CONTEXT_CHARS = config.getint('OPENAI', 'trim_min_context_chars', fallback=2000)
+except Exception:
+    OPENAI_TRIM_MIN_CONTEXT_CHARS = 2000
+
+# Anzahl Wiederholungsversuche bei Serverfehlern (HTTP 5xx) für OpenAI-kompatible Aufrufe
+try:
+    OPENAI_SERVER_ERROR_MAX_RETRIES = max(0, config.getint('OPENAI', 'server_error_max_retries', fallback=1))
+except Exception:
+    OPENAI_SERVER_ERROR_MAX_RETRIES = 1
+try:
+    OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS = max(0.0, config.getfloat('OPENAI', 'server_error_retry_delay_seconds', fallback=1.0))
+except Exception:
+    OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS = 1.0
+
+# Kontext-Steuerung zur Reduktion des Eingabekontextes
+CONTEXT_INCLUDE_MED_INTERPRETATION = config.getint('CONTEXT', 'include_med_interpretation', fallback=1) == 1
+CONTEXT_INCLUDE_TYP = config.getint('CONTEXT', 'include_typ', fallback=1) == 1
+CONTEXT_INCLUDE_BESCHREIBUNG = config.getint('CONTEXT', 'include_beschreibung', fallback=1) == 1
+try:
+    CONTEXT_MAX_ITEMS = max(0, config.getint('CONTEXT', 'max_context_items', fallback=0))
+except Exception:
+    CONTEXT_MAX_ITEMS = 0
+_force_codes_raw = config.get('CONTEXT', 'force_include_codes', fallback='')
+CONTEXT_FORCE_INCLUDE_CODES: List[str] = [c.strip().upper() for c in _force_codes_raw.split(',') if c.strip()] if _force_codes_raw else []
+
 # Retry configuration for Gemini API calls
 # Bei HTTP 429 (Rate Limit) wird nach dem Exponential-Backoff-Schema erneut
 # versucht. Die Wartezeit berechnet sich als GEMINI_BACKOFF_SECONDS * (2**Versuch).
-GEMINI_MAX_RETRIES = 3
-GEMINI_BACKOFF_SECONDS = 1.0
+try:
+    GEMINI_MAX_RETRIES = max(1, config.getint('GEMINI', 'server_error_max_retries', fallback=3))
+except Exception:
+    GEMINI_MAX_RETRIES = 3
+try:
+    GEMINI_BACKOFF_SECONDS = max(0.0, config.getfloat('GEMINI', 'server_error_backoff_seconds', fallback=1.0))
+except Exception:
+    GEMINI_BACKOFF_SECONDS = 1.0
 # Einheitlicher Timeout für Gemini-API-Aufrufe (in Sekunden)
 GEMINI_TIMEOUT = 120
 
 # --- Typ-Aliase für Klarheit ---
+# Optionales Prompt-Trimmen für Gemini konfigurierbar machen
+try:
+    GEMINI_TRIM_ENABLED = config.getint('GEMINI', 'trim_enabled', fallback=0) == 1
+except Exception:
+    GEMINI_TRIM_ENABLED = False
+try:
+    GEMINI_TOKEN_BUDGET = config.getint('GEMINI', 'token_budget', fallback=8000)
+except Exception:
+    GEMINI_TOKEN_BUDGET = 8000
+try:
+    GEMINI_TRIM_MIN_CONTEXT_CHARS = config.getint('GEMINI', 'trim_min_context_chars', fallback=1000)
+except Exception:
+    GEMINI_TRIM_MIN_CONTEXT_CHARS = 1000
+ 
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
 CheckPauschaleConditionsType = Callable[
     [str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]],
@@ -675,7 +814,7 @@ def load_data() -> bool:
                                 if normalized_key not in tabellen_dict_by_table:
                                     tabellen_dict_by_table[normalized_key] = []
                                 tabellen_dict_by_table[normalized_key].append(item)
-                    logger.info("  ✓ Tabellen-Daten gruppiert nach Tabelle (%s Tabellen).", len(tabellen_dict_by_table))
+                    logger.info("  Tabellen-Daten gruppiert nach Tabelle (%s Tabellen).", len(tabellen_dict_by_table))
                     missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz', 'anast', 'c08.50']
                     not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
                     if not_found_keys_check:
@@ -695,7 +834,7 @@ def load_data() -> bool:
         global baseline_results
         with open(BASELINE_RESULTS_PATH, 'r', encoding='utf-8') as f:
             baseline_results = json.load(f)
-        logger.info("  ✓ Baseline-Ergebnisse geladen (%s Beispiele.)", len(baseline_results))
+        logger.info("  Baseline-Ergebnisse geladen (%s Beispiele.)", len(baseline_results))
     except Exception as e:
         logger.warning("  WARNUNG: Baseline-Resultate konnten nicht geladen werden: %s", e)
         baseline_results = {}
@@ -703,7 +842,7 @@ def load_data() -> bool:
         global examples_data
         with open(BEISPIELE_PATH, 'r', encoding='utf-8') as f:
             examples_data = json.load(f)
-        logger.info("  ✓ Beispiel-Daten geladen (%s Einträge.)", len(examples_data))
+        logger.info("  Beispiel-Daten geladen (%s Einträge.)", len(examples_data))
     except Exception as e:
         logger.warning("  WARNUNG: Beispiel-Daten konnten nicht geladen werden: %s", e)
         examples_data = []
@@ -715,14 +854,14 @@ def load_data() -> bool:
             rules = info.get("Regeln")
             if rules:
                 regelwerk_dict[lkn] = rules
-        logger.info("  ✓ Regelwerk aus TARDOC geladen (%s LKNs mit Regeln).", len(regelwerk_dict))
+        logger.info("  Regelwerk aus TARDOC geladen (%s LKNs mit Regeln).", len(regelwerk_dict))
     except Exception as e:
         logger.error("  FEHLER beim Extrahieren des Regelwerks aus TARDOC: %s", e)
         traceback.print_exc(); regelwerk_dict.clear(); all_loaded_successfully = False
 
     # Compute document frequencies for ranking
     compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
-    logger.info("  ✓ Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
+    logger.info("  Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
 
     global full_catalog_token_count
     if not USE_RAG:
@@ -748,7 +887,7 @@ def load_data() -> bool:
                 context_line += f", MedizinischeInterpretation: {mi_joined}"
             total_tokens += count_tokens(context_line)
         full_catalog_token_count = total_tokens
-        logger.info("  ✓ Vollständiger Katalog-Kontext enthält %s Tokens.", full_catalog_token_count)
+        logger.info("  Vollständiger Katalog-Kontext enthält %s Tokens.", full_catalog_token_count)
 
     # NEU: Indexiere und sortiere Pauschalbedingungen
     if pauschale_bedingungen_data and all_loaded_successfully:
@@ -782,7 +921,7 @@ def load_data() -> bool:
             )
             pauschale_bedingungen_indexed[pauschale_code_key] = conditions_list
 
-        logger.info("  ✓ Pauschalbedingungen indiziert und sortiert (%s Pauschalen mit Bedingungen).", len(pauschale_bedingungen_indexed))
+        logger.info("  Pauschalbedingungen indiziert und sortiert (%s Pauschalen mit Bedingungen).", len(pauschale_bedingungen_indexed))
         # Optional: Logge ein Beispiel, um die Sortierung zu prüfen
         # if "C01.05B" in pauschale_bedingungen_indexed and logger.isEnabledFor(logging.DEBUG):
         #     logger.debug("DEBUG: Sortierte Bedingungen für C01.05B (erste 5): %s", pauschale_bedingungen_indexed["C01.05B"][:5])
@@ -850,6 +989,49 @@ def call_gemini_stage1(
         )
     prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts (häufige Ursache für 5xx bei Gateways)
+    TOKEN_BUDGET = 8000  # konservativ für OpenAI‑kompatible Clones
+    if prompt_tokens > TOKEN_BUDGET:
+        try:
+            # Schätze Kürzungsfaktor basierend auf Token‑Budget
+            ratio = max(0.2, TOKEN_BUDGET / max(1, float(prompt_tokens)))
+            new_len = max(1000, int(len(katalog_context) * ratio))
+            trimmed_context = katalog_context[:new_len]
+            prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+            prompt_tokens = count_tokens(prompt)
+            logger.warning(
+                "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (%s Tokens).",
+                prompt_tokens,
+                new_len,
+                prompt_tokens,
+            )
+        except Exception:
+            # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+            pass
+    # Falls Trimmen per Konfiguration deaktiviert ist, ggf. Original-Kontext wiederherstellen
+    try:
+        if not GEMINI_TRIM_ENABLED:
+            prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
+            prompt_tokens = count_tokens(prompt)
+        else:
+            # Wende konfigurierbares Trimmen an, falls Budget überschritten
+            if prompt_tokens > GEMINI_TOKEN_BUDGET:
+                try:
+                    ratio = max(0.2, GEMINI_TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                    new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
+                    trimmed_context = katalog_context[:new_len]
+                    prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+                    prompt_tokens = count_tokens(prompt)
+                    logger.warning(
+                        "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                        GEMINI_TOKEN_BUDGET,
+                        new_len,
+                        prompt_tokens,
+                    )
+                except Exception:
+                    pass
+    except Exception:
+        pass
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
@@ -874,6 +1056,8 @@ def call_gemini_stage1(
         response = None
         for attempt in range(GEMINI_MAX_RETRIES):
             try:
+                # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
+                enforce_llm_min_interval()
                 response = requests.post(gemini_url, json=payload, timeout=90)
                 logger.info("Gemini Stufe 1 Antwort Status Code: %s", response.status_code)
                 if response.status_code == 429:
@@ -1214,6 +1398,37 @@ def call_openai_stage1(
         base_url = f"{base_url.rstrip('/')}/v1"
     prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts bei Apertus (per config aktivierbar)
+    TOKEN_BUDGET = OPENAI_TOKEN_BUDGET_APERTUS if provider == "apertus" else OPENAI_TOKEN_BUDGET_DEFAULT
+    if provider == "apertus" and prompt_tokens > TOKEN_BUDGET:
+        if OPENAI_TRIM_APERTUS_ENABLED:
+            try:
+                original_tokens = prompt_tokens
+                ctx = katalog_context
+                for _ in range(OPENAI_TRIM_MAX_PASSES):
+                    ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                    new_len = max(OPENAI_TRIM_MIN_CONTEXT_CHARS, int(len(ctx) * ratio))
+                    if new_len >= len(ctx):
+                        break
+                    ctx = ctx[:new_len]
+                    prompt = get_stage1_prompt(user_input, ctx, lang, query_variants=query_variants)
+                    prompt_tokens = count_tokens(prompt)
+                    if prompt_tokens <= TOKEN_BUDGET:
+                        break
+                logger.warning(
+                    "LLM Stufe 1: Prompt gekürzt (Apertus): %s → %s Tokens; Kontext auf %s Zeichen reduziert.",
+                    original_tokens,
+                    prompt_tokens,
+                    len(ctx),
+                )
+            except Exception:
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 1: Prompt überschreitet Budget (%s > %s), Apertus-Trimming per config deaktiviert.",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
@@ -1223,32 +1438,326 @@ def call_openai_stage1(
         from openai import OpenAI  # type: ignore
     except Exception as e:  # pragma: no cover - optional dependency
         raise RuntimeError("openai package not available") from e
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    # Einfache Retry-Logik bei 5xx/Serverfehlern
+    last_exc: Exception | None = None
+    resp = None  # ensure defined for static analyzers
+    # Versuche = 1 (Erstversuch) + OPENAI_SERVER_ERROR_MAX_RETRIES (Wiederholungen)
+    for attempt in range(OPENAI_SERVER_ERROR_MAX_RETRIES + 1):
+        try:
+            # Provider-spezifischer Body: manche Klone unterstützen response_format oder max_new_tokens nicht stabil
+            eb: Dict[str, Any] = {}
+            if provider == "openai":
+                # Keep extra_body minimal for OpenAI GPT‑5 family
+                eb = {}
+            elif provider == "ollama":
+                # Some OpenAI-compatible clones (e.g., Ollama endpoints) accept 'max_new_tokens'.
+                eb = {"max_new_tokens": min(OPENAI_MAX_OUTPUT_TOKENS, 512)}
+            # apertus: keine response_format/max_new_tokens im extra_body senden
+
+            # Nachrichtenformat: Für Apertus im Parts-Format (wie im Connectivity-Test)
+            if provider == "apertus":
+                _messages: List[Dict[str, Any]] = [
+                    {"role": "system", "content": [{"type": "text", "text": "Du bist ein hilfreicher Assistent."}]},
+                    {"role": "user", "content": [{"type": "text", "text": prompt}]},
+                ]
+            else:
+                _messages = [
+                    {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                    {"role": "user", "content": prompt},
+                ]
+            messages_typed = cast(List[ChatCompletionMessageParam], _messages)
+            
+            # Token caps per provider to reduce truncation
+            if provider == "apertus":
+                out_tokens = OPENAI_MAX_OUTPUT_TOKENS_APERTUS
+            elif provider == "openai":
+                out_tokens = min(OPENAI_MAX_OUTPUT_TOKENS, 4096)
+            else:
+                out_tokens = min(OPENAI_MAX_OUTPUT_TOKENS, 512)
+            # OpenAI (gpt-5/5-mini) erwartet 'max_completion_tokens' statt 'max_tokens'
+            token_arg = {(
+                "max_completion_tokens" if provider == "openai" else "max_tokens"
+            ): out_tokens}
+            # Avoid explicit temperature for OpenAI GPT‑5 family
+            temp_arg = ({"temperature": 0.0} if provider == "apertus" else ({"temperature": 0.05} if provider not in {"openai"} else {}))
+            resp = chat_completion_safe(
+                model=model,
+                messages=messages_typed,
+                user=f"arzttarif-assistent/{APP_VERSION}",
+                timeout=OPENAI_TIMEOUT,
+                extra_body=eb,
+                extra_headers={
+                    "User-Agent": f"Arzttarif-Assistent/{APP_VERSION}",
+                    "Accept": "application/json",
+                },
+                client=client,
+                **token_arg,
+                **temp_arg,
+            )
+            break
+        except Exception as e:
+            last_exc = e
+            err_txt = str(e)
+            low = err_txt.lower()
+            if "content_filter" in err_txt or "request blocked by content policy" in err_txt:
+                logger.error("%s Stufe 1 durch Content-Policy blockiert: %s", provider, err_txt)
+                raise PermissionError(f"{provider} Stufe 1 durch Content-Policy blockiert") from e
+            status = None
+            try:
+                resp_obj = getattr(e, "response", None)
+                status = getattr(resp_obj, "status_code", None)
+            except Exception:
+                status = None
+            is_server_side = (isinstance(status, int) and status >= 500) or ("server_error" in low) or ("internal server error" in low)
+            if is_server_side and attempt < OPENAI_SERVER_ERROR_MAX_RETRIES:
+                logger.warning("%s Stufe 1: Serverfehler (%s). Wiederhole nach kurzer Pause...", provider, status or err_txt)
+                time.sleep(OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS)
+                continue
+            raise ConnectionError(f"{provider} Stufe 1 Fehler: {e}") from e
+    if resp is None:
+        if last_exc is not None:
+            raise ConnectionError(f"{provider} Stufe 1 Fehler: {last_exc}") from last_exc
+        raise ConnectionError(f"{provider} Stufe 1 Fehler: Unbekannter Fehler")
+    # Normalize content: some OpenAI‑compatible providers return a list of parts
+    msg_obj = resp.choices[0].message
+    raw_msg = getattr(msg_obj, "content", None)
+    # Log finish_reason to detect truncation (e.g., 'length')
     try:
-        resp = chat_completion_safe(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.05,
-            timeout=60,
-            client=client,
-        )
-    except Exception as e:
-        raise ConnectionError(f"{provider} Stufe 1 Fehler: {e}") from e
-    content = resp.choices[0].message.content or ""
-    if LOG_OUTPUT_TEXT:
-        detail_logger.debug(
-            "LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content
-        )
+        finish_reason = getattr(resp.choices[0], "finish_reason", None)
+        if finish_reason and LOG_OUTPUT_TEXT:
+            detail_logger.info("LLM_S1_%s_FINISH_REASON: %s", provider.upper(), finish_reason)
+    except Exception:
+        pass
+    if isinstance(raw_msg, list):
+        try:
+            content = "".join(
+                part.get("text", "") for part in raw_msg if isinstance(part, dict)
+            )
+        except Exception:
+            content = ""  # fallback to empty; will trigger JSON error downstream
+    else:
+        content = raw_msg or ""
+    # Fallback: some models return data via tool_calls (content may be empty)
+    if not content:
+        try:
+            tool_calls = getattr(msg_obj, "tool_calls", None)
+            tc_list = tool_calls if isinstance(tool_calls, list) else []
+            args_chunks: List[str] = []
+            for tc in tc_list:
+                # Support both SDK objects and plain dicts
+                func = getattr(tc, "function", None) or (tc.get("function") if isinstance(tc, dict) else None)
+                if func is None:
+                    continue
+                args = getattr(func, "arguments", None) or (func.get("arguments") if isinstance(func, dict) else None)
+                if isinstance(args, str) and args.strip():
+                    args_chunks.append(args)
+            if args_chunks:
+                content = "\n".join(args_chunks)
+                try:
+                    detail_logger.info("LLM_S1_CONTENT_FROM_TOOL_CALLS (%s)", provider)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    if LOG_RAW_OUTPUT_ALWAYS:
+        detail_logger.info("LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content)
+    elif LOG_OUTPUT_TEXT:
+        detail_logger.debug("LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content)
     response_tokens = count_tokens(content)
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", response_tokens)
+    # Robuster JSON-Parse: direkter Parse, sonst aus Text extrahieren
     try:
         data = json.loads(content or "{}")
-    except Exception as exc:
-        raise ValueError(f"{provider} Stufe 1: ungültige JSON-Antwort") from exc
+    except Exception:
+        def _extract_json_payload(txt: str) -> Any | None:
+            s = (txt or "").strip()
+            # Entferne Markdown-Codeblöcke ```json ... ``` falls vorhanden
+            if "```" in s:
+                start = s.find("```")
+                after = s[start + 3 :]
+                # Überspringe optionalen Sprachenhinweis (json)
+                nl = after.find("\n")
+                if nl != -1:
+                    body = after[nl + 1 :]
+                    end = body.find("```")
+                    if end != -1:
+                        s = body[:end].strip()
+            # Versuche, offensichtliche abschließende Erklärungen/Markdown nach JSON zu entfernen
+            # (alles nach der letzten schließenden Klammer wird entfernt)
+            last_brace = max(s.rfind('}'), s.rfind(']'))
+            if last_brace != -1:
+                s = s[: last_brace + 1]
+            # Finde erstes JSON-Objekt oder -Array mithilfe einfacher Klammerbalance
+            def _scan_balanced(src: str, open_ch: str, close_ch: str) -> str | None:
+                i = src.find(open_ch)
+                if i == -1:
+                    return None
+                stack = 0
+                in_str = False
+                esc = False
+                for j in range(i, len(src)):
+                    ch = src[j]
+                    if in_str:
+                        if esc:
+                            esc = False
+                        elif ch == "\\":
+                            esc = True
+                        elif ch == '"':
+                            in_str = False
+                        continue
+                    else:
+                        if ch == '"':
+                            in_str = True
+                            continue
+                        if ch == open_ch:
+                            stack += 1
+                        elif ch == close_ch:
+                            stack -= 1
+                            if stack == 0:
+                                return src[i : j + 1]
+                return None
+            candidate = _scan_balanced(s, "{", "}") or _scan_balanced(s, "[", "]")
+            if candidate:
+                try:
+                    # Versuche direktes Parsen, ansonsten entferne Kommentare und parse erneut
+                    try:
+                        return json.loads(candidate)
+                    except Exception:
+                        # Entferne //- und /**/-Kommentare außerhalb von Strings
+                        def _strip_json_comments(src: str) -> str:
+                            out = []
+                            i, n = 0, len(src)
+                            in_str = False
+                            esc = False
+                            while i < n:
+                                ch = src[i]
+                                if in_str:
+                                    out.append(ch)
+                                    if esc:
+                                        esc = False
+                                    elif ch == '\\':
+                                        esc = True
+                                    elif ch == '"':
+                                        in_str = False
+                                    i += 1
+                                else:
+                                    if ch == '"':
+                                        in_str = True
+                                        out.append(ch)
+                                        i += 1
+                                    elif ch == '/' and i + 1 < n and src[i+1] == '/':
+                                        i += 2
+                                        while i < n and src[i] not in ('\n', '\r'):
+                                            i += 1
+                                    elif ch == '/' and i + 1 < n and src[i+1] == '*':
+                                        i += 2
+                                        while i + 1 < n and not (src[i] == '*' and src[i+1] == '/'):
+                                            i += 1
+                                        i = i + 2 if i + 1 < n else n
+                                    else:
+                                        out.append(ch)
+                                        i += 1
+                            return ''.join(out)
+                        cleaned = _strip_json_comments(candidate)
+                        # Entferne trailing-Kommas vor } oder ]
+                        import re as _re
+                        cleaned = _re.sub(r",\s*(?=[}\]])", "", cleaned)
+                        return json.loads(cleaned)
+                except Exception:
+                    pass
+            # Reparatur-Versuch: JSON klammern-balanziert schließen
+            try:
+                start_idx = s.find('{')
+                if start_idx != -1:
+                    fragment = s[start_idx:]
+                    # Entferne Kommentare
+                    def _strip_json_comments2(src: str) -> str:
+                        out = []
+                        i, n = 0, len(src)
+                        in_str = False
+                        esc = False
+                        while i < n:
+                            ch = src[i]
+                            if in_str:
+                                out.append(ch)
+                                if esc:
+                                    esc = False
+                                elif ch == '\\':
+                                    esc = True
+                                elif ch == '"':
+                                    in_str = False
+                                i += 1
+                            else:
+                                if ch == '"':
+                                    in_str = True
+                                    out.append(ch)
+                                    i += 1
+                                elif ch == '/' and i + 1 < n and src[i+1] == '/':
+                                    i += 2
+                                    while i < n and src[i] not in ('\n', '\r'):
+                                        i += 1
+                                elif ch == '/' and i + 1 < n and src[i+1] == '*':
+                                    i += 2
+                                    while i + 1 < n and not (src[i] == '*' and src[i+1] == '/'):
+                                        i += 1
+                                    i = i + 2 if i + 1 < n else n
+                                else:
+                                    out.append(ch)
+                                    i += 1
+                        return ''.join(out)
+                    frag = _strip_json_comments2(fragment)
+                    # Entferne trailing-Kommas
+                    import re as _re2
+                    frag = _re2.sub(r",\s*(?=[}\]])", "", frag)
+                    # Balance-Klammern: füge die fehlenden schließenden Klammern an
+                    stack = []
+                    in_str = False
+                    esc = False
+                    for ch in frag:
+                        if in_str:
+                            if esc:
+                                esc = False
+                            elif ch == '\\':
+                                esc = True
+                            elif ch == '"':
+                                in_str = False
+                            continue
+                        else:
+                            if ch == '"':
+                                in_str = True
+                            elif ch == '{':
+                                stack.append('}')
+                            elif ch == '[':
+                                stack.append(']')
+                            elif ch in ('}', ']') and stack:
+                                stack.pop()
+                    if stack:
+                        frag_repaired = frag + ''.join(reversed(stack))
+                    else:
+                        frag_repaired = frag
+                    return json.loads(frag_repaired)
+            except Exception:
+                pass
+            return None
+        extracted = _extract_json_payload(content if isinstance(content, str) else "")
+        if isinstance(extracted, dict):
+            # Non-strict JSON (z.B. in ```json``` oder mit Kommentaren) erfolgreich extrahiert
+            if LOG_OUTPUT_TEXT or LOG_RAW_OUTPUT_ALWAYS:
+                try:
+                    detail_logger.info("LLM_S1_NONSTRICT_JSON_RECOVERED (%s)", provider)
+                except Exception:
+                    pass
+            data = extracted
+        else:
+            # Endgültiger Fehler: Rohtext als Fehler loggen
+            try:
+                detail_logger.error("LLM_S1_INVALID_JSON_RAW (%s): %s", provider, content)
+            except Exception:
+                pass
+            raise ValueError(f"{provider} Stufe 1: ungültige JSON-Antwort")
     data.setdefault("identified_leistungen", [])
     data.setdefault("extracted_info", {})
     data.setdefault("begruendung_llm", "")
@@ -1463,20 +1972,60 @@ def call_openai_stage2_mapping(
     base_url = base_url or "https://api.openai.com/v1"
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    try:
-        resp = chat_completion_safe(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.05,
-            timeout=60,
-            client=client,
-        )
-    except Exception as e:
-        raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: {e}") from e
+    # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    # Retry-Logik bei 5xx analog Stufe 1
+    last_exc: Exception | None = None
+    resp = None
+    for attempt in range(OPENAI_SERVER_ERROR_MAX_RETRIES + 1):
+        try:
+            # Avoid unsupported params on OpenAI: do not send 'max_new_tokens'.
+            _extra_body = {} if provider == "openai" else {"max_new_tokens": OPENAI_MAX_OUTPUT_TOKENS}
+            token_arg = {(
+                "max_completion_tokens" if provider == "openai" else "max_tokens"
+            ): OPENAI_MAX_OUTPUT_TOKENS}
+            # Avoid explicit temperature for OpenAI GPT‑5 family
+            temp_arg = ({} if provider == "openai" else {"temperature": 0.05})
+            resp = chat_completion_safe(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                    {"role": "user", "content": prompt},
+                ],
+                user=f"arzttarif-assistent/{APP_VERSION}",
+                timeout=OPENAI_TIMEOUT,
+                extra_body=_extra_body,
+                extra_headers={
+                    "User-Agent": f"Arzttarif-Assistent/{APP_VERSION}",
+                    "Accept": "application/json",
+                },
+                client=client,
+                **token_arg,
+                **temp_arg,
+            )
+            break
+        except Exception as e:
+            last_exc = e
+            err_txt = str(e)
+            if "content_filter" in err_txt or "Request blocked by content policy" in err_txt:
+                logger.error("%s Stufe 2 (Mapping) durch Content-Policy blockiert: %s", provider, err_txt)
+                raise PermissionError(f"{provider} Stufe 2 (Mapping) durch Content-Policy blockiert") from e
+            status = None
+            try:
+                resp_obj = getattr(e, "response", None)
+                status = getattr(resp_obj, "status_code", None)
+            except Exception:
+                status = None
+            is_server_side = (isinstance(status, int) and status >= 500) or ("server_error" in err_txt.lower()) or ("internal server error" in err_txt.lower())
+            if is_server_side and attempt < OPENAI_SERVER_ERROR_MAX_RETRIES:
+                logger.warning("%s Stufe 2 (Mapping): Serverfehler (%s). Wiederhole nach %.1fs …", provider, status or err_txt, OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS)
+                time.sleep(OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS)
+                continue
+            raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: {e}") from e
+    if resp is None:
+        if last_exc is not None:
+            raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: {last_exc}") from last_exc
+        raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: Unbekannter Fehler")
     content = (resp.choices[0].message.content or "").strip()
     if LOG_OUTPUT_TEXT:
         detail_logger.debug("LLM Stage 2 (Mapping) raw %s response for %s: '%s'", provider, tardoc_lkn, content)
@@ -1517,6 +2066,8 @@ def call_gemini_stage2_ranking(
         last_exception: Optional[RequestException] = None
         for attempt in range(GEMINI_MAX_RETRIES):
             try:
+                # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
+                enforce_llm_min_interval()
                 response = requests.post(gemini_url, json=payload, timeout=GEMINI_TIMEOUT)
                 logger.info(
                     "Gemini Stufe 2 (Ranking) Antwort Status Code: %s",
@@ -1627,20 +2178,60 @@ def call_openai_stage2_ranking(
     base_url = base_url or "https://api.openai.com/v1"
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    try:
-        resp = chat_completion_safe(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1,
-            timeout=60,
-            client=client,
-        )
-    except Exception as e:
-        raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: {e}") from e
+    # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    # Retry-Logik bei 5xx analog Stufe 1
+    last_exc: Exception | None = None
+    resp = None
+    for attempt in range(OPENAI_SERVER_ERROR_MAX_RETRIES + 1):
+        try:
+            # Avoid unsupported params on OpenAI: do not send 'max_new_tokens'.
+            _extra_body = {} if provider == "openai" else {"max_new_tokens": OPENAI_MAX_OUTPUT_TOKENS}
+            token_arg = {(
+                "max_completion_tokens" if provider == "openai" else "max_tokens"
+            ): OPENAI_MAX_OUTPUT_TOKENS}
+            # Avoid explicit temperature for OpenAI GPT‑5 family
+            temp_arg = ({} if provider == "openai" else {"temperature": 0.1})
+            resp = chat_completion_safe(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                    {"role": "user", "content": prompt},
+                ],
+                user=f"arzttarif-assistent/{APP_VERSION}",
+                timeout=OPENAI_TIMEOUT,
+                extra_body=_extra_body,
+                extra_headers={
+                    "User-Agent": f"Arzttarif-Assistent/{APP_VERSION}",
+                    "Accept": "application/json",
+                },
+                client=client,
+                **token_arg,
+                **temp_arg,
+            )
+            break
+        except Exception as e:
+            last_exc = e
+            err_txt = str(e)
+            if "content_filter" in err_txt or "Request blocked by content policy" in err_txt:
+                logger.error("%s Stufe 2 (Ranking) durch Content-Policy blockiert: %s", provider, err_txt)
+                raise PermissionError(f"{provider} Stufe 2 (Ranking) durch Content-Policy blockiert") from e
+            status = None
+            try:
+                resp_obj = getattr(e, "response", None)
+                status = getattr(resp_obj, "status_code", None)
+            except Exception:
+                status = None
+            is_server_side = (isinstance(status, int) and status >= 500) or ("server_error" in err_txt.lower()) or ("internal server error" in err_txt.lower())
+            if is_server_side and attempt < OPENAI_SERVER_ERROR_MAX_RETRIES:
+                logger.warning("%s Stufe 2 (Ranking): Serverfehler (%s). Wiederhole nach %.1fs …", provider, status or err_txt, OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS)
+                time.sleep(OPENAI_SERVER_ERROR_RETRY_DELAY_SECONDS)
+                continue
+            raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: {e}") from e
+    if resp is None:
+        if last_exc is not None:
+            raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: {last_exc}") from last_exc
+        raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: Unbekannter Fehler")
     content = resp.choices[0].message.content or ""
     if LOG_OUTPUT_TEXT:
         detail_logger.info(f"LLM Stage 2 (Ranking) raw {provider} response: '{content}'")
@@ -1680,6 +2271,10 @@ def call_llm_stage1(
             base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
             if not api_key:
                 api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        elif STAGE1_PROVIDER == "apertus":
+            # Default PublicAI (Apertus) OpenAI-compatible endpoint if not provided
+            # Discovery ergab: https://api.publicai.co/v1 liefert /models JSON
+            base_url = base_url or "https://api.publicai.co/v1"
         result = call_openai_stage1(
             user_input,
             katalog_context,
@@ -1713,6 +2308,8 @@ def call_llm_stage2_mapping(
             base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
             if not api_key:
                 api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        elif STAGE2_PROVIDER == "apertus":
+            base_url = base_url or "https://api.publicai.co/v1"
         result = call_openai_stage2_mapping(
             tardoc_lkn,
             tardoc_desc,
@@ -1745,6 +2342,8 @@ def call_llm_stage2_ranking(
             base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
             if not api_key:
                 api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        elif STAGE2_PROVIDER == "apertus":
+            base_url = base_url or "https://api.publicai.co/v1"
         result = call_openai_stage2_ranking(
             user_input,
             potential_pauschalen_text,
@@ -2199,17 +2798,40 @@ def analyze_billing():
         else:
             top_ranking_results.extend(keyword_results[:remaining_slots])
 
-        for lkn_code in ranked_codes:
-            details = leistungskatalog_dict.get(lkn_code, {})
+        # Baue den Kontext: erzwungene Codes zuerst, dann restliche Kandidaten, optional begrenzt
+        included: set[str] = set()
+        def _add_line_for(code: str) -> None:
+            details = leistungskatalog_dict.get(code, {})
             desc_text = get_localized_text(details, "Beschreibung", lang)
             mi_text = get_localized_text(details, "MedizinischeInterpretation", lang)
+            parts = [f"LKN: {code}"]
+            if CONTEXT_INCLUDE_TYP:
+                parts.append(f"Typ: {details.get('Typ', 'N/A')}")
+            if CONTEXT_INCLUDE_BESCHREIBUNG:
+                parts.append(f"Beschreibung: {html.escape(desc_text or 'N/A')}")
+            line = ", ".join(parts)
+            if CONTEXT_INCLUDE_MED_INTERPRETATION and mi_text:
+                line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
+            katalog_context_parts.append(line)
+            included.add(code)
 
-            context_line = (
-                f"LKN: {lkn_code}, Typ: {details.get('Typ', 'N/A')}, Beschreibung: {html.escape(desc_text or 'N/A')}"
-            )
-            if mi_text:
-                context_line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
-            katalog_context_parts.append(context_line)
+        # 1) Erzwinge bestimmte Codes
+        for forced in CONTEXT_FORCE_INCLUDE_CODES:
+            if forced in leistungskatalog_dict and forced not in included:
+                _add_line_for(forced)
+                if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
+                    break
+
+        # 2) Fülle mit gerankten Kandidaten auf
+        if not (CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS):
+            for lkn_code in ranked_codes:
+                if lkn_code in included:
+                    continue
+                if lkn_code not in leistungskatalog_dict:
+                    continue
+                _add_line_for(lkn_code)
+                if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
+                    break
         katalog_context_str = "\n".join(katalog_context_parts)
         logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
         # --- DEBUGGING START ---
@@ -2231,6 +2853,9 @@ def analyze_billing():
     except ConnectionError as e:
         logger.error("Verbindung zu LLM1 fehlgeschlagen: %s", e)
         return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
+    except PermissionError as e:
+        logger.error("LLM1 durch Content-Policy blockiert: %s", e)
+        return jsonify({"error": "Anfrage von LLM-Provider aus Inhaltsrichtlinien-Gründen blockiert. Bitte Provider-Einstellungen/Policy prüfen oder alternativen Provider wählen."}), 403
     except ValueError as e:
         logger.error("Verarbeitung LLM1 fehlgeschlagen: %s", e, exc_info=True)
         return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400
@@ -2886,6 +3511,23 @@ def test_example():
 
 
 # --- Feedback via GitHub --------------------------------------------------
+
+@app.route('/api/frontend-log', methods=['POST'])
+def frontend_log() -> Any:
+    """Receive diagnostic messages from the frontend and write them to the server log."""
+    payload: Dict[str, Any]
+    raw_text = ""
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+    else:
+        raw_text = request.get_data(as_text=True) or ""
+        try:
+            payload = json.loads(raw_text) if raw_text else {}
+        except json.JSONDecodeError:
+            payload = {"raw": raw_text}
+    event_type = payload.get("eventType") or payload.get("event_type")
+    logger.info("Frontend log (%s): %s", event_type, payload)
+    return jsonify({"status": "ok"})
 
 @app.route('/api/submit-feedback', methods=['POST'])
 def submit_feedback() -> Any:

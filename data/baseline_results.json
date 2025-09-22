@@ -282,9 +282,9 @@
   },
   "16": {
     "query": {
-      "de": "Hypoglossusstimulator\nImplantation Hypoglossusstimulator",
-      "fr": "stimulateur du nerf hypoglosse\nImplantation stimulateur du nerf hypoglosse",
-      "it": "stimolatore del nervo ipoglosso\nImpianto stimolatore del nervo ipoglosso"
+      "de": "Implantation Hypoglossusstimulator",
+      "fr": "Implantation stimulateur du nerf hypoglosse",
+      "it": "Impianto stimolatore del nervo ipoglosso"
     },
     "baseline": {
       "pauschale": {

@@ -15,11 +15,15 @@ import unicodedata
 import re
 import configparser
 from .models import SynonymCatalog, SynonymEntry
-from openai_wrapper import chat_completion_safe
+from openai_wrapper import chat_completion_safe, enforce_llm_min_interval
 
 
 _CONFIG = configparser.ConfigParser()
-_CONFIG.read("config.ini")
+try:
+    # Use utf-8-sig to handle potential BOM at start of file
+    _CONFIG.read("config.ini", encoding="utf-8-sig")
+except Exception:
+    logging.exception("CONFIG lesen fehlgeschlagen")
 LLM_PROVIDER = (
     os.getenv("SYNONYM_LLM_PROVIDER")
     or _CONFIG.get("SYNONYMS", "llm_provider", fallback="ollama")
@@ -39,6 +43,10 @@ LLM_MODEL = (
         fallback=DEFAULT_MODELS.get(LLM_PROVIDER, "gpt-oss-20b"),
     )
 )
+
+APP_VERSION = _CONFIG.get("APP", "version", fallback="dev")
+USER_AGENT_PRODUCT = os.getenv("APP_USER_AGENT_PRODUCT") or _CONFIG.get("APP", "user_agent_product", fallback="ArzttarifAssistent")
+USER_AGENT = f"{USER_AGENT_PRODUCT}/{APP_VERSION}"
 
 _OLLAMA_LOCK = threading.Lock()
 _OLLAMA_STOPPED = False
@@ -284,6 +292,8 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
         genai.configure(api_key=api_key)  # type: ignore[attr-defined]
         model_cls = getattr(genai, "GenerativeModel")  # type: ignore[attr-defined]
         model = model_cls(LLM_MODEL)
+        # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
+        enforce_llm_min_interval()
         resp = model.generate_content(prompt, generation_config={"temperature": 0.05})
         try:
             resp_text = resp.text
@@ -310,7 +320,15 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
         base_url = base_url or "https://api.openai.com/v1"
         if not base_url.rstrip("/").endswith("/v1"):
             base_url = f"{base_url.rstrip('/')}/v1"
-        client = OpenAI(api_key=api_key, base_url=base_url)
+        # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
+        client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            default_headers={
+                "User-Agent": USER_AGENT,
+            },
+        )
         try:
             if provider == "ollama":
                 with _OLLAMA_LOCK:

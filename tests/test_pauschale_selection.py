@@ -57,6 +57,61 @@ class TestPauschaleSelection(unittest.TestCase):
         self.assertEqual(result["details"]["Pauschale"], "X00.01A")
         self.assertTrue(result["bedingungs_pruef_html"].startswith("<"))
 
+    def test_prefers_higher_lkn_match_count(self):
+        pauschalen_dict = {
+            "A": {"Pauschale": "A", "Pauschale_Text": "Jaw", "Taxpunkte": "120"},
+            "B": {"Pauschale": "B", "Pauschale_Text": "Sedation", "Taxpunkte": "300"},
+        }
+        bedingungen = [
+            {"Pauschale": "A", "BedingungsID": 1, "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE", "Gruppe": 1, "Operator": "UND", "Werte": "Y"},
+            {"Pauschale": "A", "BedingungsID": 2, "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE", "Gruppe": 1, "Operator": "UND", "Werte": "X"},
+            {"Pauschale": "B", "BedingungsID": 3, "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE", "Gruppe": 1, "Operator": "UND", "Werte": "X"},
+        ]
+        result = determine_applicable_pauschale(
+            "",
+            [],
+            {"LKN": ["X", "Y"], "useIcd": False},
+            [],
+            bedingungen,
+            pauschalen_dict,
+            {},
+            {},
+            {"A", "B"},
+        )
+        self.assertEqual(result["details"]["Pauschale"], "A")
+
+
+    def test_use_icd_false_prefers_non_icd_candidates(self):
+        pauschalen_dict = {
+            "A": {"Pauschale": "A", "Pauschale_Text": "ICD-Pauschale", "Taxpunkte": "200"},
+            "B": {"Pauschale": "B", "Pauschale_Text": "Ohne ICD", "Taxpunkte": "150"},
+        }
+        bedingungen = [
+            {
+                "Pauschale": "A",
+                "Bedingungstyp": "ICD",
+                "Werte": "S03.0",
+            },
+            {
+                "Pauschale": "B",
+                "Bedingungstyp": "LKN",
+                "Werte": "X",
+            },
+        ]
+        result = determine_applicable_pauschale(
+            "",
+            [],
+            {"LKN": ["X"], "useIcd": False},
+            [],
+            bedingungen,
+            pauschalen_dict,
+            {},
+            {},
+            {"A", "B"},
+        )
+        self.assertEqual(result["details"]["Pauschale"], "B")
+
+
     def test_only_fallback_codes(self):
         pauschalen_dict = {
             "C90.01A": {

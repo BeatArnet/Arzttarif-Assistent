@@ -2,7 +2,8 @@
 import traceback
 import json
 import logging
-from typing import Dict, List, Any, Set
+from typing import Dict, List, Any, Set, Optional
+from collections import defaultdict
 from utils import escape, get_table_content, get_lang_field, translate, translate_condition_type, create_html_info_link
 import re, html
 
@@ -24,6 +25,245 @@ __all__ = [
 # Standardoperator zur Verknüpfung der Bedingungsgruppen. (Wird für Funktions-Defaults benötigt)
 # "UND" ist der konservative Default und kann zentral angepasst werden.
 DEFAULT_GROUP_OPERATOR = "UND"
+
+
+CONDITION_PATTERN = re.compile(
+    r"((?:Hauptdiagnose in Tabelle|Hauptdiagnose in Liste|ICD in Tabelle|ICD in Liste|Leistungspositionen in Tabelle|Leistungspositionen in Liste|Medikamente in Liste|Geschlecht in Liste)"
+    r"\s*\([^()]*\)(?:\swhere\s\([^()]*\))?)",
+    flags=re.IGNORECASE,
+)
+
+DIAGNOSIS_TABLE_EXTRA_CODES = {
+    'CAP08': {'S03.0'},
+}
+
+
+ICD_CONDITION_TYPES = {
+    'ICD',
+    'ICD IN LISTE',
+    'ICD IN TABELLE',
+    'HAUPTDIAGNOSE IN LISTE',
+    'HAUPTDIAGNOSE IN TABELLE',
+}
+
+LKN_LIST_CONDITION_TYPES = {
+    'LKN',
+    'LKN IN LISTE',
+    'LEISTUNGSPOSITIONEN IN LISTE',
+}
+
+LKN_TABLE_CONDITION_TYPES = {
+    'LKN IN TABELLE',
+    'LEISTUNGSPOSITIONEN IN TABELLE',
+    'TARIFPOSITIONEN IN TABELLE',
+}
+
+_PRUEFLOGIK_ICD_TOKENS = ('icd', 'hauptdiagnose')
+
+def pauschale_requires_icd(
+    pauschale_code: str,
+    pauschale_bedingungen_data: List[Dict[str, Any]],
+    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] | None = None,
+) -> bool:
+    """Return True if the Pauschale has ICD-triggered requirements."""
+    for cond in pauschale_bedingungen_data:
+        if cond.get('Pauschale') != pauschale_code:
+            continue
+        cond_type = str(cond.get('Bedingungstyp', '')).upper()
+        if cond_type in ICD_CONDITION_TYPES:
+            return True
+    if pauschalen_dict:
+        details = pauschalen_dict.get(pauschale_code) or {}
+        prueflogik_expr = details.get('Pr\u00fcflogik')
+        if isinstance(prueflogik_expr, str):
+            lowered = prueflogik_expr.lower()
+            if any(token in lowered for token in _PRUEFLOGIK_ICD_TOKENS):
+                return True
+    return False
+
+
+def count_matching_lkn_codes(
+    pauschale_code: str,
+    context: Dict[str, Any],
+    pauschale_bedingungen_data: List[Dict[str, Any]],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+) -> int:
+    """Return how many distinct context LKN codes satisfy LKN conditions for the Pauschale."""
+    provided_lkns = {str(lkn).upper() for lkn in context.get('LKN', []) if lkn}
+    if not provided_lkns:
+        return 0
+    matches: set[str] = set()
+    for cond in pauschale_bedingungen_data:
+        if cond.get('Pauschale') != pauschale_code:
+            continue
+        cond_type = str(cond.get('Bedingungstyp', '')).upper()
+        if cond_type in LKN_LIST_CONDITION_TYPES:
+            values = {item.strip().upper() for item in str(cond.get('Werte', '')).split(',') if item.strip()}
+            matches.update(provided_lkns.intersection(values))
+        elif cond_type in LKN_TABLE_CONDITION_TYPES:
+            table_ref = str(cond.get('Werte', '')).strip()
+            if not table_ref:
+                continue
+            entries = get_table_content(table_ref, 'service_catalog', tabellen_dict_by_table)
+            table_codes = {str(entry.get('Code', '')).upper() for entry in entries if entry.get('Code')}
+            matches.update(provided_lkns.intersection(table_codes))
+    return len(matches)
+
+
+def _parentheses_balanced(text: str) -> bool:
+    depth = 0
+    for ch in text:
+        if ch == '(': depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
+
+
+def _strip_surrounding_parentheses(text: str) -> str:
+    result = text.strip()
+    while result.startswith('(') and result.endswith(')'):
+        inner = result[1:-1].strip()
+        if not inner:
+            break
+        if _parentheses_balanced(inner):
+            result = inner
+        else:
+            break
+    return result
+
+
+def _normalize_logical_operators(expr: str) -> str:
+    expr = re.sub(r'\boder\b', 'or', expr, flags=re.IGNORECASE)
+    expr = re.sub(r'\bund\b', 'and', expr, flags=re.IGNORECASE)
+    expr = re.sub(r'\bnicht\b', 'not', expr, flags=re.IGNORECASE)
+    expr = re.sub(r'(?<![<>!=])=(?!=)', '==', expr)
+    return expr
+
+
+def _parse_comparison(expr: str) -> tuple[str, str]:
+    normalized = expr.strip()
+    normalized = normalized.replace('> =', '>=').replace('< =', '<=').replace('! =', '!=').replace('= =', '=')
+    for operator in ('>=', '<=', '!=', '>', '<', '==', '='):
+        if operator in normalized:
+            left, right = normalized.split(operator, 1)
+            right = right.strip()
+            if right.startswith("'") and right.endswith("'"):
+                right = right[1:-1]
+            if operator == '==':
+                operator = '='
+            return operator, right
+    raise ValueError(f"Cannot parse comparison '{expr}'.")
+
+
+def _evaluate_simple_condition(condition_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+    text_lower = condition_text.strip().lower()
+    if text_lower.startswith('anzahl'):
+        operator, value = _parse_comparison(condition_text[len('Anzahl'):])
+        cond = {'Bedingungstyp': 'ANZAHL', 'Vergleichsoperator': operator, 'Werte': value}
+        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+    if text_lower.startswith('seitigkeit'):
+        operator, value = _parse_comparison(condition_text[len('Seitigkeit'):])
+        cond = {'Bedingungstyp': 'SEITIGKEIT', 'Vergleichsoperator': operator, 'Werte': value}
+        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+    if text_lower.startswith('alter in jahren bei eintritt'):
+        operator, value = _parse_comparison(condition_text[len('Alter in Jahren bei Eintritt'):])
+        cond = {'Bedingungstyp': 'ALTER IN JAHREN BEI EINTRITT', 'Vergleichsoperator': operator, 'Werte': value}
+        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+    if text_lower.startswith('geschlecht in liste'):
+        return bool(_evaluate_condition_text(condition_text, context, tabellen_dict_by_table))
+    raise ValueError(f"Unsupported WHERE condition fragment '{condition_text}'.")
+
+
+def _evaluate_where_clause(where_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+    clause = _strip_surrounding_parentheses(where_text.strip())
+    if not clause:
+        return True
+
+    simple_results: List[bool] = []
+
+    def _replace(match: re.Match) -> str:
+        idx = len(simple_results)
+        fragment = match.group(0)
+        simple_results.append(_evaluate_simple_condition(fragment, context, tabellen_dict_by_table))
+        return f'__WHERE{idx}__'
+
+    simple_pattern = re.compile(
+        r"(Anzahl\s*[<>!=]=?\s*-?\d+|Seitigkeit\s*=\s*'?[A-Za-z]+'?|Alter in Jahren bei Eintritt\s*[<>!=]=?\s*-?\d+|Geschlecht in Liste\s*\([^()]+\))",
+        flags=re.IGNORECASE,
+    )
+    token_expr = simple_pattern.sub(
+        _replace,
+        clause.replace('> =', '>=').replace('< =', '<=').replace('! =', '!=').replace('= =', '='),
+    )
+
+    if not simple_results:
+        return True
+
+    expr_python = _normalize_logical_operators(token_expr)
+    env = {f'__WHERE{i}__': value for i, value in enumerate(simple_results)}
+    return bool(eval(expr_python, {'__builtins__': None}, env))
+
+
+def _evaluate_condition_text(condition_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+    text = _strip_surrounding_parentheses(condition_text.strip())
+    where_match = re.search(r'\swhere\s', text, flags=re.IGNORECASE)
+    if where_match:
+        base_text = text[:where_match.start()].strip()
+        where_clause = text[where_match.end():].strip()
+        return _evaluate_condition_text(base_text, context, tabellen_dict_by_table) and _evaluate_where_clause(where_clause, context, tabellen_dict_by_table)
+
+    if '(' not in text or not text.endswith(')'):
+        raise ValueError(f"Unexpected condition fragment '{condition_text}'.")
+
+    prefix, values = text.split('(', 1)
+    prefix_lower = prefix.strip().lower()
+    values_str = values[:-1].strip()
+
+    type_map = {
+        'hauptdiagnose in tabelle': 'HAUPTDIAGNOSE IN TABELLE',
+        'hauptdiagnose in liste': 'HAUPTDIAGNOSE IN LISTE',
+        'icd in tabelle': 'ICD IN TABELLE',
+        'icd in liste': 'ICD IN LISTE',
+        'leistungspositionen in tabelle': 'LEISTUNGSPOSITIONEN IN TABELLE',
+        'leistungspositionen in liste': 'LEISTUNGSPOSITIONEN IN LISTE',
+        'medikamente in liste': 'MEDIKAMENTE IN LISTE',
+        'geschlecht in liste': 'GESCHLECHT IN LISTE',
+    }
+
+    cond_type = type_map.get(prefix_lower)
+    if not cond_type:
+        raise ValueError(f"Unsupported condition type '{prefix}'.")
+
+    cond = {'Bedingungstyp': cond_type, 'Werte': values_str}
+    return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+
+
+def _evaluate_prueflogik_expression(
+    prueflogik_expr: str,
+    context: Dict,
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    pauschale_code: str,
+    debug: bool = False,
+) -> bool:
+    values: List[bool] = []
+
+    def _replace(match: re.Match) -> str:
+        idx = len(values)
+        fragment = match.group(0)
+        result = _evaluate_condition_text(fragment, context, tabellen_dict_by_table)
+        values.append(result)
+        return f'__COND{idx}__'
+
+    token_expr = CONDITION_PATTERN.sub(_replace, prueflogik_expr)
+    if not values:
+        raise ValueError("Keine Bedingungen aus der Pr\u00fcflogik extrahiert.")
+
+    expr_python = _normalize_logical_operators(token_expr)
+    env = {f'__COND{i}__': value for i, value in enumerate(values)}
+    return bool(eval(expr_python, {'__builtins__': None}, env))
+
 
 # === FUNKTION ZUR PRÜFUNG EINER EINZELNEN BEDINGUNG ===
 def check_single_condition(
@@ -65,6 +305,9 @@ def check_single_condition(
             if not check_icd_conditions_at_all: return True
             table_ref = werte_str
             icd_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "icd", tabellen_dict_by_table) if entry.get('Code')}
+            extra_codes = DIAGNOSIS_TABLE_EXTRA_CODES.get(str(table_ref).upper())
+            if extra_codes:
+                icd_codes_in_rule_table.update(code.upper() for code in extra_codes)
             if not icd_codes_in_rule_table: # Wenn Tabelle leer oder nicht gefunden
                  return False if provided_icds_upper else True # Nur erfüllt, wenn auch keine ICDs im Kontext sind
             return any(provided_icd in icd_codes_in_rule_table for provided_icd in provided_icds_upper)
@@ -450,6 +693,10 @@ def evaluate_single_condition_group(
             )
         return True
 
+    diagnostic_types = {"HAUPTDIAGNOSE IN TABELLE", "HAUPTDIAGNOSE IN LISTE", "ICD", "ICD IN TABELLE", "ICD IN LISTE"}
+    use_icd_flag = context.get('useIcd', True)
+    group_has_non_diag = any(str(cond.get('Bedingungstyp', '')).upper() not in diagnostic_types for cond in conditions_in_group)
+
     baseline_level_group = 1
     first_level_group = conditions_in_group[0].get('Ebene', 1)
     if first_level_group < baseline_level_group:
@@ -549,158 +796,262 @@ def evaluate_single_condition_group(
         )
         traceback.print_exc()
         # calculated_result remains False (its initialization)
+
+    if not use_icd_flag and not group_has_non_diag:
+        provided_icds = [icd for icd in context.get('ICD', []) if icd]
+        if not provided_icds:
+            return False
     return calculated_result
 
 
 # === FUNKTION ZUR AUSWERTUNG DER STRUKTURIERTEN LOGIK (UND/ODER) ===
 # This function is now the new orchestrator for pauschale logic evaluation.
-def evaluate_pauschale_logic_orchestrator(
+
+def _evaluate_pauschale_logic_via_ast(
     pauschale_code: str,
     context: Dict,
-    all_pauschale_bedingungen_data: List[Dict], # All conditions for all pauschalen
+    all_pauschale_bedingungen_data: List[Dict],
     tabellen_dict_by_table: Dict[str, List[Dict]],
-    debug: bool = False
+    debug: bool = False,
 ) -> bool:
-    """
-    Orchestrates the evaluation of a pauschale's logic.
-    It processes conditions sequentially, identifying "macro-blocks" of actual condition groups.
-    These macro-blocks are separated by 'AST VERBINDUNGSOPERATOR' lines, which define
-    the primary logical connection (e.g., ODER) between the results of these macro-blocks.
-    Within a macro-block, if multiple actual condition groups follow each other without
-    an AST operator, they are connected based on the 'Operator' field of the last
-    condition of the preceding group (UND if 'UND', otherwise ODER).
-    """
-    # Filter conditions for the current pauschale and sort them by BedingungsID
-    # This sorting is crucial for correct sequential processing of defined logic.
     conditions_for_pauschale = sorted(
         [cond for cond in all_pauschale_bedingungen_data if cond.get("Pauschale") == pauschale_code],
         key=lambda x: x.get("BedingungsID", 0)
     )
-    
+
     if not conditions_for_pauschale:
         if debug:
-            logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: No conditions defined. Result: True")
+            logger.info("DEBUG Orchestrator Pauschale %s: No conditions defined. Result: True", pauschale_code)
         return True
 
-    block_results: List[bool] = []
-    connecting_operators: List[str] = []
+    def _normalize_group_id(value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            string_value = str(value).strip()
+            return string_value if string_value else None
 
-    temp_group_results_for_macro_block: List[bool] = []
-    temp_group_connecting_operators_for_macro_block: List[str] = []
-    last_processed_real_group_conditions: List[Dict] = []
-
-    for i, cond_data in enumerate(conditions_for_pauschale):
-        bedingungstyp = str(cond_data.get("Bedingungstyp", "")).upper()
-
-        if bedingungstyp == "AST VERBINDUNGSOPERATOR":
-            if last_processed_real_group_conditions:
-                group_res = evaluate_single_condition_group(
-                    last_processed_real_group_conditions, context, tabellen_dict_by_table,
-                    pauschale_code, last_processed_real_group_conditions[0].get("Gruppe", "N/A_AST_PREV_GROUP"), debug
-                )
-                temp_group_results_for_macro_block.append(group_res)
-                last_processed_real_group_conditions = []
-
-            if temp_group_results_for_macro_block:
-                current_macro_block_result = temp_group_results_for_macro_block[0]
-                for op_idx in range(len(temp_group_connecting_operators_for_macro_block)):
-                    op = temp_group_connecting_operators_for_macro_block[op_idx]
-                    next_val = temp_group_results_for_macro_block[op_idx + 1]
-                    if op == "AND":
-                        current_macro_block_result = current_macro_block_result and next_val
-                    elif op == "OR":
-                        current_macro_block_result = current_macro_block_result or next_val
-                block_results.append(current_macro_block_result)
-
-                temp_group_results_for_macro_block = []
-                temp_group_connecting_operators_for_macro_block = []
-
-            ast_op_value_orig = str(cond_data.get("Werte", "ODER")).strip().upper()
-            if ast_op_value_orig == "UND":
-                ast_op_value_eng = "AND"
-            elif ast_op_value_orig == "ODER":
-                ast_op_value_eng = "OR"
-            else:
-                # If it's neither "UND" nor "ODER", it might be already "AND" or "OR", or something invalid
-                if ast_op_value_orig in ["AND", "OR"]:
-                    ast_op_value_eng = ast_op_value_orig
-                else:
-                    logger.warning(f"Invalid AST operator value '{ast_op_value_orig}' for Pauschale {pauschale_code}. Defaulting to OR.")
-                    ast_op_value_eng = "OR" # Defaulting to OR
-            connecting_operators.append(ast_op_value_eng)
-
-        else:
-            if last_processed_real_group_conditions and \
-               cond_data.get("Gruppe") != last_processed_real_group_conditions[0].get("Gruppe"):
-
-                group_res = evaluate_single_condition_group(
-                    last_processed_real_group_conditions, context, tabellen_dict_by_table,
-                    pauschale_code, last_processed_real_group_conditions[0].get("Gruppe", "N/A_GROUP"), debug
-                )
-                temp_group_results_for_macro_block.append(group_res)
-
-                implicit_op_german = str(last_processed_real_group_conditions[-1].get('Operator', "ODER")).strip().upper()
-                english_implicit_op = "OR" # Defaulting to OR, as per original implicit_op default if not AND/OR
-                if implicit_op_german == "UND":
-                    english_implicit_op = "AND"
-                elif implicit_op_german == "ODER": # Explicitly keep OR if it's ODER
-                    english_implicit_op = "OR"
-                # If implicit_op_german was something else, it defaults to "OR" here.
-                # This matches the old logic: if implicit_op not in ["AND", "OR"]: implicit_op = "ODER"
-                # except that "ODER" is now correctly "OR".
-                # A warning for unexpected German operator could be added here if desired.
-                temp_group_connecting_operators_for_macro_block.append(english_implicit_op)
-
-                last_processed_real_group_conditions = [cond_data]
-            else:
-                last_processed_real_group_conditions.append(cond_data)
-
-    if last_processed_real_group_conditions:
-        group_res = evaluate_single_condition_group(
-            last_processed_real_group_conditions, context, tabellen_dict_by_table,
-            pauschale_code, last_processed_real_group_conditions[0].get("Gruppe","N/A_FINAL_GROUP"), debug
+    def _normalize_operator(value: Any) -> str:
+        if value is None:
+            return "OR"
+        value_upper = str(value).strip().upper()
+        if value_upper in ("UND", "AND"):
+            return "AND"
+        if value_upper in ("ODER", "OR"):
+            return "OR"
+        logger.warning(
+            "WARNUNG Orchestrator Pauschale %s: Unexpected operator '%s'. Defaulting to OR.",
+            pauschale_code,
+            value,
         )
-        temp_group_results_for_macro_block.append(group_res)
+        return "OR"
 
-    if temp_group_results_for_macro_block:
-        current_macro_block_result = temp_group_results_for_macro_block[0]
-        for op_idx in range(len(temp_group_connecting_operators_for_macro_block)):
-            op = temp_group_connecting_operators_for_macro_block[op_idx]
-            next_val = temp_group_results_for_macro_block[op_idx + 1]
-            if op == "AND":
-                current_macro_block_result = current_macro_block_result and next_val
-            elif op == "OR":
-                current_macro_block_result = current_macro_block_result or next_val
-        block_results.append(current_macro_block_result)
+    def _sort_key(value: Any) -> tuple[int, str]:
+        if isinstance(value, int):
+            return (0, str(value))
+        return (1, str(value))
 
-    if not block_results:
+    group_conditions_map: defaultdict[Any, List[Dict]] = defaultdict(list)
+    ast_entries: List[Dict] = []
+    synthetic_group_counter = 0
+
+    for cond in conditions_for_pauschale:
+        cond_type_upper = str(cond.get("Bedingungstyp", "")).upper()
+        if cond_type_upper == "AST VERBINDUNGSOPERATOR":
+            ast_entries.append(cond)
+            continue
+
+        group_id_raw = cond.get("Gruppe")
+        group_id_normalized = _normalize_group_id(group_id_raw)
+        if group_id_normalized is None:
+            group_id_normalized = f"__synthetic__{synthetic_group_counter}"
+            synthetic_group_counter += 1
+        group_conditions_map[group_id_normalized].append(cond)
+
+    group_results: Dict[Any, bool] = {}
+    for group_id, conds_in_group in group_conditions_map.items():
+        result_group = evaluate_single_condition_group(
+            conds_in_group,
+            context,
+            tabellen_dict_by_table,
+            pauschale_code,
+            conds_in_group[0].get("Gruppe", group_id),
+            debug,
+        )
+        group_results[group_id] = bool(result_group)
+
+    if not ast_entries:
+        if not group_results:
+            if debug:
+                logger.info("DEBUG Orchestrator Pauschale %s: No evaluable groups. Result: True", pauschale_code)
+            return True
+
+        default_operator = DEFAULT_GROUP_OPERATOR.upper()
+        final_without_ast = None
+        for group_id in sorted(group_results.keys(), key=_sort_key):
+            group_value = group_results[group_id]
+            if final_without_ast is None:
+                final_without_ast = group_value
+            else:
+                if default_operator == "UND":
+                    final_without_ast = final_without_ast and group_value
+                else:
+                    final_without_ast = final_without_ast or group_value
+            if debug:
+                logger.info(
+                    "DEBUG Orchestrator Pauschale %s: Group %s => %s (via default %s)",
+                    pauschale_code,
+                    group_id,
+                    group_value,
+                    default_operator,
+                )
+        return bool(final_without_ast)
+
+    children_map: defaultdict[Any, List[Dict[str, Any]]] = defaultdict(list)
+    parent_nodes: Set[Any] = set()
+    child_nodes: Set[Any] = set()
+
+    for ast_cond in ast_entries:
+        parent_id = _normalize_group_id(ast_cond.get("Gruppe"))
+        child_id = _normalize_group_id(ast_cond.get("Spezialbedingung") or ast_cond.get("Werte"))
+        operator_normalized = _normalize_operator(ast_cond.get("Operator"))
+        entry = {
+            "child": child_id,
+            "operator": operator_normalized,
+            "bed_id": ast_cond.get("BedingungsID", 0),
+        }
+        children_map[parent_id].append(entry)
+        parent_nodes.add(parent_id)
+        if child_id is not None:
+            child_nodes.add(child_id)
+
+    for entries in children_map.values():
+        entries.sort(key=lambda item: item.get("bed_id", 0))
+
+    recursion_stack: Set[Any] = set()
+    memoized_results: Dict[Any, bool] = {}
+
+    def evaluate_node(node_id: Any) -> bool:
+        if node_id in memoized_results:
+            return memoized_results[node_id]
+        if node_id in recursion_stack:
+            logger.error(
+                "FEHLER Orchestrator Pauschale %s: Cycle detected at node %s.",
+                pauschale_code,
+                node_id,
+            )
+            return False
+        recursion_stack.add(node_id)
+
+        node_entries = children_map.get(node_id, [])
+        result_value = group_results.get(node_id)
+        result_value = bool(result_value) if result_value is not None else None
+
+        for entry in node_entries:
+            child_id = entry["child"]
+            child_value = False
+            if child_id is not None:
+                if child_id in children_map or child_id in parent_nodes:
+                    child_value = evaluate_node(child_id)
+                else:
+                    child_value = bool(group_results.get(child_id, False))
+            operator = entry["operator"]
+            if result_value is None:
+                result_value = child_value
+            else:
+                if operator == "AND":
+                    result_value = result_value and child_value
+                else:
+                    result_value = result_value or child_value
+
+        if result_value is None:
+            result_value = bool(group_results.get(node_id, False))
+
+        memoized_results[node_id] = bool(result_value)
+        recursion_stack.remove(node_id)
+        return memoized_results[node_id]
+
+    root_candidates = [node for node in parent_nodes if node not in child_nodes]
+    if not root_candidates:
+        root_candidates = sorted(parent_nodes, key=_sort_key)
+    else:
+        root_candidates = sorted(root_candidates, key=_sort_key)
+
+    if not root_candidates:
+        final_result_ast = all(group_results.values()) if group_results else True
+    else:
+        final_result_ast = True
+        for index, root in enumerate(root_candidates):
+            root_result = evaluate_node(root)
+            if debug:
+                logger.info(
+                    "DEBUG Orchestrator Pauschale %s: Root %s => %s",
+                    pauschale_code,
+                    root,
+                    root_result,
+                )
+            if index == 0:
+                final_result_ast = root_result
+            else:
+                final_result_ast = final_result_ast and root_result
+
+    accounted_nodes = parent_nodes.union(child_nodes)
+    unused_groups = [gid for gid in group_results.keys() if gid not in accounted_nodes]
+
+    for unused_group in sorted(unused_groups, key=_sort_key):
+        final_result_ast = final_result_ast and group_results[unused_group]
         if debug:
-            logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: No valid blocks evaluated. Result: {'True' if not conditions_for_pauschale else 'False'}")
-        return True if not conditions_for_pauschale else False
-
-    final_result = block_results[0]
-    if debug:
-        logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: Initial block result: {final_result}")
-        logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: All block results: {block_results}")
-        logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: Connecting operators for blocks: {connecting_operators}")
-
-    for i, operator in enumerate(connecting_operators):
-        if (i + 1) < len(block_results):
-            next_block_result = block_results[i+1]
-            if debug:
-                logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: Applying {operator} with {next_block_result} to current result {final_result}")
-            if operator == "AND":
-                final_result = final_result and next_block_result
-            elif operator == "OR":
-                final_result = final_result or next_block_result
-        else:
-            if debug:
-                logger.warning(f"DEBUG Orchestrator Pauschale {pauschale_code}: Mismatch between operators and block results. Operator '{operator}' at index {i} has no corresponding next block.")
+            logger.info(
+                "DEBUG Orchestrator Pauschale %s: Combining unused group %s => %s",
+                pauschale_code,
+                unused_group,
+                group_results[unused_group],
+            )
 
     if debug:
-         logger.info(f"DEBUG Orchestrator Pauschale {pauschale_code}: Final evaluation result: {final_result}")
+        logger.info(
+            "DEBUG Orchestrator Pauschale %s: Final evaluation result: %s",
+            pauschale_code,
+            final_result_ast,
+        )
 
-    return final_result
+    return bool(final_result_ast)
+
+
+def evaluate_pauschale_logic_orchestrator(
+    pauschale_code: str,
+    context: Dict,
+    all_pauschale_bedingungen_data: List[Dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    pauschalen_dict: Optional[Dict[str, Dict]] = None,
+    debug: bool = False
+) -> bool:
+    prueflogik_expr = None
+    if pauschalen_dict:
+        pauschale_details = pauschalen_dict.get(pauschale_code)
+        if pauschale_details:
+            prueflogik_expr = pauschale_details.get('Pr\u00fcflogik')
+    if prueflogik_expr:
+        try:
+            return _evaluate_prueflogik_expression(prueflogik_expr, context, tabellen_dict_by_table, pauschale_code, debug)
+        except Exception as exc:
+            logger.warning(
+                "WARNUNG Orchestrator Pauschale %s: Pr\u00fcflogik-Auswertung fehlgeschlagen (%s). Fallback auf AST-Auswertung.",
+                pauschale_code,
+                exc,
+            )
+    return _evaluate_pauschale_logic_via_ast(
+        pauschale_code,
+        context,
+        all_pauschale_bedingungen_data,
+        tabellen_dict_by_table,
+        debug,
+    )
+
 
 # === PRUEFUNG DER BEDINGUNGEN (STRUKTURIERTES RESULTAT) ===
 def check_pauschale_conditions(
@@ -739,6 +1090,31 @@ def check_pauschale_conditions(
     last_processed_actual_condition = None
     trigger_lkn_condition_overall_met = False
 
+    def _normalize_group_id(value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            string_value = str(value).strip()
+            return string_value if string_value else None
+
+    pending_operator_by_group: Dict[Any, str] = {}
+    for _cond in all_conditions_for_pauschale_sorted_by_id:
+        if str(_cond.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
+            child_raw = _cond.get('Spezialbedingung') or _cond.get(BED_WERTE_KEY)
+            child_group_id = _normalize_group_id(child_raw)
+            op_val = str(_cond.get(OPERATOR_KEY, "ODER")).upper()
+            translated = ''
+            if op_val == "ODER":
+                translated = translate('OR', lang)
+            elif op_val == "UND":
+                translated = translate('AND', lang)
+            if child_group_id is not None and translated:
+                pending_operator_by_group[child_group_id] = translated
+
     for idx, cond_data in enumerate(all_conditions_for_pauschale_sorted_by_id):
         condition_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
 
@@ -747,16 +1123,7 @@ def check_pauschale_conditions(
                 html_parts.append("</div>")
                 current_display_group_id = None
                 last_processed_actual_condition = None
-
-            ast_operator_value = str(cond_data.get(BED_WERTE_KEY, "ODER")).upper()
-            translated_ast_op = ""
-            if ast_operator_value == "ODER":
-                translated_ast_op = translate('OR', lang)
-            elif ast_operator_value == "UND":
-                translated_ast_op = translate('AND', lang)
-
-            if translated_ast_op:
-                html_parts.append(f"<div class=\"condition-separator inter-group-operator\">{translated_ast_op}</div>")
+            continue
 
         else:
             actual_cond_group_id = cond_data.get(GRUPPE_KEY)
@@ -767,13 +1134,14 @@ def check_pauschale_conditions(
                     html_parts.append("</div>")
 
                 # Logic to add the operator between groups
-                if last_processed_actual_condition:
-                    # Check if the previous line was NOT an AST operator
+                operator_for_group = pending_operator_by_group.pop(_normalize_group_id(actual_cond_group_id), None)
+                if operator_for_group:
+                    html_parts.append(f"<div class=\"condition-separator inter-group-operator\">{operator_for_group}</div>")
+                elif last_processed_actual_condition:
                     previous_condition_index = idx - 1
                     if previous_condition_index >= 0:
                         prev_cond_data = all_conditions_for_pauschale_sorted_by_id[previous_condition_index]
                         if str(prev_cond_data.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR":
-                            # The operator is determined by the last condition of the previous group
                             inter_group_op_val = str(last_processed_actual_condition.get(OPERATOR_KEY, "UND")).upper()
                             translated_inter_group_op = ""
                             if inter_group_op_val == "ODER":
@@ -1352,6 +1720,9 @@ def determine_applicable_pauschale(
     BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp' # In PAUSCHALEN_Bedingungen
     BED_WERTE_KEY = 'Werte'
 
+    use_icd_flag = context.get('useIcd', True)
+    requires_icd_cache: Dict[str, bool] = {}
+
     potential_pauschale_codes: Set[str] = set()
     if potential_pauschale_codes_input is not None:
         potential_pauschale_codes = potential_pauschale_codes_input
@@ -1431,6 +1802,7 @@ def determine_applicable_pauschale(
                 context=context,
                 all_pauschale_bedingungen_data=pauschale_bedingungen_data,
                 tabellen_dict_by_table=tabellen_dict_by_table,
+                pauschalen_dict=pauschalen_dict,
                 debug=logger.isEnabledFor(logging.DEBUG) # Pass appropriate debug flag
             )
             check_res = check_pauschale_conditions(
@@ -1456,12 +1828,22 @@ def determine_applicable_pauschale(
         except (ValueError, TypeError):
             tp_val = 0.0
 
+        requires_icd = requires_icd_cache.setdefault(
+            code,
+            pauschale_requires_icd(code, pauschale_bedingungen_data, pauschalen_dict),
+        )
+        matched_lkn_count = count_matching_lkn_codes(
+            code, context, pauschale_bedingungen_data, tabellen_dict_by_table
+        )
+
         evaluated_candidates.append({
             "code": code,
             "details": pauschalen_dict[code],
             "is_valid_structured": is_pauschale_valid_structured,
             "bedingungs_pruef_html": bedingungs_html,
             "taxpunkte": tp_val,
+            "requires_icd": requires_icd,
+            "matched_lkn_count": matched_lkn_count,
         })
 
     valid_candidates = [cand for cand in evaluated_candidates if cand["is_valid_structured"]]
@@ -1496,6 +1878,17 @@ def determine_applicable_pauschale(
                 selection_type_message,
             )
 
+            if not use_icd_flag:
+                non_icd_candidates = [c for c in chosen_list_for_selection if not c.get('requires_icd')]
+                if non_icd_candidates:
+                    filtered_out = len(chosen_list_for_selection) - len(non_icd_candidates)
+                    if filtered_out:
+                        logger.info(
+                            "INFO: Ignoriere %s Kandidaten mit ICD-Bedingungen, weil useIcd deaktiviert ist.",
+                            filtered_out,
+                        )
+                    chosen_list_for_selection = non_icd_candidates
+
             # Score je Kandidat ermitteln (hier einfach Taxpunkte als Beispiel)
             for cand in chosen_list_for_selection:
                 cand["score"] = cand.get("taxpunkte", 0)
@@ -1505,7 +1898,9 @@ def determine_applicable_pauschale(
                 code_str = str(candidate['code'])
                 match = re.search(r"([A-Z])$", code_str)
                 suffix_ord = ord(match.group(1)) if match else ord('Z') + 1
-                return (-candidate.get("score", 0), suffix_ord)
+                matches = candidate.get('matched_lkn_count', 0)
+                icd_penalty = 1 if (not use_icd_flag and candidate.get('requires_icd')) else 0
+                return (-matches, icd_penalty, -candidate.get("score", 0), suffix_ord)
 
             chosen_list_for_selection.sort(key=sort_key_score_suffix)
             selected_candidate_info = chosen_list_for_selection[0]

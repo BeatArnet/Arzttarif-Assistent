@@ -9,13 +9,25 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
     *   Für verbindliche Tarifinformationen und zur Überprüfung der Resultate konsultieren Sie bitte den offiziellen **OAAT Tarifbrowser**: [https://tarifbrowser.oaat-otma.ch/startPortal](https://tarifbrowser.oaat-otma.ch/startPortal)
     *   Die Ärzteschaft kann sich zudem auf der **Tarifplattform der FMH** orientieren: [https://www.tarifeambulant.fmh.ch/](https://www.tarifeambulant.fmh.ch/)
 *   **Open Source:** Das Projekt ist öffentlich auf GitHub verfügbar: [https://github.com/BeatArnet/Arzttarif-Assistent](https://github.com/BeatArnet/Arzttarif-Assistent)
-*   Keine persönlichen Daten eingeben – KI-Abfragen laufen über Google Gemini.
+*   Keine persönlichen Daten eingeben – KI-Abfragen laufen über externe LLM‑Dienste (z. B. Gemini, OpenAI, SwissAI/Apertus, Ollama‑Gateway).
 *   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
 
-### V2.8 (Aktuell)
-- Synonymverwaltung mit GUI (empfohlen) und CLI (nicht getestet), konfigurierbar in `config.ini`. 
+### V3.0 (Aktuell)
+- Mehrere LLM‑Provider konfigurierbar (Gemini, OpenAI, SwissAI/Apertus, Ollama‑kompatibel) pro Stufe (Stage 1/2) via `config.ini` und Umgebungsvariablen.
+- OpenAI‑kompatible Einbindung von Apertus (PublicAI) inkl. anpassbarer `*_BASE_URL` und Token‑Budgets.
+- Konfigurierbares Prompt‑Trimming zur Einhaltung von Tokenbudgets:
+  - Apertus: automatisches Kürzen des Kontexts gemäss `[OPENAI] trim_*`.
+  - Gemini: optionales Trimmen gemäss `[GEMINI]`.
+- Feinsteuerung des Kontexts über `[CONTEXT]` in `config.ini` (z. B. `include_*`, `max_context_items`, `force_include_codes`).
+- Synonym‑Editor stabilisiert (`python -m synonyms`), zusätzliche Optionen in `[SYNONYMS]` (Fenstergeometrie/Spaltenbreiten); Katalogformat mit `lkn` und sprachgetrennten Listen bleibt kompatibel.
+- Erweiterte Logging‑Optionen und Rotations‑Logging (`[LOGGING]`), optional Rohantworten.
+- Regelprüfung: Option `kumulation_explizit` zur strikteren Kumulationslogik.
+- Standardkonfiguration aktualisiert (Version 3.0, Tarif 1.1c).
+
+### V2.8
+- Synonymverwaltung mit GUI, konfigurierbar in `config.ini`. 
   Synonymverwaltung unterstützt beim Vergleich der aktuellen zur neuen Tarifversion 
   (farblich markierte Eintragungen für neue, gelöscht und geänderte LKNs).)
 - Vergleich verschiedener LLM‑Provider und Modelle über `llm_vergleich.py`, inklusive unterschiedliche Provider und Modelle.
@@ -144,11 +156,18 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
     ```
 5.  **API-Schlüssel konfigurieren:**
     *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
-    *   Hinterlege die notwendigen Schlüssel:
+    *   Hinterlege die notwendigen Schlüssel abhängig vom gewählten Provider (nur die benötigten setzen):
         ```env
-        GEMINI_API_KEY="DEIN_API_SCHLUESSEL_HIER"
-        SYNONYM_LLM_API_KEY="DEIN_API_SCHLUESSEL_HIER"
-        SYNONYM_LLM_MODEL="DEIN_MODELL"
+        # LLM-Provider
+        GEMINI_API_KEY="..."                 # für Google Gemini
+        OPENAI_API_KEY="..."                 # für OpenAI
+        APERTUS_API_KEY="..."                # für SwissAI/Apertus (PublicAI)
+        APERTUS_BASE_URL="https://api.publicai.co/v1"  # optional
+        OLLAMA_BASE_URL="http://localhost:11434/v1"     # optional, OpenAI-kompatibel
+
+        # Synonym-Generator (falls externes LLM gewünscht)
+        SYNONYM_LLM_API_KEY="..."
+        SYNONYM_LLM_MODEL="gemini-2.5-flash"
         ```
 6.  **Anwendung starten:**
     ```bash
@@ -158,7 +177,7 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
 
 ## Deployment auf Render.com
 
-Die Anwendung kann auf Plattformen wie Render.com deployed werden. Hierfür sind eine `Procfile` und die Konfiguration von Umgebungsvariablen für den API-Schlüssel notwendig. Der `Standard`-Plan (oder höher) wird aufgrund des RAM-Bedarfs (>512 MB) empfohlen.
+Die Anwendung kann auf Plattformen wie Render.com deployed werden. Hierfür sind eine `Procfile` und die Konfiguration von Umgebungsvariablen für den API‑Schlüssel des gewählten Providers notwendig (z. B. `APERTUS_API_KEY`, `GEMINI_API_KEY`). Der `Standard`‑Plan (oder höher) wird aufgrund des RAM‑Bedarfs (>512 MB) empfohlen.
 
 ### Logs auf Render.com durchsuchen
 

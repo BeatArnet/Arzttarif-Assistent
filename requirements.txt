@@ -5,3 +5,4 @@ gunicorn
 google-generativeai
 pytest
 openai
+sentence-transformers

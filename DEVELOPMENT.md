@@ -22,19 +22,13 @@ gestartet werden. Die Tests liegen im Verzeichnis `tests/` und basieren auf der 
 
 ## Synonymverwaltung
 
-Synonyme liegen in `data/synonyms.json`. Zur Pflege kann der GUI-Editor
+Synonyme liegen in `data/synonyms.json`. Zur Pflege kann der GUI‑Editor gestartet werden mit
 
 ```bash
-python synonyms/synonyms.py
+python -m synonyms
 ```
 
-oder der CLI-Generator
-
-```bash
-python -m synonyms.cli generate --output data/synonyms.json
-```
-
-verwendet werden. Nach Änderungen sollte der Server neu gestartet und, falls der RAG-Modus aktiv ist, die Embeddings neu erzeugt werden.
+Nach Änderungen sollte der Server neu gestartet und – falls der RAG‑Modus aktiv ist – die Embeddings neu erzeugt werden.
 
 ## LLM-Vergleich
 

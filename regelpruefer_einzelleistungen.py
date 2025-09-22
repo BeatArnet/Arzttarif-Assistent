@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Konfiguration für Regelprüfung laden
 config = configparser.ConfigParser()
-config.read("config.ini", encoding="utf-8")
+config.read("config.ini", encoding="utf-8-sig")
 KUMULATION_EXPLIZIT = config.getint("REGELPRUEFUNG", "kumulation_explizit", fallback=0)
 
 # --- Konstanten für Regeltypen (zur besseren Lesbarkeit) ---

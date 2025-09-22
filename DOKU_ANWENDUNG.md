@@ -4,7 +4,7 @@ Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistente
 
 ## 1. Voraussetzungen und Start
 
-1. Installieren Sie die Abhängigkeiten gemäss `INSTALLATION.md` und legen Sie Ihren Google Gemini API-Schlüssel in einer `.env`-Datei ab.
+1. Installieren Sie die Abhängigkeiten gemäss `INSTALLATION.md` und legen Sie – je nach gewähltem Provider – den passenden API‑Schlüssel (z. B. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `APERTUS_API_KEY`) in einer `.env`-Datei ab.
 2. Optional: Soll der RAG-Modus genutzt werden, setzen Sie in `config.ini` unter `[RAG]` den Wert `enabled = 1` und erzeugen Sie zuvor die Datei `data/leistungskatalog_embeddings.json` mit `python generate_embeddings.py` (benötigt `sentence-transformers`).
 3. Starten Sie den Server lokal mit:
    ```bash
@@ -22,7 +22,7 @@ Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistente
 
 ## 3. Iteratives Vorgehen
 
-Der Assistent verwendet ein KI-Modell (Google Gemini) in Kombination mit lokalen Regeln. Schon kleine Anpassungen im Freitext können zu anderen Vorschlägen führen. Gehen Sie daher schrittweise vor:
+Der Assistent verwendet ein konfigurierbares KI‑Modell (z. B. Gemini, OpenAI oder SwissAI/Apertus) in Kombination mit lokalen Regeln. Schon kleine Anpassungen im Freitext können zu anderen Vorschlägen führen. Gehen Sie daher schrittweise vor:
 
 1. **Kurzbeschreibung testen:** Beginnen Sie mit einer einfachen Beschreibung der Leistung. Notieren Sie sich das Ergebnis.
 2. **Weitere Details hinzufügen:** Fügen Sie bei Bedarf Angaben zu Zeitdauer, Körperregion, Material oder Diagnosen hinzu. Wiederholen Sie die Analyse und vergleichen Sie die Resultate.
@@ -51,9 +51,8 @@ Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gew
 
 Der Assistent nutzt eine Synonymliste, um unterschiedliche Formulierungen
 derselben Leistung zu erkennen. Die Datei `data/synonyms.json` wird beim
-Start automatisch geladen. Eigene Einträge können mit dem Werkzeug
-`python synonyms/synonyms.py` (GUI) oder über die Kommandozeile mit
-`python -m synonyms.cli generate` ergänzt werden. Nach Änderungen muss der
+Start automatisch geladen. Eigene Einträge können mit dem GUI‑Werkzeug gestartet via
+`python -m synonyms` ergänzt/kuratiert werden. Nach Änderungen muss der
 Server neu gestartet werden.
 
 ## 7. Vergleich verschiedener LLMs

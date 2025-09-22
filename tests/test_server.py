@@ -38,6 +38,8 @@ MOCK_LLM_RESPONSE = {
 def test_parse_llm_json_response_with_trailing_text():
     raw = json.dumps(MOCK_LLM_RESPONSE) + " Hinweis"
     parsed = server.parse_llm_json_response(raw)
+    # Help type checkers: this test expects a dict response
+    assert isinstance(parsed, dict)
     assert parsed["identified_leistungen"][0]["lkn"] == "CA.00.0010"
 
 def test_analyze_billing_with_mocked_llm():

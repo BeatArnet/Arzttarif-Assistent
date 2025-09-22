@@ -4,7 +4,7 @@ Diese Datei gibt einen Überblick über die Architektur und den Code des Arzttar
 
 ## 1. Gesamtübersicht
 
-Die Anwendung besteht aus einem Python‑Backend (Flask) und einem HTML/JavaScript‑Frontend. Nutzer geben im Browser eine medizinische Leistungsbeschreibung ein. Das Backend ruft anschliessend ein Large‑Language‑Model (Google Gemini) auf, prüft die resultierenden Leistungspositionen mit lokalen Regeln und entscheidet, ob eine Pauschale oder einzelne TARDOC‑Leistungen verrechnet werden sollen. Die Ergebnisse werden als JSON an das Frontend zurückgegeben und dort dargestellt.
+Die Anwendung besteht aus einem Python‑Backend (Flask) und einem HTML/JavaScript‑Frontend. Nutzer geben im Browser eine medizinische Leistungsbeschreibung ein. Das Backend ruft anschliessend ein Large‑Language‑Model auf (konfigurierbar: z. B. Gemini, OpenAI, SwissAI/Apertus, Ollama‑kompatibel), prüft die resultierenden Leistungspositionen mit lokalen Regeln und entscheidet, ob eine Pauschale oder einzelne TARDOC‑Leistungen verrechnet werden sollen. Die Ergebnisse werden als JSON an das Frontend zurückgegeben und dort dargestellt.
 
 Grober Ablauf:
 
@@ -31,7 +31,7 @@ Grober Ablauf:
 
 - `create_app()` – Initialisiert die Flask‑Instanz und lädt die JSON‑Daten einmalig.
 - `load_data()` – Liest alle Dateien aus dem `data/`‑Verzeichnis ein (Leistungskatalog, TARDOC, Pauschalen usw.).
-- `call_gemini_stage1()` – Kommuniziert mit der Google‑Gemini‑API und liefert einen strukturierten Vorschlag an LKN und Kontextinformationen.
+- `call_stage1()` (anbieterspezifisch) – Kommuniziert mit dem konfigurierten LLM‑Provider (u. a. Gemini, OpenAI, Apertus) und liefert LKN‑Vorschläge und Kontext.
 - API‑Endpoints:
   - `/api/analyze-billing` – Hauptendpunkt zur Analyse eines Freitexts.
   - `/api/chop` – Suchfunktion für CHOP‑Codes.
@@ -39,6 +39,7 @@ Grober Ablauf:
   - `/api/quality` – Vergleich von Beispielrechnungen mit Baseline‑Ergebnissen.
   - `/api/test-example` – führt einen Beispieltest gegen `baseline_results.json` aus.
   - `/api/submit-feedback` – Speichert Feedback lokal oder erstellt GitHub‑Issues.
+  - Optional: `/api/synonyms/*` – Blueprint für künftige Synonym‑Operationen.
 
 ### regelpruefer_einzelleistungen.py
 
@@ -63,13 +64,11 @@ Enthält verschiedenste Helfer:
 ### Synonymverwaltung
 
 Der Synonymkatalog liegt in `data/synonyms.json` und wird beim Start des
-Servers geladen. Das Paket im Verzeichnis `synonyms/` bietet sowohl eine
-GUI (`python synonyms/synonyms.py`) als auch eine CLI
-(`python -m synonyms.cli generate`), um neue Vorschläge zu erzeugen oder
-Einträge zu kuratieren. Über den Abschnitt `[Synonyms]` in `config.ini`
-lässt sich steuern, ob die Liste genutzt wird und wie sie heisst. Die
-Synonyme fliessen in die Stichwortsuche sowie in den Aufbau der
-Embeddings ein.
+Servers geladen. Das Paket im Verzeichnis `synonyms/` bietet einen GUI‑Editor,
+der über `python -m synonyms` gestartet wird, um neue Vorschläge zu erzeugen
+oder Einträge zu kuratieren. Über den Abschnitt `[SYNONYMS]` in `config.ini`
+lässt sich steuern, ob die Liste genutzt wird und wie sie heisst. Die Synonyme
+fliessen in die Stichwortsuche sowie in den Aufbau der Embeddings ein.
 
 ### RAG-Modus und Embeddings
 
@@ -93,7 +92,7 @@ Begriffe ergänzt, direkte Treffer in der Synonymliste liefern sofort die
 zugehörigen LKN‑Codes. Die Embedding‑Suche verwendet hingegen ausschliesslich den
 vorverarbeiteten Originaltext ohne Synonym‑Erweiterung.
 
-### LLM-Vergleich
+### LLM‑Vergleich
 
 Das Skript `llm_vergleich.py` testet verschiedene LLM-Provider und Modelle gegen
 die in `data/baseline_results.json` hinterlegten Beispiele. In
@@ -120,7 +119,11 @@ ausgeführt werden.
 
 ## 6. Daten und Konfiguration
 
-Im Ordner `data/` liegen sämtliche JSON‑Dateien für Leistungskatalog, TARDOC‑Informationen und Pauschalen. Grosse Dateien werden über Git LFS versioniert. Ein API‑Key für Google Gemini wird in einer `.env`‑Datei hinterlegt (`GEMINI_API_KEY`). Weitere optionale Variablen (`GITHUB_TOKEN`, `GITHUB_REPO`) ermöglichen die automatische Erstellung von Feedback‑Issues.
+Im Ordner `data/` liegen sämtliche JSON‑Dateien für Leistungskatalog, TARDOC‑Informationen und Pauschalen. Grosse Dateien werden über Git LFS versioniert. API‑Keys für den gewählten LLM‑Provider werden in einer `.env`‑Datei hinterlegt (z. B. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `APERTUS_API_KEY`; optional `*_BASE_URL`). Weitere optionale Variablen (`GITHUB_TOKEN`, `GITHUB_REPO`) ermöglichen die automatische Erstellung von Feedback‑Issues.
+
+### LLM‑Provider und Token‑Budget
+
+Die Stufen‑Konfiguration erfolgt in `config.ini` unter `[LLM1UND2]` (`stage1_provider/_model`, `stage2_provider/_model`). Für OpenAI‑kompatible Provider (OpenAI, Apertus) stehen Budget‑ und Trimm‑Parameter unter `[OPENAI]` zur Verfügung; für Gemini entsprechende Optionen unter `[GEMINI]`. Über `[CONTEXT]` lässt sich der Kontextumfang granular steuern (`include_*`, `max_context_items`, `force_include_codes`).
 
 ### Aktualisierung der Datenbasis
 
