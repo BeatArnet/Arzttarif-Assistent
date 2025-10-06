@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, List
 
 import requests
+import pytest
 from dotenv import load_dotenv
 
 
@@ -84,6 +85,74 @@ def _get_stage(cfg: configparser.ConfigParser, stage: str) -> Tuple[str, str]:
     return p, m
 
 
+
+
+def _load_configuration() -> Tuple[configparser.ConfigParser, Optional[Path]]:
+    load_dotenv()
+    cfg = configparser.ConfigParser()
+    # Konfigurationsdatei robust finden (ENV, CWD, Repo-Root, Paket-Ordner)
+    cfg_path_env = os.getenv('CONFIG_PATH')
+    candidates = [
+        Path(cfg_path_env) if cfg_path_env else None,
+        Path.cwd() / 'config.ini',
+        Path(__file__).resolve().parent.parent / 'config.ini',
+        Path(__file__).resolve().parent / 'config.ini',
+    ]
+    used_cfg: Optional[Path] = None
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            try:
+                cfg.read(candidate, encoding='utf-8-sig')
+                used_cfg = candidate
+                break
+            except Exception:
+                pass
+    return cfg, used_cfg
+
+
+@pytest.fixture(scope='session')
+def configuration() -> Tuple[configparser.ConfigParser, Optional[Path]]:
+    return _load_configuration()
+
+
+@pytest.fixture(scope='session')
+def provider(configuration: Tuple[configparser.ConfigParser, Optional[Path]]) -> str:
+    cfg, _ = configuration
+    resolved_provider, _ = _get_stage(cfg, 'stage1')
+    return resolved_provider
+
+
+@pytest.fixture(scope='session')
+def model(configuration: Tuple[configparser.ConfigParser, Optional[Path]]) -> str:
+    cfg, _ = configuration
+    _, resolved_model = _get_stage(cfg, 'stage1')
+    return resolved_model
+
+
+@pytest.fixture(scope='session')
+def base_url(
+    configuration: Tuple[configparser.ConfigParser, Optional[Path]],
+    provider: str,
+) -> Optional[str]:
+    cfg, _ = configuration
+    return _get_base_url(cfg, provider)
+
+
+@pytest.fixture(scope='session')
+def api_key(
+    configuration: Tuple[configparser.ConfigParser, Optional[Path]],
+    provider: str,
+) -> Optional[str]:
+    cfg, _ = configuration
+    return _get_api_key(cfg, provider)
+
+
+@pytest.fixture(scope='session')
+def app_version(configuration: Tuple[configparser.ConfigParser, Optional[Path]]) -> str:
+    cfg, _ = configuration
+    return cfg.get('APP', 'version', fallback='dev')
+
+
 def is_openai_compatible(provider: str) -> bool:
     return provider in {"openai", "apertus", "ollama"}
 
@@ -101,7 +170,14 @@ def _detect_html_block(txt: str) -> Optional[str]:
     return None
 
 
-def test_openai_compatible(provider: str, model: str, base_url: str, api_key: Optional[str], app_version: str) -> None:
+def test_openai_compatible(provider: str, model: str, base_url: Optional[str], api_key: Optional[str], app_version: str) -> None:
+    if not is_openai_compatible(provider):
+        pytest.skip('Stage1 provider is not OpenAI-compatible.')
+    if not base_url:
+        pytest.skip(f'Base URL for {provider} is not configured.')
+    if provider in {'openai', 'apertus'} and not api_key:
+        pytest.skip(f'API key for {provider} is not configured.')
+    assert base_url is not None
     print(f"Provider: {provider}")
     print(f"Model:    {model}")
     print(f"Base URL: {base_url}")
@@ -271,30 +347,15 @@ def test_openai_compatible(provider: str, model: str, base_url: str, api_key: Op
         print("Bitte in config.ini unter [LLM1UND2] anpassen.")
 
 
-def test_gemini(model: str) -> None:
-    print("Gemini‑Test übersprungen (Fokus: OpenAI‑kompatibel/Apertus)")
+def test_gemini(model: str, provider: str) -> None:
+    if provider != 'gemini':
+        pytest.skip('Stage1 provider is not Gemini.')
+    print('Gemini-Test übersprungen (Fokus: OpenAI-kompatibel/Apertus)')
+
 
 
 def main() -> int:
-    load_dotenv()
-    cfg = configparser.ConfigParser()
-    # Konfigurationsdatei robust finden (ENV, CWD, Repo-Root, Paket-Ordner)
-    cfg_path_env = os.getenv("CONFIG_PATH")
-    candidates = [
-        Path(cfg_path_env) if cfg_path_env else None,
-        Path.cwd() / "config.ini",
-        Path(__file__).resolve().parent.parent / "config.ini",
-        Path(__file__).resolve().parent / "config.ini",
-    ]
-    used_cfg = None
-    for p in candidates:
-        if p and p.exists():
-            try:
-                cfg.read(p, encoding="utf-8-sig")
-                used_cfg = p
-                break
-            except Exception:
-                pass
+    cfg, used_cfg = _load_configuration()
     if not used_cfg:
         # Fallback: leere Config (Defaults/ENV werden genutzt)
         print("Warnung: config.ini nicht gefunden. Verwende Umgebungsvariablen/Defaults.")
@@ -309,7 +370,7 @@ def main() -> int:
     if is_openai_compatible(p1) and b1:
         test_openai_compatible(p1, m1, b1, k1, app_version)
     elif p1 == "gemini":
-        test_gemini(m1)
+        test_gemini(m1, p1)
     else:
         print(f"Unbekannter Provider: {p1}")
 

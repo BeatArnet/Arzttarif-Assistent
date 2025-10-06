@@ -1,8 +1,14 @@
 # regelpruefer_einzelleistungen.py
 
-"""
-Modul zur Prüfung der Abrechnungsregeln (Regelwerk) für TARDOC-Leistungen
-und der Bedingungen für Pauschalen.
+"""Regelwerk für individuelle Tarifpositionen ohne Pauschalen.
+
+Die Hilfsfunktionen laden den JSON-Regelkatalog und prüfen sämtliche
+Konfigurationen gegen eine vorgeschlagene Abrechnungsposition. Abgedeckt werden
+Mengenbegrenzungen, Pflicht-Basisleistungen, gegenseitige Ausschlüsse,
+optionale Zuschläge, Patientendaten, ICD-Vorgaben u.v.m. Der öffentliche Einstieg
+``pruefe_abrechnungsfaehigkeit`` wird von ``server.py`` nach den LLM-Vorschlägen
+aufgerufen und liefert strukturierte Fehler zurück, damit die Oberfläche
+verletzte Regeln hervorheben kann.
 """
 import json
 import logging
@@ -103,6 +109,18 @@ def pruefe_abrechnungsfaehigkeit(
     lkn = str(fall.get("LKN") or "").upper()
     menge = fall.get("Menge", 0) or 0
     begleit = [str(code).upper() for code in (fall.get("Begleit_LKNs") or [])]
+    typ_lkn = str(fall.get("Typ") or "").upper()
+    raw_begleit_typen = fall.get("Begleit_Typen") or {}
+    if isinstance(raw_begleit_typen, dict):
+        begleit_typen = {
+            str(code).upper(): str(t).upper()
+            for code, t in raw_begleit_typen.items()
+            if code
+        }
+    else:
+        begleit_typen = {}
+    if typ_lkn and lkn not in begleit_typen:
+        begleit_typen[lkn] = typ_lkn
     leistungsgruppen_map = {
         str(k).upper(): {str(c).upper() for c in v}
         for k, v in (leistungsgruppen_map or {}).items()
@@ -110,9 +128,12 @@ def pruefe_abrechnungsfaehigkeit(
     # Kontextdaten
     alter = fall.get("Alter")
     geschlecht = fall.get("Geschlecht")
-    gtins = fall.get("GTIN") or []  # Stelle sicher, dass GTIN hier ankommt
-    if isinstance(gtins, str):
-        gtins = [gtins]  # Mache zur Liste, falls String
+    medications = fall.get("Medikamente")
+    if medications is None:
+        medications = fall.get("GTIN")
+    medications = medications or []  # Stelle sicher, dass Medikamentenangaben hier ankommen
+    if isinstance(medications, str):
+        medications = [medications]  # Mache zur Liste, falls String
 
     errors: list = []
     allowed = True
@@ -141,12 +162,17 @@ def pruefe_abrechnungsfaehigkeit(
 
         # --- Nur als Zuschlag zu ---
         elif typ == REGEL_ZUSCHLAG_ZU:
-            parent = rule.get("LKN")
-            if isinstance(parent, str):
-                parent = parent.upper()
-            if parent and parent not in begleit:
+            parent_entries = rule.get("LKNs")
+            if not parent_entries:
+                parent_entries = rule.get("LKN")
+            if isinstance(parent_entries, str):
+                parent_entries = [parent_entries]
+            parents = [str(p).upper() for p in (parent_entries or []) if p]
+            if not parents:
+                logger.info("Regel 'Nur als Zuschlag zu' ohne Basisangabe bei LKN %s ignoriert.", lkn)
+            elif not any(parent in begleit for parent in parents):
                 allowed = False
-                errors.append(f"Nur als Zuschlag zu {parent} zulässig (Basis fehlt)")
+                errors.append("Nur als Zuschlag zu " + ", ".join(parents) + " zulässig (Basis fehlt)")
 
         # --- Mögliche Zusatzpositionen ---
         elif typ == REGEL_MOEG_ZUSATZPOSITIONEN:
@@ -171,12 +197,19 @@ def pruefe_abrechnungsfaehigkeit(
                 ]
             else:
                 typen_filter = []
-            konflikt = [
-                code
-                for code in begleit
-                if code in not_with
-                and (not typen_filter or code[:1] in typen_filter)
-            ]
+            konflikt: list[str] = []
+            for code in begleit:
+                if code not in not_with:
+                    continue
+                if not typen_filter:
+                    konflikt.append(code)
+                    continue
+                code_typ = begleit_typen.get(code)
+                if code_typ:
+                    if code_typ in typen_filter:
+                        konflikt.append(code)
+                else:
+                    konflikt.append(code)
             if konflikt:
                 allowed = False
                 codes = ", ".join(konflikt)
@@ -225,6 +258,7 @@ def pruefe_abrechnungsfaehigkeit(
             wert_fall = fall.get(field)  # Wert aus dem Abrechnungsfall
 
             bedingung_text = f"Patientenbedingung ({field})"
+            field_normalized = str(field).upper() if field else ""
             condition_met = False
 
             if wert_fall is None:
@@ -268,20 +302,17 @@ def pruefe_abrechnungsfaehigkeit(
                     errors.append(
                         f"{bedingung_text}: Ungültige Werte für Geschlechtsprüfung"
                     )
-            elif field == "GTIN":
-                # Prüfe, ob mindestens ein benötigter GTIN im Fall vorhanden ist
-                required_gtins = (
+            elif field_normalized in {"GTIN", "MEDIKAMENTE", "MEDIKAMENT", "ATC"}:
+                required_medications = (
                     [str(wert_regel)]
                     if isinstance(wert_regel, (str, int))
                     else [str(w) for w in (wert_regel or [])]
                 )
-                provided_gtins_str = [
-                    str(g) for g in (gtins or [])
-                ]  # Nutze gtins Variable
-                condition_met = any(req in provided_gtins_str for req in required_gtins)
+                provided_medications_upper = [str(code).upper() for code in (medications or [])]
+                condition_met = any(str(req).upper() in provided_medications_upper for req in required_medications)
                 if not condition_met:
                     errors.append(
-                        f"{bedingung_text}: Erwartet einen von {required_gtins}, nicht gefunden"
+                        f"{bedingung_text}: Erwartet einen von {required_medications}, nicht gefunden"
                     )
             else:
                 logger.info(

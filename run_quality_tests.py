@@ -1,3 +1,13 @@
+"""Smoke-Test-Werkzeug zur Validierung der Qualitäts-Baseline.
+
+Das Skript startet die Flask-Anwendung im Testmodus, spielt alle Einträge aus
+``data/baseline_results.json`` gegen den Endpunkt ``/api/test-example`` und
+fasst die Erfolgsquote zusammen. Eine zusätzliche Funktion stößt eine Auswahl
+an ``pytest``-Tests an, die sich auf die Abrechnungsregeln konzentrieren. Vor
+Änderungen an Prompts oder Regeln lokal mit ``python run_quality_tests.py``
+ausführen.
+"""
+
 import json
 import logging
 from pathlib import Path
@@ -32,6 +42,7 @@ def run_tests() -> None:
     results: List[bool] = []
 
     with app.test_client() as client:
+        # Nutzt bewusst die öffentliche API, wie es auch das Web-Frontend tun würde.
         for ex_id, entry in baseline_data.items():
             langs = list(entry.get("query", {}).keys())
             for lang in langs:

@@ -1260,7 +1260,7 @@ async function getBillingAnalysis() {
         console.error("[getBillingAnalysis] Example mapping failed:", err);
     }
     const icdInput = $("icdInput").value.trim().split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-    const gtinInput = ($("gtinInput") ? $("gtinInput").value.trim().split(",").map(s => s.trim()).filter(Boolean) : []);
+    const medicationInput = ($("medicationInput") ? $("medicationInput").value.trim().split(",").map(s => s.trim()).filter(Boolean) : []);
     const useIcd = $('useIcdCheckbox')?.checked ?? true;
     const ageInput = $('ageInput')?.value; // Bleibt vorerst auskommentiert im HTML
     const age = ageInput ? parseInt(ageInput, 10) : null;
@@ -1294,7 +1294,7 @@ async function getBillingAnalysis() {
         const requestBody = {
             inputText: mappedInput,
             icd: icdInput,
-            gtin: gtinInput,
+            medications: medicationInput,
             useIcd: useIcd,
             age: age,
             gender: gender,
@@ -1857,7 +1857,7 @@ function processTardocLookup(lkn) {
 document.addEventListener("DOMContentLoaded", function() {
     const uiField = $("userInput");
     const icdField = $("icdInput");
-    const gtinField = $("gtinInput");
+    const medicationField = $("medicationInput");
 
     function handleEnter(e) {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -1884,7 +1884,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (uiField) uiField.addEventListener("keydown", handleEnter);
     if (icdField) icdField.addEventListener("keydown", handleEnter);
-    if (gtinField) gtinField.addEventListener("keydown", handleEnter);
+    if (medicationField) medicationField.addEventListener("keydown", handleEnter);
 });
 
 // Mache die Hauptfunktion global verfügbar

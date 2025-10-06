@@ -1,8 +1,13 @@
 <#
-    Deploy-V1.1.ps1
-    Kopiert die aktuelle Entwicklerversion in das lokale Produktionsrepo
-    und entfernt zuvor alle alten Dateien. Wird das Entwicklungsverzeichnis
-    nicht gefunden, bricht das Skript ab.
+.SYNOPSIS
+    Überträgt den aktuellen Entwicklungsstand in das lokale Produktions-Repository.
+
+.DESCRIPTION
+    Klont bei Bedarf das Upstream-Repository, checkt den gewünschten Branch aus,
+    entfernt alles ausser ``.git`` im Produktionsordner und kopiert danach die
+    Entwicklungsdateien hinein. Anschliessend werden Änderungen gestaged,
+    committed, gepusht und getaggt. Dieses Skript gleicht die Umgebung
+    ``Arzttarif_Assistent`` vor der Übergabe an den Betrieb ab.
 #>
 
 param(
@@ -11,11 +16,48 @@ param(
     [string]$Branch   = "main"
 )
 
+function Get-AppVersion {
+    param([string]$IniPath)
+
+    if (-not (Test-Path $IniPath)) {
+        throw "Konfigurationsdatei '$IniPath' wurde nicht gefunden."
+    }
+
+    $currentSection = $null
+    foreach ($line in Get-Content -Path $IniPath) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith(';') -or $trimmed.StartsWith('#')) {
+            continue
+        }
+
+        if ($trimmed.StartsWith('[') -and $trimmed.EndsWith(']')) {
+            $currentSection = $trimmed.Substring(1, $trimmed.Length - 2)
+            continue
+        }
+
+        if ($currentSection -eq 'APP' -and $trimmed -match '^version\s*=\s*(.+)$') {
+            $value = $matches[1].Trim()
+            if ($value) {
+                return "v$value"
+            }
+        }
+    }
+
+    throw "Keine Version im Abschnitt [APP] der Konfigurationsdatei '$IniPath' gefunden."
+}
+
 $RepoUrl = "https://github.com/BeatArnet/Arzttarif-Assistent"
-$Version = "v3.0"
 
 if (-not (Test-Path $DevPath)) {
     Write-Error "Entwicklungsverzeichnis '$DevPath' wurde nicht gefunden."
+    exit 1
+}
+
+try {
+    $configPath = Join-Path $DevPath 'config.ini'
+    $Version = Get-AppVersion -IniPath $configPath
+} catch {
+    Write-Error $_
     exit 1
 }
 
@@ -29,6 +71,7 @@ git checkout $Branch
 git pull origin $Branch
 
 # Alte Dateien (ausser .git) entfernen
+# Produktionsarbeitsverzeichnis leeren, aber ``.git`` unangetastet lassen.
 Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | Remove-Item -Recurse -Force
 git clean -xdf
 

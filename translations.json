@@ -10,8 +10,6 @@
     "userPlaceholder": "z.B. Hausärztliche Konsultation von 17 Minuten...",
     "icdLabel": "Hauptdiagnose ICD (optional):",
     "icdPlaceholder": "z.B. K35.8, J45.9",
-    "gtinLabel": "Medikamenten-GTINs (kommagetrennt, optional):",
-    "gtinPlaceholder": "z.B. 7680664950014, 1234567890123",
     "chopLabel": "Über den CHOP-Code suchen:",
     "chopPlaceholder": "CHOP-Code oder Text",
     "useIcd": "ICD berücksichtigen",
@@ -48,16 +46,18 @@
     "qcTestExample": "Beispiel testen",
     "qcTestAll": "Alle Beispiele testen",
     "qcPass": "OK",
-    "qcFail": "Fehler"
-    ,"fbCatGeneral": "Allgemein"
-    ,"fbCatService": "Leistungsbeschreibung"
-    ,"fbCatPauschale": "Pauschale"
-    ,"fbCatSingle": "Einzelleistung"
-    ,"qcTestingLang": "Teste {lang}..."
-    ,"qcSummary": "Gesamt: {passed} / {total} bestanden."
-    ,"qcError": "Fehler"
-    ,"qcTokensLlm1": "LLM1 Tokens (Input/Ausgabe): {in} / {out}"
-    ,"qcTokensLlm2": "LLM2 Tokens (Input/Ausgabe): {in} / {out}"
+    "qcFail": "Fehler",
+    "fbCatGeneral": "Allgemein",
+    "fbCatService": "Leistungsbeschreibung",
+    "fbCatPauschale": "Pauschale",
+    "fbCatSingle": "Einzelleistung",
+    "qcTestingLang": "Teste {lang}...",
+    "qcSummary": "Gesamt: {passed} / {total} bestanden.",
+    "qcError": "Fehler",
+    "qcTokensLlm1": "LLM1 Tokens (Input/Ausgabe): {in} / {out}",
+    "qcTokensLlm2": "LLM2 Tokens (Input/Ausgabe): {in} / {out}",
+    "medicationLabel": "Medikamente (kommagetrennt, optional):",
+    "medicationPlaceholder": "z.B. M09AX07, Spinraza, 7680664950014"
   },
   "fr": {
     "langLabel": "Langue :",
@@ -70,8 +70,6 @@
     "userPlaceholder": "p. ex. consultation de médecine de famille de 17 minutes...",
     "icdLabel": "Diagnostic principal CIM (optionnel) :",
     "icdPlaceholder": "p. ex. K35.8, J45.9",
-    "gtinLabel": "GTIN des médicaments (séparées par des virgules, optionnel) :",
-    "gtinPlaceholder": "p. ex. 7680664950014, 1234567890123",
     "chopLabel": "Chercher via le code CHOP :",
     "chopPlaceholder": "Code ou terme CHOP",
     "useIcd": "Prendre en compte la CIM",
@@ -108,16 +106,18 @@
     "qcTestExample": "Tester exemple",
     "qcTestAll": "Tester tous les exemples",
     "qcPass": "OK",
-    "qcFail": "Erreur"
-    ,"fbCatGeneral": "Général"
-    ,"fbCatService": "Description de la prestation"
-    ,"fbCatPauschale": "Forfait"
-    ,"fbCatSingle": "Prestation individuelle"
-    ,"qcTestingLang": "test de {lang}..."
-    ,"qcSummary": "Total : {passed} / {total} réussis."
-    ,"qcError": "erreur"
-    ,"qcTokensLlm1": "Tokens LLM1 (Entrée/Sortie) : {in} / {out}"
-    ,"qcTokensLlm2": "Tokens LLM2 (Entrée/Sortie) : {in} / {out}"
+    "qcFail": "Erreur",
+    "fbCatGeneral": "Général",
+    "fbCatService": "Description de la prestation",
+    "fbCatPauschale": "Forfait",
+    "fbCatSingle": "Prestation individuelle",
+    "qcTestingLang": "test de {lang}...",
+    "qcSummary": "Total : {passed} / {total} réussis.",
+    "qcError": "erreur",
+    "qcTokensLlm1": "Tokens LLM1 (Entrée/Sortie) : {in} / {out}",
+    "qcTokensLlm2": "Tokens LLM2 (Entrée/Sortie) : {in} / {out}",
+    "medicationLabel": "Medicaments (separes par des virgules, optionnel) :",
+    "medicationPlaceholder": "p. ex. M09AX07, Spinraza, 7680664950014"
   },
   "it": {
     "langLabel": "Lingua:",
@@ -130,8 +130,6 @@
     "userPlaceholder": "es. consultazione di base di 17 minuti...",
     "icdLabel": "Diagnosi principale ICD (opzionale):",
     "icdPlaceholder": "es. K35.8, J45.9",
-    "gtinLabel": "GTIN dei medicamenti (separate da virgole, opzionale):",
-    "gtinPlaceholder": "es. 7680664950014, 1234567890123",
     "chopLabel": "Cerca tramite codice CHOP:",
     "chopPlaceholder": "Codice o testo CHOP",
     "useIcd": "Considera ICD",
@@ -168,15 +166,17 @@
     "qcTestExample": "Prova esempio",
     "qcTestAll": "Testa tutti gli esempi",
     "qcPass": "OK",
-    "qcFail": "Errore"
-    ,"fbCatGeneral": "Generale"
-    ,"fbCatService": "Descrizione della prestazione"
-    ,"fbCatPauschale": "Forfait"
-    ,"fbCatSingle": "Prestazione singola"
-    ,"qcTestingLang": "test {lang}..."
-    ,"qcSummary": "Totale: {passed} / {total} superati."
-    ,"qcError": "errore"
-    ,"qcTokensLlm1": "Token LLM1 (Input/Output): {in} / {out}"
-    ,"qcTokensLlm2": "Token LLM2 (Input/Output): {in} / {out}"
+    "qcFail": "Errore",
+    "fbCatGeneral": "Generale",
+    "fbCatService": "Descrizione della prestazione",
+    "fbCatPauschale": "Forfait",
+    "fbCatSingle": "Prestazione singola",
+    "qcTestingLang": "test {lang}...",
+    "qcSummary": "Totale: {passed} / {total} superati.",
+    "qcError": "errore",
+    "qcTokensLlm1": "Token LLM1 (Input/Output): {in} / {out}",
+    "qcTokensLlm2": "Token LLM2 (Input/Output): {in} / {out}",
+    "medicationLabel": "Medicamenti (separati da virgola, opzionale):",
+    "medicationPlaceholder": "es. M09AX07, Spinraza, 7680664950014"
   }
 }

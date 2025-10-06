@@ -1,4 +1,11 @@
-"""Tools for generating new synonyms from the tariff data and LLM suggestions."""
+"""Werkzeuge zur Erzeugung neuer Synonyme aus Tarifdaten und LLM-Vorschlägen.
+
+Der Generator liest den offiziellen Tarifkatalog, holt Übersetzungen und
+Varianten vom konfigurierten LLM-Anbieter und speichert Ergänzungen im
+Synonymspeicher. Sperr-Mechanismen schützen lokale Ollama-Instanzen, und die
+Hilfsfunktionen dienen der Tkinter-GUI als Bausteine für interaktive
+Kurationssitzungen.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,7 @@ import json
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, Iterable, List, TypedDict, cast
+from typing import Dict, Iterable, List, Optional, TypedDict, cast
 import unicodedata
 import re
 import configparser
@@ -43,6 +50,53 @@ LLM_MODEL = (
         fallback=DEFAULT_MODELS.get(LLM_PROVIDER, "gpt-oss-20b"),
     )
 )
+
+MODEL_TEMPERATURE_SECTION = "MODEL_TEMPERATURES"
+
+
+def _get_float_option(section: str, option: str) -> Optional[float]:
+    if _CONFIG.has_option(section, option):
+        try:
+            return _CONFIG.getfloat(section, option)
+        except ValueError:
+            raw_value = _CONFIG.get(section, option, fallback="").strip()
+            logging.warning(
+                "Ignoriere ungueltigen Temperaturwert fuer %s.%s: %s",
+                section,
+                option,
+                raw_value,
+            )
+    return None
+
+
+def _synonym_default_temperature(stage: str) -> Optional[float]:
+    if stage == "completion":
+        return 1.0 if LLM_PROVIDER != "ollama" else None
+    if stage == "generation":
+        return 0.05
+    return None
+
+
+def _resolve_synonym_temperature(stage: str) -> Optional[float]:
+    option = f"{stage}_temperature"
+    explicit = _get_float_option("SYNONYMS", option)
+    if explicit is not None:
+        return explicit
+
+    if _CONFIG.has_section(MODEL_TEMPERATURE_SECTION):
+        stage_specific = f"{LLM_MODEL}@synonyms_{stage}"
+        value = _get_float_option(MODEL_TEMPERATURE_SECTION, stage_specific)
+        if value is not None:
+            return value
+        value = _get_float_option(MODEL_TEMPERATURE_SECTION, LLM_MODEL)
+        if value is not None:
+            return value
+
+    return _synonym_default_temperature(stage)
+
+
+SYNONYMS_GENERATION_TEMPERATURE = _resolve_synonym_temperature("generation")
+SYNONYMS_COMPLETION_TEMPERATURE = _resolve_synonym_temperature("completion")
 
 APP_VERSION = _CONFIG.get("APP", "version", fallback="dev")
 USER_AGENT_PRODUCT = os.getenv("APP_USER_AGENT_PRODUCT") or _CONFIG.get("APP", "user_agent_product", fallback="ArzttarifAssistent")
@@ -294,7 +348,13 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
         model = model_cls(LLM_MODEL)
         # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
         enforce_llm_min_interval()
-        resp = model.generate_content(prompt, generation_config={"temperature": 0.05})
+        generation_config = {}
+        if SYNONYMS_GENERATION_TEMPERATURE is not None:
+            generation_config["temperature"] = SYNONYMS_GENERATION_TEMPERATURE
+        resp = model.generate_content(
+            prompt,
+            generation_config=generation_config or None,
+        )
         try:
             resp_text = resp.text
             if not isinstance(resp_text, str):
@@ -330,6 +390,10 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
             },
         )
         try:
+            temp_kwargs: Dict[str, float] = {}
+            if SYNONYMS_COMPLETION_TEMPERATURE is not None:
+                temp_kwargs["temperature"] = SYNONYMS_COMPLETION_TEMPERATURE
+
             if provider == "ollama":
                 with _OLLAMA_LOCK:
                     resp = chat_completion_safe(
@@ -340,6 +404,7 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
                         ],
                         timeout=60,
                         client=client,
+                        **temp_kwargs,
                     )
             else:
                 resp = chat_completion_safe(
@@ -348,9 +413,9 @@ def _query_llm(term_data: Dict[str, str]) -> Dict[str, Dict[str, List[str]]]:
                         {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
                         {"role": "user", "content": prompt},
                     ],
-                    temperature=1,
                     timeout=60,
                     client=client,
+                    **temp_kwargs,
                 )
             resp_content = resp.choices[0].message.content
             if isinstance(resp_content, list):
@@ -399,7 +464,7 @@ def propose_synonyms_incremental(
     for idx, item in enumerate(base_terms):
         if idx < start:
             continue
-        lkn = None
+        lkns: List[str] = []
         if isinstance(item, dict):
             term_de = str(item.get("de", "")).strip()
             trans: Dict[str, str] = {}
@@ -409,15 +474,24 @@ def propose_synonyms_incremental(
             it = item.get("it")
             if isinstance(it, str):
                 trans["it"] = it.strip()
+            lkns_value = item.get("lkns")
+            if isinstance(lkns_value, (list, tuple, set)):
+                for code in lkns_value:
+                    code_norm = str(code).strip().upper()
+                    if code_norm and code_norm not in lkns:
+                        lkns.append(code_norm)
             lkn_val = item.get("lkn") or item.get("LKN")
             if isinstance(lkn_val, (str, int)):
-                lkn = str(lkn_val)
+                code_norm = str(lkn_val).strip().upper()
+                if code_norm and code_norm not in lkns:
+                    lkns.append(code_norm)
             translations = trans or None
         else:
             term_de = str(item)
             translations = None
 
-        logging.info("LLM request for %s (%s)", term_de, lkn or "-")
+        primary_lkn = lkns[0] if lkns else "-"
+        logging.info("LLM request for %s (%s)", term_de, primary_lkn)
         term_data = {"de": term_de}
         if translations:
             term_data.update(translations)
@@ -458,7 +532,7 @@ def propose_synonyms_incremental(
         yield SynonymEntry(
             base_term=term_de,
             synonyms=synonyms,
-            lkn=lkn,
+            lkns=lkns,
             by_lang=by_lang,
             components=components,
         )

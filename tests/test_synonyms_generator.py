@@ -44,13 +44,13 @@ def test_incremental_returns_entry_with_lkn_and_by_lang(tmp_path, monkeypatch):
         }
 
     monkeypatch.setattr(mod, "_query_llm", fake_query)
-    base_terms = [{"de": "Foo", "fr": "Foo", "it": "Foo", "lkn": "L1"}]
+    base_terms = [{"de": "Foo", "fr": "Foo", "it": "Foo", "lkn": "L1", "lkns": ["L1", "L1A"]}]
 
     entries = list(mod.propose_synonyms_incremental(base_terms))
     assert len(entries) == 1
     entry = entries[0]
     assert isinstance(entry, SynonymEntry)
-    assert entry.lkn == "L1"
+    assert entry.lkns == ["L1", "L1A"]
     assert entry.by_lang == {"de": ["Foo-de"], "fr": ["Foo-fr"], "it": ["Foo-it"]}
     assert set(entry.synonyms) == {"Foo-de", "Foo-fr", "Foo-it"}
     assert entry.components == {

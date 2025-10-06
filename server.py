@@ -1,4 +1,16 @@
-# server.py - Zweistufiger LLM-Ansatz mit Backend-Regelprüfung (Erweitert)
+"""Flask-Anwendung zur Koordination des zweistufigen LLM-Workflows.
+
+Der Server führt Katalogdaten, Synonymerweiterung, Retrieval-Hilfen sowie die
+Regelprüfer für Einzelleistungen und Pauschalen zusammen. Eingehende Anfragen
+durchlaufen eine Pipeline: Stufe 1 extrahiert potenzielle Tarifcodes über ein
+LLM, das Python-Backend prüft Mengen und Regeln, und Stufe 2 ordnet oder
+korrigiert die Vorschläge bei Bedarf. Zusätzlich stellt das Modul
+Qualitätssicherungs-Endpunkte, das Ausliefern der leichten Weboberfläche sowie
+umfangreiche Logging- und Telemetrie-Hooks bereit. Viele Importe bringen
+Fallback-Stubs mit, damit Testläufe auch ohne Flask oder externe HTTP-Abhängige
+funktionieren.
+"""
+
 import os
 import re
 import json
@@ -6,13 +18,29 @@ import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Union, cast
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast
 
 if TYPE_CHECKING:
-    from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
+    from flask import (
+        Blueprint as FlaskBlueprint,
+        Flask as FlaskType,
+        Request as FlaskRequest,
+        abort,
+        jsonify,
+        request,
+        send_from_directory,
+    )
 else:
     try:
-        from flask import Blueprint as FlaskBlueprint, Flask as FlaskType, jsonify, send_from_directory, request, abort
+        from flask import (
+            Blueprint as FlaskBlueprint,
+            Flask as FlaskType,
+            Request as FlaskRequest,
+            abort,
+            jsonify,
+            request,
+            send_from_directory,
+        )
     except ModuleNotFoundError:  # Minimal stubs for test environment
         class FlaskType:
             def __init__(self, *a, **kw):
@@ -128,8 +156,12 @@ else:
 
         request = Request()
 
+        FlaskRequest = Request
+
         def abort(code: int) -> None:
             raise Exception(f"abort {code}")
+
+Request = FlaskRequest
 
 # Typing alias for chat message param to satisfy static analyzers
 from typing import TypeAlias
@@ -215,6 +247,10 @@ root_logger = logging.getLogger()
 # Remove any existing handlers
 for handler in root_logger.handlers[:]:
     root_logger.removeHandler(handler)
+    try:
+        handler.close()
+    except Exception:
+        pass
 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
@@ -227,6 +263,12 @@ logger = logging.getLogger(__name__)  # Module-level logger
 
 # Separate logger and handler for optional detailed output
 detail_logger = logging.getLogger("detail")
+for handler in detail_logger.handlers[:]:
+    detail_logger.removeHandler(handler)
+    try:
+        handler.close()
+    except Exception:
+        pass
 detail_handler = SafeEncodingStreamHandler(sys.stdout)
 detail_handler.setFormatter(formatter)
 detail_logger.addHandler(detail_handler)
@@ -241,6 +283,13 @@ DEFAULT_MODELS: Dict[str, str] = {
     "openai": "gpt-4o-mini",
 }
 
+# Zusätzliche Umgebungsvariablen-Aliase pro Provider (graceful fallback)
+API_KEY_ENV_FALLBACKS: Dict[str, tuple[str, ...]] = {
+    "gemini": ("GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY", "GEMINI_KEY"),
+    "openai": ("OPENAI_KEY",),
+    "apertus": ("APERTUS_API_KEY",),
+    "ollama": ("OLLAMA_API_KEY",),
+}
 
 def _env_name(provider: str) -> str:
     """Return an environment variable prefix for ``provider``."""
@@ -249,7 +298,24 @@ def _env_name(provider: str) -> str:
 
 # Helper to fetch API credentials generically (e.g. GEMINI_API_KEY)
 def _get_api_key(provider: str) -> Optional[str]:
-    return os.getenv(f"{_env_name(provider)}_API_KEY")
+    provider_env_key = _env_name(provider)
+    env_candidates = [f"{provider_env_key}_API_KEY"]
+    env_candidates.extend(API_KEY_ENV_FALLBACKS.get(provider.lower(), ()))
+    for env_name in env_candidates:
+        value = os.getenv(env_name)
+        if value and value.strip():
+            return value.strip()
+
+    cfg = globals().get("config")
+    if isinstance(cfg, configparser.ConfigParser):
+        section = provider.upper()
+        if cfg.has_section(section) and cfg.has_option(section, "api_key"):
+            candidate = cfg.get(section, "api_key", fallback="")
+            candidate = (candidate or "").strip()
+            if candidate:
+                return candidate
+
+    return None
 
 
 def _get_base_url(provider: str) -> Optional[str]:
@@ -264,73 +330,120 @@ config.read(config_file, encoding='utf-8-sig')
 
 
 def _get_stage_settings(stage: str) -> tuple[str, str]:
-    provider = (
-        os.getenv(f"{stage.upper()}_LLM_PROVIDER")
-        or config.get("LLM1UND2", f"{stage}_provider", fallback="gemini")
-    ).lower()
-    model = (
-        os.getenv(f"{stage.upper()}_LLM_MODEL")
-        or config.get("LLM1UND2", f"{stage}_model", fallback=DEFAULT_MODELS.get(provider, ""))
-        or DEFAULT_MODELS.get(provider, "")
-    )
-    return provider, model
+    provider_raw = config.get("LLM1UND2", f"{stage}_provider", fallback="gemini")
+    provider = (provider_raw or "gemini").strip().lower() or "gemini"
 
+    model_raw = config.get("LLM1UND2", f"{stage}_model", fallback=DEFAULT_MODELS.get(provider, ""))
+    model = (model_raw or "").strip()
+    if not model:
+        model = DEFAULT_MODELS.get(provider, "")
+
+    return provider, model
 
 STAGE1_PROVIDER, STAGE1_MODEL = _get_stage_settings("stage1")
 STAGE2_PROVIDER, STAGE2_MODEL = _get_stage_settings("stage2")
+MODEL_TEMPERATURE_SECTION = "MODEL_TEMPERATURES"
+
+def _get_float_option(section: str, option: str) -> Optional[float]:
+    if config.has_option(section, option):
+        try:
+            return config.getfloat(section, option)
+        except ValueError:
+            raw_value = config.get(section, option, fallback="").strip()
+            logger.warning(
+                "Ignoriere ungueltigen Temperaturwert fuer %s.%s: %s",
+                section,
+                option,
+                raw_value,
+            )
+    return None
+
+def _default_temperature(stage_key: str, provider: str) -> Optional[float]:
+    if provider == "openai":
+        return None
+    if provider == "apertus" and stage_key == "stage1":
+        return 0.0
+    if stage_key == "stage2_ranking":
+        return 0.1
+    return 0.05
+
+def _resolve_temperature(stage_key: str, provider: str, model: str) -> Optional[float]:
+    option = f"{stage_key}_temperature"
+    explicit = _get_float_option("LLM1UND2", option)
+    if explicit is not None:
+        return explicit
+
+    if config.has_section(MODEL_TEMPERATURE_SECTION):
+        stage_specific = f"{model}@{stage_key}"
+        value = _get_float_option(MODEL_TEMPERATURE_SECTION, stage_specific)
+        if value is not None:
+            return value
+        value = _get_float_option(MODEL_TEMPERATURE_SECTION, model)
+        if value is not None:
+            return value
+
+    return _default_temperature(stage_key, provider)
+
+def _temperature_kwargs(temperature: Optional[float]) -> Dict[str, float]:
+    if temperature is None:
+        return {}
+    return {"temperature": float(temperature)}
+
+STAGE1_TEMPERATURE = _resolve_temperature("stage1", STAGE1_PROVIDER, STAGE1_MODEL)
+STAGE2_MAPPING_TEMPERATURE = _resolve_temperature("stage2_mapping", STAGE2_PROVIDER, STAGE2_MODEL)
+STAGE2_RANKING_TEMPERATURE = _resolve_temperature("stage2_ranking", STAGE2_PROVIDER, STAGE2_MODEL)
+
 
 # Fallback: if OpenAI is configured but no API key is available, use Gemini so
 # that tests can run without external credentials.
 if STAGE1_PROVIDER == "openai" and not os.getenv("OPENAI_API_KEY"):
     STAGE1_PROVIDER, STAGE1_MODEL = "gemini", DEFAULT_MODELS.get("gemini", "")
+    STAGE1_TEMPERATURE = _resolve_temperature("stage1", STAGE1_PROVIDER, STAGE1_MODEL)
 
-# Logging settings
-LOG_LEVEL = config.get('LOGGING', 'allgemein', fallback='INFO').upper()
-if LOG_LEVEL not in logging._nameToLevel:
-    LOG_LEVEL = 'INFO'
-LOG_INPUT_TEXT = config.getint('LOGGING', 'input_text', fallback=1) == 1
-LOG_TOKENS = config.getint('LOGGING', 'tokens', fallback=1) == 1
-LOG_OUTPUT_TEXT = config.getint('LOGGING', 'output_text', fallback=1) == 1
-# Neu: Immer Rohantwort loggen (1) vs. nur bei Fehler (0)
-LOG_RAW_OUTPUT_ALWAYS = config.getint('LOGGING', 'raw_output_always', fallback=0) == 1
-LOG_S1_PARSED_JSON_INITIAL = config.getint('LOGGING', 's1_parsed_json_initial', fallback=1) == 1
-LOG_S1_PARSED_JSON_BEFORE_VALIDATION = (
-    config.getint('LOGGING', 's1_parsed_json_before_validation', fallback=1) == 1
-)
-LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS = (
-    config.getint('LOGGING', 's1_parsed_json_after_setrdefaults', fallback=1) == 1
-)
-LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION = (
-    config.getint(
-        'LOGGING',
-        's1_identified_leistungen_before_item_validation',
-        fallback=1,
-    )
-    == 1
-)
+# Logging settings from config.ini
+CONSOLE_LOG_LEVEL_NAME = config.get('LOGGING', 'console_level', fallback='INFO').upper()
+CONSOLE_LOG_LEVEL = logging._nameToLevel.get(CONSOLE_LOG_LEVEL_NAME, logging.INFO)
 
-# Determine if detailed logging is requested
+# Set console handler level
+safe_handler.setLevel(CONSOLE_LOG_LEVEL)
+root_logger.setLevel(CONSOLE_LOG_LEVEL) # Root logger should be at the most permissive level
+
+# Detaillierte Debug-Schalter
+LOG_LLM_INPUT = config.getint('LOGGING', 'log_llm_input', fallback=0) == 1
+if config.has_option('LOGGING', 'log_input_text'):
+    LOG_INPUT_TEXT = config.getint('LOGGING', 'log_input_text', fallback=0) == 1
+else:
+    LOG_INPUT_TEXT = LOG_LLM_INPUT
+if config.has_option('LOGGING', 'log_llm_prompt'):
+    LOG_LLM_PROMPT = config.getint('LOGGING', 'log_llm_prompt', fallback=0) == 1
+else:
+    LOG_LLM_PROMPT = LOG_LLM_INPUT
+LOG_LLM_OUTPUT = config.getint('LOGGING', 'log_llm_output', fallback=0) == 1
+LOG_TOKENS = config.getint('LOGGING', 'log_tokens', fallback=0) == 1
+LOG_S1_PARSED_JSON = config.getint('LOGGING', 'log_s1_parsed_json', fallback=0) == 1
+LOG_HTML_OUTPUT = config.getint('LOGGING', 'log_html_output', fallback=0) == 1
+
+# Determine if any detailed logging is enabled to set the detail_logger level
 detail_logging_enabled = any([
+    LOG_LLM_INPUT,
     LOG_INPUT_TEXT,
+    LOG_LLM_PROMPT,
+    LOG_LLM_OUTPUT,
     LOG_TOKENS,
-    LOG_OUTPUT_TEXT,
-    LOG_S1_PARSED_JSON_INITIAL,
-    LOG_S1_PARSED_JSON_BEFORE_VALIDATION,
-    LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS,
-    LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION,
+    LOG_S1_PARSED_JSON,
+    LOG_HTML_OUTPUT,
 ])
 
-level = logging._nameToLevel.get(LOG_LEVEL, logging.INFO)
-root_logger.setLevel(level)
-
-# If detailed logging is enabled, ensure those messages are visible on the
-# dedicated logger without altering the global log level
+# The detail_logger is used for verbose, optional outputs.
+# If any detailed flag is on, this logger must be set to INFO or DEBUG to capture the messages.
+# The root logger's level is already set, so we only need to manage the detail_handler.
 if detail_logging_enabled:
+    detail_logger.setLevel(logging.INFO) # Or DEBUG if you have finer-grained levels
     detail_handler.setLevel(logging.INFO)
-    detail_logger.setLevel(logging.INFO)
 else:
-    detail_handler.setLevel(level)
-    detail_logger.setLevel(level)
+    # If no detailed logging is active, set the level high to ignore all info messages.
+    detail_logger.setLevel(logging.WARNING)
+    detail_handler.setLevel(logging.WARNING)
 
 # Optional: Dateibasiertes Logging (RotatingFileHandler) per config.ini
 try:
@@ -346,8 +459,10 @@ try:
     LOG_FILE_BACKUP_COUNT = max(0, config.getint('LOGGING', 'file_backup_count', fallback=5))
 except Exception:
     LOG_FILE_BACKUP_COUNT = 5
-LOG_FILE_LEVEL_NAME = config.get('LOGGING', 'file_level', fallback=LOG_LEVEL).upper()
-LOG_FILE_LEVEL = logging._nameToLevel.get(LOG_FILE_LEVEL_NAME, level)
+LOG_FILE_LEVEL_NAME = config.get('LOGGING', 'file_level', fallback=CONSOLE_LOG_LEVEL_NAME).upper()
+LOG_FILE_LEVEL = logging._nameToLevel.get(LOG_FILE_LEVEL_NAME, CONSOLE_LOG_LEVEL)
+
+file_handler: Optional[RotatingFileHandler] = None
 
 if LOG_FILE_ENABLED and LOG_FILE_PATH:
     try:
@@ -377,6 +492,12 @@ if LOG_FILE_ENABLED and LOG_FILE_PATH:
 # dedicated handler and disable propagation to prevent these logs from being
 # filtered by the root logger or appearing twice.
 werkzeug_logger = logging.getLogger('werkzeug')
+for handler in werkzeug_logger.handlers[:]:
+    werkzeug_logger.removeHandler(handler)
+    try:
+        handler.close()
+    except Exception:
+        pass
 werkzeug_logger.setLevel(logging.INFO)
 werkzeug_handler = SafeEncodingStreamHandler(sys.stdout)
 werkzeug_handler.setFormatter(formatter)
@@ -384,17 +505,9 @@ werkzeug_logger.addHandler(werkzeug_handler)
 werkzeug_logger.propagate = False
 
 # Falls Dateilogs aktiv sind, auch Werkzeug-Logs in Datei schreiben
-if LOG_FILE_ENABLED and LOG_FILE_PATH:
+if file_handler is not None:
     try:
-        werkzeug_file_handler = RotatingFileHandler(
-            LOG_FILE_PATH,
-            maxBytes=LOG_FILE_MAX_BYTES,
-            backupCount=LOG_FILE_BACKUP_COUNT,
-            encoding='utf-8',
-        )
-        werkzeug_file_handler.setLevel(LOG_FILE_LEVEL)
-        werkzeug_file_handler.setFormatter(formatter)
-        werkzeug_logger.addHandler(werkzeug_file_handler)
+        werkzeug_logger.addHandler(file_handler)
     except Exception:
         pass
 
@@ -706,6 +819,8 @@ pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
+medication_entries: list[dict[str, Any]] = []
+medication_lookup_by_token: dict[str, Set[str]] = {}
 pauschale_bedingungen_indexed: Dict[str, List[Dict[str, Any]]] = {}
 daten_geladen: bool = False
 baseline_results: dict[str, dict] = {}
@@ -739,8 +854,92 @@ def create_app() -> FlaskType:
     # Ab hier bleiben alle @app.route-Dekorationen unverändert
     return app
 
+MEDICATION_KEY_CLEAN_RE = re.compile(r'[^0-9A-Z]+')
+
+
+def _normalize_medication_key(value: str) -> str:
+    """Return an uppercase, whitespace-normalized token for medication matching."""
+    if not isinstance(value, str):
+        value = str(value or '')
+    normalized = MEDICATION_KEY_CLEAN_RE.sub(' ', value.upper())
+    normalized = re.sub(r"\s+", ' ', normalized).strip()
+    return normalized
+
+
+def _build_medication_lookup(tabellen_rows: List[Dict[str, Any]]) -> None:
+    """Prepare lookup structures for medication resolution using ATC codes."""
+    medication_entries.clear()
+    medication_lookup_by_token.clear()
+    if not tabellen_rows:
+        return
+    for item in tabellen_rows:
+        if not isinstance(item, dict):
+            continue
+        tab_typ = str(item.get('Tabelle_Typ', '')).strip()
+        if tab_typ != '402':
+            continue
+        atc = str(item.get('Tabelle', '')).strip().upper()
+        if not atc:
+            continue
+        code = str(item.get('Code', '')).strip()
+        name = str(item.get('Code_Text', '')).strip()
+        entry_normalized_name = _normalize_medication_key(name) if name else ''
+        medication_entries.append({
+            'atc': atc,
+            'code': code,
+            'code_upper': code.upper() if code else '',
+            'name': name,
+            'name_normalized': entry_normalized_name,
+        })
+        tokens = {atc}
+        if code:
+            tokens.add(code.upper())
+            tokens.add(_normalize_medication_key(code))
+        if name:
+            tokens.add(name.upper())
+            tokens.add(entry_normalized_name)
+        for token in {t for t in tokens if t}:
+            medication_lookup_by_token.setdefault(token, set()).add(atc)
+
+
+def resolve_medication_inputs(raw_inputs: List[str]) -> tuple[List[str], List[str]]:
+    """Resolve user provided medication tokens (GTIN, name, ATC) into ATC codes."""
+    resolved: Set[str] = set()
+    unresolved: List[str] = []
+    for raw in raw_inputs:
+        token = str(raw).strip() if raw is not None else ''
+        if not token:
+            continue
+        token_upper = token.upper()
+        token_normalized = _normalize_medication_key(token)
+        candidate_atcs: Set[str] = set()
+        for key in {token_upper, token_normalized}:
+            if key and key in medication_lookup_by_token:
+                candidate_atcs.update(medication_lookup_by_token[key])
+        if not candidate_atcs and token_normalized:
+            for entry in medication_entries:
+                name_norm = entry.get('name_normalized')
+                if name_norm and token_normalized in name_norm:
+                    candidate_atcs.add(entry['atc'])
+        if candidate_atcs:
+            resolved.update(candidate_atcs)
+        else:
+            unresolved.append(token)
+    return sorted(resolved), unresolved
+
+
+
 # --- Daten laden Funktion ---
 def load_data() -> bool:
+    """Lädt Tarif-, Synonym- und Regeldaten aus dem lokalen ``data``-Verzeichnis.
+
+    Dabei leert die Funktion alle globalen Caches, parst jede benötigte
+    JSON-Datei und erzeugt Hilfsindizes (z.B. LKN → Datensatz,
+    Tabellenname → Tabellenzeilen, Medikamenten-Token → ATC). Es wird ``True``
+    zurückgegeben, sobald alle kritischen Dateien erfolgreich eingelesen wurden,
+    damit der Aufrufer beim Start frühzeitig abbrechen kann.
+    """
+
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, pauschale_bedingungen_indexed, tabellen_data
     global tabellen_dict_by_table, daten_geladen, chop_data
@@ -815,6 +1014,8 @@ def load_data() -> bool:
                                     tabellen_dict_by_table[normalized_key] = []
                                 tabellen_dict_by_table[normalized_key].append(item)
                     logger.info("  Tabellen-Daten gruppiert nach Tabelle (%s Tabellen).", len(tabellen_dict_by_table))
+                    _build_medication_lookup(data_from_file)
+                    logger.info("  Medikamenten-Lookup aufgebaut (%s Eintraege).", len(medication_entries))
                     missing_keys_check = ['cap13', 'cap14', 'or', 'nonor', 'nonelt', 'ambp.pz', 'anast', 'c08.50']
                     not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
                     if not_found_keys_check:
@@ -989,68 +1190,64 @@ def call_gemini_stage1(
         )
     prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
     prompt_tokens = count_tokens(prompt)
-    # Proaktives Kürzen sehr langer Prompts (häufige Ursache für 5xx bei Gateways)
-    TOKEN_BUDGET = 8000  # konservativ für OpenAI‑kompatible Clones
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
     if prompt_tokens > TOKEN_BUDGET:
-        try:
-            # Schätze Kürzungsfaktor basierend auf Token‑Budget
-            ratio = max(0.2, TOKEN_BUDGET / max(1, float(prompt_tokens)))
-            new_len = max(1000, int(len(katalog_context) * ratio))
-            trimmed_context = katalog_context[:new_len]
-            prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
-            prompt_tokens = count_tokens(prompt)
-            logger.warning(
-                "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (%s Tokens).",
-                prompt_tokens,
-                new_len,
-                prompt_tokens,
-            )
-        except Exception:
-            # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
-            pass
-    # Falls Trimmen per Konfiguration deaktiviert ist, ggf. Original-Kontext wiederherstellen
-    try:
-        if not GEMINI_TRIM_ENABLED:
-            prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
-            prompt_tokens = count_tokens(prompt)
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
+                trimmed_context = katalog_context[:new_len]
+                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
         else:
-            # Wende konfigurierbares Trimmen an, falls Budget überschritten
-            if prompt_tokens > GEMINI_TOKEN_BUDGET:
-                try:
-                    ratio = max(0.2, GEMINI_TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
-                    new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
-                    trimmed_context = katalog_context[:new_len]
-                    prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
-                    prompt_tokens = count_tokens(prompt)
-                    logger.warning(
-                        "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
-                        GEMINI_TOKEN_BUDGET,
-                        new_len,
-                        prompt_tokens,
-                    )
-                except Exception:
-                    pass
-    except Exception:
-        pass
+            logger.warning(
+                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_INPUT:
+        detail_logger.info("LLM Stufe 1 Anfrage (Input-Text): %s", user_input)
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 1 Prompt: %s", prompt)
 
     gemini_url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
+    generation_config: Dict[str, Any] = {
+        "response_mime_type": "application/json",
+        "maxOutputTokens": 65536,
+    }
+    if STAGE1_TEMPERATURE is not None:
+        generation_config["temperature"] = STAGE1_TEMPERATURE
+
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "response_mime_type": "application/json",
-            "temperature": 0.05,
-            "maxOutputTokens": 65536
-        }
+        "generationConfig": generation_config,
     }
     logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", model)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_INPUT:
         detail_logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
     try:
         response = None
@@ -1091,7 +1288,7 @@ def call_gemini_stage1(
         if response is None:
             raise ConnectionError("Keine Antwort von Gemini Stufe 1 erhalten")
         gemini_data = response.json()
-        if LOG_OUTPUT_TEXT:
+        if LOG_LLM_OUTPUT:
             detail_logger.debug(
                 f"LLM_S1_RAW_GEMINI_RESPONSE: {json.dumps(gemini_data, ensure_ascii=False)}"
             )
@@ -1155,7 +1352,7 @@ def call_gemini_stage1(
                  raw_text_response = ""
             # else: candidate_list ist nicht None, aber auch keine Liste (sollte nicht passieren bei Gemini)
 
-        if LOG_OUTPUT_TEXT:
+        if LOG_LLM_OUTPUT:
             detail_logger.info(f"LLM_S1_RAW_TEXT_RESPONSE: '{raw_text_response}'")
         response_tokens = count_tokens(raw_text_response)
         if LOG_TOKENS:
@@ -1179,8 +1376,6 @@ def call_gemini_stage1(
 
         try:
             llm_response_json = parse_llm_json_response(raw_text_response)
-            if LOG_S1_PARSED_JSON_INITIAL:
-                detail_logger.info(f"LLM_S1_PARSED_JSON_INITIAL: {json.dumps(llm_response_json, ensure_ascii=False)}")
         except json.JSONDecodeError as json_err:
             logger.error(f"Fehler beim Parsen der LLM Stufe 1 Antwort: {json_err}. Rohtext: {raw_text_response[:500]}...")
             llm_response_json = {
@@ -1189,22 +1384,20 @@ def call_gemini_stage1(
                 "begruendung_llm": f"Fehler: Ungültiges JSON vom LLM erhalten. {json_err}"
             }
 
-        # print(f"DEBUG: Geparstes LLM JSON Stufe 1 VOR Validierung: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
-        if LOG_S1_PARSED_JSON_BEFORE_VALIDATION:
-            detail_logger.info(
-                "LLM_S1_PARSED_JSON_BEFORE_VALIDATION: %s",
-                json.dumps(llm_response_json, indent=2, ensure_ascii=False),
-            )
-
         # Strikte Validierung der Hauptstruktur
-        # Handle case where the response is a list containing a single JSON object
-        if isinstance(llm_response_json, list):
-            if len(llm_response_json) == 1 and isinstance(llm_response_json[0], dict):
-                llm_response_json = llm_response_json[0]
+        raw_llm_response: Any = llm_response_json
+        if isinstance(raw_llm_response, list):
+            if len(raw_llm_response) == 1 and isinstance(raw_llm_response[0], dict):
+                llm_response_json = cast(Dict[str, Any], raw_llm_response[0])
                 logger.info("LLM_S1_INFO: JSON-Antwort war eine Liste, erstes Element wurde extrahiert.")
             else:
-                logger.error(f"LLM_S1_ERROR: Antwort ist eine Liste, aber nicht im erwarteten Format (einelementige Liste mit Objekt): {type(llm_response_json)}")
+                logger.error(f"LLM_S1_ERROR: Antwort ist eine Liste, aber nicht im erwarteten Format (einelementige Liste mit Objekt): {type(raw_llm_response)}")
                 raise ValueError("Antwort ist eine Liste, aber nicht im erwarteten Format.")
+        elif isinstance(raw_llm_response, dict):
+            llm_response_json = raw_llm_response
+        else:
+            logger.error(f"LLM_S1_ERROR: Antwort ist kein JSON-Objekt, sondern {type(raw_llm_response)}")
+            raise ValueError("Antwort ist kein JSON-Objekt.")
 
         if not isinstance(llm_response_json, dict):
             logger.error(f"LLM_S1_ERROR: Antwort ist kein JSON-Objekt, sondern {type(llm_response_json)}")
@@ -1213,11 +1406,6 @@ def call_gemini_stage1(
         llm_response_json.setdefault("identified_leistungen", [])
         llm_response_json.setdefault("extracted_info", {})
         llm_response_json.setdefault("begruendung_llm", "N/A")
-        if LOG_S1_PARSED_JSON_AFTER_SETRDEFAULTS:
-            detail_logger.info(
-                "LLM_S1_JSON_AFTER_SETRDEFAULTS: %s",
-                json.dumps(llm_response_json, indent=2, ensure_ascii=False),
-            )
 
         if not isinstance(llm_response_json["identified_leistungen"], list):
             logger.error(f"LLM_S1_ERROR: 'identified_leistungen' ist keine Liste, sondern {type(llm_response_json['identified_leistungen'])}")
@@ -1230,16 +1418,6 @@ def call_gemini_stage1(
             llm_response_json["begruendung_llm"] = "N/A"
 
         # Validierung und Default-Setzung für extracted_info
-        # Logge den Zustand von identified_leistungen vor der detaillierten Validierung
-        if LOG_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION:
-            detail_logger.info(
-                "LLM_S1_IDENTIFIED_LEISTUNGEN_BEFORE_ITEM_VALIDATION: %s",
-                json.dumps(
-                    llm_response_json.get('identified_leistungen'),
-                    indent=2,
-                    ensure_ascii=False,
-                ),
-            )
         extracted_info_defaults = {
             "dauer_minuten": None, "menge_allgemein": None, "alter": None,
             "geschlecht": None, "seitigkeit": "unbekannt", "anzahl_prozeduren": None
@@ -1344,11 +1522,9 @@ def call_gemini_stage1(
                 item.setdefault("beschreibung", "N/A")
             validated_identified_leistungen.append(item)
         llm_response_json["identified_leistungen"] = validated_identified_leistungen
-        # print("INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
         logger.info("LLM_S1_INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
-        if LOG_OUTPUT_TEXT:
-            detail_logger.info(f"LLM_S1_FINAL_VALIDATED_LEISTUNGEN: {json.dumps(validated_identified_leistungen, indent=2, ensure_ascii=False)}")
-            detail_logger.info(f"LLM Stage 1 response: {json.dumps(llm_response_json, ensure_ascii=False)}")
+        if LOG_S1_PARSED_JSON:
+            detail_logger.info(f"LLM_S1_PARSED_JSON: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
         return llm_response_json, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
     except RequestException as req_err:
@@ -1398,41 +1574,46 @@ def call_openai_stage1(
         base_url = f"{base_url.rstrip('/')}/v1"
     prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
     prompt_tokens = count_tokens(prompt)
-    # Proaktives Kürzen sehr langer Prompts bei Apertus (per config aktivierbar)
-    TOKEN_BUDGET = OPENAI_TOKEN_BUDGET_APERTUS if provider == "apertus" else OPENAI_TOKEN_BUDGET_DEFAULT
-    if provider == "apertus" and prompt_tokens > TOKEN_BUDGET:
-        if OPENAI_TRIM_APERTUS_ENABLED:
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > TOKEN_BUDGET:
+        if GEMINI_TRIM_ENABLED:
             try:
-                original_tokens = prompt_tokens
-                ctx = katalog_context
-                for _ in range(OPENAI_TRIM_MAX_PASSES):
-                    ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
-                    new_len = max(OPENAI_TRIM_MIN_CONTEXT_CHARS, int(len(ctx) * ratio))
-                    if new_len >= len(ctx):
-                        break
-                    ctx = ctx[:new_len]
-                    prompt = get_stage1_prompt(user_input, ctx, lang, query_variants=query_variants)
-                    prompt_tokens = count_tokens(prompt)
-                    if prompt_tokens <= TOKEN_BUDGET:
-                        break
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
+                trimmed_context = katalog_context[:new_len]
+                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+                trimmed_prompt_tokens = count_tokens(prompt)
                 logger.warning(
-                    "LLM Stufe 1: Prompt gekürzt (Apertus): %s → %s Tokens; Kontext auf %s Zeichen reduziert.",
-                    original_tokens,
-                    prompt_tokens,
-                    len(ctx),
+                    "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
                 )
+                logger.warning(
+                    "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
             except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
             logger.warning(
-                "LLM Stufe 1: Prompt überschreitet Budget (%s > %s), Apertus-Trimming per config deaktiviert.",
+                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_INPUT:
+        detail_logger.info("LLM Stufe 1 Anfrage (Input-Text): %s", user_input)
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 1 Prompt: %s", prompt)
     try:
         from openai import OpenAI  # type: ignore
@@ -1480,8 +1661,8 @@ def call_openai_stage1(
             token_arg = {(
                 "max_completion_tokens" if provider == "openai" else "max_tokens"
             ): out_tokens}
-            # Avoid explicit temperature for OpenAI GPT‑5 family
-            temp_arg = ({"temperature": 0.0} if provider == "apertus" else ({"temperature": 0.05} if provider not in {"openai"} else {}))
+            # Use configured sampling temperature; defaults skip unsupported providers
+            temp_arg = _temperature_kwargs(STAGE1_TEMPERATURE)
             resp = chat_completion_safe(
                 model=model,
                 messages=messages_typed,
@@ -1526,7 +1707,7 @@ def call_openai_stage1(
     # Log finish_reason to detect truncation (e.g., 'length')
     try:
         finish_reason = getattr(resp.choices[0], "finish_reason", None)
-        if finish_reason and LOG_OUTPUT_TEXT:
+        if finish_reason and LOG_LLM_OUTPUT:
             detail_logger.info("LLM_S1_%s_FINISH_REASON: %s", provider.upper(), finish_reason)
     except Exception:
         pass
@@ -1561,10 +1742,8 @@ def call_openai_stage1(
                     pass
         except Exception:
             pass
-    if LOG_RAW_OUTPUT_ALWAYS:
+    if LOG_LLM_OUTPUT:
         detail_logger.info("LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content)
-    elif LOG_OUTPUT_TEXT:
-        detail_logger.debug("LLM_S1_RAW_%s_RESPONSE: %s", provider.upper(), content)
     response_tokens = count_tokens(content)
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", response_tokens)
@@ -1745,7 +1924,7 @@ def call_openai_stage1(
         extracted = _extract_json_payload(content if isinstance(content, str) else "")
         if isinstance(extracted, dict):
             # Non-strict JSON (z.B. in ```json``` oder mit Kommentaren) erfolgreich extrahiert
-            if LOG_OUTPUT_TEXT or LOG_RAW_OUTPUT_ALWAYS:
+            if LOG_LLM_OUTPUT:
                 try:
                     detail_logger.info("LLM_S1_NONSTRICT_JSON_RECOVERED (%s)", provider)
                 except Exception:
@@ -1788,22 +1967,62 @@ def call_gemini_stage2_mapping(
 
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > TOKEN_BUDGET:
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(candidates_text) * ratio))
+                trimmed_candidates_text = candidates_text[:new_len]
+                prompt = get_stage2_mapping_prompt(
+                    tardoc_lkn, tardoc_desc, trimmed_candidates_text, lang
+                )
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 2 (Mapping): Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 2 (Gemini Mapping): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+                candidates_text = trimmed_candidates_text
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 2 (Mapping) Prompt: %s", prompt)
 
     gemini_url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
+    generation_config: Dict[str, Any] = {
+        "response_mime_type": "application/json", # Beibehalten, da Gemini manchmal JSON sendet
+        "maxOutputTokens": 512, # Fuer eine kurze Liste von Codes sollte das reichen
+    }
+    if STAGE2_MAPPING_TEMPERATURE is not None:
+        generation_config["temperature"] = STAGE2_MAPPING_TEMPERATURE
+
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "response_mime_type": "application/json", # Beibehalten, da Gemini manchmal JSON sendet
-            "temperature": 0.05,
-            "maxOutputTokens": 512 # Für eine kurze Liste von Codes sollte das reichen
-         }
+        "generationConfig": generation_config,
     }
     logger.info(
         "Sende Anfrage Stufe 2 (Mapping) für %s an Gemini Model: %s...",
@@ -1862,7 +2081,7 @@ def call_gemini_stage2_mapping(
                 parts_map = content_map.get('parts', [{}])
                 if parts_map and isinstance(parts_map, list) and len(parts_map) > 0:
                      raw_text_response_part = parts_map[0].get('text', '').strip()
-        if LOG_OUTPUT_TEXT:
+        if LOG_LLM_OUTPUT:
             detail_logger.debug("DEBUG: Roher Text von LLM Stufe 2 (Mapping) für %s: '%s'", tardoc_lkn, raw_text_response_part)
         response_tokens = count_tokens(raw_text_response_part)
         if LOG_TOKENS:
@@ -1895,10 +2114,9 @@ def call_gemini_stage2_mapping(
                 if str(code).strip() and str(code).strip().upper() != "NONE"
             ]
         
-        if LOG_OUTPUT_TEXT:
+        if LOG_LLM_OUTPUT:
             detail_logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Raw response: '{raw_text_response_part}'")
             detail_logger.info(f"LLM Stage 2 (Mapping) for {tardoc_lkn} - Extracted codes: {extracted_codes_from_llm}")
-        if LOG_OUTPUT_TEXT:
             detail_logger.info(
                 "Mapping-Antwort (%s) geparst: %s",
                 'JSON' if (isinstance(extracted_codes_from_llm, list) and raw_text_response_part.startswith('[') or raw_text_response_part.startswith('{')) else 'Text',
@@ -1960,10 +2178,48 @@ def call_openai_stage2_mapping(
         candidates_text = candidates_text[:15000] + "\n..."
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > TOKEN_BUDGET:
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(candidates_text) * ratio))
+                trimmed_candidates_text = candidates_text[:new_len]
+                prompt = get_stage2_mapping_prompt(
+                    tardoc_lkn, tardoc_desc, trimmed_candidates_text, lang
+                )
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 2 (Mapping): Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 2 (Mapping %s): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    provider.capitalize(),
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+                candidates_text = trimmed_candidates_text
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 2 (Mapping) Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 2 (Mapping) Prompt: %s", prompt)
     try:
         from openai import OpenAI  # type: ignore
@@ -1984,8 +2240,8 @@ def call_openai_stage2_mapping(
             token_arg = {(
                 "max_completion_tokens" if provider == "openai" else "max_tokens"
             ): OPENAI_MAX_OUTPUT_TOKENS}
-            # Avoid explicit temperature for OpenAI GPT‑5 family
-            temp_arg = ({} if provider == "openai" else {"temperature": 0.05})
+            # Use configured sampling temperature; defaults skip unsupported providers
+            temp_arg = _temperature_kwargs(STAGE2_MAPPING_TEMPERATURE)
             resp = chat_completion_safe(
                 model=model,
                 messages=[
@@ -2027,7 +2283,7 @@ def call_openai_stage2_mapping(
             raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: {last_exc}") from last_exc
         raise ConnectionError(f"{provider} Stufe 2 (Mapping) Fehler: Unbekannter Fehler")
     content = (resp.choices[0].message.content or "").strip()
-    if LOG_OUTPUT_TEXT:
+    if LOG_LLM_OUTPUT:
         detail_logger.debug("LLM Stage 2 (Mapping) raw %s response for %s: '%s'", provider, tardoc_lkn, content)
     response_tokens = count_tokens(content)
     if LOG_TOKENS:
@@ -2047,18 +2303,64 @@ def call_gemini_stage2_ranking(
 
     prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > TOKEN_BUDGET:
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(
+                    GEMINI_TRIM_MIN_CONTEXT_CHARS,
+                    int(len(potential_pauschalen_text) * ratio),
+                )
+                trimmed_pauschalen_text = potential_pauschalen_text[:new_len]
+                prompt = get_stage2_ranking_prompt(
+                    user_input, trimmed_pauschalen_text, lang
+                )
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 2 (Ranking): Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 2 (Gemini Ranking): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+                potential_pauschalen_text = trimmed_pauschalen_text
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 2 (Ranking) Prompt: %s", prompt)
 
     gemini_url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
+    generation_config: Dict[str, Any] = {
+        "maxOutputTokens": 500,
+    }
+    if STAGE2_RANKING_TEMPERATURE is not None:
+        generation_config["temperature"] = STAGE2_RANKING_TEMPERATURE
+
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500},
+        "generationConfig": generation_config,
     }
     logger.info("Sende Anfrage Stufe 2 (Ranking) an Gemini Model: %s...", model)
     try:
@@ -2127,7 +2429,7 @@ def call_gemini_stage2_ranking(
         seen = set()
         ranked_codes = [x for x in ranked_codes if not (x in seen or seen.add(x))]
 
-        if LOG_OUTPUT_TEXT:
+        if LOG_LLM_OUTPUT:
             detail_logger.info(f"LLM Stage 2 (Ranking) - Raw response: '{ranked_text}'")
             detail_logger.info(f"LLM Stage 2 (Ranking) - Extracted and cleaned codes: {ranked_codes}")
             detail_logger.info("LLM Stufe 2 Gerankte Codes nach Filter: %s (aus Rohtext: '%s')", ranked_codes, ranked_text)
@@ -2138,6 +2440,22 @@ def call_gemini_stage2_ranking(
             logger.warning("LLM Stufe 2 (Ranking) hat keine gültigen Codes aus '%s' zurückgegeben.", ranked_text)
         elif not ranked_text:
             logger.warning("LLM Stufe 2 (Ranking) hat leeren Text zurückgegeben.")
+
+        if not ranked_codes:
+            fallback_candidates = []
+            for line in potential_pauschalen_text.splitlines():
+                if ":" not in line:
+                    continue
+                candidate_code = line.split(":", 1)[0].strip().upper()
+                if candidate_code and re.match(r'^[A-Z0-9.]+$', candidate_code):
+                    if candidate_code not in fallback_candidates:
+                        fallback_candidates.append(candidate_code)
+            if fallback_candidates:
+                ranked_codes = fallback_candidates[:5]
+                logger.info(
+                    "LLM Stufe 2 (Ranking) nutzt Fallback-Reihenfolge: %s",
+                    ranked_codes,
+                )
         return ranked_codes, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
     except RequestException as req_err:
         logger.error("Netzwerkfehler bei Gemini Stufe 2 (Ranking): %s", req_err)
@@ -2166,10 +2484,51 @@ def call_openai_stage2_ranking(
         return ([line.split(":", 1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5], {"input_tokens": 0, "output_tokens": 0})
     prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
     prompt_tokens = count_tokens(prompt)
+    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
+    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > TOKEN_BUDGET:
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
+                new_len = max(
+                    GEMINI_TRIM_MIN_CONTEXT_CHARS,
+                    int(len(potential_pauschalen_text) * ratio),
+                )
+                trimmed_pauschalen_text = potential_pauschalen_text[:new_len]
+                prompt = get_stage2_ranking_prompt(
+                    user_input, trimmed_pauschalen_text, lang
+                )
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 2 (Ranking): Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 2 (Ranking %s): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    provider.capitalize(),
+                    TOKEN_BUDGET,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+                potential_pauschalen_text = trimmed_pauschalen_text
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                prompt_tokens,
+                TOKEN_BUDGET,
+            )
+
     response_tokens = 0
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 2 (Ranking) Prompt Tokens: %s", prompt_tokens)
-    if LOG_INPUT_TEXT:
+    if LOG_LLM_PROMPT:
         detail_logger.info("LLM Stufe 2 (Ranking) Prompt: %s", prompt)
     try:
         from openai import OpenAI  # type: ignore
@@ -2190,8 +2549,8 @@ def call_openai_stage2_ranking(
             token_arg = {(
                 "max_completion_tokens" if provider == "openai" else "max_tokens"
             ): OPENAI_MAX_OUTPUT_TOKENS}
-            # Avoid explicit temperature for OpenAI GPT‑5 family
-            temp_arg = ({} if provider == "openai" else {"temperature": 0.1})
+            # Use configured sampling temperature; defaults skip unsupported providers
+            temp_arg = _temperature_kwargs(STAGE2_RANKING_TEMPERATURE)
             resp = chat_completion_safe(
                 model=model,
                 messages=[
@@ -2233,7 +2592,7 @@ def call_openai_stage2_ranking(
             raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: {last_exc}") from last_exc
         raise ConnectionError(f"{provider} Stufe 2 (Ranking) Fehler: Unbekannter Fehler")
     content = resp.choices[0].message.content or ""
-    if LOG_OUTPUT_TEXT:
+    if LOG_LLM_OUTPUT:
         detail_logger.info(f"LLM Stage 2 (Ranking) raw {provider} response: '{content}'")
     response_tokens = count_tokens(content)
     if LOG_TOKENS:
@@ -2250,7 +2609,24 @@ def call_openai_stage2_ranking(
         if line.strip()
     ]
     seen: set[str] = set()
-    return [c for c in ranked_codes if not (c in seen or seen.add(c))], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+    ranked_codes = [c for c in ranked_codes if not (c in seen or seen.add(c))]
+    if not ranked_codes:
+        fallback_candidates = []
+        for line in potential_pauschalen_text.splitlines():
+            if ":" not in line:
+                continue
+            candidate_code = line.split(":", 1)[0].strip().upper()
+            if candidate_code and re.match(r'^[A-Z0-9.]+$', candidate_code):
+                if candidate_code not in fallback_candidates:
+                    fallback_candidates.append(candidate_code)
+        if fallback_candidates:
+            ranked_codes = fallback_candidates[:5]
+            logger.info(
+                "%s Stufe 2 (Ranking) nutzt Fallback-Reihenfolge: %s",
+                provider,
+                ranked_codes,
+            )
+    return ranked_codes, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
 
 
@@ -2467,34 +2843,95 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
     if not keyword:
         return []
 
-    pattern = re.compile(re.escape(keyword), re.IGNORECASE)
-    results: List[Dict[str, Any]] = []
+    def _tokenize(text: str) -> Set[str]:
+        return {t for t in re.findall(r"\w+", text.lower()) if t}
+
+    normalized_query = " ".join(str(keyword).split())
+    query_tokens = extract_keywords(normalized_query)
+    if not query_tokens:
+        query_tokens = {t for t in re.findall(r"\w+", normalized_query.lower()) if len(t) >= 3}
+    if not query_tokens:
+        query_tokens = {normalized_query.lower()}
+
+    expanded_query_tokens: Set[str] = set()
+    for token in query_tokens:
+        lowered = token.lower()
+        expanded_query_tokens.add(lowered)
+        if SYNONYMS_ENABLED and synonym_catalog:
+            for variant in expand_query(lowered, synonym_catalog):
+                if isinstance(variant, str):
+                    expanded_query_tokens.add(variant.lower())
+
+    matches: List[Tuple[int, Dict[str, Any], Set[str]]] = []
+
     for code, data in pauschalen_dict.items():
-        text_de = data.get("Pauschale_Text", "")
-        text_fr = data.get("Pauschale_Text_f", "")
-        text_it = data.get("Pauschale_Text_i", "")
-        if any(pattern.search(str(t) or "") for t in [text_de, text_fr, text_it]):
-            lkns: Set[str] = set()
-            for cond in pauschale_bedingungen_data:
-                if cond.get("Pauschale") != code:
-                    continue
-                typ = str(cond.get("Bedingungstyp", "")).upper()
-                werte = cond.get("Werte", "")
-                if not werte:
-                    continue
-                if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-                    lkns.update(l.strip().upper() for l in str(werte).split(',') if l.strip())
-                elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-                    for table_name in (t.strip() for t in str(werte).split(',') if t.strip()):
-                        for item in get_table_content(table_name, "service_catalog", tabellen_dict_by_table):
-                            code_item = item.get('Code')
-                            if code_item:
-                                lkns.add(str(code_item).upper())
-            results.append({
-                "code": code,
-                "text": text_de,
-                "lkns": sorted(lkns)
-            })
+        text_de = str(data.get("Pauschale_Text", "") or "")
+        text_fr = str(data.get("Pauschale_Text_f", "") or "")
+        text_it = str(data.get("Pauschale_Text_i", "") or "")
+        searchable_blob = " ".join(part for part in [code, text_de, text_fr, text_it] if part)
+        text_tokens = _tokenize(searchable_blob)
+        matched_tokens: Set[str] = set()
+
+        for token in expanded_query_tokens:
+            if not token:
+                continue
+            if token in text_tokens:
+                matched_tokens.add(token)
+                continue
+            if any(token in candidate for candidate in text_tokens if len(token) >= 3):
+                matched_tokens.add(token)
+                continue
+            if token in searchable_blob.lower():
+                matched_tokens.add(token)
+
+        if not matched_tokens:
+            continue
+
+        lkns: Set[str] = set()
+        for cond in pauschale_bedingungen_data:
+            if cond.get("Pauschale") != code:
+                continue
+            typ = str(cond.get("Bedingungstyp", "")).upper()
+            werte = cond.get("Werte", "")
+            if not werte:
+                continue
+            if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+                lkns.update(l.strip().upper() for l in str(werte).split(',') if l.strip())
+            elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+                for table_name in (t.strip() for t in str(werte).split(',') if t.strip()):
+                    for item in get_table_content(table_name, "service_catalog", tabellen_dict_by_table):
+                        code_item = item.get('Code')
+                        if code_item:
+                            lkns.add(str(code_item).upper())
+
+        entry = {
+            "code": code,
+            "text": text_de,
+            "lkns": sorted(lkns),
+        }
+        matches.append((len(matched_tokens), entry, matched_tokens))
+
+    matches.sort(key=lambda item: (-item[0], item[1]["code"]))
+
+    results: List[Dict[str, Any]] = []
+    for score, entry, matched_tokens in matches:
+        if entry["code"] == "C08.43A":
+            logger.info(
+                "Suchbegriff \"%s\" liefert Pauschale C08.43A (Tokens: %s, Score: %d)",
+                normalized_query,
+                sorted(matched_tokens),
+                score,
+            )
+        elif logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "search_pauschalen Treffer %s (Score: %d, Tokens: %s) für Query '%s'",
+                entry["code"],
+                score,
+                sorted(matched_tokens),
+                normalized_query,
+            )
+        results.append(entry)
+
     return results
 
 def search_chop(term: str, offset: int = 0, limit: int = 20) -> List[Dict[str, str]]:
@@ -2589,291 +3026,348 @@ def get_localized_text(details: Dict[str, Any], base: str, lang: str) -> Optiona
         text = details.get(base)
     return str(text) if text else None
 
-# --- API Endpunkt ---
-@app.route('/api/analyze-billing', methods=['POST'])
-def analyze_billing():
-    with processing_lock:
-        # Basic request data for logging before full parsing
-        data_for_log = request.get_json(silent=True) or {}
-        user_input_log = data_for_log.get('inputText', '')[:100]
-    icd_input_log = data_for_log.get('icd', [])
-    gtin_input_log = data_for_log.get('gtin', [])
-    use_icd_flag_log = data_for_log.get('useIcd', True)
-    age_input_log = data_for_log.get('age')
-    gender_input_log = data_for_log.get('gender')
 
-    if LOG_INPUT_TEXT:
-        detail_logger.info(
-            f"Received request for /api/analyze-billing. InputText: '{user_input_log}...', ICDs: {icd_input_log}, GTINs: {gtin_input_log}, useIcd: {use_icd_flag_log}, Age: {age_input_log}, Gender: {gender_input_log}"
-        )
-    logger.info("--- Request an /api/analyze-billing erhalten ---")
-    start_time = time.time()
-    token_usage = {
-        "llm_stage1": {"input_tokens": 0, "output_tokens": 0},
-        "llm_stage2": {"input_tokens": 0, "output_tokens": 0}
-    }
-
-    if not daten_geladen:
-        logger.error("Daten nicht geladen im /api/analyze-billing Endpunkt. Dies sollte nicht passieren, da create_app() die Daten laden sollte.")
-        return jsonify({"error": "Server data not loaded. Please try again later or contact an administrator."}), 503
-
+def _parse_billing_request(request: "Request") -> Dict[str, Any]:
+    """Parses and validates the billing analysis request payload."""
     if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
-    data = request.get_json() or {}  # ensure dict for optional access
-    user_input = data.get('inputText', "") # Default zu leerem String
+        raise ValueError("Request must be JSON")
+
+    data = request.get_json(silent=True) or {}
+    user_input = data.get('inputText', "")
+    if isinstance(user_input, str):
+        # Vereinheitliche typografische Apostrophe und Gravis, damit Suche/Synonyme greifen.
+        user_input = user_input.replace("’", "'").replace("‘", "'").replace("`", "'")
+    if not user_input.strip():
+        raise ValueError("'inputText' darf nicht leer sein")
+
     lang = data.get('lang', 'de')
     if lang not in ['de', 'fr', 'it']:
         lang = 'de'
+
     icd_input_raw = data.get('icd', [])
-    gtin_input_raw = data.get('gtin', [])
-    use_icd_flag = data.get('useIcd', True)
-    age_input = data.get('age') # Will be used for alter_user
-    gender_input = data.get('gender') # Will be used for geschlecht_user
+    medications_raw = data.get('medications')
+    if medications_raw is None:
+        medications_raw = data.get('medikamente')
+    if medications_raw is None:
+        medications_raw = data.get('gtin', [])
 
-    # Bereinige ICD und GTIN Eingaben
     icd_input = [str(i).strip().upper() for i in icd_input_raw if isinstance(i, str) and str(i).strip()]
-    gtin_input = [str(g).strip().upper() for g in gtin_input_raw if isinstance(g, str) and str(g).strip()]
 
+    medication_inputs: List[str] = []
+    if isinstance(medications_raw, str):
+        raw_iterable = [medications_raw]
+    elif isinstance(medications_raw, list):
+        raw_iterable = medications_raw
+    else:
+        raw_iterable = []
+    for token in raw_iterable:
+        if not isinstance(token, str):
+            token = str(token)
+        token_clean = token.strip()
+        if token_clean:
+            medication_inputs.append(token_clean)
 
-    try: alter_user = int(age_input) if age_input is not None and str(age_input).strip() else None
-    except (ValueError, TypeError): alter_user = None; logger.warning(f"Ungültiger Alterswert '{age_input}'.") # Logged
-    
+    medication_atcs, unresolved_medications = resolve_medication_inputs(medication_inputs)
+    if unresolved_medications:
+        logger.info("Nicht zuordenbare Medikamentenangaben: %s", unresolved_medications)
+
+    use_icd_flag = data.get('useIcd', True)
+    age_input = data.get('age')
+    gender_input = data.get('gender')
+
+    try:
+        alter_user = int(age_input) if age_input is not None and str(age_input).strip() else None
+    except (ValueError, TypeError):
+        logger.warning(f"Ungueltiger Alterswert '{age_input}'.")
+        alter_user = None
+
     geschlecht_user_raw = str(gender_input).lower().strip() if isinstance(gender_input, str) else None
     if geschlecht_user_raw and geschlecht_user_raw in ['männlich', 'weiblich', 'divers', 'unbekannt']:
         geschlecht_user = geschlecht_user_raw
     else:
-        if geschlecht_user_raw: logger.warning(f"Ungültiger Geschlechtswert '{gender_input}'.") # Logged
-        geschlecht_user = None # Wird später zu 'unbekannt' wenn nötig
+        if geschlecht_user_raw:
+            logger.warning(f"Ungueltiger Geschlechtswert '{gender_input}'.")
+        geschlecht_user = None
 
-    if not user_input.strip(): return jsonify({"error": "'inputText' darf nicht leer sein"}), 400 # Prüfe auf leeren String
-    # The detailed print below can be removed or kept based on preference, as logger.info now captures it.
-    # For this exercise, I'll keep it to exactly match the prompt's request of adding the logger line,
-    # but in a real scenario, one might remove the print now.
+    return {
+        "user_input": user_input,
+        "lang": lang,
+        "icd_input": icd_input,
+        "medication_inputs": medication_inputs,
+        "medication_atcs": medication_atcs,
+        "use_icd_flag": use_icd_flag,
+        "alter_user": alter_user,
+        "geschlecht_user": geschlecht_user,
+    }
 
-    request_id = f"req_{time.time_ns()}" # Eindeutige Request-ID
-    logger.info(f"[{request_id}] --- Start /api/analyze-billing ---")
-    if LOG_INPUT_TEXT:
-        detail_logger.info(
-            "[{request_id}] Input: '%s...', ICDs: %s, GTINs: %s, useIcd: %s, Age: %s, Gender: %s",
-            user_input[:100],
-            icd_input,
-            gtin_input,
-            use_icd_flag,
-            alter_user,
-            geschlecht_user,
-        )
 
-    llm_stage1_result: Dict[str, Any] = {"identified_leistungen": [], "extracted_info": {}, "begruendung_llm": ""}
-    top_ranking_results: List[Tuple[float, str]] = []
-    try:
-        katalog_context_parts = []
-        preprocessed_input = expand_compound_words(user_input)
-        direct_synonym_codes: List[str] = []
-        if SYNONYMS_ENABLED:
-            base_term = synonym_catalog.index.get(preprocessed_input.lower())
-            if base_term:
-                entry = synonym_catalog.entries.get(base_term)
-                if entry and entry.lkn:
-                    direct_synonym_codes = [
-                        code.strip().upper()
-                        for code in re.split(r"[|,;\s]+", entry.lkn)
-                        if code.strip()
-                    ]
-                    logger.info(
-                        "Direkter Synonym-Treffer: '%s' -> %s",
-                        preprocessed_input,
-                        direct_synonym_codes,
-                    )
+def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[float, str]], list[str]]:
+    """
+    Performs hybrid search to find relevant LKNs and builds the context for the LLM.
+    Returns the context string, top ranking results, and query variants.
+    """
+    katalog_context_parts = []
+    preprocessed_input = expand_compound_words(user_input)
+    direct_synonym_codes: List[str] = []
+    if SYNONYMS_ENABLED:
+        candidate_bases: List[str] = []
+        if preprocessed_input in synonym_catalog.entries:
+            candidate_bases.append(preprocessed_input)
+        normalized = " ".join(preprocessed_input.lower().split())
+        for base in synonym_catalog.index.get(normalized, []):
+            if base not in candidate_bases:
+                candidate_bases.append(base)
 
-        query_variants = [preprocessed_input]
-        if SYNONYMS_ENABLED:
-            try:
-                # expand_query now returns a list, not a dict
-                query_variants = expand_query(
-                    preprocessed_input,
-                    synonym_catalog,
-                    lang=lang,
-                )
-            except Exception as e:
-                logger.warning("Synonym expansion failed: %s", e)
-                query_variants = [preprocessed_input]
+        code_set: Set[str] = set()
+        for base in candidate_bases:
+            entry = synonym_catalog.entries.get(base)
+            if not entry:
+                continue
+            for code in entry.lkns:
+                code_norm = code.strip().upper()
+                if code_norm:
+                    code_set.add(code_norm)
+        if code_set:
+            direct_synonym_codes = sorted(code_set)
+            logger.info(
+                "Direkter Synonym-Treffer: '%s' -> %s",
+                preprocessed_input,
+                direct_synonym_codes,
+            )
 
-        tokens = set()
-        for _q in query_variants:
-            tokens.update(extract_keywords(_q))
+    query_variants = [preprocessed_input]
+    if SYNONYMS_ENABLED:
+        try:
+            # expand_query now returns a list, not a dict
+            query_variants = expand_query(
+                preprocessed_input,
+                synonym_catalog,
+                lang=lang,
+            )
+        except Exception as e:
+            logger.warning("Synonym expansion failed: %s", e)
+            query_variants = [preprocessed_input]
 
-        # Für die Embedding-Suche nur den vorverarbeiteten Input verwenden
-        embedding_query = preprocessed_input
+    keyword_token_set: Set[str] = set()
+    for _q in query_variants:
+        keyword_token_set.update(extract_keywords(_q))
+
+    # Für die Embedding-Suche nur den vorverarbeiteten Input verwenden
+    embedding_query = preprocessed_input
+    logger.info(
+        "Embedding-Anfrage ohne Synonym-Erweiterung: '%s'",
+        embedding_query,
+    )
+
+    # --- HYBRID SEARCH: Combine Keyword and Embedding search results ---
+
+    # 1. Keyword-based search (reliable for synonyms and direct matches)
+    # We limit this to a reasonable number to get high-quality candidates.
+    keyword_results = cast(
+        List[Tuple[float, str]],
+        rank_leistungskatalog_entries(
+            keyword_token_set,
+            leistungskatalog_dict,
+            token_doc_freq,
+            limit=100,
+            return_scores=True,
+        ),
+    )
+    keyword_codes = [code for _, code in keyword_results]
+    logger.info(f"Keyword-Suche fand {len(keyword_codes)} Kandidaten.")
+
+    # 2. Embedding-based search (for semantic similarity)
+    embedding_results: List[Tuple[float, str]] = []
+    embedding_codes_ranked: List[str] = []
+    if USE_RAG and embedding_model and embedding_vectors:
         logger.info(
-            "Embedding-Anfrage ohne Synonym-Erweiterung: '%s'",
+            "Suchanfrage für RAG (ohne Synonym-Erweiterung): %s",
             embedding_query,
         )
-
-        # --- DEBUGGING START ---
-        logger.debug(f"DEBUG: Zustand vor rank_leistungskatalog_entries:")
-        logger.debug(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
-        if leistungskatalog_dict:
-            logger.debug(f"DEBUG: Beispiel Leistungskatalog Key: {next(iter(leistungskatalog_dict.keys()))}")
-        logger.debug(f"DEBUG: len(token_doc_freq): {len(token_doc_freq)}")
-        if token_doc_freq:
-            logger.debug(f"DEBUG: Beispiel token_doc_freq Key: {next(iter(token_doc_freq.keys()))}")
-        # --- DEBUGGING END ---
-
-        # --- HYBRID SEARCH: Combine Keyword and Embedding search results ---
-
-        # 1. Keyword-based search (reliable for synonyms and direct matches)
-        # We limit this to a reasonable number to get high-quality candidates.
-        keyword_results = cast(
-            List[Tuple[float, str]],
-            rank_leistungskatalog_entries(
-                tokens,
-                leistungskatalog_dict,
-                token_doc_freq,
-                limit=100,
-                return_scores=True,
-            ),
+        max_tokens = getattr(embedding_model, "get_max_seq_length", lambda: 128)()
+        tokenizer_max = getattr(embedding_model.tokenizer, "model_max_length", max_tokens)
+        limit = min(max_tokens, tokenizer_max)
+        special_tokens = getattr(
+            embedding_model.tokenizer, "num_special_tokens_to_add", lambda *a, **k: 0
+        )(False)
+        limit = max(limit - special_tokens, 0)
+        embedding_token_ids = embedding_model.tokenizer.encode(
+            embedding_query, add_special_tokens=False
         )
-        keyword_codes = [code for _, code in keyword_results]
-        logger.info(f"Keyword-Suche fand {len(keyword_codes)} Kandidaten.")
+        if len(embedding_token_ids) > limit:
+            embedding_query = embedding_model.tokenizer.decode(
+                embedding_token_ids[:limit]
+            ).strip()
+        q_vec = embedding_model.encode(
+            [embedding_query], convert_to_numpy=True
+        )[0]
 
-        # 2. Embedding-based search (for semantic similarity)
-        embedding_results: List[Tuple[float, str]] = []
-        embedding_codes_ranked: List[str] = []
-        if USE_RAG and embedding_model and embedding_vectors:
-            logger.info(
-                "Suchanfrage für RAG (ohne Synonym-Erweiterung): %s",
-                embedding_query,
-            )
-            max_tokens = getattr(embedding_model, "get_max_seq_length", lambda: 128)()
-            tokenizer_max = getattr(embedding_model.tokenizer, "model_max_length", max_tokens)
-            limit = min(max_tokens, tokenizer_max)
-            special_tokens = getattr(
-                embedding_model.tokenizer, "num_special_tokens_to_add", lambda *a, **k: 0
-            )(False)
-            limit = max(limit - special_tokens, 0)
-            tokens = embedding_model.tokenizer.encode(
-                embedding_query, add_special_tokens=False
-            )
-            if len(tokens) > limit:
-                embedding_query = embedding_model.tokenizer.decode(
-                    tokens[:limit]
-                ).strip()
-            q_vec = embedding_model.encode(
-                [embedding_query], convert_to_numpy=True
-            )[0]
-
-            embedding_results = rank_embeddings_entries(
-                cast(List[float], q_vec.tolist()),
-                embedding_vectors,
-                embedding_codes,
-                limit=100,
-            )
-            embedding_codes_ranked = [code for _, code in embedding_results]
-            logger.info(
-                f"Embedding-Suche (RAG) fand {len(embedding_codes_ranked)} Kandidaten."
-            )
-
-        # 3. Combine and de-duplicate results
-        # The order is important: direct codes first, then keyword matches, then semantic matches.
-        direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
-        for code in direct_synonym_codes:
-            if code not in direct_codes:
-                direct_codes.append(code)
-
-        combined_codes = direct_codes + keyword_codes + embedding_codes_ranked
-        ranked_codes = list(dict.fromkeys(combined_codes))  # De-duplicate while preserving order
-
+        embedding_results = rank_embeddings_entries(
+            cast(List[float], q_vec.tolist()),
+            embedding_vectors,
+            embedding_codes,
+            limit=100,
+        )
+        embedding_codes_ranked = [code for _, code in embedding_results]
         logger.info(
-            f"Kombinierte Suche ergab {len(ranked_codes)} einzigartige Kandidaten für den Kontext."
+            f"Embedding-Suche (RAG) fand {len(embedding_codes_ranked)} Kandidaten."
         )
-        # --- DEBUGGING START ---
-        logger.debug(f"DEBUG: ranked_codes: {ranked_codes[:10]}")  # Logge die ersten 10 gerankten Codes
-        # --- DEBUGGING END ---
 
-        # Build top ranking list prioritizing direct matches
-        top_ranking_results = [(1.0, code) for code in direct_codes]
-        remaining_slots = max(0, 5 - len(top_ranking_results))
-        if USE_RAG and embedding_model and embedding_vectors:
-            top_ranking_results.extend(embedding_results[:remaining_slots])
-        else:
-            top_ranking_results.extend(keyword_results[:remaining_slots])
+    # 3. Combine and de-duplicate results
+    # The order is important: direct codes first, then keyword matches, then semantic matches.
+    direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
+    for code in direct_synonym_codes:
+        if code not in direct_codes:
+            direct_codes.append(code)
 
-        # Baue den Kontext: erzwungene Codes zuerst, dann restliche Kandidaten, optional begrenzt
-        included: set[str] = set()
-        def _add_line_for(code: str) -> None:
-            details = leistungskatalog_dict.get(code, {})
-            desc_text = get_localized_text(details, "Beschreibung", lang)
-            mi_text = get_localized_text(details, "MedizinischeInterpretation", lang)
-            parts = [f"LKN: {code}"]
-            if CONTEXT_INCLUDE_TYP:
-                parts.append(f"Typ: {details.get('Typ', 'N/A')}")
-            if CONTEXT_INCLUDE_BESCHREIBUNG:
-                parts.append(f"Beschreibung: {html.escape(desc_text or 'N/A')}")
-            line = ", ".join(parts)
-            if CONTEXT_INCLUDE_MED_INTERPRETATION and mi_text:
-                line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
-            katalog_context_parts.append(line)
-            included.add(code)
+    combined_codes = direct_codes + keyword_codes + embedding_codes_ranked
+    ranked_codes = list(dict.fromkeys(combined_codes))  # De-duplicate while preserving order
 
-        # 1) Erzwinge bestimmte Codes
-        for forced in CONTEXT_FORCE_INCLUDE_CODES:
-            if forced in leistungskatalog_dict and forced not in included:
-                _add_line_for(forced)
-                if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
-                    break
+    logger.info(
+        f"Kombinierte Suche ergab {len(ranked_codes)} einzigartige Kandidaten für den Kontext."
+    )
+    # --- DEBUGGING START ---
+    logger.debug(f"DEBUG: ranked_codes: {ranked_codes[:10]}")  # Logge die ersten 10 gerankten Codes
+    # --- DEBUGGING END ---
 
-        # 2) Fülle mit gerankten Kandidaten auf
-        if not (CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS):
-            for lkn_code in ranked_codes:
-                if lkn_code in included:
-                    continue
-                if lkn_code not in leistungskatalog_dict:
-                    continue
-                _add_line_for(lkn_code)
-                if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
-                    break
-        katalog_context_str = "\n".join(katalog_context_parts)
-        logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
-        # --- DEBUGGING START ---
-        logger.debug(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
-        if not katalog_context_str:
-            logger.error("DEBUG: katalog_context_str ist leer. Abbruch vor LLM-Aufruf.")
-        # --- DEBUGGING END ---
-        if not katalog_context_str:
-            raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
+    # Build top ranking list prioritizing direct matches but including keyword hits even with RAG
+    top_ranking_results = []
+    seen_rank_codes: Set[str] = set()
 
-        # --- DEBUGGING START ---
-        logger.debug(f"DEBUG: Zustand vor call_llm_stage1:")
-        logger.debug(f"DEBUG: len(leistungskatalog_dict): {len(leistungskatalog_dict)}")
-        logger.debug(f"DEBUG: llm_stage1_result (vor Aufruf): {llm_stage1_result}")
-        # --- DEBUGGING END ---
-        llm_stage1_result, s1_tokens = call_llm_stage1(user_input, katalog_context_str, lang, query_variants=query_variants)
-        token_usage["llm_stage1"]["input_tokens"] += s1_tokens.get("input_tokens", 0)
-        token_usage["llm_stage1"]["output_tokens"] += s1_tokens.get("output_tokens", 0)
-    except ConnectionError as e:
-        logger.error("Verbindung zu LLM1 fehlgeschlagen: %s", e)
-        return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
-    except PermissionError as e:
-        logger.error("LLM1 durch Content-Policy blockiert: %s", e)
-        return jsonify({"error": "Anfrage von LLM-Provider aus Inhaltsrichtlinien-Gründen blockiert. Bitte Provider-Einstellungen/Policy prüfen oder alternativen Provider wählen."}), 403
-    except ValueError as e:
-        logger.error("Verarbeitung LLM1 fehlgeschlagen: %s", e, exc_info=True)
-        return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400
-    except Exception as e:
-        logger.error("Unerwarteter Fehler bei LLM1: %s", e, exc_info=True)
-        return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500
-    llm1_time = time.time(); logger.info("Zeit nach LLM Stufe 1: %.2fs", llm1_time - start_time)
+    def _add_direct_codes(codes: List[str]) -> None:
+        for direct_code in codes:
+            normalized = direct_code.strip().upper()
+            if not normalized or normalized in seen_rank_codes:
+                continue
+            top_ranking_results.append((1.0, normalized))
+            seen_rank_codes.add(normalized)
 
-    final_validated_llm_leistungen: List[Dict[str,Any]] = []
-    # Nutze get mit Fallback auf leere Liste, falls "identified_leistungen" fehlt
+    def _add_scored_entries(entries: List[Tuple[float, str]]) -> None:
+        for score, code in entries:
+            normalized = code.strip().upper()
+            if not normalized or normalized in seen_rank_codes:
+                continue
+            top_ranking_results.append((score, normalized))
+            seen_rank_codes.add(normalized)
+
+    _add_direct_codes(direct_codes)
+    _add_scored_entries(keyword_results)
+    if USE_RAG and embedding_model and embedding_vectors:
+        _add_scored_entries(embedding_results)
+
+    def _collect_code_text(code: str) -> str:
+        details = leistungskatalog_dict.get(code)
+        if not isinstance(details, dict):
+            return ""
+        collected_parts: List[str] = []
+        for value in details.values():
+            if isinstance(value, str):
+                collected_parts.append(value.lower())
+            elif isinstance(value, list):
+                collected_parts.extend(str(v).lower() for v in value if v is not None)
+            elif isinstance(value, dict):
+                collected_parts.extend(
+                    str(v).lower()
+                    for v in value.values()
+                    if isinstance(v, str)
+                )
+        return " ".join(collected_parts)
+
+    # Apply a generic keyword-based post-filter to prioritise codes mentioning the query terms
+    meaningful_tokens = {
+        tok.lower().strip()
+        for tok in keyword_token_set
+        if isinstance(tok, str) and tok.strip() and len(tok.strip()) >= 3
+    }
+
+    if meaningful_tokens:
+        filtered_results = [
+            entry
+            for entry in top_ranking_results
+            if any(token in _collect_code_text(entry[1]) for token in meaningful_tokens)
+        ]
+        if filtered_results:
+            logger.info(
+                "Schlüsselwortbasierte Nachfilterung: %s von %s Kandidaten behalten.",
+                len(filtered_results),
+                len(top_ranking_results),
+            )
+            top_ranking_results = filtered_results
+
+    top_ranking_results = top_ranking_results[:5]
+
+    # Baue den Kontext: erzwungene Codes zuerst, dann restliche Kandidaten, optional begrenzt
+    included: set[str] = set()
+    def _add_line_for(code: str) -> None:
+        details = leistungskatalog_dict.get(code, {})
+        desc_text = get_localized_text(details, "Beschreibung", lang)
+        mi_text = get_localized_text(details, "MedizinischeInterpretation", lang)
+        parts = [f"LKN: {code}"]
+        if CONTEXT_INCLUDE_TYP:
+            parts.append(f"Typ: {details.get('Typ', 'N/A')}")
+        if CONTEXT_INCLUDE_BESCHREIBUNG:
+            parts.append(f"Beschreibung: {html.escape(desc_text or 'N/A')}")
+        line = ", ".join(parts)
+        if CONTEXT_INCLUDE_MED_INTERPRETATION and mi_text:
+            line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
+        katalog_context_parts.append(line)
+        included.add(code)
+
+    # 1) Erzwinge bestimmte Codes
+    for forced in CONTEXT_FORCE_INCLUDE_CODES:
+        if forced in leistungskatalog_dict and forced not in included:
+            _add_line_for(forced)
+            if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
+                break
+
+    # 2) Fülle mit gerankten Kandidaten auf
+    if not (CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS):
+        for lkn_code in ranked_codes:
+            if lkn_code in included:
+                continue
+            if lkn_code not in leistungskatalog_dict:
+                continue
+            _add_line_for(lkn_code)
+            if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
+                break
+    katalog_context_str = "\n".join(katalog_context_parts)
+    logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
+    # --- DEBUGGING START ---
+    logger.debug(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
+    if not katalog_context_str:
+        logger.error("DEBUG: katalog_context_str ist leer. Abbruch vor LLM-Aufruf.")
+    # --- DEBUGGING END ---
+    if not katalog_context_str:
+        raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
+
+    return katalog_context_str, top_ranking_results, query_variants
+
+
+def _validate_and_apply_rules(
+    llm_stage1_result: Dict[str, Any],
+    lang: str,
+    icd_input: List[str],
+    medication_atcs: List[str],
+    alter_user: Optional[int],
+    geschlecht_user: Optional[str],
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Vergleicht LLM-Vorschläge mit Katalog und Regelwerk.
+
+    Es werden zwei parallele Strukturen zurückgegeben: eine Liste der
+    regelkonformen Leistungen (inklusive angepasster Mengen) sowie ein ausführlich
+    pro LKN dokumentierter Datensatz mit allen angewendeten Regeln,
+    übersetzten Meldungen und finaler Menge. Diese Informationen speisen das
+    HTML-Protokoll in der Oberfläche.
+    """
+    final_validated_llm_leistungen: List[Dict[str, Any]] = []
     for leistung_llm in llm_stage1_result.get("identified_leistungen", []):
         lkn_llm_val = leistung_llm.get("lkn")
-        if not isinstance(lkn_llm_val, str): continue # Überspringe, wenn LKN kein String ist
+        if not isinstance(lkn_llm_val, str): continue
         lkn_llm = lkn_llm_val.strip().upper()
-        if not lkn_llm: continue # Überspringe leere LKN nach strip
+        if not lkn_llm: continue
 
         menge_llm = leistung_llm.get("menge", 1)
-        local_lkn_data = leistungskatalog_dict.get(lkn_llm) # Globale Variable hier OK
+        local_lkn_data = leistungskatalog_dict.get(lkn_llm)
         if local_lkn_data:
             final_validated_llm_leistungen.append({
                 "lkn": lkn_llm,
@@ -2889,132 +3383,50 @@ def analyze_billing():
     llm_stage1_result["identified_leistungen"] = final_validated_llm_leistungen
     logger.info("%s LKNs nach LLM Stufe 1 und lokaler Katalogvalidierung.", len(final_validated_llm_leistungen))
 
-    candidate_codes: List[str] = []
-    if top_ranking_results:
-        if len(top_ranking_results) > 1:
-            ratio = (
-                top_ranking_results[0][0] / top_ranking_results[1][0]
-                if top_ranking_results[1][0] != 0
-                else float("inf")
-            )
-        else:
-            ratio = float("inf")
-        if not final_validated_llm_leistungen or ratio <= 1.5:
-            candidate_codes = [code for _, code in top_ranking_results]
-    llm_stage1_result["ranking_candidates"] = candidate_codes
-
-    extracted_info_llm = llm_stage1_result.get("extracted_info", {})
-    alter_context_val = alter_user if alter_user is not None else extracted_info_llm.get("alter")
-    # Für Regelprüfer immer einen String, nicht None
-    geschlecht_context_val = geschlecht_user if geschlecht_user is not None else extracted_info_llm.get("geschlecht")
-    if geschlecht_context_val is None: geschlecht_context_val = "unbekannt"
-    
-    # Sicherstellen, dass Seitigkeit als String vorliegt, auch wenn der Schlüssel existiert, aber None ist
-    seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
-    anzahl_prozeduren_val = extracted_info_llm.get("anzahl_prozeduren")
-    anzahl_fuer_pauschale_context = anzahl_prozeduren_val
-    if seitigkeit_context_val.lower() == 'beidseits' and anzahl_fuer_pauschale_context is None:
-        if len(final_validated_llm_leistungen) == 1 and final_validated_llm_leistungen[0].get('menge') == 1:
-            anzahl_fuer_pauschale_context = 2
-            logger.info("(Heuristik) 'Anzahl' für Pauschale auf 2 gesetzt.")
-        elif any(l.get('lkn') == "C02.CP.0100" and l.get('menge') == 1 for l in final_validated_llm_leistungen):
-            anzahl_fuer_pauschale_context = 2
-            logger.info("(Heuristik C02.CP.0100) 'Anzahl' für Pauschale auf 2 gesetzt.")
-
-    finale_abrechnung_obj: Dict[str, Any] | None = None
-    fallback_pauschale_search = False
-
-    if not final_validated_llm_leistungen:
-        fallback_pauschale_search = True
-        try:
-            kandidaten_liste = search_pauschalen(user_input)
-
-            kandidaten_text = "\n".join(
-                f"{k['code']}: {k['text']}" for k in kandidaten_liste
-            )
-            ranking_codes, rank_tokens = call_llm_stage2_ranking(user_input, kandidaten_text, lang)
-            token_usage["llm_stage2"]["input_tokens"] += rank_tokens.get("input_tokens", 0)
-            token_usage["llm_stage2"]["output_tokens"] += rank_tokens.get("output_tokens", 0)
-        except ConnectionError as e_rank:
-            logger.error("Verbindung zu LLM Stufe 2 (Ranking) im Fallback: %s", e_rank)
-            ranking_codes = []
-        except Exception as e_rank_gen:
-            logger.error("Fehler beim Fallback-Ranking: %s", e_rank_gen)
-            traceback.print_exc()
-            ranking_codes = []
-
-        potential_pauschale_codes_set: Set[str] = set(ranking_codes)
-        if potential_pauschale_codes_set:
-            pauschale_haupt_pruef_kontext = {
-                "ICD": icd_input,
-                "GTIN": gtin_input,
-                "Alter": alter_context_val,
-                "Geschlecht": geschlecht_context_val,
-                "useIcd": use_icd_flag,
-                "LKN": [],
-                "Seitigkeit": seitigkeit_context_val,
-                "Anzahl": anzahl_fuer_pauschale_context,
-            }
-            try:
-                pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
-                    user_input,
-                        [], # rule_checked_leistungen_list_param
-                    pauschale_haupt_pruef_kontext,
-                    pauschale_lp_data,
-                        # pauschale_bedingungen_data, # Ersetzt durch pauschale_bedingungen_indexed
-                        pauschale_bedingungen_data, # KORREKTUR: Liste statt Dict
-                    pauschalen_dict,
-                    leistungskatalog_dict,
-                    tabellen_dict_by_table,
-                    potential_pauschale_codes_set,
-                    lang,
-                )
-                finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
-                if finale_abrechnung_obj.get("type") == "Pauschale":
-                    logger.info(
-                        "Fallback-Pauschale gefunden: %s",
-                        finale_abrechnung_obj.get('details', {}).get('Pauschale'),
-                    )
-                else:
-                    logger.info(
-                        "Fallback-Pauschalenprüfung ohne Treffer. Grund: %s",
-                        finale_abrechnung_obj.get('message', 'Unbekannt'),
-                    )
-            except Exception as e_pausch_fb:
-                logger.error("Fehler bei Pauschalen-Fallback-Prüfung: %s", e_pausch_fb)
-                traceback.print_exc()
-                finale_abrechnung_obj = None
-
     regel_ergebnisse_details_list: List[Dict[str, Any]] = []
     rule_checked_leistungen_list: List[Dict[str, Any]] = []
     if not final_validated_llm_leistungen:
-         msg_none = translate_rule_error_message("Keine LKN vom LLM identifiziert/validiert.", lang)
-         regel_ergebnisse_details_list.append({"lkn": None, "initiale_menge": 0, "regelpruefung": {"abrechnungsfaehig": False, "fehler": [msg_none]}, "finale_menge": 0})
+        msg_none = translate_rule_error_message("Keine LKN vom LLM identifiziert/validiert.", lang)
+        regel_ergebnisse_details_list.append({"lkn": None, "initiale_menge": 0, "regelpruefung": {"abrechnungsfaehig": False, "fehler": [msg_none]}, "finale_menge": 0})
     else:
-        alle_lkn_codes_fuer_regelpruefung = [str(l.get("lkn")) for l in final_validated_llm_leistungen if l.get("lkn")] # Sicherstellen, dass es Strings sind
+        alle_lkn_codes_fuer_regelpruefung = [str(l.get("lkn")) for l in final_validated_llm_leistungen if l.get("lkn")]
+        typen_map_fuer_regeln = {
+            str(l.get("lkn")).upper(): str(l.get("typ") or "").upper()
+            for l in final_validated_llm_leistungen
+            if l.get("lkn")
+        }
         for leistung_data in final_validated_llm_leistungen:
             lkn_code_val = leistung_data.get("lkn")
-            if not isinstance(lkn_code_val, str): continue # Sollte durch obige Validierung nicht passieren
+            if not isinstance(lkn_code_val, str): continue
             lkn_code = lkn_code_val
 
             menge_initial_val = leistung_data.get("menge", 1)
-            # print(f"INFO: Prüfe Regeln für LKN {lkn_code} (Initiale Menge: {menge_initial_val})")
-            regel_ergebnis_dict: Dict[str,Any] = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
+            regel_ergebnis_dict: Dict[str, Any] = {"abrechnungsfaehig": False, "fehler": ["Regelprüfung nicht durchgeführt."]}
             finale_menge_nach_regeln = 0
-            # rp_lkn_module wurde oben importiert
-            if rp_lkn_module and hasattr(rp_lkn_module, 'pruefe_abrechnungsfaehigkeit') and regelwerk_dict: # Globale Variable hier OK
+            if rp_lkn_module and hasattr(rp_lkn_module, 'pruefe_abrechnungsfaehigkeit') and regelwerk_dict:
+                lkn_code_upper = lkn_code.upper()
+                leistung_typ = typen_map_fuer_regeln.get(lkn_code_upper, "")
+                begleit_lkns_upper = [b_lkn.upper() for b_lkn in alle_lkn_codes_fuer_regelpruefung if b_lkn and b_lkn.upper() != lkn_code_upper]
+                begleit_typen_context = {
+                    code: typ
+                    for code, typ in typen_map_fuer_regeln.items()
+                    if code != lkn_code_upper
+                }
                 abrechnungsfall_kontext = {
-                    "LKN": lkn_code, "Menge": menge_initial_val,
-                    "Begleit_LKNs": [b_lkn for b_lkn in alle_lkn_codes_fuer_regelpruefung if b_lkn != lkn_code],
-                    "ICD": icd_input, "Geschlecht": geschlecht_context_val, "Alter": alter_context_val,
-                    "Pauschalen": [], "GTIN": gtin_input
+                    "LKN": lkn_code_upper, "Menge": menge_initial_val,
+                    "Typ": leistung_typ,
+                    "Begleit_LKNs": begleit_lkns_upper,
+                    "Begleit_Typen": begleit_typen_context,
+                    "ICD": icd_input, "Geschlecht": geschlecht_user or "unbekannt", "Alter": alter_user,
+                    "Pauschalen": [], "Medikamente": medication_atcs, "GTIN": medication_atcs
                 }
                 try:
-                    regel_ergebnis_dict = rp_lkn_module.pruefe_abrechnungsfaehigkeit(abrechnungsfall_kontext, regelwerk_dict) # Globale Variable hier OK
+                    regel_ergebnis_dict = rp_lkn_module.pruefe_abrechnungsfaehigkeit(abrechnungsfall_kontext, regelwerk_dict)
                     if regel_ergebnis_dict.get("abrechnungsfaehig"):
                         finale_menge_nach_regeln = menge_initial_val
                     else:
                         fehler_liste_regel = regel_ergebnis_dict.get("fehler", [])
+                        # Manche Regeln reduzieren nur die Menge statt die Position komplett zu sperren.
                         mengen_reduktions_fehler = next((f for f in fehler_liste_regel if "Menge auf" in f and "reduziert" in f), None)
                         if mengen_reduktions_fehler:
                             match_menge = re.search(r"Menge auf (\d+)", str(mengen_reduktions_fehler))
@@ -3028,8 +3440,9 @@ def analyze_billing():
                                         finale_menge_nach_regeln,
                                     )
                                 except ValueError:
-                                    finale_menge_nach_regeln = 0  # Fallback
+                                    finale_menge_nach_regeln = 0
                         else:
+                            # Alternativ meldet der Regelprüfer die zulässige Maximalmenge über eine Soft-Fehlermeldung.
                             mengenbesch_fehler = next((f for f in fehler_liste_regel if "Mengenbeschränkung überschritten" in f and "max." in f), None)
                             if mengenbesch_fehler:
                                 match_max = re.search(r"max\.\s*(\d+)", str(mengenbesch_fehler))
@@ -3067,279 +3480,374 @@ def analyze_billing():
             regel_ergebnisse_details_list.append({"lkn": lkn_code, "initiale_menge": menge_initial_val, "regelpruefung": regel_ergebnis_dict, "finale_menge": finale_menge_nach_regeln})
             if regel_ergebnis_dict.get("abrechnungsfaehig") and finale_menge_nach_regeln > 0:
                 rule_checked_leistungen_list.append({**leistung_data, "menge": finale_menge_nach_regeln})
-    rule_time = time.time(); logger.info("Zeit nach Regelprüfung: %.2fs", rule_time - llm1_time)
+
     logger.info(
         "Regelkonforme Leistungen für Pauschalenprüfung: %s",
         [f"{l['lkn']} (Menge {l['menge']})" for l in rule_checked_leistungen_list],
     )
+    return rule_checked_leistungen_list, regel_ergebnisse_details_list
 
-    llm_stage2_mapping_results: Dict[str, Any] = { "mapping_results": [] }
 
+def _determine_final_billing(
+    rule_checked_leistungen_list: List[Dict[str, Any]],
+    regel_ergebnisse_details_list: List[Dict[str, Any]],
+    user_input: str,
+    lang: str,
+    context: Dict[str, Any],
+    token_usage: Dict[str, Any],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Führt Regelresultate mit der Pauschalenlogik zusammen und erzeugt die Antwort.
+
+    Die Funktion entscheidet, ob eine Pauschalenprüfung nötig ist, ruft bei Bedarf
+    Mapping/Ranking der Stufe 2 auf und fällt andernfalls auf die reine
+    TARDOC-Auswertung zurück. Sie liefert das JSON für den HTTP-Response sowie
+    Zusatzdaten aus der Mapping-Stufe für die Detailanzeige im Frontend.
+    """
     hat_pauschalen_potential_nach_regeln = any(l.get('typ') in ['P', 'PZ'] for l in rule_checked_leistungen_list)
+    llm_stage2_mapping_results: Dict[str, Any] = {"mapping_results": []}
+
     if not rule_checked_leistungen_list or not hat_pauschalen_potential_nach_regeln:
         logger.info("Keine P/PZ LKNs nach Regelprüfung oder keine LKNs übrig. Gehe direkt zu TARDOC.")
-    else:
-        logger.info("Pauschalenpotenzial nach Regelprüfung vorhanden. Starte LKN-Mapping & Pauschalen-Hauptprüfung.")
-        potential_pauschale_codes_set: Set[str] = set()
-        regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')} # Sicherstellen Strings
-        
-        for item_lp in pauschale_lp_data: # Globale Variable
-            lkn_in_lp_db_val = item_lp.get('Leistungsposition')
-            if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val in regelkonforme_lkn_codes_fuer_suche:
-                pc_code = item_lp.get('Pauschale')
-                if pc_code and str(pc_code) in pauschalen_dict: potential_pauschale_codes_set.add(str(pc_code)) # Globale Variable
-        
-        regelkonforme_lkns_in_tables_cache: Dict[str, Set[str]] = {}
-        for cond_data in pauschale_bedingungen_data: # Globale Variable
-            pc_code_cond_val = cond_data.get('Pauschale')
-            if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict): continue # Globale Variable
-            pc_code_cond = str(pc_code_cond_val)
+        finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
+        return finale_abrechnung_obj, llm_stage2_mapping_results
 
-            bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
-            werte_cond_str = cond_data.get('Werte', "")
+    logger.info("Pauschalenpotenzial nach Regelprüfung vorhanden. Starte LKN-Mapping & Pauschalen-Hauptprüfung.")
 
-            if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-                werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
-                if not regelkonforme_lkn_codes_fuer_suche.isdisjoint(werte_liste_cond_set):
-                    potential_pauschale_codes_set.add(pc_code_cond)
+    # Ab hier folgt die bestehende Logik der ursprünglichen Funktion.
+    potential_pauschale_codes_set: Set[str] = set()
+    regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')}
 
-            elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-                table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
-                for lkn_regelkonform_raw in regelkonforme_lkn_codes_fuer_suche:
-                    if isinstance(lkn_regelkonform_raw, str): # KORREKTUR für Fehler 1 & 2
-                        lkn_regelkonform_str = lkn_regelkonform_raw
-                        if lkn_regelkonform_str not in regelkonforme_lkns_in_tables_cache:
-                            tables_for_lkn_set = set()
-                            for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items(): # Globale Variable
-                                for entry_item in table_entries_list:
-                                    if entry_item.get('Code', '').upper() == lkn_regelkonform_str and \
-                                       entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
-                                        tables_for_lkn_set.add(table_name_key_norm)
-                            regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str] = tables_for_lkn_set
-                        
-                        if not table_refs_cond_set.isdisjoint(regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str]):
-                            potential_pauschale_codes_set.add(pc_code_cond)
-                            break
-        logger.debug(
-            "DEBUG: %s potenzielle Pauschalen für Mapping/Prüfung gefunden: %s",
-            len(potential_pauschale_codes_set),
-            potential_pauschale_codes_set,
-        )
+    for item_lp in pauschale_lp_data:
+        lkn_in_lp_db_val = item_lp.get('Leistungsposition')
+        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val in regelkonforme_lkn_codes_fuer_suche:
+            pc_code = item_lp.get('Pauschale')
+            if pc_code and str(pc_code) in pauschalen_dict: potential_pauschale_codes_set.add(str(pc_code))
 
-        if not potential_pauschale_codes_set:
-            logger.info("Keine potenziellen Pauschalen nach initialer Suche gefunden. Gehe zu TARDOC.")
-        else:
-            mapping_candidate_lkns_dict = get_LKNs_from_pauschalen_conditions(
-                potential_pauschale_codes_set, pauschale_bedingungen_data, # Globale Variablen
-                tabellen_dict_by_table, leistungskatalog_dict) # Globale Variablen
-            # print(f"DEBUG: {len(mapping_candidate_lkns_dict)} LKN-Kandidaten für LLM-Mapping vorbereitet.")
+    regelkonforme_lkns_in_tables_cache: Dict[str, Set[str]] = {}
+    for cond_data in pauschale_bedingungen_data:
+        pc_code_cond_val = cond_data.get('Pauschale')
+        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict): continue
+        pc_code_cond = str(pc_code_cond_val)
+        bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
+        werte_cond_str = cond_data.get('Werte', "")
+        if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+            werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
+            if not regelkonforme_lkn_codes_fuer_suche.isdisjoint(werte_liste_cond_set):
+                potential_pauschale_codes_set.add(pc_code_cond)
+        elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+            table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
+            for lkn_regelkonform_raw in regelkonforme_lkn_codes_fuer_suche:
+                if isinstance(lkn_regelkonform_raw, str):
+                    lkn_regelkonform_str = lkn_regelkonform_raw
+                    if lkn_regelkonform_str not in regelkonforme_lkns_in_tables_cache:
+                        tables_for_lkn_set = set()
+                        for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items():
+                            for entry_item in table_entries_list:
+                                if entry_item.get('Code', '').upper() == lkn_regelkonform_str and \
+                                   entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
+                                    tables_for_lkn_set.add(table_name_key_norm)
+                        regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str] = tables_for_lkn_set
+                    if not table_refs_cond_set.isdisjoint(regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str]):
+                        potential_pauschale_codes_set.add(pc_code_cond)
+                        break
 
-            tardoc_lkns_to_map_list = [l for l in rule_checked_leistungen_list if l.get('typ') in ['E', 'EZ']]
-            # print(f"DEBUG: {len(tardoc_lkns_to_map_list)} TARDOC LKNs (E/EZ) zum Mappen identifiziert: {[l.get('lkn') for l in tardoc_lkns_to_map_list]}")
-            mapped_lkn_codes_set: Set[str] = set()
-            mapping_process_had_connection_error = False
+    logger.debug(
+        "DEBUG: %s potenzielle Pauschalen für Mapping/Prüfung gefunden: %s",
+        len(potential_pauschale_codes_set),
+        potential_pauschale_codes_set,
+    )
 
-            if tardoc_lkns_to_map_list and mapping_candidate_lkns_dict:
-                for tardoc_leistung_map_obj in tardoc_lkns_to_map_list:
-                    t_lkn_code = tardoc_leistung_map_obj.get('lkn')
-                    t_lkn_desc = tardoc_leistung_map_obj.get('beschreibung')
-                    current_candidates_for_llm = mapping_candidate_lkns_dict
-                    if isinstance(t_lkn_code, str) and t_lkn_code.startswith('AG.'):
-                        anast_table_content_codes = {
-                            str(item['Code']).upper() for item in get_table_content("ANAST", "service_catalog", tabellen_dict_by_table) if item.get('Code') # Globale Variable
-                        }
-                        filtered_anast_candidates = {
-                            k: v for k, v in mapping_candidate_lkns_dict.items()
-                            if k.startswith('WA.') or k in anast_table_content_codes
-                        }
-                        if filtered_anast_candidates:
-                            current_candidates_for_llm = filtered_anast_candidates
-                            # print(f"  INFO: Für Mapping von {t_lkn_code} wurden Kandidaten auf ANAST/WA.* ({len(current_candidates_for_llm)}) reduziert.")
+    if not potential_pauschale_codes_set:
+        logger.info("Keine potenziellen Pauschalen nach initialer Suche gefunden. Gehe zu TARDOC.")
+        finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
+        return finale_abrechnung_obj, llm_stage2_mapping_results
 
-                    if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
-                        try:
-                            mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
-                            token_usage["llm_stage2"]["input_tokens"] += map_tokens.get("input_tokens", 0)
-                            token_usage["llm_stage2"]["output_tokens"] += map_tokens.get("output_tokens", 0)
-                            if mapped_target_lkn_code:
-                                mapped_lkn_codes_set.add(mapped_target_lkn_code)
-                                # print(f"INFO: LKN-Mapping: {t_lkn_code} -> {mapped_target_lkn_code}")
-                            llm_stage2_mapping_results["mapping_results"].append({
-                                "tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc,
-                                "mapped_lkn": mapped_target_lkn_code,
-                                "candidates_considered_count": len(current_candidates_for_llm)
-                            })
-                        except ConnectionError as e_conn_map:
-                            logger.error(
-                                "Verbindung zu LLM Stufe 2 (Mapping) für %s fehlgeschlagen: %s",
-                                t_lkn_code,
-                                e_conn_map,
-                            )
-                            finale_abrechnung_obj = {
-                                "type": "Error",
-                                "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2 Mapping): {e_conn_map}",
-                            }
-                            mapping_process_had_connection_error = True
-                            break
-                        except Exception as e_map_call:
-                            logger.error(
-                                "Fehler bei Aufruf von LLM Stufe 2 (Mapping) für %s: %s",
-                                t_lkn_code,
-                                e_map_call,
-                            )
-                            traceback.print_exc()
-                            llm_stage2_mapping_results["mapping_results"].append(
-                                {
-                                    "tardoc_lkn": t_lkn_code,
-                                    "tardoc_desc": t_lkn_desc,
-                                    "mapped_lkn": None,
-                                    "error": str(e_map_call),
-                                    "candidates_considered_count": len(current_candidates_for_llm),
-                                }
-                            )
-                    else:
-                        llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code or "N/A", "tardoc_desc": t_lkn_desc or "N/A", "mapped_lkn": None, "info": "Mapping übersprungen", "candidates_considered_count": len(current_candidates_for_llm) if current_candidates_for_llm else 0})
-            else:
-                logger.info("Überspringe LKN-Mapping (keine E/EZ LKNs oder keine Mapping-Kandidaten).")
-            mapping_time = time.time(); logger.info("Zeit nach LKN-Mapping: %.2fs", mapping_time - rule_time)
+    mapping_candidate_lkns_dict = get_LKNs_from_pauschalen_conditions(
+        potential_pauschale_codes_set, pauschale_bedingungen_data,
+        tabellen_dict_by_table, leistungskatalog_dict)
 
-            if not mapping_process_had_connection_error:
-                final_lkn_context_for_pauschale_set = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')} # Sicherstellen Strings
-                final_lkn_context_for_pauschale_set.update(mapped_lkn_codes_set)
-                final_lkn_context_list_for_pauschale = list(final_lkn_context_for_pauschale_set)
-                logger.info(
-                    "Finaler LKN-Kontext für Pauschalen-Hauptprüfung (%s LKNs): %s",
-                    len(final_lkn_context_list_for_pauschale),
-                    final_lkn_context_list_for_pauschale,
-                )
+    tardoc_lkns_to_map_list = [l for l in rule_checked_leistungen_list if l.get('typ') in ['E', 'EZ']]
+    mapped_lkn_codes_set: Set[str] = set()
+    mapping_process_had_connection_error = False
 
-                # Nach dem Mapping: potenzielle Pauschalen anhand des erweiterten
-                # LKN-Sets erneut suchen (inkl. gemappter LKNs)
-                erweiterte_lkn_suchmenge = {str(l).upper() for l in final_lkn_context_for_pauschale_set}
-
-                neu_gefundene_codes: Set[str] = set()
-
-                for item_lp in pauschale_lp_data:
-                    lkn_in_lp_db_val = item_lp.get('Leistungsposition')
-                    if (
-                        isinstance(lkn_in_lp_db_val, str)
-                        and lkn_in_lp_db_val.upper() in erweiterte_lkn_suchmenge
-                    ):
-                        pc_code = item_lp.get('Pauschale')
-                        if pc_code and str(pc_code) in pauschalen_dict:
-                            neu_gefundene_codes.add(str(pc_code))
-
-                erweiterte_lkns_in_tables_cache: Dict[str, Set[str]] = {}
-                for cond_data in pauschale_bedingungen_data:
-                    pc_code_cond_val = cond_data.get('Pauschale')
-                    if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict):
-                        continue
-                    pc_code_cond = str(pc_code_cond_val)
-
-                    bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
-                    werte_cond_str = cond_data.get('Werte', "")
-
-                    if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-                        werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
-                        if not erweiterte_lkn_suchmenge.isdisjoint(werte_liste_cond_set):
-                            neu_gefundene_codes.add(pc_code_cond)
-
-                    elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-                        table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
-                        for lkn_raw in erweiterte_lkn_suchmenge:
-                            if isinstance(lkn_raw, str):
-                                lkn_str = lkn_raw.upper()
-                                if lkn_str not in erweiterte_lkns_in_tables_cache:
-                                    tables_for_lkn_set = set()
-                                    for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items():
-                                        for entry_item in table_entries_list:
-                                            if entry_item.get('Code', '').upper() == lkn_str and \
-                                               entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
-                                                tables_for_lkn_set.add(table_name_key_norm)
-                                    erweiterte_lkns_in_tables_cache[lkn_str] = tables_for_lkn_set
-
-                                if not table_refs_cond_set.isdisjoint(erweiterte_lkns_in_tables_cache[lkn_str]):
-                                    neu_gefundene_codes.add(pc_code_cond)
-                                    break
-
-                if neu_gefundene_codes:
-                    potential_pauschale_codes_set.update(neu_gefundene_codes)
-                logger.debug(
-                    "DEBUG: %s potenzielle Pauschalen nach erweiterter Suche: %s",
-                    len(potential_pauschale_codes_set),
-                    potential_pauschale_codes_set,
-                )
-
-                pauschale_haupt_pruef_kontext = {
-                    "ICD": icd_input, "GTIN": gtin_input, "Alter": alter_context_val,
-                    "Geschlecht": geschlecht_context_val, "useIcd": use_icd_flag,
-                    "LKN": final_lkn_context_list_for_pauschale, "Seitigkeit": seitigkeit_context_val,
-                    "Anzahl": anzahl_fuer_pauschale_context
+    if tardoc_lkns_to_map_list and mapping_candidate_lkns_dict:
+        for tardoc_leistung_map_obj in tardoc_lkns_to_map_list:
+            t_lkn_code = tardoc_leistung_map_obj.get('lkn')
+            t_lkn_desc = tardoc_leistung_map_obj.get('beschreibung')
+            current_candidates_for_llm = mapping_candidate_lkns_dict
+            if isinstance(t_lkn_code, str) and t_lkn_code.startswith('AG.'):
+                anast_table_content_codes = {
+                    str(item['Code']).upper() for item in get_table_content("ANAST", "service_catalog", tabellen_dict_by_table) if item.get('Code')
                 }
+                filtered_anast_candidates = {
+                    k: v for k, v in mapping_candidate_lkns_dict.items()
+                    if k.startswith('WA.') or k in anast_table_content_codes
+                }
+                if filtered_anast_candidates:
+                    current_candidates_for_llm = filtered_anast_candidates
+
+            if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
                 try:
-                    logger.info(f"[{request_id}] Starte Pauschalen-Hauptprüfung (useIcd=%s)...", use_icd_flag)
-                    time_before_determine_pauschale = time.time()
-                    # KORREKTUR: Aufruf über die Funktionsvariable determine_applicable_pauschale_func
-                    pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
-                        user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
-                        pauschale_lp_data,
-                        # pauschale_bedingungen_data, # Ersetzt durch pauschale_bedingungen_indexed
-                        pauschale_bedingungen_data, # KORREKTUR: Liste statt Dict
-                        pauschalen_dict,
-                        leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set,
-                        lang
-                    )
-                    finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
-                    if finale_abrechnung_obj.get("type") == "Pauschale":
-                        logger.info(
-                            "Anwendbare Pauschale gefunden: %s",
-                            finale_abrechnung_obj.get('details', {}).get('Pauschale'),
-                        )
-                    else:
-                        logger.info(
-                            "Keine anwendbare Pauschale. Grund: %s",
-                            finale_abrechnung_obj.get('message', 'Unbekannt'),
-                        )
-                except Exception as e_pauschale_main:
-                    logger.error("Fehler bei Pauschalen-Hauptprüfung: %s", e_pauschale_main)
+                    mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
+                    token_usage["llm_stage2"]["input_tokens"] += map_tokens.get("input_tokens", 0)
+                    token_usage["llm_stage2"]["output_tokens"] += map_tokens.get("output_tokens", 0)
+                    if mapped_target_lkn_code:
+                        mapped_lkn_codes_set.add(mapped_target_lkn_code)
+                    llm_stage2_mapping_results["mapping_results"].append({
+                        "tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc,
+                        "mapped_lkn": mapped_target_lkn_code,
+                        "candidates_considered_count": len(current_candidates_for_llm)
+                    })
+                except ConnectionError as e_conn_map:
+                    logger.error("Verbindung zu LLM Stufe 2 (Mapping) für %s fehlgeschlagen: %s", t_lkn_code, e_conn_map)
+                    finale_abrechnung_obj = {"type": "Error", "message": f"Verbindungsfehler zum Analyse-Service (Stufe 2 Mapping): {e_conn_map}"}
+                    mapping_process_had_connection_error = True
+                    break
+                except Exception as e_map_call:
+                    logger.error("Fehler bei Aufruf von LLM Stufe 2 (Mapping) für %s: %s", t_lkn_code, e_map_call)
                     traceback.print_exc()
-                    finale_abrechnung_obj = {
-                        "type": "Error",
-                        "message": f"Interner Fehler bei Pauschalen-Hauptprüfung: {e_pauschale_main}",
-                    }
+                    llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc, "mapped_lkn": None, "error": str(e_map_call), "candidates_considered_count": len(current_candidates_for_llm)})
+            else:
+                llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code or "N/A", "tardoc_desc": t_lkn_desc or "N/A", "mapped_lkn": None, "info": "Mapping übersprungen", "candidates_considered_count": len(current_candidates_for_llm) if current_candidates_for_llm else 0})
+    else:
+        logger.info("Überspringe LKN-Mapping (keine E/EZ LKNs oder keine Mapping-Kandidaten).")
+
+    if mapping_process_had_connection_error:
+        return {"type": "Error", "message": "Connection error during mapping"}, llm_stage2_mapping_results
+
+    final_lkn_context_for_pauschale_set = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')}
+    final_lkn_context_for_pauschale_set.update(mapped_lkn_codes_set)
+    final_lkn_context_list_for_pauschale = list(final_lkn_context_for_pauschale_set)
+    logger.info(
+        "Finaler LKN-Kontext für Pauschalen-Hauptprüfung (%s LKNs): %s",
+        len(final_lkn_context_list_for_pauschale),
+        final_lkn_context_list_for_pauschale,
+    )
+
+    erweiterte_lkn_suchmenge = {str(l).upper() for l in final_lkn_context_for_pauschale_set}
+    neu_gefundene_codes: Set[str] = set()
+
+    for item_lp in pauschale_lp_data:
+        lkn_in_lp_db_val = item_lp.get('Leistungsposition')
+        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val.upper() in erweiterte_lkn_suchmenge:
+            pc_code = item_lp.get('Pauschale')
+            if pc_code and str(pc_code) in pauschalen_dict:
+                neu_gefundene_codes.add(str(pc_code))
+
+    erweiterte_lkns_in_tables_cache: Dict[str, Set[str]] = {}
+    for cond_data in pauschale_bedingungen_data:
+        pc_code_cond_val = cond_data.get('Pauschale')
+        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict): continue
+        pc_code_cond = str(pc_code_cond_val)
+        bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
+        werte_cond_str = cond_data.get('Werte', "")
+        if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+            werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
+            if not erweiterte_lkn_suchmenge.isdisjoint(werte_liste_cond_set):
+                neu_gefundene_codes.add(pc_code_cond)
+        elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+            table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
+            for lkn_raw in erweiterte_lkn_suchmenge:
+                if isinstance(lkn_raw, str):
+                    lkn_str = lkn_raw.upper()
+                    if lkn_str not in erweiterte_lkns_in_tables_cache:
+                        tables_for_lkn_set = set()
+                        for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items():
+                            for entry_item in table_entries_list:
+                                if entry_item.get('Code', '').upper() == lkn_str and \
+                                   entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
+                                    tables_for_lkn_set.add(table_name_key_norm)
+                        erweiterte_lkns_in_tables_cache[lkn_str] = tables_for_lkn_set
+                    if not table_refs_cond_set.isdisjoint(erweiterte_lkns_in_tables_cache[lkn_str]):
+                        neu_gefundene_codes.add(pc_code_cond)
+                        break
+
+    if neu_gefundene_codes:
+        potential_pauschale_codes_set.update(neu_gefundene_codes)
+    logger.debug(
+        "DEBUG: %s potenzielle Pauschalen nach erweiterter Suche: %s",
+        len(potential_pauschale_codes_set),
+        potential_pauschale_codes_set,
+    )
+
+    pauschale_haupt_pruef_kontext = {
+        "ICD": context.get("icd_input"), "Medikamente": context.get("medication_atcs"), "GTIN": context.get("medication_atcs"), "Alter": context.get("alter_context_val"),
+        "Geschlecht": context.get("geschlecht_context_val"), "useIcd": context.get("use_icd_flag"),
+        "LKN": final_lkn_context_list_for_pauschale, "Seitigkeit": context.get("seitigkeit_context_val"),
+        "Anzahl": context.get("anzahl_fuer_pauschale_context")
+    }
+    try:
+        logger.info(f"Starte Pauschalen-Hauptprüfung (useIcd=%s)...", context.get("use_icd_flag"))
+        pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
+            user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
+            pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+            leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set,
+            lang
+        )
+        finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
+        if finale_abrechnung_obj.get("type") == "Pauschale":
+            logger.info("Anwendbare Pauschale gefunden: %s", finale_abrechnung_obj.get('details', {}).get('Pauschale'))
+        else:
+            logger.info("Keine anwendbare Pauschale. Grund: %s", finale_abrechnung_obj.get('message', 'Unbekannt'))
+    except Exception as e_pauschale_main:
+        logger.error("Fehler bei Pauschalen-Hauptprüfung: %s", e_pauschale_main)
+        traceback.print_exc()
+        finale_abrechnung_obj = {"type": "Error", "message": f"Interner Fehler bei Pauschalen-Hauptprüfung: {e_pauschale_main}"}
 
     if finale_abrechnung_obj is None or finale_abrechnung_obj.get("type") != "Pauschale":
         logger.info("Keine gültige Pauschale ausgewählt oder Prüfung übersprungen. Bereite TARDOC-Abrechnung vor.")
-        # prepare_tardoc_abrechnung_func wurde oben initialisiert (entweder echt oder Fallback)
         finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
 
-    decision_time = time.time(); logger.info("Zeit nach finaler Entscheidung: %.2fs (seit Start)", decision_time - start_time)
+    return finale_abrechnung_obj, llm_stage2_mapping_results
+
+
+# --- API Endpunkt ---
+@app.route('/api/analyze-billing', methods=['POST'])
+def analyze_billing():
+    """Zentrale API: führt den zweistufigen LLM-Workflow für eine Abrechnungsanfrage aus."""
+    with processing_lock:
+        try:
+            req_data = _parse_billing_request(request)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    user_input = req_data["user_input"]
+    lang = req_data["lang"]
+    icd_input = req_data["icd_input"]
+    medication_inputs = req_data["medication_inputs"]
+    medication_atcs = req_data["medication_atcs"]
+    use_icd_flag = req_data["use_icd_flag"]
+    alter_user = req_data["alter_user"]
+    geschlecht_user = req_data["geschlecht_user"]
+
+    start_time = time.time()
+    request_id = f"req_{time.time_ns()}"
+    logger.info(f"[{request_id}] --- Start /api/analyze-billing ---")
+    normalized_input: Optional[str] = None
+    if LOG_INPUT_TEXT or LOG_LLM_INPUT:
+        normalized_input = user_input.replace('\r', '\\r').replace('\n', '\\n')
+        payload_parts: List[str] = [f"Text={normalized_input}"]
+        if icd_input:
+            payload_parts.append(f"ICDs={json.dumps(icd_input, ensure_ascii=False)}")
+        if medication_inputs:
+            payload_parts.append(f"Medikamente={json.dumps(medication_inputs, ensure_ascii=False)}")
+        if medication_atcs:
+            payload_parts.append(f"ATC={json.dumps(medication_atcs, ensure_ascii=False)}")
+        payload_parts.append(f"useIcd={use_icd_flag}")
+        if alter_user is not None:
+            payload_parts.append(f"Age={alter_user}")
+        if geschlecht_user:
+            payload_parts.append(f"Gender={geschlecht_user}")
+        input_payload_msg = f"[{request_id}] InputText: " + " | ".join(payload_parts)
+        if LOG_INPUT_TEXT:
+            logger.info(input_payload_msg)
+        elif LOG_LLM_INPUT:
+            detail_logger.info(input_payload_msg)
+    if LOG_LLM_INPUT and normalized_input is not None:
+        detail_logger.info(f"[{request_id}] LLM1 Anfrage-Text: {normalized_input}")
+        detail_logger.info(
+            f"[{request_id}] Kontextdaten: ICDs={icd_input}, Medikamente={medication_inputs} -> ATC={medication_atcs}, useIcd={use_icd_flag}, Age={alter_user}, Gender={geschlecht_user}"
+        )
+
+    token_usage = {"llm_stage1": {"input_tokens": 0, "output_tokens": 0}, "llm_stage2": {"input_tokens": 0, "output_tokens": 0}}
+
+    if not daten_geladen:
+        logger.error("Daten nicht geladen. App-Start fehlgeschlagen?")
+        return jsonify({"error": "Server data not loaded."}), 503
+
+    try:
+        katalog_context_str, top_ranking_results, query_variants = _build_context_for_llm(user_input, lang)
+        llm_stage1_result, s1_tokens = call_llm_stage1(user_input, katalog_context_str, lang, query_variants=query_variants)
+        token_usage["llm_stage1"]["input_tokens"] += s1_tokens.get("input_tokens", 0)
+        token_usage["llm_stage1"]["output_tokens"] += s1_tokens.get("output_tokens", 0)
+    except ConnectionError as e:
+        return jsonify({"error": f"Verbindungsfehler zum Analyse-Service (Stufe 1): {e}"}), 504
+    except PermissionError as e:
+        return jsonify({"error": "Anfrage von LLM-Provider aus Inhaltsrichtlinien-Gründen blockiert."}), 403
+    except ValueError as e:
+        return jsonify({"error": f"Fehler bei der Leistungsanalyse (Stufe 1): {e}"}), 400
+    except Exception as e:
+        logger.error(f"Unerwarteter Fehler bei LLM1 [{request_id}]: {e}", exc_info=True)
+        return jsonify({"error": f"Unerwarteter interner Fehler (Stufe 1): {e}"}), 500
+
+    llm1_time = time.time()
+    logger.info(f"[{request_id}] Zeit nach LLM Stufe 1: {llm1_time - start_time:.2f}s")
+
+    rule_checked_leistungen_list, regel_ergebnisse_details_list = _validate_and_apply_rules(
+        llm_stage1_result, lang, icd_input, medication_atcs, alter_user, geschlecht_user
+    )
+    final_validated_llm_leistungen = llm_stage1_result["identified_leistungen"]
+
+    candidate_codes = [code for _, code in top_ranking_results if (len(top_ranking_results) <= 1 or not final_validated_llm_leistungen or (top_ranking_results[0][0] / (top_ranking_results[1][0] or 1)) <= 1.5)]
+    llm_stage1_result["ranking_candidates"] = candidate_codes
+
+    extracted_info_llm = llm_stage1_result.get("extracted_info", {})
+    alter_context_val = alter_user if alter_user is not None else extracted_info_llm.get("alter")
+    geschlecht_context_val = geschlecht_user if geschlecht_user is not None else extracted_info_llm.get("geschlecht", "unbekannt")
+
+    seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
+    anzahl_prozeduren_val = extracted_info_llm.get("anzahl_prozeduren")
+    anzahl_fuer_pauschale_context = anzahl_prozeduren_val
+    if seitigkeit_context_val.lower() == 'beidseits' and anzahl_fuer_pauschale_context is None:
+        if len(final_validated_llm_leistungen) == 1 and final_validated_llm_leistungen[0].get('menge') == 1:
+            anzahl_fuer_pauschale_context = 2
+        elif any(l.get('lkn') == "C02.CP.0100" and l.get('menge') == 1 for l in final_validated_llm_leistungen):
+            anzahl_fuer_pauschale_context = 2
+
+    fallback_pauschale_search = not final_validated_llm_leistungen
+    if fallback_pauschale_search:
+        try:
+            kandidaten_liste = search_pauschalen(user_input)
+            kandidaten_text = "\n".join(f"{k['code']}: {k['text']}" for k in kandidaten_liste)
+            ranking_codes, rank_tokens = call_llm_stage2_ranking(user_input, kandidaten_text, lang)
+            token_usage["llm_stage2"]["input_tokens"] += rank_tokens.get("input_tokens", 0)
+            token_usage["llm_stage2"]["output_tokens"] += rank_tokens.get("output_tokens", 0)
+        except Exception as e:
+            logger.error(f"Fehler beim Fallback-Ranking [{request_id}]: {e}", exc_info=True)
+            ranking_codes = []
+
+        potential_pauschale_codes_set = set(ranking_codes)
+        if potential_pauschale_codes_set:
+            pruef_kontext = {"ICD": icd_input, "Medikamente": medication_atcs, "GTIN": medication_atcs, "Alter": alter_context_val, "Geschlecht": geschlecht_context_val, "useIcd": use_icd_flag, "LKN": [], "Seitigkeit": seitigkeit_context_val, "Anzahl": anzahl_fuer_pauschale_context}
+            try:
+                finale_abrechnung_obj = determine_applicable_pauschale_func(user_input, [], pruef_kontext, pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict, leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set, lang)
+            except Exception as e:
+                logger.error(f"Fehler bei Pauschalen-Fallback-Prüfung [{request_id}]: {e}", exc_info=True)
+                finale_abrechnung_obj = None
+        else:
+            finale_abrechnung_obj = None
+        llm_stage2_mapping_results = {}
+    else:
+        billing_context = {"icd_input": icd_input, "medication_inputs": medication_inputs, "medication_atcs": medication_atcs, "alter_context_val": alter_context_val, "geschlecht_context_val": geschlecht_context_val, "use_icd_flag": use_icd_flag, "seitigkeit_context_val": seitigkeit_context_val, "anzahl_fuer_pauschale_context": anzahl_fuer_pauschale_context}
+        finale_abrechnung_obj, llm_stage2_mapping_results = _determine_final_billing(rule_checked_leistungen_list, regel_ergebnisse_details_list, user_input, lang, billing_context, token_usage)
+
+    rule_time = time.time()
+    logger.info(f"[{request_id}] Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
+
+    safe_abrechnung_obj = finale_abrechnung_obj or {}
+
     final_response_payload = {
         "llm_ergebnis_stufe1": llm_stage1_result,
         "regel_ergebnisse_details": regel_ergebnisse_details_list,
         "abrechnung": finale_abrechnung_obj,
         "llm_ergebnis_stufe2": llm_stage2_mapping_results,
-        "evaluated_pauschalen": finale_abrechnung_obj.get("evaluated_pauschalen", []),
+        "evaluated_pauschalen": safe_abrechnung_obj.get("evaluated_pauschalen", []),
         "token_usage": token_usage,
+        "fallback_pauschale_search": fallback_pauschale_search,
     }
-    if fallback_pauschale_search:
-        final_response_payload["fallback_pauschale_search"] = True
-    end_time = time.time(); total_time = end_time - start_time
-    logger.info("Gesamtverarbeitungszeit Backend: %.2fs", total_time)
-    logger.info(
-        "Sende finale Antwort Typ '%s' an Frontend.",
-        finale_abrechnung_obj.get('type') if finale_abrechnung_obj else 'None',
-    )
-    if LOG_OUTPUT_TEXT:
-        detail_logger.info(
-            f"Final response payload for /api/analyze-billing: {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}"
-        )
+
+    total_time = time.time() - start_time
+    logger.info(f"[{request_id}] Gesamtverarbeitungszeit: {total_time:.2f}s")
+    logger.info(f"[{request_id}] Sende finale Antwort Typ '{safe_abrechnung_obj.get('type', 'None')}'")
+    if LOG_HTML_OUTPUT:
+        detail_logger.info(f"[{request_id}] Final response payload (contains HTML): {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}")
+
     return jsonify(final_response_payload)
 
 
 def perform_analysis(text: str,
                      icd: list[str] | None = None,
-                     gtin: list[str] | None = None,
+                     medications: list[str] | None = None,
                      use_icd: bool = True,
                      age: int | None = None,
                      gender: str | None = None,
@@ -3347,14 +3855,15 @@ def perform_analysis(text: str,
     """Hilfsfunktion für Tests: ruft die analyze-billing-Logik mit gegebenen Parametern auf."""
     if icd is None:
         icd = []
-    if gtin is None:
-        gtin = []
+    if medications is None:
+        medications = []
 
     with app.test_client() as client:
         payload = {
             'inputText': text,
             'icd': icd,
-            'gtin': gtin,
+            'medications': medications,
+            'gtin': medications,
             'useIcd': use_icd,
             'age': age,
             'gender': gender,
@@ -3462,16 +3971,24 @@ def test_example():
 
     def simplify(result_dict: dict) -> dict:
         """Mappe die komplexe Analyseantwort auf das einfache Baseline-Schema."""
-        abrechnung = result_dict.get('abrechnung', {})
+        if not isinstance(result_dict, dict):
+            return {'pauschale': None, 'einzelleistungen': []}
+        abrechnung = result_dict.get('abrechnung') or {}
+        if not isinstance(abrechnung, dict):
+            abrechnung = {}
         if abrechnung.get('type') == 'Pauschale':
-            pc = abrechnung.get('details', {}).get('Pauschale')
+            details = abrechnung.get('details') or {}
+            if not isinstance(details, dict):
+                details = {}
+            pc = details.get('Pauschale')
             pauschale = {'code': pc, 'qty': 1} if pc else None
             return {'pauschale': pauschale, 'einzelleistungen': []}
-        elif abrechnung.get('type') == 'TARDOC':
+        if abrechnung.get('type') == 'TARDOC':
+            leistungen = abrechnung.get('leistungen') or []
             eins = [
                 {'code': l.get('lkn'), 'qty': l.get('menge', 1)}
-                for l in abrechnung.get('leistungen', [])
-                if l.get('lkn')
+                for l in leistungen
+                if isinstance(l, dict) and l.get('lkn')
             ]
             return {'pauschale': None, 'einzelleistungen': eins}
         return {'pauschale': None, 'einzelleistungen': []}
@@ -3484,8 +4001,8 @@ def test_example():
         parts = []
         if expected.get('pauschale') != actual.get('pauschale'):
             parts.append(f"pauschale {expected.get('pauschale')} != {actual.get('pauschale')}")
-        exp_map = {i['code']: i.get('qty', 1) for i in expected.get('einzelleistungen', [])}
-        act_map = {i['code']: i.get('qty', 1) for i in actual.get('einzelleistungen', [])}
+        exp_map = {i['code']: i.get('qty', 1) for i in expected.get('einzelleistungen', []) if isinstance(i, dict) and i.get('code')}
+        act_map = {i['code']: i.get('qty', 1) for i in actual.get('einzelleistungen', []) if isinstance(i, dict) and i.get('code')}
         for code, qty in exp_map.items():
             if code not in act_map:
                 parts.append(f"missing {code}")
@@ -3499,6 +4016,12 @@ def test_example():
     diff = diff_results(baseline, result)
     passed = diff == ''
 
+    token_usage = {}
+    if isinstance(analysis_full, dict):
+        token_usage = analysis_full.get('token_usage', {}) or {}
+        if not isinstance(token_usage, dict):
+            token_usage = {}
+
     return jsonify({
         'id': example_id,
         'lang': lang,
@@ -3506,7 +4029,7 @@ def test_example():
         'baseline': baseline,
         'result': result,
         'diff': diff,
-        'token_usage': analysis_full.get('token_usage', {})
+        'token_usage': token_usage
     })
 
 
@@ -3658,18 +4181,22 @@ def api_version() -> Any:
 # --- Static‑Routes & Start ---
 @app.route("/")
 def index_route(): # Umbenannt, um Konflikt mit Modul 'index' zu vermeiden, falls es existiert
+    """Liefert die im Repository enthaltene Single-Page-Anwendung aus."""
     return send_from_directory(".", "index.html")
 
 @app.route("/favicon.ico")
 def favicon_ico():
+    """Stellt das klassische Favicon für ältere Browser-Anfragen bereit."""
     return send_from_directory(".", "favicon.ico", mimetype='image/vnd.microsoft.icon')
 
 @app.route("/favicon-32.png")
 def favicon_png():
+    """Gibt das hochauflösende PNG-Favicon zurück."""
     return send_from_directory(".", "favicon-32.png", mimetype='image/png')
 
 @app.route("/<path:filename>")
 def serve_static(filename: str): # Typ hinzugefügt
+    """Erlaubt den direkten Abruf definierter statischer Dateien per HTTP."""
     allowed_files = {'calculator.js', 'quality.js', 'quality.html'}
     allowed_dirs = {'data'} # Erlaube Zugriff auf data-Ordner
     file_path = Path(filename)
@@ -3701,3 +4228,4 @@ def _run_local() -> None:
 if __name__ == "__main__" and os.getenv("RENDER_SERVICE_TYPE") is None:
     # Nur wenn das Skript direkt gestartet wird – nicht in der Render-Runtime
     _run_local()
+

@@ -8,11 +8,12 @@ window. FR/IT descriptions are taken from global ``leistungskatalog_dict`` if pr
 from __future__ import annotations
 
 import copy
+import re
 import unicodedata
 import tkinter as tk
 from tkinter import ttk, simpledialog
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, cast
 
 from . import generator as synonym_generator
 
@@ -28,10 +29,12 @@ MAX_UNDO = 20  # Maximum undo steps
 
 DATA: Dict[str, Dict] = {}
 INITIAL: Dict[str, Dict] = {}
-undo_stack: List[Dict[str, Dict]] = []
-redo_stack: List[Dict[str, Dict]] = []
+undo_stack: List[Dict[str, object]] = []
+redo_stack: List[Dict[str, object]] = []
+current_lkns: List[str] = []
+_lkn_refresh: Optional[Callable[[], None]] = None
 
-save_callback: Optional[Callable[[Dict[str, List[str]]], None]] = None
+save_callback: Optional[Callable[[Dict[str, List[str]], List[str]], None]] = None
 on_generate: Optional[Callable[[str], None]] = None  # optional callback
 
 root: Optional[tk.Tk | tk.Toplevel] = None
@@ -70,7 +73,8 @@ def normalize(text: str) -> str:
 # ---------------------------------------------------------------------
 
 def save_state():
-    undo_stack.append(copy.deepcopy(DATA))
+    state = {"data": copy.deepcopy(DATA), "lkns": list(current_lkns)}
+    undo_stack.append(state)
     if len(undo_stack) > MAX_UNDO:
         undo_stack.pop(0)
     redo_stack.clear()
@@ -78,20 +82,56 @@ def save_state():
 def undo():
     if not undo_stack:
         return
-    redo_stack.append(copy.deepcopy(DATA))
+    redo_stack.append({"data": copy.deepcopy(DATA), "lkns": list(current_lkns)})
     state = undo_stack.pop()
+
+    if isinstance(state, dict):
+        data_state = state.get("data")
+        lkn_state = state.get("lkns")
+    else:
+        data_state = state
+        lkn_state = None
+
     DATA.clear()
-    DATA.update(state)
+    if isinstance(data_state, dict):
+        DATA.update(data_state)
     render_all()
+
+    current_lkns.clear()
+    if isinstance(lkn_state, list):
+        current_lkns.extend(lkn_state)
+    if _lkn_refresh:
+        try:
+            _lkn_refresh()
+        except Exception:
+            pass
 
 def redo():
     if not redo_stack:
         return
-    undo_stack.append(copy.deepcopy(DATA))
+    undo_stack.append({"data": copy.deepcopy(DATA), "lkns": list(current_lkns)})
     state = redo_stack.pop()
+
+    if isinstance(state, dict):
+        data_state = state.get("data")
+        lkn_state = state.get("lkns")
+    else:
+        data_state = state
+        lkn_state = None
+
     DATA.clear()
-    DATA.update(state)
+    if isinstance(data_state, dict):
+        DATA.update(data_state)
     render_all()
+
+    current_lkns.clear()
+    if isinstance(lkn_state, list):
+        current_lkns.extend(lkn_state)
+    if _lkn_refresh:
+        try:
+            _lkn_refresh()
+        except Exception:
+            pass
 
 # ---------------------------------------------------------------------
 # Operations (per language)
@@ -207,21 +247,24 @@ def add_new(lang: str, value: str):
     render_lang(lang)
 
 def apply():
-    global root
+    global root, _lkn_refresh
     if save_callback:
         result = {lang: [i["text"] for i in DATA[lang]["current"]] for lang in DATA}
-        save_callback(result)
+        save_callback(result, list(current_lkns))
     if root is not None:
         root.destroy()
+    _lkn_refresh = None
 
 def cancel():
-    global root
+    global root, _lkn_refresh
     DATA.clear()
     DATA.update(copy.deepcopy(INITIAL))
     undo_stack.clear()
     redo_stack.clear()
+    current_lkns.clear()
     if root is not None:
         root.destroy()
+    _lkn_refresh = None
 
 def set_status(msg: str):
     if status_var is None:
@@ -503,15 +546,16 @@ def _build_section(parent: tk.Widget, lang: str, title_text: str, row_offset: in
 
 def open_synonym_editor(
     data: Dict[str, Dict[str, List[str]] | Dict[str, List[Dict[str, str]]]],
-    on_save: Optional[Callable[[Dict[str, List[str]]], None]] = None,
+    on_save: Optional[Callable[[Dict[str, List[str]], List[str]], None]] = None,
     master: Optional[tk.Tk | tk.Toplevel] = None,
     lkn: Optional[str] = None,
+    lkns: Optional[List[str]] = None,
     beschreibung_de: Optional[str] = None,
     on_generate_callback: Optional[Callable[[str], None]] = None,
 ):
     """Open the synonym editor UI for the given data (DE/FR/IT sections)."""
     global DATA, INITIAL, undo_stack, redo_stack, save_callback, on_generate
-    global root, created_root, status_var, SECTIONS
+    global root, created_root, status_var, SECTIONS, current_lkns, _lkn_refresh
 
     # Normalise incoming data: always dict[lang]["current"] as list[{"text": str}]
     normed: Dict[str, Dict] = {}
@@ -535,9 +579,67 @@ def open_synonym_editor(
     on_generate = on_generate_callback
     SECTIONS = {}
 
-    # Resolve descriptions
-    de_desc, fr_desc, it_desc = resolve_descriptions(lkn, beschreibung_de)
+    normalized_codes: List[str] = []
+    if lkns:
+        for code in lkns:
+            code_str = str(code).strip().upper()
+            if code_str:
+                normalized_codes.append(code_str)
+    elif lkn:
+        code_str = str(lkn).strip().upper()
+        if code_str:
+            normalized_codes.append(code_str)
 
+    seen_codes: Set[str] = set()
+    deduped_codes: List[str] = []
+    for code_str in normalized_codes:
+        if code_str not in seen_codes:
+            seen_codes.add(code_str)
+            deduped_codes.append(code_str)
+
+    current_lkns.clear()
+    current_lkns.extend(deduped_codes)
+
+    # Resolve descriptions
+    primary_lkn = current_lkns[0] if current_lkns else lkn
+    de_desc, fr_desc, it_desc = resolve_descriptions(primary_lkn, beschreibung_de)
+
+    lkn_display_var = cast(tk.StringVar, None)
+    lkn_listbox = cast(tk.Listbox, None)
+    entry_lkn_var = cast(tk.StringVar, None)
+
+    def _normalize_code_input(value: str) -> List[str]:
+        parts = [part for part in re.split(r"[|,;\s]+", value) if part]
+        return [part.strip().upper() for part in parts if part.strip()]
+
+    def refresh_lkn_widgets() -> None:
+        display = ", ".join(current_lkns) if current_lkns else "-"
+        lkn_display_var.set(display)
+        lkn_listbox.delete(0, tk.END)
+        for code in current_lkns:
+            lkn_listbox.insert(tk.END, code)
+
+    def add_lkn_from_entry(event: tk.Event | None = None) -> None:
+        codes = _normalize_code_input(entry_lkn_var.get())
+        codes = [code for code in codes if code and code not in current_lkns]
+        if not codes:
+            entry_lkn_var.set("")
+            return
+        save_state()
+        current_lkns.extend(codes)
+        refresh_lkn_widgets()
+        entry_lkn_var.set("")
+
+    def remove_selected_lkn(event: tk.Event | None = None) -> None:
+        selection = list(lkn_listbox.curselection())
+        if not selection:
+            return
+        save_state()
+        for index in reversed(selection):
+            code = lkn_listbox.get(index)
+            if code in current_lkns:
+                current_lkns.remove(code)
+        refresh_lkn_widgets()
     # Synonym generation handler
     def handle_generate() -> None:
         base = {"de": de_desc}
@@ -590,13 +692,26 @@ def open_synonym_editor(
 
     # Gesamtlayout
     container = ttk.Frame(r)
-    container.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+    container.grid(row=0, column=0, padx=10, pady=10, sticky="we")
+    r.grid_columnconfigure(0, weight=1)
+    container.grid_columnconfigure(0, weight=1)
 
     # Kopfzeile
     header = ttk.Frame(container)
-    header.grid(row=0, column=0, sticky="w", pady=(0, 6))
-    head_text = f"LKN {lkn}" if lkn else "LKN"
-    ttk.Label(header, text=head_text).grid(row=0, column=0, sticky="w")
+    header.grid(row=0, column=0, sticky="we", pady=(0, 6))
+    header.grid_columnconfigure(2, weight=1)
+
+    ttk.Label(header, text="LKNs:").grid(row=0, column=0, sticky="w")
+    lkn_display_var = tk.StringVar(value=", ".join(current_lkns) if current_lkns else "-")
+    ttk.Label(header, textvariable=lkn_display_var).grid(row=0, column=1, sticky="w", padx=(4, 16))
+
+    desc_text = de_desc or fr_desc or it_desc or "Keine Beschreibung hinterlegt"
+    ttk.Label(
+        header,
+        text=desc_text,
+        wraplength=500,
+        justify="left",
+    ).grid(row=0, column=2, sticky="w")
 
     gen_btn = ttk.Button(
         header,
@@ -604,24 +719,48 @@ def open_synonym_editor(
         command=handle_generate,
         style="Gen.TButton",
     )
-    gen_btn.grid(row=0, column=1, padx=(24, 0), sticky="e")
+    gen_btn.grid(row=0, column=3, padx=(24, 0), sticky="e")
+
+    lkn_frame = ttk.Frame(container)
+    lkn_frame.grid(row=1, column=0, sticky="we", pady=(0, 8))
+    lkn_frame.grid_columnconfigure(1, weight=1)
+
+    ttk.Label(lkn_frame, text="Verknuepfte LKNs:").grid(row=0, column=0, sticky="nw")
+
+    lkn_listbox = tk.Listbox(lkn_frame, height=4, exportselection=False)
+    lkn_listbox.grid(row=0, column=1, sticky="we")
+    lkn_scroll = ttk.Scrollbar(lkn_frame, orient="vertical", command=lkn_listbox.yview)
+    lkn_scroll.grid(row=0, column=2, sticky="ns")
+    lkn_listbox.config(yscrollcommand=lkn_scroll.set)
+
+    entry_lkn_var = tk.StringVar()
+    entry_lkn = ttk.Entry(lkn_frame, textvariable=entry_lkn_var)
+    entry_lkn.grid(row=1, column=1, sticky="we", pady=(4, 0))
+    ttk.Button(lkn_frame, text="Hinzufuegen", command=add_lkn_from_entry).grid(row=1, column=2, padx=4, pady=(4, 0), sticky="e")
+    ttk.Button(lkn_frame, text="Entfernen", command=remove_selected_lkn).grid(row=0, column=3, padx=(8, 0), sticky="n")
+
+    entry_lkn.bind("<Return>", add_lkn_from_entry)
+    lkn_listbox.bind("<Delete>", remove_selected_lkn)
+
+    refresh_lkn_widgets()
+    _lkn_refresh = refresh_lkn_widgets
 
     # DE-Sektion
     de_title = f"DE: {de_desc}" if de_desc else "DE:"
-    _build_section(container, "de", de_title, row_offset=1)
+    _build_section(container, "de", de_title, row_offset=2)
 
     # Abstand
-    ttk.Frame(container).grid(row=2, column=0, pady=(8, 0))
+    ttk.Frame(container).grid(row=3, column=0, pady=(8, 0))
 
     # FR-Sektion
     fr_title = f"FR: {fr_desc}" if fr_desc else "FR:"
-    _build_section(container, "fr", fr_title, row_offset=3)
+    _build_section(container, "fr", fr_title, row_offset=4)
 
-    ttk.Frame(container).grid(row=4, column=0, pady=(8, 0))
+    ttk.Frame(container).grid(row=5, column=0, pady=(8, 0))
 
     # IT-Sektion
     it_title = f"IT: {it_desc}" if it_desc else "IT:"
-    _build_section(container, "it", it_title, row_offset=5)
+    _build_section(container, "it", it_title, row_offset=6)
 
     # Bottom buttons
     bottom = ttk.Frame(r)
@@ -672,8 +811,10 @@ if __name__ == "__main__":
         }
     open_synonym_editor(
         sample_data,
-        lambda data: print("Save", data),
-        lkn="AA.00.0010",
+        lambda data, codes: print("Save", data, codes),
+        lkns=["AA.00.0010"],
         beschreibung_de=None,
         on_generate_callback=lambda lang: print(f"Generate triggered for {lang.upper()}"),
     )
+
+

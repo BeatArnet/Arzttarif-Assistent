@@ -1,18 +1,12 @@
-﻿<#
+<#
 .SYNOPSIS
-    Ein PowerShell-Skript, um einen Feature-Branch sicher in einen Ziel-Branch (z.B. 'main') zu mergen,
-    die Änderungen zu pushen und optional den alten Branch zu löschen.
+    Führt Schritt für Schritt durch einen sicheren Merge eines Feature-Branches in ``main``.
 
 .DESCRIPTION
-    Das Skript führt den Benutzer durch folgende Schritte:
-    1. Abrufen der neuesten Änderungen vom Remote-Repository.
-    2. Anzeigen aller lokalen Branches zur Auswahl.
-    3. Abfragen des zu mergenden Branch-Namens (bereinigt die Eingabe automatisch).
-    4. Durchführen von Sicherheitsprüfungen (Branch existiert? Nicht der Ziel-Branch selbst?).
-    5. Wechseln zum Ziel-Branch.
-    6. Mergen des ausgewählten Branches.
-    7. Pushen der Änderungen zum Remote-Repository.
-    8. Anbieten, den nun überflüssigen lokalen Branch zu löschen.
+    Holt die neuesten Änderungen, zeigt lokale Branches an, prüft die Auswahl,
+    führt einen ``--no-ff``-Merge in den Zielbranch aus, pusht das Ergebnis und
+    bietet optional das lokale Löschen des gemergten Branches an. Ausgaben
+    erfolgen in UTF-8, damit Umlaute in der Windows-Konsole korrekt erscheinen.
 #>
 
 # Stellt sicher, dass die Ausgabe in der Konsole korrekt (mit Umlauten etc.) dargestellt wird.
