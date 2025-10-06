@@ -1,7 +1,18 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+<#
+.SYNOPSIS
+    Bereinigt veraltete Git-Branches lokal und auf allen Remotes.
+
+.DESCRIPTION
+    Wechselt auf ``main``, holt die neuesten Referenzen, entfernt alle nicht in
+    ``$keep`` aufgeführten Branches und pruned Remote-Branches. Praktisch nach
+    grösseren Merge-Serien, um das Repository schlank zu halten.
+#>
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $env:GIT_GC_DISABLED = "1"
 
 $keep = @('main')
+# Bei Bedarf um weitere langfristige Branches ergänzen.
 
 Write-Host "Wechsle auf main …"
 git checkout main

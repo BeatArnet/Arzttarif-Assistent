@@ -1,3 +1,11 @@
+"""Synonymerweiterung für Backend und GUI.
+
+Das Modul verwaltet den Laufzeitzustand (Aktiv-Flag, Lookup-Caches) der
+Synonym-Komponente und stellt Helfer bereit, die eine Anfrage in semantisch
+ähnliche Suchbegriffe überführen. ``server.py`` erweitert damit den
+Retriever-Kontext vor dem LLM-Aufruf, während Unit-Tests die In-Memory-Tabellen
+für Szenarien manipulieren können.
+"""
 
 from __future__ import annotations
 
@@ -17,30 +25,47 @@ _enabled: bool = True
 # dictionary directly to provide canned synonyms.
 _synonyms: Dict[str, List[str]] = {}
 
+
+def _lookup_base_terms(term: str, catalog: SynonymCatalog) -> List[str]:
+    """Return all base terms matching ``term`` via direct or reverse lookup."""
+    bases: List[str] = []
+    if term in catalog.entries:
+        bases.append(term)
+    norm = " ".join(term.lower().split())
+    for base in catalog.index.get(norm, []):
+        if base not in bases:
+            bases.append(base)
+    return bases
+
 def set_synonyms_enabled(enabled: bool) -> None:
-    """Globally enable or disable synonym expansion."""
+    """Aktiviert oder deaktiviert die Synonymerweiterung global."""
 
     global _enabled
     _enabled = enabled
 
 
 def synonyms_enabled() -> bool:
-    """Return ``True`` if expansion is currently enabled."""
+    """Gibt ``True`` zurück, wenn die Erweiterung derzeit aktiv ist."""
 
     return _enabled
 
 
 def expand_terms(terms: Iterable[str], catalog: SynonymCatalog) -> List[str]:
-    """Return ``terms`` plus any synonyms found in ``catalog``."""
+    """Erweitert ``terms`` um alle im ``catalog`` hinterlegten Synonyme."""
 
     seen: Set[str] = set(terms)
     if not _enabled:
         return list(seen)
 
     for term in list(seen):
-        entry = catalog.entries.get(term)
-        if entry:
+        for base in _lookup_base_terms(term, catalog):
+            entry = catalog.entries.get(base)
+            if not entry:
+                continue
+            seen.add(base)
             seen.update(entry.synonyms)
+            for lang_syns in entry.by_lang.values():
+                seen.update(lang_syns)
     return list(seen)
 
 
@@ -50,12 +75,12 @@ def expand_query(
     *,
     lang: str | None = None,
 ) -> List[str]:
-    """Return ``query`` plus any synonyms from ``catalog`` or :data:`_synonyms`.
+    """Gibt ``query`` samt Synonymen aus ``catalog`` oder :data:`_synonyms` zurück.
 
-    If ``query`` itself matches a known synonym, the canonical base term is
-    included in the result as well.  When ``lang`` is provided, only synonyms
-    for that language are considered, falling back to German if no entries are
-    found.
+    Deckt sich ``query`` mit einem bekannten Synonym, wird auch der kanonische
+    Basisterm ergänzt. Bei gesetztem ``lang`` werden nur Synonyme dieser Sprache
+    berücksichtigt; fehlt dort ein Eintrag, fällt die Funktion auf Deutsch
+    zurück.
     """
 
     if not synonyms_enabled() or not isinstance(query, str):
@@ -64,26 +89,26 @@ def expand_query(
     variants: List[str] = [query]
     variants.extend(_synonyms.get(query, []))
 
-    if catalog:
-        entry = catalog.entries.get(query)
-        if not entry:
-            base = catalog.index.get(query.lower())
-            if base:
+    if catalog is not None:
+        bases = _lookup_base_terms(query, catalog)
+        for base in bases:
+            if base not in variants:
                 variants.append(base)
-                entry = catalog.entries.get(base)
-        if entry:
+            entry = catalog.entries.get(base)
+            if not entry:
+                continue
             if lang:
-                syns = entry.by_lang.get(lang, [])
-                if not syns:
-                    syns = entry.by_lang.get("de", [])
-                variants.extend(syns)
+                candidates = entry.by_lang.get(lang, [])
+                if not candidates:
+                    candidates = entry.by_lang.get("de", [])
             else:
-                variants.extend(entry.synonyms)
+                candidates = entry.synonyms
+            variants.extend(candidates)
 
     seen: Set[str] = set()
     deduped: List[str] = []
-    for v in variants:
-        if v not in seen:
-            seen.add(v)
-            deduped.append(v)
+    for value in variants:
+        if value not in seen:
+            seen.add(value)
+            deduped.append(value)
     return deduped

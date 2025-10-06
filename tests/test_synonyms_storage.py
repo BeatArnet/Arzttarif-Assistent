@@ -15,7 +15,7 @@ def test_save_roundtrip(tmp_path):
     entry = SynonymEntry(
         "foo",
         ["bar"],
-        lkn="L1",
+        lkns=["L1"],
         by_lang={"de": ["bar"]},
         components={"de": {"foo": ["bar"]}},
     )
@@ -24,10 +24,11 @@ def test_save_roundtrip(tmp_path):
     save_synonyms(catalog, path)
     raw = json.loads(path.read_text(encoding="utf-8"))
     assert raw["foo"]["synonyms"] == {"de": {"foo": ["bar"]}}
+    assert raw["foo"]["lkns"] == ["L1"]
     loaded = load_synonyms(path)
     assert loaded.entries["foo"].synonyms == ["bar"]
     assert loaded.entries["foo"].by_lang == {"de": ["bar"]}
-    assert loaded.entries["foo"].lkn == "L1"
+    assert loaded.entries["foo"].lkns == ["L1"]
     assert loaded.entries["foo"].components == {"de": {"foo": ["bar"]}}
 
 def test_load_utf16_file(tmp_path):
@@ -50,6 +51,7 @@ def test_load_old_list_format(tmp_path):
 def test_load_new_format(tmp_path):
     data = {
         "foo": {
+            "lkns": ["L2", "L2A"],
             "lkn": "L2",
             "synonyms": {"de": {"foo": ["bar"]}, "fr": {"foo": ["baz"]}},
         }
@@ -59,7 +61,7 @@ def test_load_new_format(tmp_path):
     loaded = load_synonyms(path)
     assert set(loaded.entries["foo"].synonyms) == {"bar", "baz"}
     assert loaded.entries["foo"].by_lang == {"de": ["bar"], "fr": ["baz"]}
-    assert loaded.entries["foo"].lkn == "L2"
+    assert loaded.entries["foo"].lkns == ["L2", "L2A"]
     assert loaded.entries["foo"].components == {
         "de": {"foo": ["bar"]},
         "fr": {"foo": ["baz"]},

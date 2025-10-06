@@ -1,3 +1,15 @@
+"""Geschäftslogik zur Prüfung und Erläuterung von Pauschalen-Regeln.
+
+Das Modul wird von ``server.py`` eingebunden, um zu entscheiden, ob eine
+vorgeschlagene Pauschale abgerechnet werden darf. Es liest die strukturierten
+Bedingungen aus dem Katalogexport, gleicht sie mit dem vom LLM gelieferten
+Kontext ab und erstellt verständliche HTML-Berichte. Die Implementierung ist
+defensiv gehalten, da viele Bedingungstypen optional sind oder nur teilweise im
+Quellmaterial abgebildet werden. Schlägt der Import auf dem Zielsystem fehl,
+fallen die Aufrufer auf No-Op-Fallbacks zurück, damit der Rest der Anwendung
+weiterläuft.
+"""
+
 # regelpruefer_pauschale.py (Version mit korrigiertem Import und 9 Argumenten)
 import traceback
 import json
@@ -27,9 +39,19 @@ __all__ = [
 DEFAULT_GROUP_OPERATOR = "UND"
 
 
+_COMPARISON_OPERATOR_PATTERN = r"(?:>=|<=|!=|=|>|<|>\s*=|<\s*=|!\s*=)"
+
 CONDITION_PATTERN = re.compile(
-    r"((?:Hauptdiagnose in Tabelle|Hauptdiagnose in Liste|ICD in Tabelle|ICD in Liste|Leistungspositionen in Tabelle|Leistungspositionen in Liste|Medikamente in Liste|Geschlecht in Liste)"
-    r"\s*\([^()]*\)(?:\swhere\s\([^()]*\))?)",
+    rf"((?:Hauptdiagnose in Tabelle|Hauptdiagnose in Liste|ICD in Tabelle|ICD in Liste|"
+    rf"Leistungspositionen in Tabelle|Leistungspositionen in Liste|Medikamente in Liste|"
+    rf"Tarifpositionen in Tabelle|Geschlecht in Liste)"
+    rf"\s*\([^()]*\)"
+    rf"(?:\swhere\s\((?:[^()]+|\([^()]*\))*\))?"
+    rf"|Alter in Jahren bei Eintritt\s*{_COMPARISON_OPERATOR_PATTERN}\s*-?\d+"
+    rf"|Anzahl\s*{_COMPARISON_OPERATOR_PATTERN}\s*-?\d+"
+    rf"|Seitigkeit\s*=\s*'?[A-Za-z]+'?"
+    rf"|1\s*=\s*1"
+    rf")",
     flags=re.IGNORECASE,
 )
 
@@ -229,6 +251,7 @@ def _evaluate_condition_text(condition_text: str, context: Dict, tabellen_dict_b
         'leistungspositionen in tabelle': 'LEISTUNGSPOSITIONEN IN TABELLE',
         'leistungspositionen in liste': 'LEISTUNGSPOSITIONEN IN LISTE',
         'medikamente in liste': 'MEDIKAMENTE IN LISTE',
+        'tarifpositionen in tabelle': 'TARIFPOSITIONEN IN TABELLE',
         'geschlecht in liste': 'GESCHLECHT IN LISTE',
     }
 
@@ -252,8 +275,22 @@ def _evaluate_prueflogik_expression(
     def _replace(match: re.Match) -> str:
         idx = len(values)
         fragment = match.group(0)
-        result = _evaluate_condition_text(fragment, context, tabellen_dict_by_table)
-        values.append(result)
+        fragment_clean = fragment.strip()
+        fragment_lower = fragment_clean.lower()
+
+        if (
+            fragment_lower.startswith('anzahl')
+            or fragment_lower.startswith('seitigkeit')
+            or fragment_lower.startswith('alter in jahren bei eintritt')
+            or fragment_lower.startswith('geschlecht in liste')
+        ):
+            result = _evaluate_simple_condition(fragment_clean, context, tabellen_dict_by_table)
+        elif fragment_lower.replace(' ', '') == '1=1':
+            result = True
+        else:
+            result = _evaluate_condition_text(fragment_clean, context, tabellen_dict_by_table)
+
+        values.append(bool(result))
         return f'__COND{idx}__'
 
     token_expr = CONDITION_PATTERN.sub(_replace, prueflogik_expr)
@@ -285,7 +322,9 @@ def check_single_condition(
 
     # Kontextwerte holen
     provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-    provided_gtins = set(context.get("GTIN", []))
+    provided_medications_upper = {str(m).upper() for m in context.get("Medikamente", []) if m}
+    if not provided_medications_upper:
+        provided_medications_upper = {str(m).upper() for m in context.get("GTIN", []) if m}
     provided_lkns_upper = {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn}
     provided_alter = context.get("Alter")
     provided_geschlecht_str = str(context.get("Geschlecht", "unbekannt")).lower() # Default 'unbekannt' und lower
@@ -312,10 +351,10 @@ def check_single_condition(
                  return False if provided_icds_upper else True # Nur erfüllt, wenn auch keine ICDs im Kontext sind
             return any(provided_icd in icd_codes_in_rule_table for provided_icd in provided_icds_upper)
 
-        elif bedingungstyp == "GTIN" or bedingungstyp == "MEDIKAMENTE IN LISTE":
-            werte_list_gtin = [w.strip() for w in str(werte_str).split(',') if w.strip()]
-            if not werte_list_gtin: return True
-            return any(req_gtin in provided_gtins for req_gtin in werte_list_gtin)
+        elif bedingungstyp in ("GTIN", "MEDIKAMENTE IN LISTE"):
+            werte_list_med = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
+            if not werte_list_med: return True
+            return any(req_med in provided_medications_upper for req_med in werte_list_med)
 
         elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
             werte_list_upper_lkn = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
@@ -330,9 +369,25 @@ def check_single_condition(
 
         elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
             table_ref = werte_str
-            lkn_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "service_catalog", tabellen_dict_by_table) if entry.get('Code')}
-            if not lkn_codes_in_rule_table: return False # Leere Tabelle kann nicht erfüllt werden, wenn LKNs im Kontext sind (implizit)
-            return any(provided_lkn in lkn_codes_in_rule_table for provided_lkn in provided_lkns_upper)
+            if not table_ref:
+                return False
+
+            if bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
+                table_type = "tariff"
+                provided_codes = provided_medications_upper
+            else:
+                table_type = "service_catalog"
+                provided_codes = provided_lkns_upper
+
+            table_entries = get_table_content(table_ref, table_type, tabellen_dict_by_table)
+            table_codes = {
+                str(entry.get('Code', '')).upper()
+                for entry in table_entries
+                if entry.get('Code')
+            }
+            if not table_codes:
+                return False
+            return any(code in table_codes for code in provided_codes)
 
         elif bedingungstyp == "PATIENTENBEDINGUNG": # Für Alter, Geschlecht (spezifisch)
             # feld_ref ist hier z.B. "Alter" oder "Geschlecht"
@@ -1287,13 +1342,13 @@ def check_pauschale_conditions(
                 translated_genders = [translate(g_key, lang) for g_key in gender_list_keys]
                 werte_display = escape(", ".join(translated_genders))
             
-            elif active_condition_type_for_display == "MEDIKAMENTE IN LISTE" or active_condition_type_for_display == "GTIN":
-                gtin_codes = [gtin.strip() for gtin in original_werte.split(',') if gtin.strip()]
-                if gtin_codes:
-                    # GTINs are not typically linked to detailed views in this context, just displayed.
-                    werte_display = escape(", ".join(gtin_codes))
+            elif active_condition_type_for_display == "MEDIKAMENTE IN LISTE":
+                med_codes = [med.strip() for med in original_werte.split(',') if med.strip()]
+                if med_codes:
+                    # Medikamentencodes werden hier lediglich angezeigt.
+                    werte_display = escape(", ".join(med_codes))
                 else:
-                    werte_display = f"<i>{translate('no_gtins_spec', lang)}</i>"
+                    werte_display = f"<i>{translate('no_medications_spec', lang)}</i>"
             else: # Fallback for any other types
                 werte_display = escape(original_werte)
 
@@ -2164,8 +2219,8 @@ def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict])
              final_cond_type_for_comparison = 'ICD_LIST'
              condition_tuple = (final_cond_type_for_comparison, tuple(sorted([icd.strip().upper() for icd in wert.split(',') if icd.strip()])))
         elif typ_original in ["MEDIKAMENTE IN LISTE", "GTIN"]:
-            final_cond_type_for_comparison = 'GTIN_LIST'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([gtin.strip() for gtin in wert.split(',') if gtin.strip()])))
+            final_cond_type_for_comparison = 'MEDICATION_LIST'
+            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([med.strip().upper() for med in wert.split(',') if med.strip()])))
         elif typ_original == "PATIENTENBEDINGUNG" and feld:
             final_cond_type_for_comparison = f'PATIENT_{feld.upper()}' # z.B. PATIENT_ALTER
             # Für Alter mit Min/Max eine normalisierte Darstellung
@@ -2296,9 +2351,9 @@ def generate_condition_detail_html(
                     icd_details_html_parts.append(f"<b>{html.escape(icd_code)}</b> ({html.escape(beschreibung)})")
                 condition_html += ", ".join(icd_details_html_parts)
         
-        elif cond_type_comp == 'GTIN_LIST':
-            condition_html += translate('require_gtin_list', lang)
-            if not cond_value_comp: condition_html += f"<i>{translate('no_gtins_spec', lang)}</i>"
+        elif cond_type_comp == 'MEDICATION_LIST':
+            condition_html += translate('require_medication_list', lang)
+            if not cond_value_comp: condition_html += f"<i>{translate('no_medications_spec', lang)}</i>"
             else: condition_html += html.escape(", ".join(cond_value_comp))
         
         elif cond_type_comp.startswith('PATIENT_'):

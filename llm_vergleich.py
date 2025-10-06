@@ -1,3 +1,15 @@
+"""Interaktive Vergleichsumgebung für verschiedene LLM-Anbieter-Konfigurationen.
+
+Das Skript liest die Modellmatrix aus ``llm_vergleich_results.json`` sowie die
+Baseline-Fälle unter ``data/baseline_results.json``. Für jeden Eintrag wird der
+Flask-Server mit stufenspezifischen Umgebungsvariablen neu geladen, die Tests
+über die öffentliche API ausgeführt und der Tokenverbrauch samt Erfolgsquote
+protokolliert. Steht ``tkinter`` zur Verfügung, erscheint eine kleine GUI zur
+Fortschrittsanzeige, sonst erfolgt die Ausgabe in der Konsole. Führe dieses
+Modul aus, um neue Modellkandidaten zu prüfen, bevor die Produktkonfiguration
+angepasst wird.
+"""
+
 import json
 import os
 import sys
@@ -59,6 +71,7 @@ def load_server(
 ):
     """(Re)load the server module with stage-specific LLM settings."""
 
+    # Gewünschte Konfiguration per Umgebungsvariablen übergeben, damit der Server sie beim Import/Reload übernimmt.
     os.environ["STAGE1_LLM_PROVIDER"] = stage1_provider
     os.environ["STAGE1_LLM_MODEL"] = stage1_model
     os.environ["STAGE2_LLM_PROVIDER"] = stage2_provider or stage1_provider

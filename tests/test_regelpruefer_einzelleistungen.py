@@ -119,3 +119,45 @@ def test_case_insensitive_lkn_and_begleit():
     fall = {"LKN": "c06.ce.0010", "Begleit_LKNs": ["c00.yy.0260"]}
     result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
     assert result["abrechnungsfaehig"]
+
+
+def test_nicht_kumulierbar_mit_typ_filter_blockiert():
+    regelwerk = {
+        "AA.00.0010": [
+            {"Typ": "Nicht kumulierbar (E, V) mit", "LKNs": ["CA.00.0010"]}
+        ]
+    }
+    fall = {
+        "LKN": "AA.00.0010",
+        "Typ": "E",
+        "Begleit_LKNs": ["CA.00.0010"],
+        "Begleit_Typen": {"CA.00.0010": "E"}
+    }
+    result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
+    assert not result["abrechnungsfaehig"]
+    assert any("Nicht kumulierbar" in msg for msg in result["fehler"])
+
+
+def test_nur_als_zuschlag_verlangt_basis():
+    regelwerk = {"AA.00.0020": [{"Typ": "Nur als Zuschlag zu", "LKNs": ["AA.00.0010"]}]}
+    fall = {
+        "LKN": "AA.00.0020",
+        "Menge": 3,
+        "Begleit_LKNs": [],
+        "Begleit_Typen": {}
+    }
+    result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
+    assert not result["abrechnungsfaehig"]
+    assert any("Nur als Zuschlag" in msg for msg in result["fehler"])
+
+
+def test_nur_als_zuschlag_basis_vorhanden():
+    regelwerk = {"AA.00.0020": [{"Typ": "Nur als Zuschlag zu", "LKNs": ["AA.00.0010"]}]}
+    fall = {
+        "LKN": "AA.00.0020",
+        "Menge": 3,
+        "Begleit_LKNs": ["AA.00.0010"],
+        "Begleit_Typen": {"AA.00.0010": "E"}
+    }
+    result = rp.pruefe_abrechnungsfaehigkeit(fall, regelwerk)
+    assert result["abrechnungsfaehig"]

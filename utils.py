@@ -1,3 +1,12 @@
+"""Gemeinsame Hilfsfunktionen, die die Flask-Backend-Komponenten verbinden.
+
+Das Modul liefert HTML-Escaping, sprachabhängige Feldzugriffe, Tabellen-Lookups
+für Regelprüfungen, Übersetzungsbausteine fürs Frontend, Tokenstatistiken sowie
+Suchhelfer für den RAG-Pfad. Da server, Regelprüfer und Synonym-Tools darauf
+zugreifen, sollten Änderungen rückwärtskompatibel bleiben und dokumentiert
+werden.
+"""
+
 # utils.py
 import html
 import logging
@@ -9,7 +18,7 @@ from synonyms.expander import synonyms_enabled
 logger = logging.getLogger(__name__)
 
 def escape(text: Any) -> str:
-    """Escapes HTML special characters in a string."""
+    """Maskiert HTML-Sonderzeichen in einem String."""
     return html.escape(str(text))
 
 def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict, lang: str = 'de') -> list[dict]:
@@ -19,8 +28,27 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
     # Schlüssel für PAUSCHALEN_Tabellen - anpassen falls nötig!
     TAB_CODE_KEY = 'Code'; TAB_TEXT_KEY = 'Code_Text'; TAB_TYP_KEY = 'Tabelle_Typ'
 
+    def _normalize_table_type_value(raw_value: Any) -> str:
+        if raw_value is None:
+            return ''
+        value = str(raw_value).strip().lower()
+        value = value.replace('-', '').replace('_', '')
+        synonyms = {
+            '402': 'tariff',
+            'tarif': 'tariff',
+            'tariff': 'tariff',
+            'tarifposition': 'tariff',
+            'tarifpositionen': 'tariff',
+            'servicecatalog': 'service_catalog',
+            'servicekatalog': 'service_catalog',
+            'icd': 'icd',
+        }
+        return synonyms.get(value, value)
+
     table_names = [t.strip() for t in table_ref.split(',') if t.strip()]
     all_entries_for_type = []
+
+    requested_type = _normalize_table_type_value(table_type)
 
     for name in table_names:
         normalized_key = name.lower() # Suche immer mit kleinem Schlüssel
@@ -29,11 +57,11 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
         if normalized_key in tabellen_dict_by_table:
             # print(f"DEBUG (get_table_content): Schlüssel '{normalized_key}' gefunden.") # Optional
             for entry in tabellen_dict_by_table[normalized_key]:
-                entry_typ = entry.get(TAB_TYP_KEY)
-                # If the table entry has no explicit type, assume it matches the
+                entry_type_normalized = _normalize_table_type_value(entry.get(TAB_TYP_KEY))
+                # If the table entry has no explicit type we assume it matches the
                 # requested ``table_type``. This mirrors the simplified mocks in
                 # the tests where only the ``Code`` field is provided.
-                if entry_typ and entry_typ.lower() != table_type.lower():
+                if requested_type and entry_type_normalized and entry_type_normalized != requested_type:
                     continue
                 code = entry.get(TAB_CODE_KEY)
                 text = get_lang_field(entry, TAB_TEXT_KEY, lang)
@@ -50,7 +78,7 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
     return sorted(unique_content, key=lambda x: x.get('Code', ''))
 
 def get_lang_field(entry: Dict[str, Any], base_key: str, lang: str) -> Any:
-    """Returns the value for a language-aware key if available."""
+    """Liefert den Wert eines sprachspezifischen Feldes, falls vorhanden."""
     if not isinstance(entry, dict):
         return None
     suffix = {'de': '', 'fr': '_f', 'it': '_i'}.get(str(lang).lower(), '')
@@ -134,15 +162,15 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'fr': '(Aucun ICD spécifié)',
         'it': '(Nessun ICD specificato)'
     },
-    'require_gtin_list': {
-        'de': 'Erfordert GTIN aus Liste: ',
-        'fr': 'GTIN requis depuis une liste : ',
-        'it': 'GTIN richiesti da una lista: '
+    'require_medication_list': {
+        'de': 'Erfordert Medikamente (ATC) aus Liste: ',
+        'fr': 'Medicaments (ATC) requis depuis une liste : ',
+        'it': 'Farmaci (ATC) richiesti da una lista: '
     },
-    'no_gtins_spec': {
-        'de': '(Keine GTINs spezifiziert)',
-        'fr': '(Aucune GTIN spécifiée)',
-        'it': '(Nessuna GTIN specificata)'
+    'no_medications_spec': {
+        'de': '(Keine Medikamente angegeben)',
+        'fr': '(Aucun medicament indique)',
+        'it': '(Nessun farmaco indicato)'
     },
     'patient_condition': {
         'de': 'Patientenbedingung ({field}): {value}',
@@ -260,14 +288,14 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'it': 'Condizione paziente (sesso): atteso {exp}, trovato {found}'
     },
     'rule_patient_gender_invalid': {
-        'de': 'Patientenbedingung (Geschlecht): Ungültige Werte für Geschlechtsprüfung',
-        'fr': 'Condition patient (sexe) : valeurs non valides pour le contrôle du sexe',
+        'de': 'Patientenbedingung (Geschlecht): Ungueltige Werte fuer Geschlechtspruefung',
+        'fr': 'Condition patient (sexe) : valeurs non valides pour le controle du sexe',
         'it': 'Condizione paziente (sesso): valori non validi per il controllo del sesso'
     },
-    'rule_patient_gtin_missing': {
-        'de': 'Patientenbedingung (GTIN): Erwartet einen von {required}, nicht gefunden',
-        'fr': "Condition patient (GTIN) : attendu l'un de {required}, non trouvé",
-        'it': 'Condizione paziente (GTIN): previsto uno di {required}, non trovato'
+    'rule_patient_medication_missing': {
+        'de': 'Patientenbedingung (Medikamente): Erwartet einen von {required}, nicht gefunden',
+        'fr': "Condition patient (medicaments) : attendu l'un de {required}, non trouve",
+        'it': 'Condizione paziente (farmaci): previsto uno di {required}, non trovato'
     },
     'rule_diagnosis_missing': {
         'de': 'Erforderliche Diagnose(n) nicht vorhanden (Benötigt: {codes})',
@@ -458,11 +486,6 @@ _COND_TYPE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'fr': 'Médicaments en liste',
         'it': 'Farmaci in elenco'
     },
-    'GTIN': { # Alias
-        'de': 'MEDIKAMENTE IN LISTE',
-        'fr': 'Médicaments en liste',
-        'it': 'Farmaci in elenco'
-    },
     'GESCHLECHT IN LISTE': {
         'de': 'GESCHLECHT IN LISTE',
         'fr': 'Sexe dans la liste',
@@ -549,7 +572,7 @@ def translate_rule_error_message(msg: str, lang: str = 'de') -> str:
         (r'^Patientenbedingung \(Alter\): Ungültiger Alterswert im Fall \((?P<value>[^)]+)\)$', 'rule_patient_age_invalid'),
         (r"^Patientenbedingung \(Geschlecht\): erwartet '(?P<exp>[^']+)', gefunden '(?P<found>[^']+)'$", 'rule_patient_gender_mismatch'),
         (r'^Patientenbedingung \(Geschlecht\): Ungültige Werte für Geschlechtsprüfung$', 'rule_patient_gender_invalid'),
-        (r"^Patientenbedingung \(GTIN\): Erwartet einen von (?P<required>.+), nicht gefunden$", 'rule_patient_gtin_missing'),
+        (r"^Patientenbedingung \((?:Medikamente|GTIN)\): Erwartet einen von (?P<required>.+), nicht gefunden$", 'rule_patient_medication_missing'),
         (r'^Erforderliche Diagnose\(n\) nicht vorhanden \(Benötigt: (?P<codes>.+)\)$', 'rule_diagnosis_missing'),
         (r'^Leistung nicht zulässig bei gleichzeitiger Abrechnung der Pauschale\(n\): (?P<codes>.+)$', 'rule_pauschale_exclusion'),
         (r'^Interner Fehler bei Regelprüfung: (?P<error>.+)$', 'rule_internal_error'),
@@ -590,11 +613,11 @@ def create_html_info_link(code: str, data_type: str, display_text: str, data_con
     return f'<a href="#" class="{css_class}" {data_attributes}>{display_text}</a>'
 
 def expand_compound_words(text: str) -> str:
-    """Expand common German compound words with directional prefixes.
+    """Erweitert gängige deutsche Komposita mit Richtungspräfixen.
 
-    This helps the LLM and rule logic to recognise base terms that might
-    be hidden inside compounds (e.g. ``Linksherzkatheter`` -> ``Links herzkatheter``).
-    The function appends the decomposed variants to the original text.
+    So erkennen LLM und Regelwerk Grundbegriffe, die in zusammengesetzten
+    Wörtern verborgen sind (z.B. ``Linksherzkatheter`` → ``Links herzkatheter``).
+    Die Funktion hängt die zerlegten Varianten an den Originaltext an.
     """
     if not isinstance(text, str):
         return text
@@ -678,7 +701,7 @@ SYNONYM_MAP: Dict[str, List[str]] = {
 
 
 def extract_keywords(text: str) -> Set[str]:
-    """Return significant keywords from ``text``.
+    """Liefert relevante Schlüsselwörter aus ``text``.
 
     Das Eingabewort wird zunächst mit :func:`expand_compound_words` erweitert.
     Anschliessend werden alle Tokens in Kleinschreibung extrahiert und solche mit
@@ -690,7 +713,7 @@ def extract_keywords(text: str) -> Set[str]:
     base_tokens = {t for t in tokens if len(t) >= 4 and t not in STOPWORDS}
 
     def collect_synonyms(token: str) -> Set[str]:
-        """Return ``token`` and all synonyms recursively."""
+        """Gibt ``token`` samt rekursiv ermittelter Synonyme zurück."""
         collected = {token}
         queue = [token]
         while queue:
@@ -717,10 +740,10 @@ def extract_keywords(text: str) -> Set[str]:
 LKN_CODE_REGEX = re.compile(r"\b[A-Z][A-Z0-9]{1,2}\.[A-Z0-9]{2}\.[0-9]{4}\b", re.IGNORECASE)
 
 def extract_lkn_codes_from_text(text: str) -> List[str]:
-    """Return all potential LKN codes found in ``text``.
+    """Liest alle potenziellen LKN-Codes aus ``text`` aus.
 
-    The pattern matches codes like ``GG.15.0330`` or ``C08.SA.0700``
-    irrespective of case.
+    Das Pattern erkennt Einträge wie ``GG.15.0330`` oder ``C08.SA.0700``
+    unabhängig von der Schreibweise.
     """
     if not isinstance(text, str):
         return []
@@ -731,7 +754,7 @@ def compute_token_doc_freq(
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
     token_doc_freq: Dict[str, int],
 ) -> None:
-    """Compute document frequency for tokens across the Leistungskatalog."""
+    """Berechnet die Dokumenthäufigkeit von Tokens über den Leistungskatalog hinweg."""
     token_doc_freq.clear()
     for details in leistungskatalog_dict.values():
         texts = []

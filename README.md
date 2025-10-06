@@ -21,7 +21,7 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
   - Apertus: automatisches Kürzen des Kontexts gemäss `[OPENAI] trim_*`.
   - Gemini: optionales Trimmen gemäss `[GEMINI]`.
 - Feinsteuerung des Kontexts über `[CONTEXT]` in `config.ini` (z. B. `include_*`, `max_context_items`, `force_include_codes`).
-- Synonym‑Editor stabilisiert (`python -m synonyms`), zusätzliche Optionen in `[SYNONYMS]` (Fenstergeometrie/Spaltenbreiten); Katalogformat mit `lkn` und sprachgetrennten Listen bleibt kompatibel.
+- Synonym-Editor stabilisiert (`python -m synonyms`), zusaetzliche Optionen in `[SYNONYMS]` (Fenstergeometrie/Spaltenbreiten); das Katalogformat unterstuetzt jetzt `lkns` fuer Mehrfachzuordnungen und bleibt mit bestehenden `lkn`-Eintraegen kompatibel.
 - Erweiterte Logging‑Optionen und Rotations‑Logging (`[LOGGING]`), optional Rohantworten.
 - Regelprüfung: Option `kumulation_explizit` zur strikteren Kumulationslogik.
 - Standardkonfiguration aktualisiert (Version 3.0, Tarif 1.1c).
@@ -291,8 +291,8 @@ Beispiel:
 ```json
 {
   "Foo": {
+    "lkns": ["AA.00.0010", "AA.00.0011"],
     "lkn": "AA.00.0010",
-    "synonyms": {
       "de": ["bar"],
       "fr": ["baz"]
     }
@@ -301,7 +301,7 @@ Beispiel:
 ```
 
 Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage`
-eingelesen. Vorherige Dateien ohne `lkn`-Feld oder ohne Sprachaufteilung werden
+Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage` eingelesen. Vorherige Dateien ohne `lkn`- oder `lkns`-Feld oder ohne Sprachaufteilung werden weiterhin unterstuetzt.
 weiterhin unterstützt.
 
 **Hinweis zu den Tokenanforderungen:** Ohne RAG müssen mehr als 600 000 Tokens an
@@ -337,3 +337,5 @@ beat.arnet@arkons.ch
 P: +41 31 911 32 36
 M: +41 79 321 89 36
 [www.arkons.ch](https://www.arkons.ch)
+
+

@@ -1,11 +1,23 @@
-"""Generate sentence embeddings for the Leistungskatalog.
+"""Erzeugt Satz-Embeddings fuer den Leistungskatalog.
 
-This script requires the 'sentence-transformers' package and will output
-`data/leistungskatalog_embeddings.json` which maps each LKN code to its
-embedding vector.
+Das Skript benoetigt das Paket ``sentence-transformers``. Es liest den
+Leistungskatalog ein, kombiniert zentrale Beschreibungsfelder mit den
+gepflegten Synonymen (inklusive aller verknuepften LKN-Codes) und berechnet
+kompakte Vektor-Repraesentationen. Die resultierenden Embeddings werden als
+JSON-Datei unter ``data/leistungskatalog_embeddings.json`` gespeichert. Die
+Datei enthaelt zwei Schluessel:
 
-Robust gegen: "Token indices sequence length is longer than the specified
-maximum sequence length ..." — harte Token-Grenze + sicheres Packen.
+* ``codes`` - Liste aller LKN-Codes in derselben Reihenfolge wie die Vektoren.
+* ``embeddings`` - float16-kodierte Listen mit den berechneten Vektoren.
+
+Beim Start des Backends werden diese Vektoren direkt von diesem Pfad geladen,
+sodass keine erneute Berechnung notwendig ist. Damit dient die Datei als Cache
+fuer die RAG-Suche und fuer Qualitaetstools.
+
+Robustheit: Der Code erzwingt eine maximale Sequenzlaenge von 128 Tokens und
+packt die Textteile budgetorientiert. Warnungen wie "Token indices sequence
+length is longer than the specified maximum sequence length" werden damit
+vermieden.
 """
 
 from __future__ import annotations
@@ -174,20 +186,24 @@ def main() -> None:
     # Synonyme je LKN sammeln
     synonyms_by_lkn: dict[str, set[str]] = defaultdict(set)
     for entry in synonym_catalog.entries.values():
-        if entry.lkn:
+        for code in getattr(entry, "lkns", []) or []:
+            code_norm = str(code).strip().upper()
+            if not code_norm:
+                continue
             if entry.base_term:
-                synonyms_by_lkn[entry.lkn].add(str(entry.base_term))
-            for s in getattr(entry, "synonyms", []):
-                if s:
-                    synonyms_by_lkn[entry.lkn].add(str(s))
+                synonyms_by_lkn[code_norm].add(str(entry.base_term))
+            for synonym in getattr(entry, "synonyms", []):
+                if synonym:
+                    synonyms_by_lkn[code_norm].add(str(synonym))
 
     codes: list[str] = []
     texts: list[str] = []
 
     for entry in katalog:
-        code = entry.get("LKN")
-        if not code:
+        raw_code = entry.get("LKN")
+        if not raw_code:
             continue
+        code = str(raw_code).strip().upper()
 
         # 1) Kernfelder (Beschreibung zuerst, dann medizinische Interpretation)
         base_parts: list[str] = []

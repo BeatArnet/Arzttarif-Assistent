@@ -1,3 +1,12 @@
+"""GUI-Helfer zum Vergleich zwischen Synonymkatalog und Tarifdaten.
+
+Das Diff-Fenster hebt Einträge hervor, die nur in einer Quelle vorkommen oder
+abweichende Beschreibungen besitzen. Es wird aus der Tkinter-Anwendung in
+``synonyms.__main__`` gestartet und nutzt die gemeinsamen Speicher- und
+Generator-Module zum Laden der Daten. Da das Tooling optional ist, werden die
+Tkinter-Imports mit sanften Fallbacks abgesichert.
+"""
+
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, TYPE_CHECKING
@@ -21,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def open_diff_window(
     master: 'Misc', catalog_path: str, leistungskatalog: Dict[str, Dict[str, str]]
 ) -> None:
-    """Open a two-column comparison between synonyms and tariff catalogue."""
+    """Öffnet einen Zweispalten-Vergleich zwischen Synonymkatalog und Tarif."""
     if (
         tk is None
         or ttk is None
@@ -66,37 +75,36 @@ def open_diff_window(
     tree.pack(fill="both", expand=True, padx=5, pady=5)
 
     def rebuild_index() -> None:
-        catalog.index.clear()
-        for base, entry in catalog.entries.items():
-            catalog.index[base.lower()] = base
-            for syn in entry.synonyms:
-                key = " ".join(syn.lower().split())
-                if key:
-                    catalog.index.setdefault(key, base)
+        storage.rebuild_indexes(catalog)
+
 
     def compute_rows() -> List[Tuple[str, str, str, str]]:
         syn_by_lkn: Dict[str, str] = {}
         for base, entry in catalog.entries.items():
-            if entry.lkn:
-                syn_by_lkn[str(entry.lkn).strip()] = base
-        for lkn, data in leistungskatalog.items():
+            for code in entry.lkns:
+                code_norm = str(code).strip().upper()
+                if code_norm and code_norm not in syn_by_lkn:
+                    syn_by_lkn[code_norm] = base
+
+        leistung_map: Dict[str, Dict] = {
+            str(lkn).strip().upper(): data for lkn, data in leistungskatalog.items()
+        }
+
+        for lkn, data in leistung_map.items():
             if lkn in syn_by_lkn:
                 continue
             desc = str(data.get("Beschreibung", "")).strip()
             if desc in catalog.entries:
                 syn_by_lkn[lkn] = desc
+
         rows: List[Tuple[str, str, str, str]] = []
-        all_lkns = set(syn_by_lkn) | set(leistungskatalog)
+        all_lkns = set(syn_by_lkn) | set(leistung_map)
         for lkn in all_lkns:
             syn_desc = syn_by_lkn.get(lkn, "")
-            cat_desc = (
-                str(leistungskatalog.get(lkn, {}).get("Beschreibung", ""))
-                if lkn in leistungskatalog
-                else ""
-            )
+            cat_desc = str(leistung_map.get(lkn, {}).get("Beschreibung", "")).strip()
             if lkn not in syn_by_lkn:
                 status = "added"
-            elif lkn not in leistungskatalog:
+            elif lkn not in leistung_map:
                 status = "removed"
             elif syn_desc != cat_desc:
                 status = "changed"
@@ -105,6 +113,7 @@ def open_diff_window(
             rows.append((lkn, syn_desc, cat_desc, status))
         rows.sort(key=lambda r: (r[3] == "unchanged", r[0]))
         return rows
+
 
     def refresh() -> None:
         tree.delete(*tree.get_children())
@@ -143,12 +152,18 @@ def open_diff_window(
                 "Hinweis", "Nur grün markierte Einträge können generiert werden."
             )
             return
-        terms = [{"de": cat_desc, "lkn": lkn} for lkn, _, cat_desc, _ in rows]
+        terms = [
+            {"de": cat_desc, "lkn": lkn, "lkns": [lkn]}
+            for lkn, _, cat_desc, _ in rows
+        ]
         try:
             entries = list(generator.propose_synonyms_incremental(terms))
         except Exception:
             entries = [
-                SynonymEntry(base_term=t["de"], lkn=t.get("lkn"))  # type: ignore[arg-type]
+                SynonymEntry(
+                    base_term=t["de"],
+                    lkns=[code for code in (t.get("lkns") or []) if code],
+                )
                 for t in terms
             ]
         for entry in entries:
@@ -204,32 +219,40 @@ def open_diff_window(
             for lang in ("de", "fr", "it")
         }
 
-        def on_save(result: Dict[str, List[str]]) -> None:
+        def on_save(result: Dict[str, List[str]], new_lkns: List[str]) -> None:
             """Persist edited synonyms for the selected catalogue entry."""
 
             cleaned_by_lang: Dict[str, List[str]] = {}
             for lang, syns in result.items():
                 cleaned = [s.strip() for s in syns if isinstance(s, str) and s.strip()]
                 if cleaned:
-                    # preserve order while removing duplicates
                     cleaned_by_lang[lang] = list(dict.fromkeys(cleaned))
 
             combined = [s for lst in cleaned_by_lang.values() for s in lst]
             if not combined:
-                return # do not save empty entries
+                return  # do not save empty entries
+
+            source_codes = new_lkns or ([lkn] if lkn else [])
+            normalized_lkns: List[str] = []
+            for code in source_codes:
+                code_norm = str(code).strip().upper()
+                if code_norm and code_norm not in normalized_lkns:
+                    normalized_lkns.append(code_norm)
 
             new_entry = SynonymEntry(
                 base_term=cat_desc,
                 synonyms=combined,
-                lkn=lkn,
-                by_lang=cleaned_by_lang,            )
+                lkns=normalized_lkns,
+                by_lang=cleaned_by_lang,
+            )
             catalog.entries[cat_desc] = new_entry
             rebuild_index()
             storage.save_synonyms(catalog, catalog_path)
             refresh()
 
+
         _synonyms_tk.open_synonym_editor(
-            data, on_save, master=window, lkn=lkn, beschreibung_de=cat_desc
+            data, on_save, master=window, lkns=[lkn] if lkn else [], beschreibung_de=cat_desc
         )
 
     tree.bind("<Double-1>", edit_added)

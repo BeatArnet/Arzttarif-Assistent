@@ -604,7 +604,7 @@
     </div>
 
     <h1 id="mainHeader">Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
-    <p id="intro">Die KI unterst&uuml;tzt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, GTIN- und CHOP-Suchen sind m&ouml;glich. Bitte keine pers&ouml;nlichen Daten eingeben.</p>
+    <p id="intro">Die KI unterst&uuml;tzt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, Medikamenten- und CHOP-Suchen sind m&ouml;glich. Bitte keine pers&ouml;nlichen Daten eingeben.</p>
 
     <div id="inputFrame" class="input-frame">
         <label id="exampleLabel" for="beispielSelect">Beispiel auswählen:</label>
@@ -623,8 +623,8 @@
         <textarea id="userInput" rows="4" placeholder="z.B. Hausärztliche Konsultation von 17 Minuten..."></textarea>
     </div>
 
-    <label id="gtinLabel" for="gtinInput">Medikamenten-GTINs (kommagetrennt, optional):</label>
-    <input type="text" id="gtinInput" placeholder="z.B. 7680664950014, 1234567890123">
+    <label id="medicationLabel" for="medicationInput">Medikamente (kommagetrennt, optional):</label>
+    <input type="text" id="medicationInput" placeholder="z.B. M09AX07, Spinraza, 7680664950014">
     <div id="icdHeaderRow" style="display:flex; align-items:center; justify-content:space-between; max-width:630px; gap:8px;">
         <label id="icdLabel" for="icdInput" style="margin:0;">Hauptdiagnose ICD (optional):</label>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -873,25 +873,31 @@
         async function loadIcdResults(startOffset, {reset=false, prepend=false} = {}){
             if(icdLoading) return;
             icdLoading = true;
-            const results = await fetchIcd(icdTerm, currentLang, startOffset);
             const dropdown = document.getElementById('icdDropdown');
-            if(reset){
-                dropdown.innerHTML = '';
-                icdStart = startOffset;
-                icdEnd = startOffset;
+            try {
+                const results = await fetchIcd(icdTerm, currentLang, startOffset);
+                if(reset){
+                    dropdown.innerHTML = '';
+                    icdStart = startOffset;
+                    icdEnd = startOffset;
+                }
+                if(prepend){
+                    const prevHeight = dropdown.scrollHeight;
+                    results.forEach(r => dropdown.insertBefore(createIcdDiv(r), dropdown.firstChild));
+                    icdStart = startOffset;
+                    dropdown.scrollTop += dropdown.scrollHeight - prevHeight;
+                } else {
+                    results.forEach(r => dropdown.appendChild(createIcdDiv(r)));
+                    icdEnd = startOffset + results.length;
+                }
+                icdMoreAfter = results.length === ICD_LIMIT;
+                dropdown.classList.toggle('hidden', dropdown.children.length === 0);
+            } catch (err) {
+                console.error('[ICD] Laden der Vorschläge fehlgeschlagen:', err);
+                dropdown.classList.add('hidden');
+            } finally {
+                icdLoading = false;
             }
-            if(prepend){
-                const prevHeight = dropdown.scrollHeight;
-                results.forEach(r => dropdown.insertBefore(createIcdDiv(r), dropdown.firstChild));
-                icdStart = startOffset;
-                dropdown.scrollTop += dropdown.scrollHeight - prevHeight;
-            } else {
-                results.forEach(r => dropdown.appendChild(createIcdDiv(r)));
-                icdEnd = startOffset + results.length;
-            }
-            icdMoreAfter = results.length === ICD_LIMIT;
-            dropdown.classList.toggle('hidden', dropdown.children.length === 0);
-            icdLoading = false;
         }
 
         function hideIcdDropdown(){
@@ -966,8 +972,8 @@
             document.getElementById('userInput').placeholder = t('userPlaceholder', lang);
             document.getElementById('icdLabel').textContent = t('icdLabel', lang);
             document.getElementById('icdInput').placeholder = t('icdPlaceholder', lang);
-            document.getElementById('gtinLabel').textContent = t('gtinLabel', lang);
-            document.getElementById('gtinInput').placeholder = t('gtinPlaceholder', lang);
+            document.getElementById('medicationLabel').textContent = t('medicationLabel', lang);
+            document.getElementById('medicationInput').placeholder = t('medicationPlaceholder', lang);
             document.getElementById('chopLabel').textContent = t('chopLabel', lang);
             document.getElementById('chopInput').placeholder = t('chopPlaceholder', lang);
             document.getElementById('useIcdLabel').textContent = t('useIcd', lang);
@@ -1128,7 +1134,7 @@
                 form: {
                     userInput: document.getElementById('userInput').value,
                     icdInput: document.getElementById('icdInput').value,
-                    gtinInput: document.getElementById('gtinInput').value,
+                    medicationInput: document.getElementById('medicationInput').value,
                     useIcd: document.getElementById('useIcdCheckbox').checked,
                     pauschale: (typeof selectedPauschaleDetails === 'object' && selectedPauschaleDetails ? selectedPauschaleDetails.Pauschale : null),
                     einzelleistungen: Array.isArray(lastBackendResponse?.abrechnung?.leistungen) ? lastBackendResponse.abrechnung.leistungen : [],

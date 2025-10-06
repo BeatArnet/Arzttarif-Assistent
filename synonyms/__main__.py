@@ -1,3 +1,13 @@
+"""Tkinter-Desktoptool zur Pflege des Synonymkatalogs.
+
+Der Aufruf ``python -m synonyms`` startet eine GUI auf Basis der
+Generator- und Speicher-Module. Fachpersonen können damit Katalogeinträge
+prüfen, automatische Synonymvorschläge erzeugen, Unterschiede zwischen Versionen
+vergleichen und Embeddings exportieren. Diese Datei bündelt vor allem die
+UI-Logik: Sie koordiniert Worker-Threads, sichert Einstellungen in ``config.ini``
+und verbindet die im Paket enthaltenen Fenster.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +51,7 @@ LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
 try:
     with LEISTUNGSKATALOG_PATH.open("r", encoding="utf-8") as f:
         _leistungskatalog_list = json.load(f)
+    # Katalog mit dem Editor-Dialog teilen, damit Nachschlagen schnell bleibt.
     synonyms_tk.leistungskatalog_dict = {
         str(item.get("LKN")).strip(): item
         for item in _leistungskatalog_list
@@ -224,11 +235,12 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self._emb_thread: threading.Thread | None = None
 
         # Index für Doppelklick nach LKN
-        self._by_lkn: Dict[str, SynonymEntry] = {}
+        self._by_lkn: Dict[str, List[SynonymEntry]] = {}
         # Zuordnung Treeview-Item -> LKN für Teilgenerierung
-        self._item_by_lkn: Dict[str, str] = {}
-        # Basisbegriffe nach LKN für Teilgenerierung
+        self._item_by_lkn: Dict[str, List[str]] = {}
         self._terms_by_lkn: Dict[str, dict] = {}
+        self._item_by_base: Dict[str, str] = {}
+        # Basisbegriffe nach LKN für Teilgenerierung
 
         # --- WICHTIG: Vorhandene Datei beim Start laden und anzeigen ---
         output_path = Path(self.output_var.get())
@@ -295,20 +307,21 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
 
         # Einträge sortiert anzeigen (erst LKN, dann Term)
         def sort_key(e: SynonymEntry):
-            lkn = (str(e.lkn) if e.lkn is not None else "")
-            return (lkn, e.base_term)
+            first_lkn = e.lkns[0] if e.lkns else ""
+            return (first_lkn, e.base_term)
 
         count = 0
         for entry in sorted(catalog.entries.values(), key=sort_key):
             item = self.tree.insert(
                 "", "end",
-                values=(entry.lkn or "", entry.base_term, ", ".join(entry.synonyms), "unchanged"),
+                values=(", ".join(entry.lkns), entry.base_term, ", ".join(entry.synonyms), "unchanged"),
                 tags=("unchanged",),
             )
-            if entry.lkn:
-                self._by_lkn[str(entry.lkn).strip()] = entry
             self._item_status[item] = "unchanged"
+            self._item_by_base[entry.base_term] = item
             count += 1
+
+        self._rebuild_lkn_lookup()
 
         self._total = count or 0
         self._start_index = 0
@@ -316,7 +329,34 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self.time_per_var.set("0 s/req")
         self.eta_var.set("ETA")
         self._apply_filter()
-        logging.info("Katalog geladen: %d Einträge", count)
+        self._rebuild_lkn_lookup()
+        logging.info("Katalog geladen: %d Eintraege", count)
+
+    def _rebuild_lkn_lookup(self) -> None:
+        """Synchronise reverse indexes for LKN and base-term lookups."""
+        self._by_lkn.clear()
+        self._item_by_lkn.clear()
+        self._item_by_base.clear()
+        if self._catalog is None:
+            return
+        for item_id in self.tree.get_children():
+            values = self.tree.item(item_id, "values")
+            if len(values) < 2:
+                continue
+            base_term = str(values[1]).strip()
+            if not base_term:
+                continue
+            entry = self._catalog.entries.get(base_term)
+            if not entry:
+                continue
+            self._item_by_base[base_term] = item_id
+            for code in entry.lkns:
+                code_norm = str(code).strip().upper()
+                if not code_norm:
+                    continue
+                self._by_lkn.setdefault(code_norm, []).append(entry)
+                self._item_by_lkn.setdefault(code_norm, []).append(item_id)
+
 
     # ---------- GUI Events ----------
     def _on_double_click(self, event: "Event") -> None:  # pragma: no cover - GUI
@@ -342,15 +382,16 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
 
         entry: SynonymEntry | None = None
         if col == "#1":
-            lkn = str(vals[0]).strip()
-            entry = self._by_lkn.get(lkn)
-            if entry is None and lkn:
-                for e in self._catalog.entries.values():
-                    if str(e.lkn or "").strip() == lkn:
-                        entry = e
-                        self._by_lkn[lkn] = e
-                        break
-        else:
+            raw_codes = str(vals[0]).split(",")
+            for code in raw_codes:
+                code_norm = code.strip().upper()
+                if not code_norm:
+                    continue
+                entries = self._by_lkn.get(code_norm)
+                if entries:
+                    entry = entries[0]
+                    break
+        if entry is None:
             base = str(vals[1]).strip()
             entry = self._catalog.entries.get(base)
 
@@ -365,7 +406,7 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
             for lang in languages
         }
 
-        def on_save(result: Dict[str, List[str]]) -> None:
+        def on_save(result: Dict[str, List[str]], new_lkns: List[str]) -> None:
             if self._catalog is None:
                 return
             entry.by_lang.clear()
@@ -377,7 +418,19 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
                 combined.extend(lst)
             entry.synonyms = list(dict.fromkeys(combined))
 
+            normalized_lkns: List[str] = []
+            for code in new_lkns:
+                code_norm = str(code).strip().upper()
+                if code_norm and code_norm not in normalized_lkns:
+                    normalized_lkns.append(code_norm)
+            entry.lkns = normalized_lkns
+
             vals = list(self.tree.item(item, "values"))
+            if vals:
+                vals[0] = ", ".join(entry.lkns)
+            else:
+                vals = [", ".join(entry.lkns), entry.base_term, ", ".join(entry.synonyms)]
+
             if len(vals) >= 3:
                 vals[2] = ", ".join(entry.synonyms)
             else:
@@ -385,7 +438,10 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
                     vals.append("")
                 vals[2] = ", ".join(entry.synonyms)
 
-            if self._orig_catalog is not None and self._catalog is not None:
+            storage.rebuild_indexes(self._catalog)
+            self._rebuild_lkn_lookup()
+
+            if self._orig_catalog is not None:
                 self._status_map = storage.compare_catalogues(self._orig_catalog, self._catalog)
                 status = self._status_map.get(entry.base_term, vals[3] if len(vals) > 3 else "changed")
                 if len(vals) > 3:
@@ -398,9 +454,6 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
             else:
                 self.tree.item(item, values=vals)
 
-            if entry.lkn:
-                self._by_lkn[str(entry.lkn).strip()] = entry
-
             output = self.output_var.get()
             if output:
                 storage.save_synonyms(self._catalog, output)
@@ -412,7 +465,7 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
             ),
             on_save=on_save,
             master=self,
-            lkn=str(entry.lkn).strip() if entry.lkn else None,
+            lkns=list(entry.lkns),
             beschreibung_de=entry.base_term,
         )
 
@@ -486,18 +539,23 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         )
         self.tree.delete(*self.tree.get_children())
         self._item_by_lkn.clear()
+        self._item_by_base.clear()
         self._terms_by_lkn.clear()
         base_terms = generator.extract_base_terms_from_tariff()
         for item in base_terms:
             lkn = str(item.get("lkn") or "")
             term = item.get("de", "")
             if lkn:
-                self._terms_by_lkn[lkn] = item
+                code_norm = lkn.strip().upper()
+                if code_norm:
+                    self._terms_by_lkn[code_norm] = item
             cat_entry = self._catalog.entries.get(term)
             syns = ", ".join(cat_entry.synonyms) if cat_entry else ""
             iid = self.tree.insert("", "end", values=(lkn, term, syns))
             if lkn:
-                self._item_by_lkn[lkn] = iid
+                code_norm = lkn.strip().upper()
+                if code_norm:
+                    self._item_by_lkn.setdefault(code_norm, []).append(iid)
 
     def generate_selected(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -508,12 +566,20 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
             return
         base_terms: List[dict] = []
         for iid in selected:
-            lkn, term, _ = self.tree.item(iid, "values")
-            lkn = str(lkn)
-            if lkn and lkn in self._terms_by_lkn:
-                base_terms.append(self._terms_by_lkn[lkn])
-            else:
-                base_terms.append({"de": term, "lkn": lkn})
+            lkn_value, term, _ = self.tree.item(iid, "values")
+            codes = [code.strip().upper() for code in str(lkn_value).split(",") if code.strip()]
+            appended = False
+            for code in codes:
+                if code in self._terms_by_lkn:
+                    base_terms.append(self._terms_by_lkn[code])
+                    appended = True
+                    break
+            if not appended:
+                payload = {"de": term}
+                if codes:
+                    payload["lkn"] = codes[0]
+                    payload["lkns"] = codes
+                base_terms.append(payload)
         output = self.output_var.get()
         if self._catalog is None:
             self._catalog = (
@@ -610,27 +676,31 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self._queue.put((self._finish_selection, ()))
     # ---------- GUI-Updates aus Queue ----------
     def _add_row(self, entry: SynonymEntry) -> None:
-        lkn = str(entry.lkn or "")
+        codes_display = ", ".join(entry.lkns)
         iid = self.tree.insert(
             "",
             "end",
-            values=(lkn, entry.base_term, ", ".join(entry.synonyms)),
+            values=(codes_display, entry.base_term, ", ".join(entry.synonyms)),
         )
-        if lkn:
-            self._item_by_lkn[lkn] = iid
+        self._item_by_base[entry.base_term] = iid
+        if self._catalog is not None:
+            storage.rebuild_indexes(self._catalog)
+        self._rebuild_lkn_lookup()
         processed = len(self.tree.get_children())
         self._update_stats(processed)
 
     def _update_row(self, entry: SynonymEntry) -> None:
-        lkn = str(entry.lkn or "")
-        values = (lkn, entry.base_term, ", ".join(entry.synonyms))
-        iid = self._item_by_lkn.get(lkn)
+        codes_display = ", ".join(entry.lkns)
+        values = (codes_display, entry.base_term, ", ".join(entry.synonyms))
+        iid = self._item_by_base.get(entry.base_term)
         if iid:
             self.tree.item(iid, values=values)
         else:
             iid = self.tree.insert("", "end", values=values)
-            if lkn:
-                self._item_by_lkn[lkn] = iid
+            self._item_by_base[entry.base_term] = iid
+        if self._catalog is not None:
+            storage.rebuild_indexes(self._catalog)
+        self._rebuild_lkn_lookup()
 
     def _update_stats(self, processed: int) -> None:
         self.progress_var.set(f"{self._start_index + processed}/{self._total}")
@@ -659,12 +729,11 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
                     entry = self._orig_catalog.entries[base]
                     item = self.tree.insert(
                         "", "end",
-                        values=(entry.lkn or "", base, ", ".join(entry.synonyms), status),
+                        values=(", ".join(entry.lkns), base, ", ".join(entry.synonyms), status),
                         tags=(status,),
                     )
-                    if entry.lkn:
-                        self._by_lkn[str(entry.lkn).strip()] = entry
                     self._item_status[item] = status
+            self._rebuild_lkn_lookup()
             self._apply_filter()
         self._update_stats(len(self._item_status))
         try:
@@ -803,3 +872,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
