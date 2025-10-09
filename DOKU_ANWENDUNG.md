@@ -2,6 +2,11 @@
 
 Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistenten ausprobieren möchten. Sie zeigt die typischen Arbeitsschritte, gibt Hinweise zur iterativen Nutzung und beschreibt die Grenzen des Systems.
 
+Hinweis Version 3.3
+- Überarbeitetes, responsives GUI-Layout (breitere TARDOC-Tabelle, bessere Spaltenbreiten/Abstände).
+- Anzeige-Korrekturen (Umlaute, Farben), verbesserte Lesbarkeit.
+- Fachlogik unverändert gegenüber 3.2; Details siehe `CHANGELOG.md`.
+
 ## 1. Voraussetzungen und Start
 
 1. Installieren Sie die Abhängigkeiten gemäss `INSTALLATION.md` und legen Sie – je nach gewähltem Provider – den passenden API‑Schlüssel (z. B. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `APERTUS_API_KEY`) in einer `.env`-Datei ab.

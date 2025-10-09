@@ -548,9 +548,6 @@ _COND_TYPE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
     }
 }
 
-# Entferne die erste, fehlerhafte Definition von translate und _COND_TYPE_TRANSLATIONS
-# Die korrekte Definition beginnt weiter unten.
-
 def translate(key: str, lang: str = 'de', **kwargs) -> str:
     """Einfache Übersetzung bestimmter Texte mit Platzhaltern."""
     lang = str(lang).lower()

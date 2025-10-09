@@ -13,9 +13,28 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
+Ausführlichere Änderungen: siehe `CHANGELOG.md`.
 
-### V3.0 (Aktuell)
-- Mehrere LLM‑Provider konfigurierbar (Gemini, OpenAI, SwissAI/Apertus, Ollama‑kompatibel) pro Stufe (Stage 1/2) via `config.ini` und Umgebungsvariablen.
+### V3.3 (Aktuell)
+- Neues, responsives GUI-Layout: breitere TARDOC-Tabelle, verbesserte Spaltenbreiten und Abstände, Layout passt sich dem Viewport an.
+- Hinweis-/Kommentarspalte verbreitert, Eingabefeld-Gestaltung verfeinert; diverse Darstellungsfehler (Umlaute, Farben) korrigiert.
+- Fokus auf Usability und Lesbarkeit; keine fachlichen Logikänderungen.
+
+### V3.2
+- Synonym-Subsystem neu strukturiert: Katalog basiert nun auf LKN und erlaubt m:n‑Zuordnungen; bestehende Dateien bleiben kompatibel.
+- Verbesserte Regelprüfung: strikteres Einhalten von Kumulationsregeln bei Einzelleistungen; Medikamentenprüfung primär via ATC‑Code (optional GTIN/Bezeichnung).
+- Prompts überarbeitet und gehärtet (DE/FR/IT); Korrektur beim Trimmen des Stage‑2‑Kontexts.
+- Logging: kleinere Korrekturen; Temperatur pro Modell in `config.ini` konfigurierbar; erweiterte Qualitätstests.
+- Qualitätssicherung: Tests ergänzt, fehlerhafte Warnungen behoben, QS‑Szenarien beantworten nun konsistenter.
+
+### V3.1
+- Suche und Ranking: tokenbasierte Suche für Pauschalen, allgemeiner Keyword‑Filter; erneuter LKN‑Suchlauf bei Nulltreffern; konsistentere Algorithmen.
+- Codequalität: `analyze_billing` refaktoriert (geringere Komplexität); robustere Typisierungen und Request‑Guards.
+- Logging: granulare Logging‑Konfiguration eingeführt (feiner steuerbar per `[LOGGING]`).
+- Feintuning LLM: getrennte Temperatur‑Parameter pro Stufe und Sub‑Task (z. B. `stage2_mapping_temperature`, `stage2_ranking_temperature`).
+
+### V3.0
+- Mehrere LLM‑Provider konfigurierbar (Gemini, OpenAI, SwissAI/Apertus, Ollama‑kompatibel) pro Stufe (Stage 1/2) via `config.ini` und Umgebungsvariablen.
 - OpenAI‑kompatible Einbindung von Apertus (PublicAI) inkl. anpassbarer `*_BASE_URL` und Token‑Budgets.
 - Konfigurierbares Prompt‑Trimming zur Einhaltung von Tokenbudgets:
   - Apertus: automatisches Kürzen des Kontexts gemäss `[OPENAI] trim_*`.
@@ -24,7 +43,7 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 - Synonym-Editor stabilisiert (`python -m synonyms`), zusaetzliche Optionen in `[SYNONYMS]` (Fenstergeometrie/Spaltenbreiten); das Katalogformat unterstuetzt jetzt `lkns` fuer Mehrfachzuordnungen und bleibt mit bestehenden `lkn`-Eintraegen kompatibel.
 - Erweiterte Logging‑Optionen und Rotations‑Logging (`[LOGGING]`), optional Rohantworten.
 - Regelprüfung: Option `kumulation_explizit` zur strikteren Kumulationslogik.
-- Standardkonfiguration aktualisiert (Version 3.0, Tarif 1.1c).
+- Standardkonfiguration aktualisiert (Version 3.0, Tarif 1.1c).
 
 ### V2.8
 - Synonymverwaltung mit GUI, konfigurierbar in `config.ini`. 

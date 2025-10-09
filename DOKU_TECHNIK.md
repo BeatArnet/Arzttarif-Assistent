@@ -1,4 +1,10 @@
 # Technische Dokumentation
+Hinweise ab Version 3.1–3.3
+- LLM-Aufrufe über generischen Wrapper (`openai_wrapper.chat_completion_safe`) für Gemini, OpenAI, Apertus (OpenAI-kompatibel), Ollama-kompatibel.
+- Stage‑2 mit separaten Temperaturen für Mapping/Ranking: `stage2_mapping_temperature`, `stage2_ranking_temperature` (in `config.ini`).
+- Granulares Logging unter `[LOGGING]` (u. a. LLM‑Eingabe/Prompt/Output, Tokenzähler; Rotations‑Logging).
+- Endpoint `/api/version` liefert App‑ und Tarifversion.
+- Details zu UI‑Änderungen und Fixes siehe `CHANGELOG.md`.
 
 Diese Datei gibt einen Überblick über die Architektur und den Code des Arzttarif‑Assistenten. Sie richtet sich an Entwickler, die sich schnell im Projekt zurechtfinden möchten.
 
@@ -153,6 +159,57 @@ Seit Version 1.1 tragen viele JSON-Dateien neue Namen. Die wichtigsten Änderun
 | `tblPauschaleBedingungen.json`     | `PAUSCHALEN_Bedingungen.json`       |
 | `tblTabellen.json`                 | `PAUSCHALEN_Tabellen.json`          |
 | `TARDOCGesamt_optimiert_Tarifpositionen.json` | `TARDOC_Tarifpositionen.json` und `TARDOC_Interpretationen.json` |
+
+## 7. Dateien (Python/JS/HTML)
+
+### Backend (Python)
+- `server.py` – Flask‑Backend, Routen (`/api/*`, statisch), Orchestrierung Stage‑1/2, Regelprüfungen, Logging, Feedback‑API, `/api/version`.
+- `regelpruefer_einzelleistungen.py` – Regeln für TARDOC‑Einzelleistungen (Mengen, Kumulationen, Patientenbedingungen) und Aufbereitung der Abrechnung.
+- `regelpruefer_pauschale.py` – Pauschalen‑Bedingungen prüfen, Detail‑HTML generieren, Auswahl der passenden Pauschale.
+- `utils.py` – Hilfsfunktionen: HTML‑Escapes, Sprachfelder, Tabellen‑Lookups, Übersetzungen, Tokenstatistiken, Ranking‑/Suchhelfer (RAG).
+- `prompts.py` – Prompt‑Vorlagen für Stage‑1 (Extraktion) und Stage‑2 (Mapping/Ranking) in DE/FR/IT.
+- `openai_wrapper.py` – Stabiler OpenAI‑kompatibler Chat‑Wrapper (Temperatur‑Handling, Throttling via `[LLM]`, User‑Agent, Fallbacks für Parameternamen).
+- `generate_embeddings.py` – Erzeugt `data/leistungskatalog_embeddings.json` für den RAG‑Modus (benötigt `sentence-transformers`).
+- `llm_vergleich.py` – Vergleicht Provider/Modelle anhand `llm_vergleich_results.json` und `data/baseline_results.json` (Korrektheit/Laufzeit/Tokenverbrauch).
+- `run_quality_tests.py` – Führt QS‑Beispiele gegen Baseline durch und zeigt Tokenverbrauch an.
+- `clean_json.py` – Entfernt Steuerzeichen aus JSON‑Dateien und schreibt `*.clean.json` (Import‑Helfer).
+- `update_prompts.py` – Zielgerichtete Text‑Korrekturen in `prompts.py` per `str.replace` mit Sicherheitsprüfungen.
+
+### Frontend (JS/HTML)
+- `index.html` – Haupt‑UI (Formulareingabe, Sprache, ICD/CHOP/GTIN, Ergebnisdarstellung, Feedback‑Button).
+- `calculator.js` – Frontend‑Steuerung der Analyse, UI‑Interaktionen, API‑Aufrufe (`/api/analyze-billing`, ICD/CHOP).
+- `quality.html` – UI für Qualitätstests mit Beispielen.
+- `quality.js` – Steuert `quality.html`, lädt Testfälle und ruft `/api/quality` auf.
+
+### Synonyms‑Paket (Python/GUI)
+- `synonyms/__main__.py` – Startpunkt `python -m synonyms`: Tkinter‑GUI für Generierung, Kuration, Vergleich, Embeddings‑Export.
+- `synonyms/synonyms_tk.py` – GUI‑Dialoge/Widgets für Katalog‑Bearbeitung.
+- `synonyms/diff_view.py` – Vergleich zweier Katalogstände, Hervorhebung (neu/gelöscht/geändert).
+- `synonyms/generator.py` – Generiert Synonymvorschläge aus Tarifdaten per LLM (Provider/Temperatur via `config.ini`).
+- `synonyms/expander.py` – Erweitert Suchanfragen um Synonyme (Backend‑Nutzung), Schalter zum Aktivieren/Deaktivieren.
+- `synonyms/storage.py` – Laden/Speichern verschiedener Katalog‑Formate; Normalisierung, Indizes, Toleranz bei Encodings.
+- `synonyms/models.py` – Strukturierte Modelle für Synonymkatalog und Einträge.
+- `synonyms/scorer.py` – Scoring/Ranking von Synonymvorschlägen.
+- `synonyms/api.py` – Minimaler Flask‑Blueprint (`/api/synonyms/*`) als Entwicklungs‑Stub.
+- `synonyms/__init__.py` – Paketinitialisierung.
+
+### Tests (pytest)
+- `tests/test_server.py` – Tests für Analyse‑Endpoint, LKN‑Parsing, Internationalisierung des Kontexts, Feedback‑Fallback, `/api/version`.
+- `tests/test_chop_endpoint.py` – Tests für `/api/chop`.
+- `tests/test_icd_endpoint.py` – Tests für `/api/icd`.
+- `tests/test_truncate_text.py` – Tests für Texthandling/Trunkierung (Kontextbeschränkung).
+- `tests/test_pauschale_logic.py` – Logische Prüfung der Pauschalenbedingungen.
+- `tests/test_pauschale_search.py` – Suche/Matching für Pauschalen (tokenbasiert/Keywords).
+- `tests/test_pauschale_selection.py` – Auswahl der anwendbaren Pauschale aus Kandidaten.
+- `tests/test_regelpruefer_einzelleistungen.py` – Einzelleistungs‑Regelwerk (Mengen/Kumulationen etc.).
+- `tests/test_llm_connectivity.py` – Erreichbarkeit/Wrapper‑Verhalten für LLM‑Provider (Stubs/Mocks).
+- `tests/test_llm_vergleich_providers.py` – Szenarien für `llm_vergleich.py` (Provider/Modelle).
+- `tests/test_compare_catalogues.py` – Vergleich von Katalogständen (z. B. für Synonyme/Diff‑View).
+- `tests/test_synonyms_expander.py` – Tests für Anfrage‑Erweiterung durch Synonyme.
+- `tests/test_synonyms_generator.py` – Tests für Generierung/Temperaturen/Provider‑Auswahl.
+- `tests/test_synonyms_storage.py` – Laden/Speichern/Normalisieren des Synonymkatalogs.
+- `tests/test_synonyms_models.py` – Modellstruktur/Validierung.
+- `tests/test_synonyms_evaluation.py` – Qualität/Scoring von Synonymvorschlägen.
 
 ---
 
