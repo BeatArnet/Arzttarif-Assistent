@@ -2,6 +2,9 @@
 
 Dieses Dokument beschreibt die Einrichtung, das Deployment und den Betrieb des "Arzttarif-Assistenten", sowohl für die lokale Entwicklung als auch für den produktiven Einsatz auf einer Plattform wie Render.com.
 
+Aktuelle Version: 3.3 (siehe `config.ini` oder Endpoint `/api/version`).
+Ausführliche Änderungen: siehe `CHANGELOG.md`.
+
 **Inhaltsverzeichnis:**
 
 1.  Projektübersicht & Wichtige Hinweise
@@ -98,6 +101,12 @@ SYNONYM_LLM_MODEL="gemini-2.5-flash"
 GITHUB_TOKEN="..."
 GITHUB_REPO="USER/REPO"
 ```
+Weitere relevante Konfigurationsoptionen ab Version 3.1+
+- Getrennte Temperatur-Parameter für Stage 2: `stage2_mapping_temperature`, `stage2_ranking_temperature`.
+- Granulares Logging unter `[LOGGING]` (z. B. `log_llm_input`, `log_llm_prompt`, `log_llm_output`, `log_tokens`).
+- Tokenbudgets/Trimming:
+  - `[OPENAI]`: `token_budget_default`, `token_budget_apertus`, `trim_apertus_enabled`, `trim_max_passes`.
+  - `[GEMINI]`: `token_budget`, `trim_enabled`.
 Die Zuordnung des LLMs erfolgt in `config.ini` unter `[LLM1UND2]` über `stage1_provider/_model` und `stage2_provider/_model`. Für den Synonym‑Editor wird der Provider in `[SYNONYMS]` festgelegt (`llm_provider`, `llm_model`).
 
 **3.7. Anwendung lokal starten**

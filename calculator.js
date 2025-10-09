@@ -462,6 +462,53 @@ function createInfoLink(code, type) {
     return `<a href="#" class="info-link" data-type="${type}" data-code="${escapeHtml(code)}">${escapeHtml(code)}</a>`;
 }
 
+const MODAL_PREF_PREFIX = 'modal-pref:';
+
+function readModalPreferences(modalId) {
+    if (!modalId) return null;
+    try {
+        const raw = localStorage.getItem(`${MODAL_PREF_PREFIX}${modalId}`);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (err) {
+        console.warn('Unable to read modal preferences', modalId, err);
+        return null;
+    }
+}
+
+function writeModalPreferences(modalId, data) {
+    if (!modalId) return;
+    try {
+        localStorage.setItem(`${MODAL_PREF_PREFIX}${modalId}`, JSON.stringify(data));
+    } catch (err) {
+        console.warn('Unable to persist modal preferences', modalId, err);
+    }
+}
+
+function applySavedModalState(modalElement) {
+    if (!modalElement) return;
+    const modalId = modalElement.id;
+    const prefs = modalId ? readModalPreferences(modalId) : null;
+    const pos = prefs && prefs.position ? prefs.position : { x: 0, y: 0 };
+    const parsedX = Number(pos.x);
+    const parsedY = Number(pos.y);
+    const x = Number.isFinite(parsedX) ? parsedX : 0;
+    const y = Number.isFinite(parsedY) ? parsedY : 0;
+    modalElement.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+function persistModalPosition(modalElement, x, y) {
+    if (!modalElement || !modalElement.id) return;
+    const prefs = readModalPreferences(modalElement.id) || {};
+    const parsedX = Number(x);
+    const parsedY = Number(y);
+    prefs.position = {
+        x: Number.isFinite(parsedX) ? parsedX : 0,
+        y: Number.isFinite(parsedY) ? parsedY : 0
+    };
+    writeModalPreferences(modalElement.id, prefs);
+}
+
 function showModal(modalOverlayId, htmlContent) {
     logFrontendInteraction('modal-open-attempt', { modalOverlayId });
     const modalOverlay = $(modalOverlayId);
@@ -491,8 +538,7 @@ function showModal(modalOverlayId, htmlContent) {
 
     const modalDialog = modalOverlay.querySelector('.info-modal');
     if (modalDialog) {
-        // Reset transform property to ensure it opens at the CSS-defined position
-        modalDialog.style.transform = 'translate(0px, 0px)';
+        applySavedModalState(modalDialog);
         if (!modalDialog.classList.contains('draggable-initialized')) {
             makeModalDraggable(modalDialog);
             modalDialog.classList.add('draggable-initialized');
@@ -515,12 +561,15 @@ function makeModalDraggable(modalElement) {
     let isDragging = false;
     let startX, startY;
     let x = 0, y = 0; // To store the current translation
+    let lastKnownX = 0, lastKnownY = 0;
 
     function getCurrentTransform() {
         const style = window.getComputedStyle(modalElement);
-        const matrix = new DOMMatrix(style.transform);
+        const matrix = new DOMMatrix(style.transform && style.transform !== 'none' ? style.transform : undefined);
         x = matrix.m41;
         y = matrix.m42;
+        lastKnownX = x;
+        lastKnownY = y;
     }
 
     handle.addEventListener('mousedown', (e) => {
@@ -540,12 +589,22 @@ function makeModalDraggable(modalElement) {
         handle.style.cursor = 'grabbing';
     });
 
+    modalElement.addEventListener('mousedown', (e) => {
+        const rect = modalElement.getBoundingClientRect();
+        const resizeHandleSize = 24;
+        if (e.clientX >= rect.right - resizeHandleSize && e.clientY >= rect.bottom - resizeHandleSize) {
+            isResizing = true;
+        }
+    });
+
     document.addEventListener('mousemove', (e) => {
         if (isDragging) {
             e.preventDefault();
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            modalElement.style.transform = `translate(${x + dx}px, ${y + dy}px)`;
+            lastKnownX = x + dx;
+            lastKnownY = y + dy;
+            modalElement.style.transform = `translate(${lastKnownX}px, ${lastKnownY}px)`;
         }
     });
 
@@ -553,13 +612,16 @@ function makeModalDraggable(modalElement) {
         if (isDragging) {
             isDragging = false;
             handle.style.cursor = 'grab';
+            x = lastKnownX;
+            y = lastKnownY;
+            persistModalPosition(modalElement, lastKnownX, lastKnownY);
         }
         // WICHTIG: Setze isResizing nach einer kurzen Verzögerung zurück,
         // damit der Click-Handler des Overlays es zuerst prüfen kann.
         if (isResizing) {
             setTimeout(() => {
                 isResizing = false;
-            }, 0);
+            }, 120);
         }
     });
 
@@ -1796,23 +1858,38 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
         gesamtTP += total_tp;
         const detailsSummaryStyle = hasHintForThisLKN ? ' class="rule-hint-trigger"' : '';
 
+        const regelnCellContent = regelnHtml
+            ? `<details><summary${detailsSummaryStyle}>${tDyn('thRegeln')}</summary><div class="tardoc-rule-content">${regelnHtml}</div></details>`
+            : tDyn('none');
+
         tardocTableBody += `
             <tr>
                 <td>${escapeHtml(lkn)}</td><td>${escapeHtml(name)}</td>
                 <td>${al.toFixed(2)}</td><td>${ipl.toFixed(2)}</td>
                 <td>${anzahl}</td><td>${total_tp.toFixed(2)}</td>
-                <td>${regelnHtml ? `<details><summary${detailsSummaryStyle}>${tDyn('thRegeln')}</summary>${regelnHtml}</details>` : tDyn('none')}</td>
+                <td>${regelnCellContent}</td>
             </tr>`;
     }
 
     const overallSummaryClass = hasHintsOverall ? ' class="rule-hint-trigger"' : '';
     let html = `<details open><summary ${overallSummaryClass}>${tDyn('tardocDetails')} (${tardocLeistungen.length} Positionen)</summary>`;
     html += `
-        <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
-            <thead><tr><th>${tDyn('thLkn')}</th><th>${tDyn('thLeistung')}</th><th>${tDyn('thAl')}</th><th>${tDyn('thIpl')}</th><th>${tDyn('thAnzahl')}</th><th>${tDyn('thTotal')}</th><th>${tDyn('thRegeln')}</th></tr></thead>
-            <tbody>${tardocTableBody}</tbody>
-            <tfoot><tr><th colspan="5" style="text-align:right;">${tDyn('gesamtTp')}</th><th colspan="2">${gesamtTP.toFixed(2)}</th></tr></tfoot>
-        </table>`;
+        <div class="tardoc-table-wrapper">
+            <table border="1" class="tardoc-table">
+                <colgroup>
+                    <col class="col-lkn">
+                    <col class="col-name">
+                    <col class="col-al">
+                    <col class="col-ipl">
+                    <col class="col-anzahl">
+                    <col class="col-total">
+                    <col class="col-regeln">
+                </colgroup>
+                <thead><tr><th>${tDyn('thLkn')}</th><th>${tDyn('thLeistung')}</th><th>${tDyn('thAl')}</th><th>${tDyn('thIpl')}</th><th>${tDyn('thAnzahl')}</th><th>${tDyn('thTotal')}</th><th>${tDyn('thRegeln')}</th></tr></thead>
+                <tbody>${tardocTableBody}</tbody>
+                <tfoot><tr><th colspan="5" class="tardoc-total-label">${tDyn('gesamtTp')}</th><td class="tardoc-total-value">${gesamtTP.toFixed(2)}</td><td></td></tr></tfoot>
+            </table>
+        </div>`;
     html += `</details>`;
     return html;
 }

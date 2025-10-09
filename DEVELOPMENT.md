@@ -20,6 +20,12 @@ pytest -q
 
 gestartet werden. Die Tests liegen im Verzeichnis `tests/` und basieren auf der Flask-Anwendung `server.py`.
 
+## Versionierung und Changelog
+
+- Aktuelle Version: 3.3 (siehe `config.ini` oder Endpoint `/api/version`).
+- Ausführliche Änderungen und Migrationshinweise: `CHANGELOG.md`.
+- Größere Featurebereiche seit 3.1: granulare Logging-Flags (`[LOGGING]`), getrennte Temperaturen für Stage‑2 (`stage2_mapping_temperature`, `stage2_ranking_temperature`).
+
 ## Synonymverwaltung
 
 Synonyme liegen in `data/synonyms.json`. Zur Pflege kann der GUI‑Editor gestartet werden mit
