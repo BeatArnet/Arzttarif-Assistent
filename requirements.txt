@@ -5,4 +5,5 @@ gunicorn
 google-generativeai
 pytest
 openai
-sentence-transformers
+# Optional: only needed for RAG/embeddings (installe separat)
+# sentence-transformers
