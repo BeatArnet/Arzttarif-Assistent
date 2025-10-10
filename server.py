@@ -17,7 +17,8 @@ import json
 import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
-from datetime import datetime, timezone
+# Use explicit module alias to avoid any name shadowing or analysis confusion
+import datetime as dt
 from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast
 
 if TYPE_CHECKING:
@@ -4072,7 +4073,7 @@ def submit_feedback() -> Any:
     if not token or not repo:
         # Fallback: store feedback locally if GitHub is not configured
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
             "category": category,
             "code": code,
             "message": message,
@@ -4197,7 +4198,15 @@ def favicon_png():
 @app.route("/<path:filename>")
 def serve_static(filename: str): # Typ hinzugefügt
     """Erlaubt den direkten Abruf definierter statischer Dateien per HTTP."""
-    allowed_files = {'calculator.js', 'quality.js', 'quality.html'}
+    allowed_files = {
+        'calculator.js',
+        'quality.js',
+        'quality.html',
+        'favicon.ico',
+        'favicon-32.png',
+        'favicon-512.png',
+        'robots.txt',
+    }
     allowed_dirs = {'data'} # Erlaube Zugriff auf data-Ordner
     file_path = Path(filename)
 

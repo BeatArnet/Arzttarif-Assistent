@@ -2,10 +2,23 @@
 
 Alle nennenswerten Änderungen dieses Projekts.
 
+## [3.4] – 2025-10-10
+- Favicon-Auslieferung korrigiert: Catch-all-Whitelist in `server.py` erweitert
+  (u. a. `favicon-32.png`, `favicon.ico`, `robots.txt`), Favicon-Links in
+  `index.html` auf absolute Pfade mit `sizes` umgestellt. Behebt 404 in Chrome
+  und auf Render.
+- Entwicklerfreundlichkeit: Pylance-Warnung „Class definition for \"datetime\"
+  depends on itself“ bereinigt durch expliziten Modul-Alias
+  (`import datetime as dt`). Kein Laufzeitverhalten geändert.
+- Dokumentation aktualisiert (README/INSTALLATION/DEVELOPMENT) und
+  `config.ini` auf Version 3.4 gesetzt.
+- Keine Änderungen an Abrechnungs‑/Regel‑Logik.
+
 ## [3.3] – 2025-10-09
 - Neues, responsives GUI‑Layout (breitere TARDOC‑Tabelle, verbesserte Spaltenbreiten/Abstände, Viewport‑Anpassung)
 - Hinweisspalte verbreitert, Eingabefeld‑Darstellung verfeinert, diverse Anzeige‑Korrekturen (Umlaute/Farben)
 - Fokus auf Usability; keine Änderungen an der Abrechnungs‑Logik
+- Ordner- und Dateistruktur übersichtlicher gestaltet 
 
 ## [3.2] – 2025-10-06
 - Synonym‑Subsystem neu strukturiert: LKN‑basierter Katalog mit m:n‑Zuordnungen; abwärtskompatibel
@@ -27,4 +40,3 @@ Alle nennenswerten Änderungen dieses Projekts.
 - Synonym‑Editor stabilisiert; Katalog unterstützt `lkns` (Mehrfachzuordnung)
 - Erweiterte Logging‑Optionen (Rotations‑Logging); Regelprüfung `kumulation_explizit`
 - Tarifbasis: OAAT‑OTMA AG, Tarifversion 1.1c (08.08.2025)
-

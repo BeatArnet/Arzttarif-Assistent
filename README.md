@@ -2,6 +2,12 @@
 
 Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung medizinischer Leistungen nach dem neuen Schweizer Arzttarif (TARDOC und Pauschalen). Die Anwendung nimmt eine Freitextbeschreibung einer medizinischen Leistung entgegen und schlägt die optimale Abrechnungsart (Pauschale oder TARDOC-Einzelleistung) vor. Sie kombiniert eine KI-basierte Leistungsidentifikation mit detaillierter lokaler Regel- und Bedingungsprüfung.
 
+## Dokumentation
+
+- Anwenderdokumentation: `doku/DOKU_ANWENDUNG.md`
+- Technische Dokumentation: `doku/DOKU_TECHNIK.md`
+- Installation/Setup: `doku/INSTALLATION.md`
+
 ## Wichtige Hinweise
 
 *   **Ohne Gewähr:** Der Arzttarif-Assistent ist eine Open-Source-Anwendung und ein Prototyp. Die Ergebnisse können Fehler enthalten und sind nicht verbindlich.
@@ -15,7 +21,14 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 ## Versionsübersicht
 Ausführlichere Änderungen: siehe `CHANGELOG.md`.
 
-### V3.3 (Aktuell)
+### V3.4 (Aktuell)
+- Favicon-Auslieferung behoben (Chrome/Render): Whitelist der statischen
+  Dateien in `server.py` erweitert; Favicon-Links in `index.html` auf absolute
+  Pfade und `sizes` umgestellt.
+- DX-Fix: Pylance-Warnung zu `datetime` durch Modul-Alias (`import datetime as dt`) gelöst.
+- Keine Änderungen an der Abrechnungs-/Regellogik.
+
+### V3.3
 - Neues, responsives GUI-Layout: breitere TARDOC-Tabelle, verbesserte Spaltenbreiten und Abstände, Layout passt sich dem Viewport an.
 - Hinweis-/Kommentarspalte verbreitert, Eingabefeld-Gestaltung verfeinert; diverse Darstellungsfehler (Umlaute, Farben) korrigiert.
 - Fokus auf Usability und Lesbarkeit; keine fachlichen Logikänderungen.
@@ -339,10 +352,26 @@ Laufzeit sowie den verbrauchten Tokenumfang.
 
 ## Unittests mit `pytest`
 
-Die Python-Tests liegen im Verzeichnis `tests/` und werden mit `pytest` ausgeführt:
-```bash
-pytest
-```
+Die Python-Tests liegen im Verzeichnis `tests/`. Empfohlene Ausführung:
+
+- Windows (PowerShell)
+  - `py -3 -m venv venv`
+  - `.\venv\Scripts\Activate.ps1`
+  - `python -m pip install -r requirements.txt`
+  - `python -m pytest -q`
+
+- macOS/Linux
+  - `python3 -m venv venv`
+  - `source venv/bin/activate`
+  - `python -m pip install -r requirements.txt`
+  - `python -m pytest -q`
+
+Beispiele
+- Einzelne Datei: `python -m pytest tests/test_server.py -q`
+- Einzelner Test: `python -m pytest tests/test_server.py::test_version_endpoint -q`
+- Filter: `python -m pytest -k "synonyms and not connectivity" -q`
+
+Hinweis: Einige Konnektivitätstests erfordern API‑Keys (z. B. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `APERTUS_API_KEY`). Ohne Keys können diese mit `-k "not llm_connectivity"` übersprungen werden.
 
 ## Urheber
 

@@ -11,7 +11,9 @@
 #>
 
 param(
-    [string]$DevPath  = $PSScriptRoot,
+    # Standardmässig das Projektwurzelverzeichnis (Eltern von 'scripts') verwenden,
+    # damit 'config.ini' gefunden wird, wenn das Skript via F5 gestartet wird.
+    [string]$DevPath  = (Split-Path -Parent $PSScriptRoot),
     [string]$ProdPath = "C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent",
     [string]$Branch   = "main"
 )
