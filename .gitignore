@@ -7,3 +7,5 @@ logs/
 data/beispiele.json filter=lfs diff=lfs merge=lfs -text
 # Andere temporäre oder lokale Dateien/Ordner
 feedback_local.json
+temp_artifacts/
+config.runtime.json

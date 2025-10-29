@@ -1,7 +1,9 @@
 {
-  "python.testing.pytestArgs": [
-    "__pycache__"
-  ],
+  "python.testing.pytestArgs": ["."],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "files.autoSave": "onFocusChange",
+  "git.saveBeforeCommit": "always"
+
 }

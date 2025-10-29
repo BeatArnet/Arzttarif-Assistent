@@ -5,7 +5,7 @@ Robuster OpenAI-Chat-Wrapper:
 - Wiederholt den Request einmal ohne 'temperature', wenn der Server mit
   'unsupported_value' für param='temperature' antwortet.
 - Lässt alle anderen Optionen unverändert durch.
-- Merkt sich fehlende 'temperature'-Unterstützung dauerhaft in ``config.ini``.
+- Merkt sich fehlende 'temperature'-Unterstützung dauerhaft in ``config.runtime.ini``.
 """
 from __future__ import annotations
 
@@ -13,10 +13,14 @@ import json
 import logging
 import os
 import configparser
-from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import threading
 import time
+from runtime_config import (
+    CONFIG_MAIN_PATH,
+    load_merged_config,
+    update_runtime_section,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - type hinting only
     from openai import OpenAI
@@ -27,9 +31,15 @@ else:  # pragma: no cover - optional dependency not installed
 # Modelle mit fest verdrahteter/erzwungener Sampling-Temp (nachweislich: gpt-5-nano)
 FIXED_SAMPLING_MODELS = {"gpt-5-nano"}
 
-_CONFIG = configparser.ConfigParser()
-_CONFIG_FILE = Path(__file__).with_name("config.ini")
-_CONFIG.read(_CONFIG_FILE, encoding="utf-8-sig")
+try:
+    _CONFIG = load_merged_config()
+except Exception:
+    logging.exception("Konfiguration konnte nicht vollständig geladen werden, nutze Fallback")
+    _CONFIG = configparser.ConfigParser()
+    try:
+        _CONFIG.read(CONFIG_MAIN_PATH, encoding="utf-8-sig")
+    except Exception:
+        logging.exception("Fallback: config.ini konnte nicht gelesen werden")
 
 _UNSUPPORTED_TEMPERATURE_MODELS = set()
 if _CONFIG.has_section("LLM_CAPABILITIES"):
@@ -46,17 +56,18 @@ _USER_AGENT = f"{_UA_PRODUCT}/{_APP_VERSION}"
 
 def _persist_temperature_flag(model: str, supported: bool) -> None:
     try:
-        _CONFIG.read(_CONFIG_FILE, encoding="utf-8-sig")
         if "LLM_CAPABILITIES" not in _CONFIG:
             _CONFIG["LLM_CAPABILITIES"] = {}
         _CONFIG["LLM_CAPABILITIES"][
             f"{model}_supports_temperature"
         ] = "1" if supported else "0"
-        with _CONFIG_FILE.open("w", encoding="utf-8") as cfg:
-            _CONFIG.write(cfg)
+        update_runtime_section(
+            "LLM_CAPABILITIES",
+            {f"{model}_supports_temperature": "1" if supported else "0"},
+        )
     except Exception:
         logging.exception(
-            "Konnte Temperatur-Fähigkeit nicht in config.ini schreiben"
+            "Konnte Temperatur-Fähigkeit nicht in config.runtime.ini speichern"
         )
 
 _client_singleton: Optional["OpenAI"] = None

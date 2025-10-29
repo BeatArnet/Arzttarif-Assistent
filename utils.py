@@ -10,12 +10,15 @@ werden.
 # utils.py
 import html
 import logging
-from typing import Dict, List, Any, Set, Tuple
+from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict
 import re
-
-from synonyms.expander import synonyms_enabled
+import unicodedata
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import faiss
+    import numpy as np
 
 def escape(text: Any) -> str:
     """Maskiert HTML-Sonderzeichen in einem String."""
@@ -68,8 +71,8 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
                 if code:
                     all_entries_for_type.append({"Code": code, "Code_Text": text or "N/A"})
         else:
-            logger.warning(
-                "WARNUNG (get_table_content): Normalisierter Schlüssel '%s' (Original: '%s') nicht in tabellen_dict_by_table gefunden.",
+            logger.info(
+                "INFO (get_table_content): Normalisierter Schlüssel '%s' (Original: '%s') nicht in tabellen_dict_by_table gefunden.",
                 normalized_key,
                 name,
             )
@@ -101,6 +104,12 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'de': '(Bedingungen auch erfüllt)',
         'fr': '(Conditions aussi remplies)',
         'it': '(Condizioni pure soddisfatte)'
+    },
+    'prueflogik_header': {
+        'de': 'Prüflogik:',
+        'fr': 'Logique de vérification :',
+        'it': 'Logica di verifica:',
+        'en': 'Verification logic:',
     },
     'group_conditions': {
         'de': 'Bedingungen (Alle müssen erfüllt sein):',
@@ -352,15 +361,20 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'fr': '{linked_codes}',
         'it': '{linked_codes}'
     },
+    'condition_text_medication_list': {
+        'de': '{linked_codes}',
+        'fr': '{linked_codes}',
+        'it': '{linked_codes}'
+    },
     'condition_text_lkn_table': {
-        'de': 'aus Tabelle(n): {table_names}',
-        'fr': 'de la/des table(s): {table_names}',
-        'it': 'da tabella/e: {table_names}'
+        'de': '{table_names}',
+        'fr': '{table_names}',
+        'it': '{table_names}'
     },
     'condition_text_icd_table': {
-        'de': 'aus Tabelle(n): {table_names}',
-        'fr': 'de la/des table(s): {table_names}',
-        'it': 'da tabella/e: {table_names}'
+        'de': '{table_names}',
+        'fr': '{table_names}',
+        'it': '{table_names}'
     },
     'condition_group': {
         'de': 'Bedingungsgruppe',
@@ -376,6 +390,26 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'de': 'ODER',
         'fr': 'OU',
         'it': 'O'
+    },
+    'NOT': {
+        'de': 'NICHT',
+        'fr': 'NON',
+        'it': 'NON'
+    },
+    'AND_NOT': {
+        'de': 'UND NICHT',
+        'fr': 'ET NON',
+        'it': 'E NON'
+    },
+    'OR_NOT': {
+        'de': 'ODER NICHT',
+        'fr': 'OU NON',
+        'it': 'O NON'
+    },
+    'logic_variant': {
+        'de': 'Variante {index}',
+        'fr': 'Variante {index}',
+        'it': 'Variante {index}'
     },
     'min': {
         'de': 'min.',
@@ -672,28 +706,31 @@ STOPWORDS: Set[str] = {
     "unter",
     "suchung",
     "untersuchung",
-}
-
-
-# Laienbegriffe und deren häufig verwendete Fachtermini zur Keyword-Erweiterung
-SYNONYM_MAP: Dict[str, List[str]] = {
-    "blinddarmentfernung": ["appendektomie", "appendix"],
-    "appendektomie": ["blinddarmentfernung"],
-    "appendix": ["blinddarmentfernung", "blinddarm"],
-    "blinddarm": ["appendix"],
-    "warze": ["hyperkeratose"],
-    "hyperkeratose": ["warze"],
-    "warzen": ["hyperkeratosen"],
-    "hyperkeratosen": ["warzen"],
-    "gross": ["umfassend"],
-    "umfassend": ["gross"],
-    "grosser": ["umfassender"],
-    "umfassender": ["grosser"],
-    "entfernung": ["entfernen"],
-    "entfernen": ["entfernung"],
-    "rheuma": ["rheumatologisch", "rheumatologische"],
-    "rheumatologisch": ["rheuma", "rheumatologische"],
-    "rheumatologische": ["rheuma", "rheumatologisch"],
+    "mann",
+    "frau",
+    "männlich",
+    "weiblich",
+    # Unbestimmte Artikel sind semantisch wenig aussagekräftig, führen aber in der
+    # Synonymerkennung zu massiven Fehlzuordnungen (z.B. "eines" -> allgemeine
+    # Berichtscodes). Daher werden sie bereits bei der Keyword-Erkennung
+    # ausgefiltert.
+    "eine",
+    "einer",
+    "eines",
+    "einem",
+    "einen",
+    # Richtungsangaben liefern den LLMs zwar Kontext für die Seitigkeit, sind für
+    # die Katalogsuche aber kontraproduktiv, weil sie unzählige Herz-/Gefäss-
+    # Prozeduren mit "rechts"/"links" nach vorne spülen.
+    "rechts",
+    "rechte",
+    "rechter",
+    "rechten",
+    "links",
+    "linke",
+    "linken",
+    "linker",
+    "beidseits",
 }
 
 
@@ -709,28 +746,165 @@ def extract_keywords(text: str) -> Set[str]:
     tokens = re.findall(r"\b\w+\b", expanded.lower())
     base_tokens = {t for t in tokens if len(t) >= 4 and t not in STOPWORDS}
 
-    def collect_synonyms(token: str) -> Set[str]:
-        """Gibt ``token`` samt rekursiv ermittelter Synonyme zurück."""
-        collected = {token}
-        queue = [token]
-        while queue:
-            current = queue.pop()
-            for syn in SYNONYM_MAP.get(current, []):
-                syn = syn.lower()
-                if syn not in collected:
-                    collected.add(syn)
-                    queue.append(syn)
-        return collected
+    return base_tokens
 
-    expanded_tokens: Set[str] = set()
-    for t in base_tokens:
-        # Only use the legacy synonym map when the new subsystem is inactive
-        if not synonyms_enabled():
-            expanded_tokens.update(collect_synonyms(t))
-        else:
-            expanded_tokens.add(t)
 
-    return expanded_tokens
+
+class PatientDemographics(TypedDict, total=False):
+    age_value: int | None
+    age_operator: str | None
+    age_source: str | None
+    gender: str | None
+    gender_source: str | None
+
+
+# Patient*innen-Kontext -----------------------------------------------------
+_VALID_OPERATORS = {"<", "<=", "=", ">=", ">"}
+
+_FEMALE_TOKENS = {
+    "weiblich",
+    "frau",
+    "patientin",
+    "maedchen",
+    "madchen",
+    "fille",
+    "feminin",
+    "femminile",
+    "femmina",
+    "ragazza",
+    "donna",
+    "female",
+    "girl",
+}
+
+_MALE_TOKENS = {
+    "maennlich",
+    "mannlich",
+    "mann",
+    "patient",
+    "junge",
+    "knabe",
+    "garcon",
+    "masculin",
+    "maschio",
+    "homme",
+    "uomo",
+    "male",
+    "boy",
+    "ragazzo",
+}
+
+_CHILD_TOKEN_SETS: Tuple[Tuple[Set[str], PatientDemographics], ...] = (
+    (
+        {"baby", "saeugling", "saeuglinge", "neugeboren", "neonato", "nouveau", "nouveau-ne", "newborn"},
+        cast(PatientDemographics, {"age_value": 1, "age_operator": "<=", "age_source": "inferred"}),
+    ),
+    (
+        {"kind", "kinder", "kindern", "kindes", "knabe", "knaben", "maedchen", "madchen", "enfant", "enfants", "bambino", "bambini", "pediatrie", "pediatrisch", "pediatrico", "pediatrica"},
+        cast(PatientDemographics, {"age_value": 12, "age_operator": "<=", "age_source": "inferred"}),
+    ),
+)
+
+
+def _strip_accents(value: str) -> str:
+    return unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+
+
+def extract_patient_demographics(text: str) -> PatientDemographics:
+    """Extrahiert Alter- und Geschlechts-Hinweise aus Freitext."""
+
+    result: PatientDemographics = {
+        "age_value": None,
+        "age_operator": None,
+        "age_source": None,
+        "gender": None,
+        "gender_source": None,
+    }
+    if not isinstance(text, str) or not text.strip():
+        return result
+
+    normalized = _strip_accents(text)
+    normalized = normalized.replace("-", " ").replace("/", " ")
+    lowered = normalized.lower()
+    cleaned = re.sub(r"\s+", " ", lowered)
+
+    best_match: Dict[str, Any] = {"priority": -1, "age_value": None, "age_operator": None, "age_source": None}
+
+    def _update_best(value: int | None, operator: str | None, priority: int, source: str) -> None:
+        if value is None:
+            return
+        if value < 0 or value > 130:
+            return
+        op = operator if operator in _VALID_OPERATORS else None
+        current_priority = best_match["priority"]
+        if priority > current_priority:
+            best_match.update({"priority": priority, "age_value": value, "age_operator": op, "age_source": source})
+
+    symbol_pattern = re.compile(r"(<=|>=|<|>|=)\s*(\d{1,3})")
+    for symbol_match in symbol_pattern.finditer(cleaned):
+        value = int(symbol_match.group(2))
+        operator = symbol_match.group(1)
+        _update_best(value, operator, 3, "text")
+
+    word_patterns = [
+        (re.compile(r"\b(?:unter|weniger als|moins de|meno di|piu piccolo di)\s*(\d{1,3})"), "<"),
+        (re.compile(r"\b(?:bis|bis zu|maximal|hoechstens|jusqua|jusqu a|jusque a|fino a|al massimo|au plus|au maximum)\s*(\d{1,3})"), "<="),
+        (re.compile(r"\b(?:ab|mindestens|minimal|au moins|a partir de|da|desde|minimo)\s*(\d{1,3})"), ">="),
+        (re.compile(r"\b(?:ueber|uber|mehr als|plus de|superieur a|piu di|maggiore di)\s*(\d{1,3})"), ">"),
+    ]
+    for pattern, operator in word_patterns:
+        for match in pattern.finditer(cleaned):
+            try:
+                value = int(match.group(1))
+            except ValueError:
+                continue
+            _update_best(value, operator, 2, "text")
+
+    direct_pattern = re.compile(
+        r"\b(\d{1,3})\s*(?:jahre|jahr|jahre alt|jahrig|jaehrig|jaehrige|jaehrigen|anni|anno|anos|ans|an|years?|year old|yo)\b"
+    )
+    for match in direct_pattern.finditer(cleaned):
+        try:
+            value = int(match.group(1))
+        except ValueError:
+            continue
+        _update_best(value, "=", 1, "text")
+
+    if best_match["priority"] >= 0:
+        result["age_value"] = best_match["age_value"]
+        result["age_operator"] = best_match["age_operator"] or "="
+        result["age_source"] = best_match["age_source"]
+    else:
+        tokens = set(cleaned.split())
+        for word_set, inferred in _CHILD_TOKEN_SETS:
+            if tokens.intersection(word_set):
+                if "age_value" in inferred:
+                    result["age_value"] = inferred["age_value"]
+                if "age_operator" in inferred:
+                    result["age_operator"] = inferred["age_operator"]
+                if "age_source" in inferred:
+                    result["age_source"] = inferred["age_source"]
+                if "gender" in inferred:
+                    result["gender"] = inferred["gender"]
+                if "gender_source" in inferred:
+                    result["gender_source"] = inferred["gender_source"]
+                break
+
+    gender_detected = False
+    for word in _FEMALE_TOKENS:
+        if re.search(rf"\b{re.escape(word)}\b", cleaned):
+            result["gender"] = "w"
+            result["gender_source"] = "text"
+            gender_detected = True
+            break
+    if not gender_detected:
+        for word in _MALE_TOKENS:
+            if re.search(rf"\b{re.escape(word)}\b", cleaned):
+                result["gender"] = "m"
+                result["gender_source"] = "text"
+                break
+
+    return result
 
 
 # --- New helper: Extract LKN codes directly from text ---
@@ -814,28 +988,54 @@ def rank_leistungskatalog_entries(
     return [code for _, code in scored[:limit]]
 
 
-def _cosine_similarity(a: List[float], b: List[float]) -> float:
-    """Return cosine similarity between two vectors."""
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(x * x for x in b) ** 0.5
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
 def rank_embeddings_entries(
-    query_vec: List[float],
-    vectors: List[List[float]],
+    query_vec: "np.ndarray",
+    index: "faiss.Index",
     codes: List[str],
     limit: int = 200,
 ) -> List[Tuple[float, str]]:
-    """Return ``codes`` ranked by cosine similarity to ``query_vec``."""
-    scored = []
-    for vec, code in zip(vectors, codes):
-        scored.append((_cosine_similarity(query_vec, vec), code))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return scored[:limit]
+    """Return ``codes`` ranked by cosine similarity to ``query_vec`` using a FAISS index."""
+    import numpy as np
+
+    # Sicherstellen, dass der Vektor die richtige Form hat (1, D)
+    if query_vec.ndim == 1:
+        query_vec = np.expand_dims(query_vec, axis=0)
+
+    # FAISS-Suche
+    # ``faiss.Index.search`` akzeptiert optionale Puffer-Argumente für die Ausgabe.
+    # Die Pylance-Typstubs markieren sie jedoch als erforderlich, weshalb wir sie
+    # explizit mit ``None`` übergeben. Für die Laufzeit hat das keine Auswirkung,
+    # da ``None`` der Standardwert ist und FAISS in diesem Fall eigene Puffer
+    # allokiert.
+    # Cast to ``Any`` because the Pylance stubs still require an ``n`` argument that
+    # the Python binding does not expose. We keep passing ``None`` for the optional
+    # buffers so FAISS allocates them internally.
+    search_fn = cast(Any, index.search)
+    query = query_vec.astype(np.float32)
+    try:
+        distances, indices = search_fn(
+            query,
+            limit,
+            None,
+            None,
+        )
+    except TypeError as exc:
+        if "positional arguments" not in str(exc):
+            raise
+        # Einige FAISS-Builds stellen ``Index.search`` nur mit den Pflichtargumenten bereit.
+        # In diesem Fall f�hren wir die Suche ohne optionale Ausgabepuffer erneut aus.
+        distances, indices = search_fn(query, limit)
+
+    # Ergebnisse zusammenstellen
+    results = []
+    for i in range(len(indices[0])):
+        idx = indices[0][i]
+        if idx != -1:  # -1 bedeutet, dass kein Nachbar gefunden wurde
+            score = float(distances[0][i])
+            code = codes[idx]
+            results.append((score, code))
+
+    return results
 
 TOKEN_REGEX = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
@@ -844,3 +1044,4 @@ def count_tokens(text: str) -> int:
     if not text:
         return 0
     return len(TOKEN_REGEX.findall(text))
+

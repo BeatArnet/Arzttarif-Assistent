@@ -14,15 +14,19 @@ weiterläuft.
 import traceback
 import json
 import logging
-from typing import Dict, List, Any, Set, Optional
+import ast
+from functools import lru_cache
+from typing import Dict, List, Any, Set, Optional, Tuple
 from collections import defaultdict
 from utils import escape, get_table_content, get_lang_field, translate, translate_condition_type, create_html_info_link
+from runtime_config import load_base_config
 import re, html
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "check_pauschale_conditions",
+    "check_pauschale_conditions_structured",
     "get_simplified_conditions",
     "render_condition_results_html",
     "generate_condition_detail_html",
@@ -37,6 +41,37 @@ __all__ = [
 # Standardoperator zur Verknüpfung der Bedingungsgruppen. (Wird für Funktions-Defaults benötigt)
 # "UND" ist der konservative Default und kann zentral angepasst werden.
 DEFAULT_GROUP_OPERATOR = "UND"
+
+
+_DEFAULT_EXCLUDED_LKN_TABLES = {"or", "elt", "nonelt", "anast"}
+_EXCLUDED_LKN_TABLES_CONFIG_SECTION = "REGELPRUEFUNG"
+_EXCLUDED_LKN_TABLES_CONFIG_KEY = "pauschale_explanation_excluded_lkn_tables"
+
+
+@lru_cache(maxsize=1)
+def get_excluded_lkn_tables() -> Set[str]:
+    """Read the configurable list of LKN tables that should be ignored."""
+    try:
+        cfg = load_base_config()
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning(
+            "Konfiguration konnte nicht geladen werden, nutze Default-Ausschlussliste: %s",
+            exc,
+        )
+        return set(_DEFAULT_EXCLUDED_LKN_TABLES)
+
+    if not cfg.has_section(_EXCLUDED_LKN_TABLES_CONFIG_SECTION):
+        return set(_DEFAULT_EXCLUDED_LKN_TABLES)
+
+    raw_value = cfg.get(
+        _EXCLUDED_LKN_TABLES_CONFIG_SECTION,
+        _EXCLUDED_LKN_TABLES_CONFIG_KEY,
+        fallback=",".join(sorted(_DEFAULT_EXCLUDED_LKN_TABLES)),
+    )
+    candidates = {token.strip().lower() for token in raw_value.split(',') if token.strip()}
+    if not candidates:
+        return set(_DEFAULT_EXCLUDED_LKN_TABLES)
+    return candidates
 
 
 _COMPARISON_OPERATOR_PATTERN = r"(?:>=|<=|!=|=|>|<|>\s*=|<\s*=|!\s*=)"
@@ -130,6 +165,26 @@ def count_matching_lkn_codes(
             table_codes = {str(entry.get('Code', '')).upper() for entry in entries if entry.get('Code')}
             matches.update(provided_lkns.intersection(table_codes))
     return len(matches)
+
+
+def is_pauschale_code_ge_c90(code: str | None) -> bool:
+    """Return True if the Pauschale code is lexicographically >= C90."""
+    if not code:
+        return False
+    normalized = str(code).upper()
+    match = re.match(r"([A-Z])(\d+)", normalized)
+    if not match:
+        return False
+    letter, digits_str = match.groups()
+    try:
+        numeric = int(digits_str)
+    except ValueError:
+        return False
+    if letter > 'C':
+        return True
+    if letter < 'C':
+        return False
+    return numeric >= 90
 
 
 def _parentheses_balanced(text: str) -> bool:
@@ -302,6 +357,349 @@ def _evaluate_prueflogik_expression(
     return bool(eval(expr_python, {'__builtins__': None}, env))
 
 
+def _format_prueflogik_for_display(prueflogik_expr: str, lang: str = "de") -> str:
+    """Return a pretty-printed version of the Prüflogik expression."""
+    expr = (prueflogik_expr or "").strip()
+    if not expr:
+        return ""
+
+    token_map: Dict[str, str] = {}
+
+    def _replace(match: re.Match) -> str:
+        token = f"__COND{len(token_map)}__"
+        token_map[token] = match.group(0).strip()
+        return token
+
+    tokenized_expr = CONDITION_PATTERN.sub(_replace, expr)
+    python_expr = _normalize_logical_operators(tokenized_expr)
+
+    try:
+        parsed = ast.parse(python_expr, mode="eval")
+    except SyntaxError:
+        return expr
+    except Exception as exc:
+        logger.debug("Format Prüflogik: AST parse failed (%s). Returning raw expression.", exc)
+        return expr
+
+    def _format_node(node: ast.AST, indent: int = 0) -> str:
+        indent_str = " " * indent
+        if isinstance(node, ast.BoolOp):
+            op_label = translate('AND', lang) if isinstance(node.op, ast.And) else translate('OR', lang)
+            parts: List[str] = []
+            for idx, value in enumerate(node.values):
+                if idx > 0:
+                    parts.append(f"{indent_str}{op_label}")
+                parts.append(_format_node(value, indent + 2))
+            body = "\n".join(parts)
+            return f"{indent_str}(\n{body}\n{indent_str})"
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            not_label = translate('NOT', lang)
+            inner = _format_node(node.operand, indent + 2)
+            return f"{indent_str}{not_label} (\n{inner}\n{indent_str})"
+        if isinstance(node, ast.Name):
+            cond_text = token_map.get(node.id, node.id)
+            return f"{indent_str}{cond_text.strip()}"
+        if isinstance(node, ast.Constant):
+            return f"{indent_str}{str(node.value)}"
+        return f"{indent_str}{ast.dump(node)}"
+
+    try:
+        formatted = _format_node(parsed.body, 0)
+    except Exception as exc:
+        logger.debug("Format Prüflogik: Rendering failed (%s). Returning raw expression.", exc)
+        return expr
+
+    return formatted.strip()
+
+
+def _normalize_logic_text(text: str) -> str:
+    normalized = re.sub(r'\s+', ' ', text.upper())
+    normalized = normalized.replace(' ,', ',').replace(', ', ', ')
+    return normalized.strip()
+
+
+def _strip_outer_parentheses(text: str) -> str:
+    result = text.strip()
+    while result.startswith("(") and result.endswith(")"):
+        candidate = result[1:-1].strip()
+        if not candidate:
+            break
+        paren = 0
+        balanced = True
+        for ch in candidate:
+            if ch == "(":
+                paren += 1
+            elif ch == ")":
+                paren -= 1
+                if paren < 0:
+                    balanced = False
+                    break
+        if not balanced or paren != 0:
+            break
+        result = candidate
+    return result
+
+
+def _split_top_level(expr: str, delimiter: str) -> List[str]:
+    parts: List[str] = []
+    depth = 0
+    start = 0
+    i = 0
+    length = len(expr)
+    while i < length:
+        ch = expr[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+        elif depth == 0 and expr.startswith(delimiter, i):
+            parts.append(expr[start:i].strip())
+            i += len(delimiter)
+            start = i
+            continue
+        i += 1
+    tail = expr[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _build_condition_signature_map(
+    pauschale_code: str,
+    pauschale_bedingungen_data: List[Dict[str, Any]]
+) -> Dict[str, Set[str]]:
+    signature_map: Dict[str, Set[str]] = defaultdict(set)
+    for cond in pauschale_bedingungen_data:
+        if cond.get("Pauschale") != pauschale_code:
+            continue
+        cond_type = str(cond.get("Bedingungstyp", "")).upper()
+        if cond_type == "AST VERBINDUNGSOPERATOR":
+            continue
+        values_raw = str(cond.get("Werte", "")).upper()
+        values_normalized = ", ".join(part.strip() for part in values_raw.split(",")) if values_raw else ""
+        signature = _normalize_logic_text(f"{cond_type} ({values_normalized})" if values_normalized else cond_type)
+        gid = cond.get("Gruppe")
+        if gid is not None:
+            signature_map[signature].add(str(gid))
+    return signature_map
+
+
+def _extract_group_logic_terms_from_expression(
+    pauschale_code: str,
+    prueflogik_expr: Optional[str],
+    pauschale_bedingungen_data: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    if not prueflogik_expr:
+        return []
+    normalized_expr = _normalize_logic_text(prueflogik_expr)
+    if not normalized_expr:
+        return []
+    top_terms = _split_top_level(normalized_expr, " ODER ")
+    if not top_terms:
+        return []
+    signature_map = _build_condition_signature_map(pauschale_code, pauschale_bedingungen_data)
+    logic_terms: List[Dict[str, Any]] = []
+
+    for idx, raw_term in enumerate(top_terms):
+        term_body = _strip_outer_parentheses(raw_term)
+        factors = _split_top_level(term_body, " UND ")
+        if not factors:
+            continue
+        group_order: List[tuple[str, bool]] = []
+        group_states: Dict[str, bool] = {}
+        inconsistent = False
+        for raw_factor in factors:
+            factor_body = _strip_outer_parentheses(raw_factor)
+            negated = False
+            if factor_body.startswith("NICHT "):
+                negated = True
+                factor_body = factor_body[len("NICHT "):].strip()
+                factor_body = _strip_outer_parentheses(factor_body)
+            signature = _normalize_logic_text(factor_body)
+            matched_groups = signature_map.get(signature)
+            if not matched_groups:
+                continue
+            desired_state = not negated
+            for gid in matched_groups:
+                existing_state = group_states.get(gid)
+                if existing_state is None:
+                    group_states[gid] = desired_state
+                    group_order.append((gid, desired_state))
+                elif existing_state != desired_state:
+                    inconsistent = True
+                    break
+            if inconsistent:
+                break
+        if inconsistent or not group_order:
+            continue
+        term_entry = {
+            "operator": "ODER" if idx > 0 else "",
+            "groups": [
+                {"group_id": gid, "negated": not state}
+                for gid, state in group_order
+            ],
+        }
+        logic_terms.append(term_entry)
+
+    return logic_terms
+
+
+def _extract_group_logic_terms_from_ast(
+    pauschale_code: str,
+    pauschale_bedingungen_data: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    ast_entries = [
+        cond for cond in pauschale_bedingungen_data
+        if cond.get("Pauschale") == pauschale_code
+        and str(cond.get("Bedingungstyp", "")).upper() == "AST VERBINDUNGSOPERATOR"
+    ]
+    if not ast_entries:
+        group_ids = sorted({
+            str(cond.get("Gruppe"))
+            for cond in pauschale_bedingungen_data
+            if cond.get("Pauschale") == pauschale_code and cond.get("Gruppe") is not None
+        })
+        if not group_ids:
+            return []
+        return [
+            {"operator": "ODER" if idx > 0 else "", "groups": [{"group_id": gid, "negated": False}]}
+            for idx, gid in enumerate(group_ids)
+        ]
+
+    def _normalize_group_id(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        try:
+            return str(int(str(value).strip()))
+        except Exception:
+            s = str(value).strip()
+            return s if s else None
+
+    group_ids = {
+        str(cond.get("Gruppe"))
+        for cond in pauschale_bedingungen_data
+        if cond.get("Pauschale") == pauschale_code and cond.get("Gruppe") is not None
+    }
+    children_map: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    parent_nodes: Set[str] = set()
+    child_nodes: Set[str] = set()
+
+    for entry in ast_entries:
+        parent_id = _normalize_group_id(entry.get("Gruppe"))
+        child_id = _normalize_group_id(entry.get("Spezialbedingung") or entry.get("Werte"))
+        operator = str(entry.get("Operator", "ODER")).upper()
+        if parent_id is None or child_id is None:
+            continue
+        children_map[parent_id].append({
+            "child": child_id,
+            "operator": operator,
+        })
+        parent_nodes.add(parent_id)
+        child_nodes.add(child_id)
+
+    for value in children_map.values():
+        value.sort(key=lambda item: item.get("child") or "")
+
+    def _combine_and(left: List[List[tuple[str, bool]]], right: List[List[tuple[str, bool]]]) -> List[List[tuple[str, bool]]]:
+        if not left:
+            left = [[]]
+        if not right:
+            right = [[]]
+        combined: List[List[tuple[str, bool]]] = []
+        for l in left:
+            for r in right:
+                combined.append(l + r)
+        return combined
+
+    def _combine_or(left: List[List[tuple[str, bool]]], right: List[List[tuple[str, bool]]]) -> List[List[tuple[str, bool]]]:
+        return (left or []) + (right or [])
+
+    cache: Dict[str, List[List[tuple[str, bool]]]] = {}
+
+    def _combos_for_node(node_id: str) -> List[List[tuple[str, bool]]]:
+        if node_id in cache:
+            return cache[node_id]
+        combos: List[List[tuple[str, bool]]] = []
+        if node_id in group_ids:
+            combos = [[(node_id, True)]]
+        child_entries = children_map.get(node_id, [])
+        for child_entry in child_entries:
+            child_id = child_entry.get("child")
+            if not child_id:
+                continue
+            child_combos = _combos_for_node(child_id)
+            op = child_entry.get("operator", "ODER").upper()
+            if op == "UND":
+                combos = _combine_and(combos, child_combos)
+            else:
+                combos = _combine_or(combos, child_combos)
+        cache[node_id] = combos
+        return combos
+
+    root_nodes = sorted(parent_nodes - child_nodes)
+    if not root_nodes:
+        root_nodes = sorted(parent_nodes)
+
+    all_combos: List[List[tuple[str, bool]]] = []
+    for idx, root in enumerate(root_nodes):
+        root_combos = _combos_for_node(root)
+        if idx == 0:
+            all_combos = root_combos
+        else:
+            all_combos = _combine_and(all_combos, root_combos)
+
+    if not all_combos:
+        all_combos = [[(gid, True)] for gid in sorted(group_ids)]
+
+    def _normalize_combo(combo: List[tuple[str, bool]]) -> Optional[List[tuple[str, bool]]]:
+        seen: Dict[str, bool] = {}
+        ordered: List[tuple[str, bool]] = []
+        for gid, state in combo:
+            if gid in seen:
+                if seen[gid] != state:
+                    return None
+                continue
+            seen[gid] = state
+            ordered.append((gid, state))
+        return ordered
+
+    normalized_combos: List[List[tuple[str, bool]]] = []
+    seen_signatures: Set[Tuple[Tuple[str, bool], ...]] = set()
+    for combo in all_combos:
+        normalized = _normalize_combo(combo)
+        if not normalized:
+            continue
+        signature: Tuple[Tuple[str, bool], ...] = tuple(normalized)
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        normalized_combos.append(list(normalized))
+
+    normalized_combos.sort(key=lambda combo: [c[0] for c in combo])
+
+    terms: List[Dict[str, Any]] = []
+    for idx, combo in enumerate(normalized_combos):
+        terms.append({
+            "operator": "ODER" if idx > 0 else "",
+            "groups": [
+                {"group_id": gid, "negated": not state}
+                for gid, state in combo
+            ],
+        })
+    return terms
+
+
+def _extract_group_logic_terms(
+    pauschale_code: str,
+    prueflogik_expr: Optional[str],
+    pauschale_bedingungen_data: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    expr_terms = _extract_group_logic_terms_from_expression(pauschale_code, prueflogik_expr, pauschale_bedingungen_data)
+    if expr_terms:
+        return expr_terms
+    return _extract_group_logic_terms_from_ast(pauschale_code, pauschale_bedingungen_data)
+
+
 # === FUNKTION ZUR PRÜFUNG EINER EINZELNEN BEDINGUNG ===
 def check_single_condition(
     condition: Dict,
@@ -367,7 +765,7 @@ def check_single_condition(
                 return provided_geschlecht_str in geschlechter_in_regel_lower
             return True # Wenn Regel keinen Wert hat, ist es für jedes Geschlecht ok
 
-        elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE":
+        elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE" or bedingungstyp == "LKN IN TABELLE":
             table_ref = werte_str
             if not table_ref:
                 return False
@@ -869,9 +1267,16 @@ def _evaluate_pauschale_logic_via_ast(
     tabellen_dict_by_table: Dict[str, List[Dict]],
     debug: bool = False,
 ) -> bool:
+    def _condition_sort_key(cond: Dict[str, Any]) -> tuple[Any, Any, Any]:
+        return (
+            cond.get("GruppeSortIndex", cond.get("Gruppe", 0)),
+            cond.get("BedingungSortIndex", cond.get("BedingungsID", 0)),
+            cond.get("BedingungsID", 0),
+        )
+
     conditions_for_pauschale = sorted(
         [cond for cond in all_pauschale_bedingungen_data if cond.get("Pauschale") == pauschale_code],
-        key=lambda x: x.get("BedingungsID", 0)
+        key=_condition_sort_key
     )
 
     if not conditions_for_pauschale:
@@ -911,6 +1316,7 @@ def _evaluate_pauschale_logic_via_ast(
         return (1, str(value))
 
     group_conditions_map: defaultdict[Any, List[Dict]] = defaultdict(list)
+    group_meta: Dict[Any, Dict[str, Any]] = {}
     ast_entries: List[Dict] = []
     synthetic_group_counter = 0
 
@@ -926,6 +1332,14 @@ def _evaluate_pauschale_logic_via_ast(
             group_id_normalized = f"__synthetic__{synthetic_group_counter}"
             synthetic_group_counter += 1
         group_conditions_map[group_id_normalized].append(cond)
+        meta = group_meta.setdefault(group_id_normalized, {})
+        meta.setdefault("GroupNegated", bool(cond.get("GroupNegated")))
+        if "ParentGroup" not in meta:
+            meta["ParentGroup"] = _normalize_group_id(cond.get("ParentGroup"))
+        if "GroupOperator" not in meta:
+            meta["GroupOperator"] = _normalize_operator(cond.get("GruppenOperator"))
+        if "GruppeSortIndex" not in meta and "GruppeSortIndex" in cond:
+            meta["GruppeSortIndex"] = cond.get("GruppeSortIndex")
 
     group_results: Dict[Any, bool] = {}
     for group_id, conds_in_group in group_conditions_map.items():
@@ -937,6 +1351,8 @@ def _evaluate_pauschale_logic_via_ast(
             conds_in_group[0].get("Gruppe", group_id),
             debug,
         )
+        if group_meta.get(group_id, {}).get("GroupNegated"):
+            result_group = not result_group
         group_results[group_id] = bool(result_group)
 
     if not ast_entries:
@@ -1115,7 +1531,8 @@ def check_pauschale_conditions(
     pauschale_bedingungen_data: list[dict],
     tabellen_dict_by_table: Dict[str, List[Dict]],
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
-    lang: str = "de"
+    lang: str = "de",
+    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Prueft alle Bedingungen einer Pauschale und generiert strukturiertes HTML,
@@ -1132,19 +1549,6 @@ def check_pauschale_conditions(
     BED_MAX_KEY = "MaxWert"
     BED_VERGLEICHSOP_KEY = "Vergleichsoperator"
 
-    all_conditions_for_pauschale_sorted_by_id = sorted(
-        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
-        key=lambda x: x.get(BED_ID_KEY, 0)
-    )
-
-    if not any(str(c.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR" for c in all_conditions_for_pauschale_sorted_by_id):
-        return {"html": f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>", "errors": [], "trigger_lkn_condition_met": False}
-
-    html_parts = []
-    current_display_group_id = None
-    last_processed_actual_condition = None
-    trigger_lkn_condition_overall_met = False
-
     def _normalize_group_id(value: Any) -> Any:
         if value is None:
             return None
@@ -1155,6 +1559,57 @@ def check_pauschale_conditions(
         except (TypeError, ValueError):
             string_value = str(value).strip()
             return string_value if string_value else None
+
+    def _condition_sort_key(cond: Dict[str, Any]) -> tuple[Any, Any, Any]:
+        return (
+            cond.get("GruppeSortIndex", cond.get(GRUPPE_KEY, 0)),
+            cond.get("BedingungSortIndex", cond.get(BED_ID_KEY, 0)),
+            cond.get(BED_ID_KEY, 0),
+        )
+
+    all_conditions_for_pauschale_sorted_by_id = sorted(
+        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
+        key=_condition_sort_key
+    )
+
+    prueflogik_expr: Optional[str] = None
+    prueflogik_pretty: str = ""
+    if pauschalen_dict:
+        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get('Pr\u00fcflogik')
+        if isinstance(prueflogik_raw, str) and prueflogik_raw.strip():
+            prueflogik_expr = prueflogik_raw.strip()
+            prueflogik_pretty = _format_prueflogik_for_display(prueflogik_expr, lang)
+    group_logic_terms = _extract_group_logic_terms(pauschale_code, prueflogik_expr, pauschale_bedingungen_data)
+
+    def _render_prueflogik_header() -> str:
+        label = translate('prueflogik_header', lang)
+        return f"<div class=\"condition-prueflogik\"><strong>{escape(label)}</strong></div>"
+
+    if not any(str(c.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR" for c in all_conditions_for_pauschale_sorted_by_id):
+        html_snippets: list[str] = []
+        if prueflogik_expr:
+            html_snippets.append(_render_prueflogik_header())
+        html_snippets.append(f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>")
+        return {
+            "html": "".join(html_snippets),
+            "errors": [],
+            "trigger_lkn_condition_met": False,
+            "prueflogik_expr": prueflogik_expr,
+            "prueflogik_pretty": prueflogik_pretty,
+            "group_logic_terms": group_logic_terms,
+        }
+
+    html_parts = []
+    current_display_group_id = None
+    last_processed_actual_condition = None
+    trigger_lkn_condition_overall_met = False
+    group_negated_map: Dict[Any, bool] = {}
+    for _cond in all_conditions_for_pauschale_sorted_by_id:
+        if str(_cond.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
+            continue
+        gid_norm = _normalize_group_id(_cond.get(GRUPPE_KEY))
+        if gid_norm not in group_negated_map:
+            group_negated_map[gid_norm] = bool(_cond.get("GroupNegated"))
 
     pending_operator_by_group: Dict[Any, str] = {}
     for _cond in all_conditions_for_pauschale_sorted_by_id:
@@ -1169,6 +1624,9 @@ def check_pauschale_conditions(
                 translated = translate('AND', lang)
             if child_group_id is not None and translated:
                 pending_operator_by_group[child_group_id] = translated
+
+    if prueflogik_expr:
+        html_parts.append(_render_prueflogik_header())
 
     for idx, cond_data in enumerate(all_conditions_for_pauschale_sorted_by_id):
         condition_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
@@ -1209,8 +1667,11 @@ def check_pauschale_conditions(
 
                 # Start the new group
                 current_display_group_id = actual_cond_group_id
+                normalized_group_id = _normalize_group_id(actual_cond_group_id)
+                negated_flag = group_negated_map.get(normalized_group_id, False)
                 group_title = f"{translate('condition_group', lang)} {escape(str(current_display_group_id))}"
-                html_parts.append(f"<div class=\"condition-group\"><div class=\"condition-group-title\">{group_title}</div>")
+                group_class = "condition-group condition-group-negated" if negated_flag else "condition-group"
+                html_parts.append(f"<div class=\"{group_class}\"><div class=\"condition-group-title\">{group_title}</div>")
                 last_processed_actual_condition = None # Reset for the new group
 
             elif last_processed_actual_condition and \
@@ -1428,7 +1889,10 @@ def check_pauschale_conditions(
     return {
         "html": "".join(html_parts),
         "errors": [],
-        "trigger_lkn_condition_met": trigger_lkn_condition_overall_met
+        "trigger_lkn_condition_met": trigger_lkn_condition_overall_met,
+        "prueflogik_expr": prueflogik_expr,
+        "prueflogik_pretty": prueflogik_pretty,
+        "group_logic_terms": group_logic_terms,
     }
     """
     Prueft alle Bedingungen einer Pauschale und generiert strukturiertes HTML.
@@ -1451,7 +1915,18 @@ def check_pauschale_conditions(
     )
 
     if not any(str(c.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR" for c in all_conditions_for_pauschale_sorted):
-        return {"html": f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>", "errors": [], "trigger_lkn_condition_met": False}
+        html_snippets: list[str] = []
+        if prueflogik_expr:
+            html_snippets.append(_render_prueflogik_header())
+        html_snippets.append(f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>")
+        return {
+            "html": "".join(html_snippets),
+            "errors": [],
+            "trigger_lkn_condition_met": False,
+            "prueflogik_expr": prueflogik_expr,
+            "prueflogik_pretty": prueflogik_pretty,
+            "group_logic_terms": group_logic_terms,
+        }
 
     html_parts = []
     current_group_id_for_display_logic = None # Tracks the current group being displayed
@@ -1673,7 +2148,289 @@ def check_pauschale_conditions(
     return {
         "html": "".join(html_parts),
         "errors": [], # Vorerst keine Fehlerbehandlung hier, kann erweitert werden
-        "trigger_lkn_condition_met": trigger_lkn_condition_overall_met
+        "trigger_lkn_condition_met": trigger_lkn_condition_overall_met,
+        "prueflogik_expr": prueflogik_expr,
+        "prueflogik_pretty": prueflogik_pretty,
+        "group_logic_terms": group_logic_terms,
+    }
+
+
+def check_pauschale_conditions_structured(
+    pauschale_code: str,
+    context: dict,
+    pauschale_bedingungen_data: list[dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    lang: str = "de",
+    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Return a structured representation of conditions for a Pauschale.
+
+    The result contains groups with conditions and the connecting operators.
+    This function performs the same boolean checks as the HTML generator but
+    returns data only, allowing server-side rendering and sanitization.
+    """
+    PAUSCHALE_KEY = "Pauschale"
+    BED_TYP_KEY = "Bedingungstyp"
+    BED_ID_KEY = "BedingungsID"
+    GRUPPE_KEY = "Gruppe"
+    OPERATOR_KEY = "Operator"
+
+    conditions_sorted = sorted(
+        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
+        key=lambda x: x.get(BED_ID_KEY, 0),
+    )
+
+    prueflogik_expr: Optional[str] = None
+    prueflogik_pretty: str = ""
+    if pauschalen_dict:
+        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get('Pr\u00fcflogik')
+        if isinstance(prueflogik_raw, str) and prueflogik_raw.strip():
+            prueflogik_expr = prueflogik_raw.strip()
+            prueflogik_pretty = _format_prueflogik_for_display(prueflogik_expr, lang)
+    group_logic_terms = _extract_group_logic_terms(pauschale_code, prueflogik_expr, pauschale_bedingungen_data)
+
+    # Collect operator overrides defined by AST VERBINDUNGSOPERATOR
+    inter_group_operators_map: Dict[Any, str] = {}
+    ast_links: list[tuple[Any, Any, str, int]] = []
+
+    def _normalize_group_id(value: Any) -> Any:
+        if value is None:
+            return None
+        try:
+            return int(str(value).strip())
+        except Exception:
+            s = str(value).strip()
+            return s if s else None
+
+    def _normalize_operator(value: Any) -> str:
+        if value is None:
+            return ""
+        value_upper = str(value).strip().upper()
+        if value_upper in ("UND", "AND"):
+            return "UND"
+        if value_upper in ("ODER", "OR"):
+            return "ODER"
+        return value_upper
+
+    group_meta: Dict[Any, Dict[str, Any]] = {}
+
+    for entry in conditions_sorted:
+        gid_norm = _normalize_group_id(entry.get(GRUPPE_KEY))
+        meta = group_meta.setdefault(
+            gid_norm,
+            {
+                "GroupNegated": False,
+                "ParentGroup": _normalize_group_id(entry.get("ParentGroup")),
+                "GroupOperator": "",
+                "SortIndex": entry.get("GruppeSortIndex", entry.get(GRUPPE_KEY, 0)),
+            },
+        )
+        if entry.get("GroupNegated"):
+            meta["GroupNegated"] = True
+        if meta.get("GroupOperator") == "":
+            meta["GroupOperator"] = _normalize_operator(entry.get("GruppenOperator"))
+        if meta.get("ParentGroup") is None:
+            meta["ParentGroup"] = _normalize_group_id(entry.get("ParentGroup"))
+
+    for c in conditions_sorted:
+        if str(c.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
+            parent_id_norm = _normalize_group_id(c.get(GRUPPE_KEY))
+            child_raw = c.get('Spezialbedingung') or c.get('Werte')
+            gid = _normalize_group_id(child_raw)
+            op_val = str(c.get(OPERATOR_KEY, "ODER")).upper()
+            if gid is not None and op_val in ("UND", "ODER"):
+                inter_group_operators_map[gid] = op_val
+            if parent_id_norm is not None and gid is not None:
+                ast_links.append((parent_id_norm, gid, op_val, c.get(BED_ID_KEY, 0)))
+
+    groups: list[dict[str, Any]] = []
+    current_gid: Any = None
+    current_group: dict[str, Any] | None = None
+    inter_group_ops_out: list[str] = []
+    any_lkn_condition_met = False
+
+    last_condition_in_group: dict | None = None
+    for cond in conditions_sorted:
+        cond_type_upper = str(cond.get(BED_TYP_KEY, "")).upper()
+        if cond_type_upper == "AST VERBINDUNGSOPERATOR":
+            # close group if open
+            if current_group is not None:
+                groups.append(current_group)
+                current_group = None
+            current_gid = None
+            last_condition_in_group = None
+            continue
+
+        gid = cond.get(GRUPPE_KEY)
+        if gid != current_gid:
+            # append inter-group operator (if any) between groups
+            if current_group is not None:
+                groups.append(current_group)
+                current_group = None
+                last_condition_in_group = None
+            # operator between groups
+            op_between = inter_group_operators_map.pop(_normalize_group_id(gid), None)
+            if op_between:
+                inter_group_ops_out.append(op_between)
+            current_gid = gid
+            normalized_gid = _normalize_group_id(gid)
+            current_group = {
+                "id": gid,
+                "conditions": [],
+                "intra_ops": [],
+                "negated": bool(group_meta.get(normalized_gid, {}).get("GroupNegated")),
+                "sort_index": group_meta.get(normalized_gid, {}).get("SortIndex", cond.get("GruppeSortIndex", gid)),
+                "normalized_id": normalized_gid,
+                "parent": group_meta.get(normalized_gid, {}).get("ParentGroup"),
+                "group_operator": group_meta.get(normalized_gid, {}).get("GroupOperator"),
+            }
+
+        # compute match
+        met = bool(check_single_condition(cond, context, tabellen_dict_by_table))
+
+        # detect if LKN-related condition matched (for convenience flag)
+        if met and cond_type_upper in (
+            "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
+            "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE",
+        ):
+            any_lkn_condition_met = True
+
+        # store condition summary
+        cond_entry = {
+            "type": cond.get(BED_TYP_KEY),
+            "werte": cond.get('Werte'),
+            "feld": cond.get('Feld'),
+            "min": cond.get('MinWert'),
+            "max": cond.get('MaxWert'),
+            "vergleich": cond.get('Vergleichsoperator'),
+            "matched": met,
+        }
+        if current_group is None:
+            # ensure group exists even if data inconsistent
+            normalized_gid = _normalize_group_id(gid)
+            meta = group_meta.get(normalized_gid, {})
+            current_group = {
+                "id": gid,
+                "conditions": [],
+                "intra_ops": [],
+                "negated": bool(meta.get("GroupNegated")),
+                "sort_index": meta.get("SortIndex", cond.get("GruppeSortIndex", gid)),
+                "normalized_id": normalized_gid,
+                "parent": meta.get("ParentGroup"),
+                "group_operator": meta.get("GroupOperator"),
+            }
+            current_gid = gid
+        current_group["conditions"].append(cond_entry)
+
+        # intra-group operator (based on previous actual condition)
+        if last_condition_in_group is not None and last_condition_in_group.get(GRUPPE_KEY) == gid:
+            link_op = str(last_condition_in_group.get(OPERATOR_KEY, "UND")).upper()
+            if link_op in ("UND", "ODER"):
+                current_group["intra_ops"].append(link_op)
+        last_condition_in_group = cond
+
+    if current_group is not None:
+        groups.append(current_group)
+
+    group_lookup: Dict[Any, dict[str, Any]] = {}
+    for grp in groups:
+        normalized_gid = grp.get("normalized_id")
+        if normalized_gid is None:
+            normalized_gid = _normalize_group_id(grp.get("id"))
+            grp["normalized_id"] = normalized_gid
+        group_lookup[normalized_gid] = grp
+
+    from collections import defaultdict
+
+    children_map: defaultdict[Any, list[dict[str, Any]]] = defaultdict(list)
+    parent_nodes: set[Any] = set()
+    child_nodes: set[Any] = set()
+
+    for parent_id, child_id, op_raw, bed_id in ast_links:
+        if parent_id is None or child_id is None:
+            continue
+        parent_meta = group_meta.get(parent_id, {})
+        child_meta = group_meta.get(child_id, {})
+        display_operator = _normalize_operator(op_raw)
+        if child_meta.get("ParentGroup") == parent_id:
+            display_operator = _normalize_operator(parent_meta.get("GroupOperator") or display_operator)
+        if display_operator not in ("UND", "ODER"):
+            display_operator = "UND" if parent_meta.get("GroupOperator") == "UND" else "ODER"
+        children_map[parent_id].append({
+            "child": child_id,
+            "operator": display_operator,
+            "bed": bed_id,
+        })
+        parent_nodes.add(parent_id)
+        child_nodes.add(child_id)
+
+    for entries in children_map.values():
+        entries.sort(key=lambda item: item.get("bed", 0))
+
+    def _group_sort_key(gid: Any) -> tuple[int, Any, str]:
+        grp = group_lookup.get(gid)
+        if grp:
+            return (0, grp.get("sort_index", gid), str(grp.get("id")))
+        return (1, gid if isinstance(gid, int) else 0, str(gid))
+
+    ordered_pairs: list[tuple[dict[str, Any], Optional[str]]] = []
+    visited_groups: set[Any] = set()
+
+    def _traverse(node_id: Any, operator_from_parent: Optional[str]) -> None:
+        if node_id in visited_groups:
+            return
+        group_obj = group_lookup.get(node_id)
+        if not group_obj:
+            return
+        ordered_pairs.append((group_obj, operator_from_parent))
+        visited_groups.add(node_id)
+        for child_entry in children_map.get(node_id, []):
+            _traverse(child_entry.get("child"), child_entry.get("operator"))
+
+    root_candidates = sorted(
+        [gid for gid in parent_nodes if gid not in child_nodes],
+        key=_group_sort_key,
+    )
+    if not root_candidates:
+        root_candidates = sorted(group_lookup.keys(), key=_group_sort_key)
+
+    for root_id in root_candidates:
+        _traverse(root_id, None)
+
+    for remaining_id in sorted(group_lookup.keys(), key=_group_sort_key):
+        if remaining_id not in visited_groups:
+            _traverse(remaining_id, None)
+
+    ordered_groups: list[dict[str, Any]] = []
+    ordered_inter_ops: list[str] = []
+    for idx, (grp_obj, op_raw) in enumerate(ordered_pairs):
+        ordered_groups.append(grp_obj)
+        if idx > 0:
+            op_value = op_raw if op_raw in ("UND", "ODER") else DEFAULT_GROUP_OPERATOR
+            ordered_inter_ops.append(op_value)
+
+    group_children_serializable: Dict[str, list[dict[str, Any]]] = {
+        str(parent_id): [
+            {"child": entry.get("child"), "operator": entry.get("operator")}
+            for entry in entries
+        ]
+        for parent_id, entries in children_map.items()
+    }
+
+    groups = ordered_groups
+    inter_group_ops_out = ordered_inter_ops
+
+    return {
+        "groups": groups,
+        "inter_group_ops": inter_group_ops_out,
+        "any_lkn_condition_met": any_lkn_condition_met,
+        "pauschale_code": pauschale_code,
+        "lang": lang,
+        "prueflogik_expr": prueflogik_expr,
+        "prueflogik_pretty": prueflogik_pretty,
+        "group_logic_terms": group_logic_terms,
+        "group_children": group_children_serializable,
+        "group_root_ids": [root for root in root_candidates],
     }
 
 # === RENDERER FUER CONDITION-ERGEBNISSE (WIRD NICHT MEHR DIREKT VERWENDET, LOGIK IST IN check_pauschale_conditions) ===
@@ -1777,8 +2534,31 @@ def determine_applicable_pauschale(
 
     use_icd_flag = context.get('useIcd', True)
     requires_icd_cache: Dict[str, bool] = {}
+    candidate_lkn_sources: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    context_lkns_in_tables_cache: Dict[str, Set[str]] = {}
+    excluded_lkn_tables = get_excluded_lkn_tables()
+
+    def _get_tables_for_context_lkn(lkn_code: str) -> Set[str]:
+        """Return cached service catalog tables for a context LKN code."""
+        normalized = str(lkn_code or "").upper()
+        if not normalized:
+            return set()
+        cached = context_lkns_in_tables_cache.get(normalized)
+        if cached is not None:
+            return cached
+        tables_for_lkn_ctx: Set[str] = set()
+        for table_name_key_norm, table_entries in (tabellen_dict_by_table or {}).items():
+            for entry in table_entries:
+                if str(entry.get('Tabelle_Typ', '')).lower() != "service_catalog":
+                    continue
+                if str(entry.get('Code', '')).upper() == normalized:
+                    tables_for_lkn_ctx.add(str(table_name_key_norm).lower())
+        context_lkns_in_tables_cache[normalized] = tables_for_lkn_ctx
+        return tables_for_lkn_ctx
 
     potential_pauschale_codes: Set[str] = set()
+    context_lkns_for_search = {str(lkn).upper() for lkn in context.get("LKN", []) if lkn}
+
     if potential_pauschale_codes_input is not None:
         potential_pauschale_codes = potential_pauschale_codes_input
         logger.info(
@@ -1787,53 +2567,67 @@ def determine_applicable_pauschale(
         )
     else:
         logger.info("DEBUG: Suche potenzielle Pauschalen (da nicht übergeben)...")
-        # LKNs aus dem Kontext (regelkonform + gemappt) für die Suche verwenden
-        context_lkns_for_search = {str(lkn).upper() for lkn in context.get("LKN", []) if lkn}
-        # print(f"  Kontext-LKNs für Suche: {context_lkns_for_search}")
-
         # Methode a: Direkte Links aus PAUSCHALEN_Leistungspositionen
         for item in pauschale_lp_data:
             lkn_in_lp = item.get(LP_LKN_KEY)
             if lkn_in_lp and lkn_in_lp.upper() in context_lkns_for_search:
                 pc = item.get(LP_PAUSCHALE_KEY)
-                if pc and pc in pauschalen_dict: potential_pauschale_codes.add(pc)
-        # print(f"  Potenzielle Pauschalen nach Methode a: {potential_pauschale_codes}")
-
-        # Methode b & c: LKNs in Bedingungen (Liste oder Tabelle)
-        # Cache für Tabellenzugehörigkeit von Kontext-LKNs
-        context_lkns_in_tables_cache: Dict[str, Set[str]] = {}
-
+                if pc and pc in pauschalen_dict:
+                    potential_pauschale_codes.add(pc)
+        # Methode b: Links aus Bedingungstabelle
         for cond in pauschale_bedingungen_data:
             pc = cond.get(BED_PAUSCHALE_KEY)
-            if not (pc and pc in pauschalen_dict): continue # Nur für existierende Pauschalen
-
+            if not (pc and pc in pauschalen_dict): continue
             bedingungstyp_cond = cond.get(BED_TYP_KEY, "").upper()
             werte_cond = cond.get(BED_WERTE_KEY, "")
-
-            if bedingungstyp_cond == "LEISTUNGSPOSITIONEN IN LISTE" or bedingungstyp_cond == "LKN":
+            if bedingungstyp_cond in LKN_LIST_CONDITION_TYPES:
                 werte_liste_cond = {w.strip().upper() for w in str(werte_cond).split(',') if w.strip()}
-                if not context_lkns_for_search.isdisjoint(werte_liste_cond): # Schnittmenge nicht leer
+                if context_lkns_for_search.intersection(werte_liste_cond):
                     potential_pauschale_codes.add(pc)
-
-            elif bedingungstyp_cond == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp_cond == "TARIFPOSITIONEN IN TABELLE":
-                table_refs_cond = {t.strip().lower() for t in str(werte_cond).split(',') if t.strip()}
+            elif bedingungstyp_cond in LKN_TABLE_CONDITION_TYPES:
+                table_refs_raw = [t.strip() for t in str(werte_cond).split(',') if t.strip()]
+                table_refs_cond = {t.lower() for t in table_refs_raw}
                 for lkn_ctx in context_lkns_for_search:
-                    if lkn_ctx not in context_lkns_in_tables_cache:
-                        tables_for_lkn_ctx = set()
-                        for table_name_key_norm, table_entries in tabellen_dict_by_table.items():
-                            for entry in table_entries:
-                                if entry.get('Code', '').upper() == lkn_ctx and \
-                                   entry.get('Tabelle_Typ', '').lower() == "service_catalog":
-                                    tables_for_lkn_ctx.add(table_name_key_norm) # Bereits normalisiert (lower)
-                        context_lkns_in_tables_cache[lkn_ctx] = tables_for_lkn_ctx
-                    
-                    if not table_refs_cond.isdisjoint(context_lkns_in_tables_cache[lkn_ctx]):
+                    if table_refs_cond.intersection(_get_tables_for_context_lkn(lkn_ctx)):
                         potential_pauschale_codes.add(pc)
-                        break # Ein Treffer für diese Bedingung reicht
+                        break # Go to next condition
         logger.info(
             "DEBUG: Finale potenzielle Pauschalen nach LKN-basierter Suche: %s",
             potential_pauschale_codes,
         )
+
+    # LKN-Quellen für alle Kandidaten ermitteln, egal woher sie stammen.
+    # Dies ist entscheidend für die Filterlogik in der Erklärungs-HTML.
+    for pc in potential_pauschale_codes:
+        # Direkte LKN-Links prüfen
+        for item in pauschale_lp_data:
+            if item.get(LP_PAUSCHALE_KEY) == pc:
+                lkn_in_lp = item.get(LP_LKN_KEY)
+                if lkn_in_lp and lkn_in_lp.upper() in context_lkns_for_search:
+                    candidate_lkn_sources[pc].append({
+                        "lkn": str(lkn_in_lp).upper(), "source": "direct", "table": None
+                    })
+        # LKN-Bedingungen (Liste und Tabelle) prüfen
+        for cond in pauschale_bedingungen_data:
+            if cond.get(BED_PAUSCHALE_KEY) != pc: continue
+            bedingungstyp_cond = cond.get(BED_TYP_KEY, "").upper()
+            werte_cond = cond.get(BED_WERTE_KEY, "")
+            if bedingungstyp_cond in LKN_LIST_CONDITION_TYPES:
+                werte_liste_cond = {w.strip().upper() for w in str(werte_cond).split(',') if w.strip()}
+                matching_codes = context_lkns_for_search.intersection(werte_liste_cond)
+                for code in matching_codes:
+                    candidate_lkn_sources[pc].append({
+                        "lkn": code, "source": "direct", "table": None
+                    })
+            elif bedingungstyp_cond in LKN_TABLE_CONDITION_TYPES:
+                table_refs_raw = [t.strip() for t in str(werte_cond).split(',') if t.strip()]
+                table_refs_cond = {t.lower() for t in table_refs_raw}
+                for lkn_ctx in context_lkns_for_search:
+                    matching_tables = table_refs_cond.intersection(_get_tables_for_context_lkn(lkn_ctx))
+                    for table in matching_tables:
+                        candidate_lkn_sources[pc].append({
+                            "lkn": lkn_ctx, "source": "table", "table": table
+                        })
 
 
     if not potential_pauschale_codes:
@@ -1867,6 +2661,7 @@ def determine_applicable_pauschale(
                 tabellen_dict_by_table,
                 leistungskatalog_dict,
                 lang,
+                pauschalen_dict=pauschalen_dict,
             )
             bedingungs_html = check_res.get("html", "")
         except Exception as e_eval:
@@ -1891,14 +2686,37 @@ def determine_applicable_pauschale(
             code, context, pauschale_bedingungen_data, tabellen_dict_by_table
         )
 
+        try:
+            structured_cond = check_pauschale_conditions_structured(
+                code,
+                context,
+                pauschale_bedingungen_data,
+                tabellen_dict_by_table,
+                lang,
+                pauschalen_dict=pauschalen_dict,
+            )
+        except Exception:
+            structured_cond = None
+
+        sources = candidate_lkn_sources.get(code, [])
+        unique_sources = []
+        seen_signatures = set()
+        for s in sources:
+            signature = (s['lkn'], s['source'], s['table'])
+            if signature not in seen_signatures:
+                unique_sources.append(s)
+                seen_signatures.add(signature)
+
         evaluated_candidates.append({
             "code": code,
             "details": pauschalen_dict[code],
             "is_valid_structured": is_pauschale_valid_structured,
             "bedingungs_pruef_html": bedingungs_html,
+            "conditions_structured": structured_cond,
             "taxpunkte": tp_val,
             "requires_icd": requires_icd,
             "matched_lkn_count": matched_lkn_count,
+            "lkn_match_sources": sorted(unique_sources, key=lambda x: (x['lkn'], x['source'], x['table'] or '')),
         })
 
     valid_candidates = [cand for cand in evaluated_candidates if cand["is_valid_structured"]]
@@ -1933,17 +2751,6 @@ def determine_applicable_pauschale(
                 selection_type_message,
             )
 
-            if not use_icd_flag:
-                non_icd_candidates = [c for c in chosen_list_for_selection if not c.get('requires_icd')]
-                if non_icd_candidates:
-                    filtered_out = len(chosen_list_for_selection) - len(non_icd_candidates)
-                    if filtered_out:
-                        logger.info(
-                            "INFO: Ignoriere %s Kandidaten mit ICD-Bedingungen, weil useIcd deaktiviert ist.",
-                            filtered_out,
-                        )
-                    chosen_list_for_selection = non_icd_candidates
-
             # Score je Kandidat ermitteln (hier einfach Taxpunkte als Beispiel)
             for cand in chosen_list_for_selection:
                 cand["score"] = cand.get("taxpunkte", 0)
@@ -1952,10 +2759,16 @@ def determine_applicable_pauschale(
             def sort_key_score_suffix(candidate):
                 code_str = str(candidate['code'])
                 match = re.search(r"([A-Z])$", code_str)
-                suffix_ord = ord(match.group(1)) if match else ord('Z') + 1
+                if match:
+                    suffix_ord = ord(match.group(1))
+                else:
+                    suffix_ord = ord('Z') + 1
                 matches = candidate.get('matched_lkn_count', 0)
-                icd_penalty = 1 if (not use_icd_flag and candidate.get('requires_icd')) else 0
-                return (-matches, icd_penalty, -candidate.get("score", 0), suffix_ord)
+                return (
+                    -matches,
+                    suffix_ord,
+                    -candidate.get("score", 0),
+                )
 
             chosen_list_for_selection.sort(key=sort_key_score_suffix)
             selected_candidate_info = chosen_list_for_selection[0]
@@ -1997,7 +2810,8 @@ def determine_applicable_pauschale(
             pauschale_bedingungen_data,
             tabellen_dict_by_table,
             leistungskatalog_dict,
-            lang
+            lang,
+            pauschalen_dict=pauschalen_dict,
         )
         bedingungs_pruef_html_result = condition_result_html_dict.get("html", "<p class='error'>Fehler bei HTML-Generierung der Bedingungen.</p>")
         # Errors from check_pauschale_conditions itself (if any were designed to be returned, currently it's an empty list)
@@ -2039,6 +2853,50 @@ def determine_applicable_pauschale(
     # Liste aller potenziell geprüften Pauschalen (vor der Validierung)
     pauschale_erklaerung_html += "<ul>"
     for cand_eval in sorted(evaluated_candidates, key=lambda x: x['code']):
+        sources = cand_eval.get("lkn_match_sources") or []
+        
+        # Strikte LKN-basierte Filterung: Eine Pauschale wird in der Erklärung nur
+        # angezeigt, wenn sie mindestens einen relevanten LKN-Bezug zum Kontext hat.
+        # Kandidaten ohne LKN-Quellen (z.B. nur durch semantische Suche gefunden)
+        # werden somit ausgeblendet.
+        
+        # Prüfen, ob es überhaupt LKN-Quellen gibt.
+        if not sources:
+            continue
+
+        # Prüfen, ob mindestens eine dieser Quellen als "relevant" gilt.
+        found_relevant_source = False
+        for source in sources:
+            if source['source'] == 'direct':
+                lkn = source['lkn']
+                tables_for_lkn = _get_tables_for_context_lkn(lkn)
+                # Ein direkter Treffer ist relevant, wenn die LKN in keiner Tabelle ist
+                # oder in mindestens einer NICHT ausgeschlossenen Tabelle vorkommt.
+                if not tables_for_lkn or (tables_for_lkn - excluded_lkn_tables):
+                    found_relevant_source = True
+                    break
+            elif source['source'] == 'table':
+                # Ein Tabellen-Treffer ist relevant, wenn die Tabelle nicht ausgeschlossen ist.
+                if source['table'] and source['table'].lower() not in excluded_lkn_tables:
+                    found_relevant_source = True
+                    break
+        
+        # Wenn nach Prüfung aller Quellen keine relevante gefunden wurde, überspringen.
+        if not found_relevant_source:
+            # Ausnahme: C9x-Pauschalen (Fallbacks) werden nie aufgrund von LKN-Irrelevanz ausgeblendet.
+            if not is_pauschale_code_ge_c90(cand_eval.get('code')):
+                continue
+
+        # Alte Logik (jetzt ersetzt durch die obige, explizitere Prüfung)
+        all_sources_are_irrelevant = not found_relevant_source
+
+        # C9x Pauschalen sind generische Fallbacks und sollten nie ausgefiltert werden.
+        if is_pauschale_code_ge_c90(cand_eval.get('code')):
+            all_sources_are_irrelevant = False
+            
+        if all_sources_are_irrelevant:
+            continue
+
         if cand_eval['is_valid_structured']:
             status = translate('conditions_met', lang)
             status_text = f"<span style=\"color:green;\">{status}</span>"
@@ -2046,32 +2904,43 @@ def determine_applicable_pauschale(
             status = translate('conditions_not_met', lang)
             status_text = f"<span style=\"color:red;\">{status}</span>"
         code_str = escape(cand_eval['code'])
-        link = f"<a href='#' class='pauschale-exp-link' data-code='{code_str}'>{code_str}</a>"
+        link = (
+            f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+            f"data-code='{code_str}'>{code_str}</a>"
+        )
         pauschale_erklaerung_html += (
-            f"<li><b>{link}</b>: "
+            f"<li><b>{link}</b> "
             f"{escape(get_lang_field(cand_eval['details'], PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')} "
             f"{status_text}</li>"
         )
     pauschale_erklaerung_html += "</ul>"
+
+    best_code_safe = escape(str(best_pauschale_code))
+    best_code_link = (
+        f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+        f"data-code='{best_code_safe}'>{best_code_safe}</a>"
+    )
+    best_desc_safe = escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')
+
     
     if lang == 'fr':
         pauschale_erklaerung_html += (
-            f"<p><b>Choix : {escape(best_pauschale_code)}</b> "
-            f"({escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')}) - "
+            f"<p><b>Choix : {best_code_link}</b> "
+            f"({best_desc_safe}) - "
             "comme forfait avec la lettre suffixe la plus basse (p. ex. A avant B) parmi les candidats valides "
             "de la catégorie privilégiée (forfaits spécifiques avant forfaits de secours C9x).</p>"
         )
     elif lang == 'it':
         pauschale_erklaerung_html += (
-            f"<p><b>Selezionato: {escape(best_pauschale_code)}</b> "
-            f"({escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')}) - "
+            f"<p><b>Selezionato: {best_code_link}</b> "
+            f"({best_desc_safe}) - "
             "come forfait con la lettera suffisso più bassa (es. A prima di B) tra i candidati validi "
             "della categoria preferita (forfait specifici prima dei forfait di fallback C9x).</p>"
         )
     else:
         pauschale_erklaerung_html += (
-            f"<p><b>Ausgewählt wurde: {escape(best_pauschale_code)}</b> "
-            f"({escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')}) - "
+            f"<p><b>Ausgewählt wurde: {best_code_link}</b> "
+            f"({best_desc_safe}) - "
             f"als die Pauschale mit dem niedrigsten Suffix-Buchstaben (z.B. A vor B) unter den gültigen Kandidaten "
             f"der bevorzugten Kategorie (spezifische Pauschalen vor Fallback-Pauschalen C9x).</p>"
         )
@@ -2168,26 +3037,61 @@ def determine_applicable_pauschale(
     unique_icds_dict_result = {icd_item['Code']: icd_item for icd_item in potential_icds_list if icd_item.get('Code')}
     best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted(unique_icds_dict_result.values(), key=lambda x: x['Code'])
 
+    # Try to attach structured conditions for the selected Pauschale, if available
+    selected_structured = None
+    try:
+        if selected_candidate_info:
+            selected_structured = check_pauschale_conditions_structured(
+                str(selected_candidate_info['code']),
+                context,
+                pauschale_bedingungen_data,
+                tabellen_dict_by_table,
+                lang,
+                pauschalen_dict=pauschalen_dict,
+            )
+    except Exception:
+        selected_structured = None
+
+    # Finale Filterung der an das Frontend gesendeten Datenliste.
+    # Nur Pauschalen aus derselben "Familie" (z.B. C08.50x) und Fallbacks (C9x) behalten.
+    stamm_prefix = None
+    if best_pauschale_code and best_pauschale_code[-1].isalpha():
+        stamm_prefix = best_pauschale_code[:-1]
+
+    if stamm_prefix:
+        final_evaluated_pauschalen = [
+            cand for cand in evaluated_candidates
+            if str(cand['code']).startswith(stamm_prefix) or is_pauschale_code_ge_c90(cand['code'])
+        ]
+    else:
+        # Fallback, falls der beste Code keinem erwarteten Muster folgt,
+        # um eine leere Liste zu vermeiden.
+        final_evaluated_pauschalen = evaluated_candidates
+
     final_result_dict = {
         "type": "Pauschale",
         "details": best_pauschale_details,
         "bedingungs_pruef_html": bedingungs_pruef_html_result,
         "bedingungs_fehler": condition_errors_html_gen, # Fehler aus der HTML-Generierung
         "conditions_met": True, # Da wir hier nur landen, wenn eine Pauschale als gültig ausgewählt wurde
-        "evaluated_pauschalen": evaluated_candidates
+        "evaluated_pauschalen": final_evaluated_pauschalen,
+        "conditions_structured": selected_structured,
     }
     return final_result_dict
 
 
 # --- HILFSFUNKTIONEN (auf Modulebene) ---
-def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set:
+def get_simplified_conditions(
+    pauschale_code: str,
+    bedingungen_data: list[dict[str, Any]],
+) -> set[tuple[Any, Any]]:
     """
     Wandelt Bedingungen in eine vereinfachte, vergleichbare Darstellung (Set von Tupeln) um.
     Dies dient dazu, Unterschiede zwischen Pauschalen auf einer höheren Ebene zu identifizieren.
     Die Logik hier muss nicht alle Details der `check_single_condition` abbilden,
     sondern eher die Art und den Hauptwert der Bedingung.
     """
-    simplified_set = set()
+    simplified_set: set[tuple[Any, Any]] = set()
     PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
     BED_FELD_KEY = 'Feld'; BED_MIN_KEY = 'MinWert'; BED_MAX_KEY = 'MaxWert'
     BED_VERGLEICHSOP_KEY = 'Vergleichsoperator' # Hinzugefügt
@@ -2200,7 +3104,7 @@ def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict])
         feld = str(cond.get(BED_FELD_KEY, "")).strip()
         vergleichsop = str(cond.get(BED_VERGLEICHSOP_KEY, "=")).strip() # Default '='
         
-        condition_tuple = None
+        condition_tuple: Optional[tuple[Any, Any]] = None
         # Normalisiere Typen für den Vergleich
         # Ziel ist es, semantisch ähnliche Bedingungen gleich zu behandeln
         
@@ -2216,8 +3120,8 @@ def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict])
             final_cond_type_for_comparison = 'LKN_LIST'
             condition_tuple = (final_cond_type_for_comparison, tuple(sorted([lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]))) # LKNs als sortiertes Tuple
         elif typ_original in ["HAUPTDIAGNOSE IN LISTE", "ICD"]:
-             final_cond_type_for_comparison = 'ICD_LIST'
-             condition_tuple = (final_cond_type_for_comparison, tuple(sorted([icd.strip().upper() for icd in wert.split(',') if icd.strip()])))
+            final_cond_type_for_comparison = 'ICD_LIST'
+            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([icd.strip().upper() for icd in wert.split(',') if icd.strip()])))
         elif typ_original in ["MEDIKAMENTE IN LISTE", "GTIN"]:
             final_cond_type_for_comparison = 'MEDICATION_LIST'
             condition_tuple = (final_cond_type_for_comparison, tuple(sorted([med.strip().upper() for med in wert.split(',') if med.strip()])))
@@ -2264,9 +3168,9 @@ def get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict])
 
 
 def generate_condition_detail_html(
-    condition_tuple: tuple,
-    leistungskatalog_dict: Dict, # Für LKN-Beschreibungen
-    tabellen_dict_by_table: Dict,  # Für Tabelleninhalte und ICD-Beschreibungen
+    condition_tuple: tuple[Any, Any],
+    leistungskatalog_dict: Dict[str, Dict[str, Any]], # Für LKN-Beschreibungen
+    tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]],  # Für Tabelleninhalte und ICD-Beschreibungen
     lang: str = 'de'
     ) -> str:
     """

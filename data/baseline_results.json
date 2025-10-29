@@ -163,7 +163,7 @@
   "8": {
     "query": {
       "de": "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin",
-      "fr": "Articulation temporo-mandibulaire, luxation, réduction fermée avec anesthésie réalisée par l'anesthésiste",
+      "fr": "Articulation temporo-mandibulaire, réduction fermée d'une luxation, anésthesie par anésthesiste",
       "it": "Articolazione temporo-mandibolare, lussazione, riduzione a cielo chiuso con anestesia eseguita dall'anestesista"
     },
     "baseline": {
@@ -252,13 +252,13 @@
   },
   "14": {
     "query": {
-      "de": "Fingerfraktur, Nagelung",
+      "de": "Fingerfraktur, Nagelung geschlossen",
       "fr": "Fracture du doigt, enclouage",
       "it": "Frattura del dito, chiodaggio"
     },
     "baseline": {
       "pauschale": {
-        "code": "C08.30F",
+        "code": "C08.50E",
         "qty": 1
       },
       "einzelleistungen": []
@@ -267,13 +267,13 @@
   },
   "15": {
     "query": {
-      "de": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
-      "fr": "Fracture du doigt, enclouage avec anesthésie par un anesthésiste",
-      "it": "Frattura delle dita, chiodatura con anestesia praticata da un'anestesista"
+      "de": "Fingerfraktur, Nagelung geschlossen mit Anästhesie durch Anästhesistin",
+      "fr": "Fracture du doigt, enclouage fermé avec anesthésie par un anesthésiste",
+      "it": "Frattura delle dita, chiodatura chiuso con anestesia praticata da un'anestesista"
     },
     "baseline": {
       "pauschale": {
-        "code": "C08.30E",
+        "code": "C08.50A",
         "qty": 1
       },
       "einzelleistungen": []

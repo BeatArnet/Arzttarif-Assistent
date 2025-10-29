@@ -50,6 +50,14 @@ Weitere nützliche Aufrufe
 - Nur Synonym‑Tests: `python -m pytest tests -k synonyms -q`
 - LLM‑Konnektivitätstests auslassen: `python -m pytest -k "not llm_connectivity" -q`
 
+## Dateicodierung
+
+- Alle Textdateien werden als UTF‑8 ohne BOM gespeichert.
+- Bei Anzeigeproblemen mit Umlauten das Repository einmalig normalisieren:
+  `python scripts/normalize_encoding.py`.
+- Für reine Prüfungen ohne Änderungen `--dry-run` ergänzen.
+- Vor dem Commit `python scripts/normalize_encoding.py --dry-run` ausführen, um unbeabsichtigte Rückfälle zu erkennen.
+
 LLM‑Konnektivität aktivieren (optional)
 - Setze je nach Provider API‑Keys und ggf. Base‑URLs:
   - PowerShell: `setx GEMINI_API_KEY "..."`; für die aktuelle Session: `$env:GEMINI_API_KEY="..."`

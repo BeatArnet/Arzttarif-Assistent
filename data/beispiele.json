@@ -15,7 +15,7 @@
     "value_FR": "Consultation 10 min, ablation verrue 5 min, passage en dermatologie",
     "extendedValue_FR": "Consultation médicale de 10 minutes et curetage d'une verrue (durée 5 minutes); temps de changement, salle traitement dermatologique",
     "value_IT": "Consultazione 10 minuti, rimozione di una verruca 5 minuti, passaggio a dermatologia",
-    "extendedValue_IT": "ConsultaConsultazione 10 minuti e rimozione della verruca con un cucchiaio affilato 5 minuti, con tempo di passaggio alla dermatologia"
+    "extendedValue_IT": "Consultazione 10 minuti e rimozione della verruca con un cucchiaio affilato 5 minuti, con tempo di passaggio alla dermatologia"
   },
   {
     "label": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch",
@@ -67,7 +67,7 @@
     "value_DE": "Kiefergelenk, Luxation. Geschlossene Reposition, Anästhesie",
     "extendedValue_DE": "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin",
     "value_FR": "Articulation temporo-mandibulaire, luxation, réduction, anesthésie",
-    "extendedValue_FR": "Articulation temporo-mandibulaire, luxation, réduction fermée avec anesthésie réalisée par l'anesthésiste",
+    "extendedValue_FR": "Articulation temporo-mandibulaire, luxation, réduction fermée, anesthésie réalisée par l'anesthésiste",
     "value_IT": "Articolazione temporo-mandibolare, lussazione, riduzione, anestesia",
     "extendedValue_IT": "Articolazione temporo-mandibolare, lussazione, riduzione a cielo chiuso con anestesia eseguita dall'anestesista"
   },
@@ -78,7 +78,7 @@
     "value_FR": "Explication au patient et biopsie hépatique transcutanée",
     "extendedValue_FR": "Information du patient et biopsie hépatique percutanée",
     "value_IT": "Spiegazione al paziente e biopsia epatica percutanea",
-    "extendedValue_IT": "Spiegazione al paziente e biopsia epatica percutanea"
+    "extendedValue_IT": "Spiegazione al paziente, biopsia epatica percutanea"
   },
   {
     "label": "Blinddarmentfernung",
@@ -119,20 +119,20 @@
   {
     "label": "Fingerfraktur, Nagelung",
     "value_DE": "Fingerfraktur, Nagelung",
-    "extendedValue_DE": "Fingerfraktur, Nagelung",
+    "extendedValue_DE": "Fingerfraktur, Nagelung geschlossen",
     "value_FR": "Fracture du doigt, enclouage",
-    "extendedValue_FR": "Fracture du doigt, enclouage",
+    "extendedValue_FR": "Fracture du doigt, enclouage fermé",
     "value_IT": "Frattura del dito, chiodaggio",
-    "extendedValue_IT": "Frattura del dito, chiodaggio"
+    "extendedValue_IT": "Frattura del dito, chiodaggio chiuso"
   },
   {
     "label": "Fingerfraktur, Nagelung mit Anästhesie",
     "value_DE": "Fingerfraktur, Nagelung mit Anästhesie",
-    "extendedValue_DE": "Fingerfraktur, Nagelung mit Anästhesie durch Anästhesistin",
+    "extendedValue_DE": "Fingerfraktur, Nagelung geschlossen mit Anästhesie durch Anästhesistin",
     "value_FR": "Fracture du doigt, enclouage avec anesthésie",
-    "extendedValue_FR": "Fracture du doigt, enclouage avec anesthésie par un anesthésiste",
+    "extendedValue_FR": "Fracture du doigt, enclouage fermé avec anesthésie par un anesthésiste",
     "value_IT": "Frattura delle dita, chiodatura con anestesia",
-    "extendedValue_IT": "Frattura delle dita, chiodatura con anestesia praticata da un'anestesista"
+    "extendedValue_IT": "Frattura delle dita, chiodatura chiuso con anestesia praticata da un'anestesista"
   },
   {
     "label": "Hypoglossusstimulator",

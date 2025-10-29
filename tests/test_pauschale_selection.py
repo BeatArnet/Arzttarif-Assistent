@@ -1,6 +1,6 @@
-import unittest
 import sys
 import pathlib
+import unittest
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -136,8 +136,217 @@ class TestPauschaleSelection(unittest.TestCase):
             {},
             {"C90.01A", "C90.01B"},
         )
-        self.assertEqual(result["details"]["Pauschale"], "C90.01B")
+        self.assertEqual(result["details"]["Pauschale"], "C90.01A")
         self.assertTrue(result["bedingungs_pruef_html"].startswith("<"))
+
+    def test_prefers_higher_letter_priority(self):
+        pauschalen_dict = {
+            "C06.00A": {
+                "Pauschale": "C06.00A",
+                "Pauschale_Text": "A-Variante",
+                "Taxpunkte": "150",
+            },
+            "C06.00B": {
+                "Pauschale": "C06.00B",
+                "Pauschale_Text": "B-Variante",
+                "Taxpunkte": "180",
+            },
+        }
+        # Beide Kandidaten erfüllen dieselben Bedingungen mit gleicher Match-Anzahl.
+        result = determine_applicable_pauschale(
+            "",
+            [],
+            {"LKN": ["X"]},
+            [],
+            [
+                {
+                    "Pauschale": "C06.00A",
+                    "Bedingungstyp": "LKN",
+                    "Werte": "X",
+                },
+                {
+                    "Pauschale": "C06.00B",
+                    "Bedingungstyp": "LKN",
+                    "Werte": "X",
+                },
+            ],
+            pauschalen_dict,
+            {},
+            {},
+            {"C06.00A", "C06.00B"},
+        )
+
+        self.assertEqual(result["details"]["Pauschale"], "C06.00A")
+
+    def test_filters_candidates_with_only_irrelevant_table_hits(self):
+        pauschalen_dict = {
+            "A01.00A": {
+                "Pauschale": "A01.00A",
+                "Pauschale_Text": "Valide Option",
+                "Taxpunkte": "200",
+            },
+            "B01.00A": {
+                "Pauschale": "B01.00A",
+                "Pauschale_Text": "Nur OR Tabelle",
+                "Taxpunkte": "50",
+            },
+        }
+        bedingungen = [
+            {
+                "Pauschale": "A01.00A",
+                "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE",
+                "Werte": "MATCH",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+            {
+                "Pauschale": "B01.00A",
+                "Bedingungstyp": "LKN IN TABELLE",
+                "Werte": "OR",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+            {
+                "Pauschale": "B01.00A",
+                "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE",
+                "Werte": "ANDERE",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+        ]
+        tabellen_dict_by_table = {
+            "or": [
+                {
+                    "Code": "IRRLKN",
+                    "Tabelle_Typ": "service_catalog",
+                }
+            ],
+            "weitere": [
+                {
+                    "Code": "IRRLKN",
+                    "Tabelle_Typ": "service_catalog",
+                }
+            ],
+        }
+        leistungskatalog_dict = {
+            "MATCH": {"Beschreibung": "Match"},
+            "IRRLKN": {"Beschreibung": "Irr"},
+        }
+
+        result = determine_applicable_pauschale(
+            "",
+            [],
+            {"LKN": ["MATCH", "IRRLKN"], "useIcd": True},
+            [],
+            bedingungen,
+            pauschalen_dict,
+            leistungskatalog_dict,
+            tabellen_dict_by_table,
+        )
+
+        evaluated_codes = {cand["code"] for cand in result.get("evaluated_pauschalen", [])}
+        self.assertIn("B01.00A", evaluated_codes)
+
+        irrelevant_candidate = next(
+            cand for cand in result["evaluated_pauschalen"] if cand["code"] == "B01.00A"
+        )
+        self.assertEqual(
+            irrelevant_candidate["lkn_match_sources"],
+            [{"lkn": "IRRLKN", "source": "table", "table": "or"}],
+        )
+
+        erklaerung = result["details"].get("pauschale_erklaerung_html", "")
+        self.assertIn("A01.00A", erklaerung)
+        self.assertNotIn("B01.00A", erklaerung)
+
+    def test_filters_candidates_with_only_anast_matches(self):
+        pauschalen_dict = {
+            "A01.00A": {
+                "Pauschale": "A01.00A",
+                "Pauschale_Text": "Valide Option",
+                "Taxpunkte": "200",
+            },
+            "B01.00A": {
+                "Pauschale": "B01.00A",
+                "Pauschale_Text": "Nur Anästhesie",
+                "Taxpunkte": "50",
+            },
+        }
+        bedingungen = [
+            {
+                "Pauschale": "A01.00A",
+                "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE",
+                "Werte": "MATCH",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+            {
+                "Pauschale": "B01.00A",
+                "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE",
+                "Werte": "WA.10.0050",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+            {
+                "Pauschale": "B01.00A",
+                "Bedingungstyp": "LEISTUNGSPOSITIONEN IN TABELLE",
+                "Werte": "ANAST",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+            {
+                "Pauschale": "B01.00A",
+                "Bedingungstyp": "ICD",
+                "Werte": "NO_MATCH",
+                "Gruppe": 1,
+                "Operator": "UND",
+            },
+        ]
+        pauschale_lp_data = [
+            {"Pauschale": "A01.00A", "Leistungsposition": "MATCH"},
+            {"Pauschale": "B01.00A", "Leistungsposition": "WA.10.0050"},
+        ]
+        tabellen_dict_by_table = {
+            "anast": [
+                {
+                    "Code": "WA.10.0050",
+                    "Tabelle_Typ": "service_catalog",
+                }
+            ]
+        }
+        leistungskatalog_dict = {
+            "MATCH": {"Beschreibung": "Match"},
+            "WA.10.0050": {"Beschreibung": "Anästhesie"},
+        }
+
+        result = determine_applicable_pauschale(
+            "",
+            [],
+            {"LKN": ["MATCH", "WA.10.0050"], "useIcd": True},
+            pauschale_lp_data,
+            bedingungen,
+            pauschalen_dict,
+            leistungskatalog_dict,
+            tabellen_dict_by_table,
+        )
+
+        evaluated_codes = {cand["code"] for cand in result.get("evaluated_pauschalen", [])}
+        self.assertIn("B01.00A", evaluated_codes)
+
+        anast_candidate = next(
+            cand for cand in result["evaluated_pauschalen"] if cand["code"] == "B01.00A"
+        )
+        self.assertEqual(
+            anast_candidate["lkn_match_sources"],
+            [
+                {"lkn": "WA.10.0050", "source": "direct", "table": None},
+                {"lkn": "WA.10.0050", "source": "table", "table": "anast"},
+            ],
+        )
+
+        erklaerung = result["details"].get("pauschale_erklaerung_html", "")
+        self.assertIn("A01.00A", erklaerung)
+        self.assertNotIn("B01.00A", erklaerung)
 
 
 if __name__ == "__main__":
