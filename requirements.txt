@@ -1,9 +1,10 @@
-Flask
-requests
+faiss-cpu==1.12.0
+sentence-transformers==2.2.2
+huggingface-hub==0.25.2
+flask
 python-dotenv
-gunicorn
-google-generativeai
-pytest
+requests
 openai
-# Optional: only needed for RAG/embeddings (installe separat)
-# sentence-transformers
+bleach
+pytest
+anyio

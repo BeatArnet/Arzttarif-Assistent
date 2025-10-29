@@ -1,5 +1,5 @@
 // calculator.js - Vollständige Version (06.05.2025)
-console.info('calculator.js build 2025-09-22T1215 loaded');
+console.info('calculator.js build 2025-09-23T1245 loaded');
 // Arbeitet mit zweistufigem Backend (Mapping-Ansatz). Holt lokale Details zur Anzeige.
 // Mit Mouse Spinner & strukturierter Ausgabe
 
@@ -42,20 +42,29 @@ let data_dignitaeten = []; // For DIGNITAETEN.json
 let interpretationMap = {};
 let groupInfoMap = {};
 let dignitaetenMap = {}; // For mapping dignity codes to text
+let lknPauschaleMap = new Map();
+let pauschalenLookup = new Map();
+let tableRowsLookup = new Map();
+let tableDataCache = new Map();
+let tableDisplayNameLookup = new Map();
 
 // Zusätzliche Pauschalen-Infos
 let selectedPauschaleDetails = null;
+let selectedPauschaleConditionHtml = '';
 let evaluatedPauschalenList = [];
 let lastBackendResponse = null; // Speichert die letzte Serverantwort für Feedback
 let lastUserInput = "";
 let progressTimes = {};
 let elapsedTimer = null;
 let llm1BarInterval = null;
+let currentProgressPercent = 0;
+let progressHintTimeouts = [];
 // ICD-Filtermodus: 'all' | 'pauschale'
 let icdFilterMode = 'all';
 // Spiegeln auf window, damit inline-Scripts (index.html) darauf zugreifen können
 window.icdFilterMode = icdFilterMode;
 window.selectedPauschaleDetails = selectedPauschaleDetails;
+window.selectedPauschaleConditionHtml = selectedPauschaleConditionHtml;
 
 function getHiddenIcdToggleInput(){
     return document.getElementById('icdToggleState');
@@ -103,9 +112,11 @@ function showIcdToggle(show){
     }
 }
 
-function updateSelectedPauschaleDetails(details){
+function updateSelectedPauschaleDetails(details, conditionHtml = ''){
     selectedPauschaleDetails = details || null;
+    selectedPauschaleConditionHtml = typeof conditionHtml === 'string' ? conditionHtml : '';
     window.selectedPauschaleDetails = selectedPauschaleDetails;
+    window.selectedPauschaleConditionHtml = selectedPauschaleConditionHtml;
 }
 
 // Exporte für index.html Inline-Skript
@@ -187,6 +198,7 @@ const DYN_TEXT = {
         pauschaleCode: 'Pauschale',
         description: 'Beschreibung',
         taxpoints: 'Taxpunkte',
+        pauschaleSummaryTitle: 'Pauschalen-Details',
         reasonPauschale: 'Begründung Pauschalenauswahl',
         pauschaleDetails: 'Details Pauschale',
         condDetails: 'Details Pauschalen-Bedingungsprüfung',
@@ -194,6 +206,9 @@ const DYN_TEXT = {
         overallNotOk: 'Gesamtlogik NICHT erfüllt',
         logicOk: '(Logik erfüllt)',
         logicNotOk: '(Logik NICHT erfüllt)',
+        logicStatusLabel: 'Logikstatus',
+        dignitiesNone: 'Keine Dignitäten hinterlegt.',
+        implantsNotIncluded: 'Keine Implantate enthalten.',
         errorLkn: 'Fehler: Details für LKN {lkn} nicht gefunden!',
         noData: 'Keine Daten vorhanden.',
         groupNoData: 'Keine Daten zur Leistungsgruppe {code}.',
@@ -201,19 +216,37 @@ const DYN_TEXT = {
         thIcdCode: 'ICD Code',
         thIcdText: 'Beschreibung',
         diffTaxpoints: 'Differenz Taxpunkte',
+        implantsLabel: 'Implantate',
         implantsIncluded: 'Implantate inbegriffen',
+        implantsIncludedHint: 'Implantate sind Bestandteil dieser Pauschale.',
         dignitiesLabel: 'Dignitäten',
+        lknInterpretation: 'Medizinische Interpretation',
+        lknGroupsTitle: 'Leistungsgruppen',
+        lknRulesTitle: 'Regelhinweise',
+        lknRelatedPauschalen: 'Weitere Pauschalen mit dieser LKN',
+        lknRelatedPauschalenNone: 'Keine weiteren Pauschalen mit dieser LKN gefunden.',
+        lknRelatedPauschalenMore: '... und {count} weitere.',
+        lknRelatedDirect: 'Direkte Zuordnungen',
+        lknRelatedTableRefs: 'Tabellenreferenzen',
+        lknPauschaleTableSourceSingle: 'Quelle: Tabelle {table}',
+        lknPauschaleTableSourceMulti: 'Quelle: Tabellen {tables}',
+        pauschaleRuleLogicTitle: 'Prüflogik',
+        logicOperatorAnd: 'UND',
+        logicOperatorOr: 'ODER',
+        logicOperatorNot: 'NICHT',
+        lknTableGroupSummary: 'Tabelle {table} ({count} Pauschalen)',
+        lknTableBodyIntro: 'Aus Tabelle {table}:',
+        lknTableShowAll: 'Komplette Tabelle anzeigen',
+        lknTableNoEntries: 'Keine Pauschalen aus dieser Tabelle gefunden.',
+        lknMetaTotalLabel: 'Total (AL + IPL)',
         descriptionNotFound: 'Beschreibung nicht gefunden',
-        progressLLM1Request: 'Anfrage an LLM 1 gestellt...',
-        progressLLM1Response: 'Antwort von LLM 1 erhalten...',
-        progressPlausi: 'Plausibilisierung läuft...',
-        progressLLM2Request: 'Anfrage an LLM 2 gestellt...',
-        progressLLM2Response: 'Antwort von LLM 2 erhalten...',
-        progressFinal: 'Finale Plausibilisierung...',
-        progressDone: 'Fertig.',
-        progressQuery: 'Anfrage: «{text}»',
-        progressDuration: 'Dauer: {ms} ms',
-        progressCandidates: 'Mögliche LKN: {count}'
+        progressHintPrepare: 'Anfrage an die KI wird vorbereitet',
+        progressHintLlm1Processing: 'Anfrage an die KI gestellt und wird verarbeitet',
+        progressHintLlm1Review: 'Antwort der KI erhalten; Prüfung läuft',
+        progressHintLlm2Processing: 'Vertiefte Analyse läuft',
+        progressHintRuleCheck: 'Regellogik wird ausgeführt',
+        progressHintFinalizing: 'Ergebnisdarstellung wird aufgebaut',
+        progressHintDone: 'Analyse abgeschlossen'
     },
     fr: {
         spinnerWorking: 'Vérification en cours...',
@@ -249,6 +282,7 @@ const DYN_TEXT = {
         pauschaleCode: 'Code forfait',
         description: 'Description',
         taxpoints: 'Points',
+        pauschaleSummaryTitle: 'Détails du forfait',
         reasonPauschale: 'Justification du choix du forfait',
         pauschaleDetails: 'Détails forfait',
         condDetails: 'Détails vérification des conditions du forfait',
@@ -256,6 +290,9 @@ const DYN_TEXT = {
         overallNotOk: 'Logique globale NON remplie',
         logicOk: '(Logique remplie)',
         logicNotOk: '(Logique NON remplie)',
+        logicStatusLabel: 'Statut logique',
+        dignitiesNone: 'Aucune dignité définie.',
+        implantsNotIncluded: 'Aucun implant inclus.',
         errorLkn: 'Erreur : détails pour NPL {lkn} introuvables !',
         noData: 'Aucune donnée disponible.',
         groupNoData: 'Aucune donnée pour le groupe de prestations {code}.',
@@ -263,19 +300,37 @@ const DYN_TEXT = {
         thIcdCode: 'Code ICD',
         thIcdText: 'Description',
         diffTaxpoints: 'Différence points tarifaires',
+        implantsLabel: 'Implants',
         implantsIncluded: 'Implants inclus',
+        implantsIncludedHint: 'Les implants sont inclus dans ce forfait.',
         dignitiesLabel: 'Dignités',
+        lknInterpretation: 'Interprétation médicale',
+        lknGroupsTitle: 'Groupes de prestations',
+        lknRulesTitle: 'Indications des règles',
+        lknRelatedPauschalen: 'Autres forfaits contenant ce code',
+        lknRelatedPauschalenNone: 'Aucun autre forfait contenant ce code.',
+        lknRelatedPauschalenMore: '... et {count} autres.',
+        lknRelatedDirect: 'Correspondances directes',
+        lknRelatedTableRefs: 'Références de table',
+        lknPauschaleTableSourceSingle: 'Source : table {table}',
+        lknPauschaleTableSourceMulti: 'Source : tables {tables}',
+        pauschaleRuleLogicTitle: 'Logique de vérification',
+        logicOperatorAnd: 'ET',
+        logicOperatorOr: 'OU',
+        logicOperatorNot: 'NON',
+        lknTableGroupSummary: 'Table {table} ({count} forfaits)',
+        lknTableBodyIntro: 'Depuis la table {table} :',
+        lknTableShowAll: 'Afficher la table complète',
+        lknTableNoEntries: 'Aucun forfait trouvé dans cette table.',
+        lknMetaTotalLabel: 'Total (AL + IPL)',
         descriptionNotFound: 'Description non trouvée',
-        progressLLM1Request: 'Requête au LLM 1 envoyée...',
-        progressLLM1Response: 'Réponse du LLM 1 reçue...',
-        progressPlausi: 'Vérification de plausibilité...',
-        progressLLM2Request: 'Requête au LLM 2 envoyée...',
-        progressLLM2Response: 'Réponse du LLM 2 reçue...',
-        progressFinal: 'Plausibilisation finale...',
-        progressDone: 'Terminé.',
-        progressQuery: 'Requête : «{text}»',
-        progressDuration: 'Durée : {ms} ms',
-        progressCandidates: 'NPL potentielles : {count}'
+        progressHintPrepare: 'La requête à l\'IA est en préparation',
+        progressHintLlm1Processing: 'Requête envoyée à l\'IA; traitement en cours',
+        progressHintLlm1Review: 'Réponse de l\'IA reçue; vérification en cours',
+        progressHintLlm2Processing: 'Analyse approfondie en cours',
+        progressHintRuleCheck: 'Logique de contrôle en cours d\'exécution',
+        progressHintFinalizing: 'Préparation de la présentation du résultat',
+        progressHintDone: 'Analyse terminée'
     },
     it: {
         spinnerWorking: 'Verifica in corso...',
@@ -311,6 +366,7 @@ const DYN_TEXT = {
         pauschaleCode: 'Codice forfait',
         description: 'Descrizione',
         taxpoints: 'Punti',
+        pauschaleSummaryTitle: 'Dettagli forfait',
         reasonPauschale: 'Motivazione scelta forfait',
         pauschaleDetails: 'Dettagli forfait',
         condDetails: 'Dettagli verifica condizioni forfait',
@@ -318,6 +374,9 @@ const DYN_TEXT = {
         overallNotOk: 'Logica complessiva NON soddisfatta',
         logicOk: '(Logica soddisfatta)',
         logicNotOk: '(Logica NON soddisfatta)',
+        logicStatusLabel: 'Stato logico',
+        dignitiesNone: 'Nessuna dignità definita.',
+        implantsNotIncluded: 'Nessun impianto incluso.',
         errorLkn: 'Errore: dettagli per NPL {lkn} non trovati!',
         noData: 'Nessun dato disponibile.',
         groupNoData: 'Nessun dato per il gruppo di prestazioni {code}.',
@@ -325,19 +384,37 @@ const DYN_TEXT = {
         thIcdCode: 'Codice ICD',
         thIcdText: 'Descrizione',
         diffTaxpoints: 'Differenza punti tariffari',
+        implantsLabel: 'Impianti',
         implantsIncluded: 'Impianti inclusi',
+        implantsIncludedHint: 'Gli impianti sono inclusi in questo forfait.',
         dignitiesLabel: 'Dignità',
+        lknInterpretation: 'Interpretazione medica',
+        lknGroupsTitle: 'Gruppi di prestazioni',
+        lknRulesTitle: 'Indicazioni sulle regole',
+        lknRelatedPauschalen: 'Altri forfait con questo codice',
+        lknRelatedPauschalenNone: 'Nessun altro forfait con questo codice.',
+        lknRelatedPauschalenMore: '... e altri {count}.',
+        lknRelatedDirect: 'Corrispondenze dirette',
+        lknRelatedTableRefs: 'Riferimenti tabella',
+        lknPauschaleTableSourceSingle: 'Fonte: tabella {table}',
+        lknPauschaleTableSourceMulti: 'Fonte: tabelle {tables}',
+        pauschaleRuleLogicTitle: 'Logica di verifica',
+        logicOperatorAnd: 'E',
+        logicOperatorOr: 'OPPURE',
+        logicOperatorNot: 'NON',
+        lknTableGroupSummary: 'Tabella {table} ({count} forfait)',
+        lknTableBodyIntro: 'Dalla tabella {table}:',
+        lknTableShowAll: 'Mostra tabella completa',
+        lknTableNoEntries: 'Nessun forfait trovato in questa tabella.',
+        lknMetaTotalLabel: 'Totale (AL + IPL)',
         descriptionNotFound: 'Descrizione non trovata',
-        progressLLM1Request: 'Richiesta al LLM 1 inviata...',
-        progressLLM1Response: 'Risposta dal LLM 1 ricevuta...',
-        progressPlausi: 'Verifica di plausibilità...',
-        progressLLM2Request: 'Richiesta al LLM 2 inviata...',
-        progressLLM2Response: 'Risposta dal LLM 2 ricevuta...',
-        progressFinal: 'Plausibilizzazione finale...',
-        progressDone: 'Completato.',
-        progressQuery: 'Richiesta: «{text}»',
-        progressDuration: 'Durata: {ms} ms',
-        progressCandidates: 'Possibili NPL: {count}'
+        progressHintPrepare: 'Richiesta all\'IA in preparazione',
+        progressHintLlm1Processing: 'Richiesta inviata all\'IA; elaborazione in corso',
+        progressHintLlm1Review: 'Risposta dell\'IA ricevuta; verifica in corso',
+        progressHintLlm2Processing: 'Analisi approfondita in corso',
+        progressHintRuleCheck: 'Logica di controllo in esecuzione',
+        progressHintFinalizing: 'Preparazione della visualizzazione del risultato',
+        progressHintDone: 'Analisi completata'
     }
 };
 
@@ -441,10 +518,6 @@ const DATA_PATHS = {
     dignitaeten: 'data/DIGNITAETEN.json' // Path for the new dignities file
 };
 
-// Referenz zum Mouse Spinner
-let mouseSpinnerElement = null;
-let mouseMoveHandler = null; // Zum Speichern des Handlers für removeEventListener
-
 // ─── 1 · Utility‑Funktionen ────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
 
@@ -458,8 +531,230 @@ function escapeHtml(s) {
         .replace(/'/g, "&#39;");
 }
 
+function sanitizeInlineLink(html) {
+    if (typeof document === 'undefined' || !html) {
+        return '';
+    }
+    try {
+        const template = document.createElement('template');
+        template.innerHTML = String(html).trim();
+        const anchor = template.content.querySelector('a');
+        if (!anchor) {
+            return escapeHtml(html);
+        }
+
+        const allowedAttrs = new Set(['href', 'target', 'rel', 'title']);
+        Array.from(anchor.attributes).forEach(attr => {
+            const name = attr.name.toLowerCase();
+            if (!allowedAttrs.has(name)) {
+                anchor.removeAttribute(attr.name);
+                return;
+            }
+            if (name === 'href') {
+                const hrefVal = anchor.getAttribute('href') || '';
+                if (!/^(https?:|mailto:)/i.test(hrefVal)) {
+                    anchor.removeAttribute('href');
+                }
+            }
+        });
+
+        if (anchor.hasAttribute('target') && anchor.getAttribute('target').toLowerCase() === '_blank') {
+            anchor.setAttribute('rel', 'noopener noreferrer');
+        }
+
+        return anchor.outerHTML;
+    } catch (err) {
+        console.warn('sanitizeInlineLink failed', err);
+        return escapeHtml(html);
+    }
+}
+
+function formatMultiline(text) {
+    if (!text) return "";
+    const input = String(text);
+    const placeholders = [];
+    const withTokens = input.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, match => {
+        const token = `__LINK_PLACEHOLDER_${placeholders.length}__`;
+        const safeLink = sanitizeInlineLink(match);
+        placeholders.push({ token, html: safeLink });
+        return token;
+    });
+
+    let escaped = escapeHtml(withTokens);
+    placeholders.forEach(({ token, html }) => {
+        escaped = escaped.split(token).join(html);
+    });
+
+    return escaped
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{2,}/g, '<br><br>')
+        .replace(/\n/g, '<br>');
+}
+
+function parseDecimal(value) {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    const normalized = String(value).replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function createInfoLink(code, type) {
     return `<a href="#" class="info-link" data-type="${type}" data-code="${escapeHtml(code)}">${escapeHtml(code)}</a>`;
+}
+
+function createPauschaleLink(code) {
+    const value = String(code || '').trim();
+    if (!value) {
+        return `<span class="info-muted">${escapeHtml(tDyn('noData'))}</span>`;
+    }
+    return `<a href="#" class="pauschale-exp-link info-link" data-code="${escapeHtml(value)}">${escapeHtml(value)}</a>`;
+}
+
+function tryParseJSON(raw) {
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    try {
+        return JSON.parse(trimmed);
+    } catch (err) {
+        console.debug('Unable to parse JSON content for mapping purposes', err);
+        return null;
+    }
+}
+
+const SINGLE_LKN_REGEX = /^[A-Z0-9]{2,3}\.[A-Z0-9]{2}\.[A-Z0-9]{4}$/;
+
+function resetLknPauschalenMaps() {
+    lknPauschaleMap = new Map();
+}
+
+function addLeistungspositionRelation(lknCode, pauschaleCode, tableName) {
+    const lkn = String(lknCode || '').toUpperCase();
+    const pauschale = String(pauschaleCode || '').toUpperCase();
+    if (!lkn || !pauschale) return;
+
+    if (!lknPauschaleMap.has(lkn)) {
+        lknPauschaleMap.set(lkn, new Map());
+    }
+
+    const pauschalenMap = lknPauschaleMap.get(lkn);
+    if (!pauschalenMap.has(pauschale)) {
+        pauschalenMap.set(pauschale, {
+            code: pauschale,
+            tables: new Set()
+        });
+    }
+
+    const tableRaw = String(tableName || '').trim();
+    if (tableRaw && tableRaw.toUpperCase() !== lkn) {
+        pauschalenMap.get(pauschale).tables.add(tableRaw);
+    }
+}
+
+function buildLknPauschaleMap() {
+    resetLknPauschalenMaps();
+    if (Array.isArray(data_pauschaleLeistungsposition)) {
+        data_pauschaleLeistungsposition.forEach(entry => {
+            if (!entry || !entry.Pauschale || !entry.Leistungsposition) return;
+            const rawLeistung = String(entry.Leistungsposition).trim();
+            const lknCandidate = rawLeistung.toUpperCase();
+            if (!SINGLE_LKN_REGEX.test(lknCandidate)) return;
+            const tableName = entry.Tabelle ? String(entry.Tabelle).trim() : '';
+            addLeistungspositionRelation(lknCandidate, entry.Pauschale, tableName);
+        });
+    }
+}
+
+function getPauschaleDisplayInfo(code) {
+    const norm = String(code || '').toUpperCase();
+    if (!norm) return { code: '', text: '' };
+    const entry = pauschalenLookup.get(norm);
+    if (!entry) {
+        return { code: norm, text: '' };
+    }
+    const text = getLangField(entry, 'Pauschale_Text') || entry.Pauschale_Text || '';
+    return { code: norm, text };
+}
+
+function getPauschalenForLkn(lknCode) {
+    const details = getDetailedRelatedPauschalen(lknCode);
+    return details.entries;
+}
+
+function getDetailedRelatedPauschalen(lknCode) {
+    const norm = String(lknCode || '').toUpperCase();
+    const relations = lknPauschaleMap.get(norm);
+    if (!relations) {
+        return { entries: [], uniqueCount: 0 };
+    }
+
+    const entries = Array.from(relations.values()).map(item => {
+        const info = getPauschaleDisplayInfo(item.code);
+        const tables = Array.from(item.tables || [])
+            .map(tbl => {
+                const key = String(tbl || '').toUpperCase();
+                return tableDisplayNameLookup.get(key) || tbl;
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+        return { ...info, tables };
+    }).sort((a, b) => a.code.localeCompare(b.code));
+
+    return { entries, uniqueCount: entries.length };
+}
+
+function getTableRows(tableName) {
+    const key = String(tableName || '').toUpperCase();
+    if (!key) return [];
+    return tableRowsLookup.get(key) || [];
+}
+
+function getSerializedTableData(tableName) {
+    const key = String(tableName || '').toUpperCase();
+    if (!key) return '';
+    if (!tableDataCache.has(key)) {
+        const rows = getTableRows(key);
+        tableDataCache.set(key, JSON.stringify(rows || []));
+    }
+    return tableDataCache.get(key) || '';
+}
+
+function buildTableInfoLink(tableKey, displayName) {
+    const dataContent = getSerializedTableData(tableKey);
+    if (!dataContent) return '';
+    return `<a href="#" class="info-link table-link" data-type="lkn_table" data-code="${escapeHtml(displayName || tableKey)}" data-content="${escapeHtml(dataContent)}">${escapeHtml(tDyn('lknTableShowAll'))}</a>`;
+}
+
+function renderTableGroup(group) {
+    const summaryText = tDyn('lknTableGroupSummary', { table: group.table, count: group.total });
+    const introText = tDyn('lknTableBodyIntro', { table: group.table });
+    const tableLink = buildTableInfoLink(group.key, group.table);
+    const listHtml = renderRelatedPauschalenList((group.pauschalen || []).map(item => ({ ...item, tables: [] })))
+        || `<p class="info-muted">${escapeHtml(tDyn('lknTableNoEntries'))}</p>`;
+    const introHtml = `<p class="info-muted">${escapeHtml(introText)}${tableLink ? ` · ${tableLink}` : ''}</p>`;
+    const openAttr = group.isLarge ? '' : ' open';
+    return `<details class="info-table-details"${openAttr}><summary>${escapeHtml(summaryText)}</summary><div class="table-details-body">${introHtml}${listHtml}</div></details>`;
+}
+
+function buildTableLookups() {
+    tableRowsLookup = new Map();
+    tableDataCache = new Map();
+    tableDisplayNameLookup = new Map();
+    if (!Array.isArray(data_tabellen)) return;
+    data_tabellen.forEach(row => {
+        if (!row || !row.Tabelle) return;
+        const raw = String(row.Tabelle).trim();
+        if (!raw) return;
+        const key = raw.toUpperCase();
+        if (!tableRowsLookup.has(key)) {
+            tableRowsLookup.set(key, []);
+        }
+        tableRowsLookup.get(key).push(row);
+        if (!tableDisplayNameLookup.has(key)) {
+            tableDisplayNameLookup.set(key, raw);
+        }
+    });
 }
 
 const MODAL_PREF_PREFIX = 'modal-pref:';
@@ -509,6 +804,45 @@ function persistModalPosition(modalElement, x, y) {
     writeModalPreferences(modalElement.id, prefs);
 }
 
+const NESTED_MODAL_OVERLAY_ID = 'infoModalNestedOverlay';
+const NESTED_MODAL_CONTENT_ID = 'infoModalNestedContent';
+const NESTED_MODAL_BACK_BUTTON_ID = 'infoModalNestedBack';
+const NESTED_MODAL_HISTORY_LIMIT = 25;
+const nestedModalHistory = [];
+
+function updateNestedBackButton() {
+    const backButton = document.getElementById(NESTED_MODAL_BACK_BUTTON_ID);
+    if (!backButton) return;
+    const hasHistory = nestedModalHistory.length > 0;
+    backButton.style.visibility = hasHistory ? 'visible' : 'hidden';
+    backButton.style.pointerEvents = hasHistory ? 'auto' : 'none';
+    backButton.tabIndex = hasHistory ? 0 : -1;
+    backButton.setAttribute('aria-hidden', hasHistory ? 'false' : 'true');
+    if (!hasHistory && document.activeElement === backButton) {
+        backButton.blur();
+    }
+}
+
+function clearNestedModalHistory() {
+    nestedModalHistory.length = 0;
+    updateNestedBackButton();
+}
+
+function pushNestedModalHistory(state) {
+    if (!state || typeof state.html !== 'string') return;
+    nestedModalHistory.push(state);
+    if (nestedModalHistory.length > NESTED_MODAL_HISTORY_LIMIT) {
+        nestedModalHistory.shift();
+    }
+    updateNestedBackButton();
+}
+
+function popNestedModalHistory() {
+    const state = nestedModalHistory.pop();
+    updateNestedBackButton();
+    return state;
+}
+
 function showModal(modalOverlayId, htmlContent) {
     logFrontendInteraction('modal-open-attempt', { modalOverlayId });
     const modalOverlay = $(modalOverlayId);
@@ -531,7 +865,30 @@ function showModal(modalOverlayId, htmlContent) {
         }
         return;
     }
+
+    const isNestedModal = modalOverlayId === NESTED_MODAL_OVERLAY_ID;
+    const overlayWasVisible = window.getComputedStyle(modalOverlay).display !== 'none';
+
+    if (isNestedModal) {
+        if (overlayWasVisible) {
+            const previousState = {
+                html: contentDiv.innerHTML,
+                scrollTop: contentDiv.scrollTop || 0
+            };
+            pushNestedModalHistory(previousState);
+            logFrontendInteraction('modal-history-push', {
+                modalOverlayId,
+                historyLength: nestedModalHistory.length
+            });
+        } else {
+            clearNestedModalHistory();
+        }
+    }
+
     contentDiv.innerHTML = htmlContent;
+    if (isNestedModal) {
+        contentDiv.scrollTop = 0;
+    }
     modalOverlay.style.display = 'block';
     console.debug('[modal] opened', modalOverlayId);
     logFrontendInteraction('modal-open-success', { modalOverlayId });
@@ -544,12 +901,23 @@ function showModal(modalOverlayId, htmlContent) {
             modalDialog.classList.add('draggable-initialized');
         }
     }
+
+    if (isNestedModal) {
+        updateNestedBackButton();
+    }
+}
+
+function showInfoModal(htmlContent, overlayId = 'infoModalDetailOverlay') {
+    showModal(overlayId, htmlContent);
 }
 
 function hideModal(modalOverlayId) {
     const modalOverlay = $(modalOverlayId);
     if (modalOverlay) {
         modalOverlay.style.display = 'none';
+        if (modalOverlayId === NESTED_MODAL_OVERLAY_ID) {
+            clearNestedModalHistory();
+        }
     }
 }
 
@@ -579,6 +947,10 @@ function makeModalDraggable(modalElement) {
         // Prüfen, ob der Klick im Resize-Bereich (unten rechts) ist
         if (e.clientX > rect.right - resizeHandleSize && e.clientY > rect.bottom - resizeHandleSize) {
             isResizing = true;
+            return;
+        }
+
+        if (e.target && e.target.closest('button, a, input, select, textarea')) {
             return;
         }
 
@@ -626,6 +998,72 @@ function makeModalDraggable(modalElement) {
     });
 
     handle.style.cursor = 'grab';
+}
+
+function isMedicationTableEntry(entry) {
+    if (!entry || entry.Tabelle_Typ === undefined || entry.Tabelle_Typ === null) return false;
+    return String(entry.Tabelle_Typ).trim() === '402';
+}
+
+function getMedicationEntriesByTable(tableName) {
+    if (!Array.isArray(data_tabellen)) return [];
+    const key = String(tableName || '').trim().toUpperCase();
+    if (!key) return [];
+    return data_tabellen.filter(item =>
+        isMedicationTableEntry(item) &&
+        item.Tabelle &&
+        String(item.Tabelle).trim().toUpperCase() === key
+    );
+}
+
+function findMedicationEntryByCode(code) {
+    if (!Array.isArray(data_tabellen)) return null;
+    const normCode = String(code || '').trim().toUpperCase();
+    if (!normCode) return null;
+    return data_tabellen.find(item =>
+        isMedicationTableEntry(item) &&
+        item.Code !== undefined &&
+        item.Code !== null &&
+        String(item.Code).trim().toUpperCase() === normCode
+    ) || null;
+}
+
+function renderMedicationInfoSections(entries, tableName) {
+    if (!Array.isArray(entries) || entries.length === 0) return '';
+    const noDataLabel = tDyn('noData');
+    const descriptionLabel = tDyn('description');
+    return entries.map(entry => {
+        const atcCode = entry && entry.Code !== undefined && entry.Code !== null ? String(entry.Code).trim() : '';
+        const description = getLangField(entry, 'Code_Text') || getLangField(entry, 'Beschreibung') || '';
+        const tableValue = entry && entry.Tabelle ? String(entry.Tabelle).trim() : (tableName ? String(tableName).trim() : '');
+        const heading = description || atcCode || 'Medikament';
+        let html = `<section class="info-section"><h3>${escapeHtml(heading)}</h3>`;
+        html += `<p><strong>ATC-Code:</strong> ${escapeHtml(atcCode || noDataLabel)}</p>`;
+        html += `<p><strong>${escapeHtml(descriptionLabel)}</strong>: ${escapeHtml(description || noDataLabel)}</p>`;
+        if (tableValue) {
+            html += `<p><strong>Tabelle:</strong> ${escapeHtml(tableValue)}</p>`;
+        }
+        html += '</section>';
+        return html;
+    }).join('');
+}
+
+function buildMedicationInfoHtmlFromTable(tableName) {
+    const entries = getMedicationEntriesByTable(tableName);
+    if (!entries.length) return `<p>${tDyn('noData')}</p>`;
+    return renderMedicationInfoSections(entries, tableName);
+}
+
+function buildMedicationInfoHtmlFromCode(code, tableName) {
+    const entry = findMedicationEntryByCode(code);
+    if (entry) {
+        return renderMedicationInfoSections([entry], entry.Tabelle || tableName);
+    }
+    const fallbackEntries = getMedicationEntriesByTable(tableName || code);
+    if (fallbackEntries.length) {
+        return renderMedicationInfoSections(fallbackEntries, tableName || code);
+    }
+    return `<p>${tDyn('noData')}</p>`;
 }
 
 function buildDiagnosisInfoHtmlFromCode(code) {
@@ -773,20 +1211,595 @@ function formatRules(ruleData) {
     return parts.join('; ');
 }
 
+function renderMetaItem({ label, value, valueHtml }) {
+    if (!label && !value && !valueHtml) return '';
+    const safeLabel = escapeHtml(label || '');
+    const safeValue = valueHtml !== undefined ? valueHtml : escapeHtml(value || '');
+    return `<div class="info-meta-item"><span class="info-meta-label">${safeLabel}</span><span class="info-meta-value">${safeValue}</span></div>`;
+}
+
+function renderLknHeaderSection(lkn, description, metaItems = []) {
+    const safeMeta = Array.isArray(metaItems) ? metaItems.filter(item => item && (item.label || item.value)) : [];
+    const metaHtml = safeMeta.length > 0
+        ? `<div class="info-meta-grid">${safeMeta.map(renderMetaItem).join('')}</div>`
+        : '';
+    return `
+        <section class="info-section info-section-head">
+            <div class="info-headline">
+                <h2>${escapeHtml(lkn)}</h2>
+                ${description ? `<p class="info-subtitle">${escapeHtml(description)}</p>` : ''}
+            </div>
+            ${metaHtml}
+        </section>
+    `;
+}
+
+function renderInterpretationSection(text) {
+    if (!text) return '';
+    return `<section class="info-section"><h3>${tDyn('lknInterpretation')}</h3><p>${formatMultiline(text)}</p></section>`;
+}
+
+function renderRelatedPauschalenList(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return '';
+    const items = entries.map(entry => {
+        const codeHtml = `<a href="#" class="tag-code info-link" data-type="pauschale" data-code="${escapeHtml(entry.code)}">${escapeHtml(entry.code)}</a>`;
+        const textHtml = entry.text ? `<span class="tag-text">${escapeHtml(entry.text)}</span>` : '';
+        let tableHtml = '';
+        if (Array.isArray(entry.tables) && entry.tables.length > 0) {
+            const labelKey = entry.tables.length === 1 ? 'lknPauschaleTableSourceSingle' : 'lknPauschaleTableSourceMulti';
+            const label = tDyn(labelKey, {
+                table: entry.tables[0],
+                tables: entry.tables.join(', ')
+            });
+            tableHtml = `<span class="info-muted">${escapeHtml(label)}</span>`;
+        }
+        return `<li>${codeHtml}${textHtml ? ` · ${textHtml}` : ''}${tableHtml ? `${tableHtml}` : ''}</li>`;
+    }).join('');
+    return `<ul class="tag-list">${items}</ul>`;
+}
+
+function buildRelatedPauschalenSection(lkn) {
+    const details = getDetailedRelatedPauschalen(lkn);
+    const heading = `${tDyn('lknRelatedPauschalen')} (${details.uniqueCount})`;
+    if (details.uniqueCount === 0) {
+        return `<section class="info-section"><h3>${escapeHtml(heading)}</h3><p class="info-muted">${escapeHtml(tDyn('lknRelatedPauschalenNone'))}</p></section>`;
+    }
+
+    const listHtml = renderRelatedPauschalenList(details.entries);
+    return `<section class="info-section"><h3>${escapeHtml(heading)}</h3>${listHtml}</section>`;
+}
+
+function buildLknInfoHtml(pos, options = {}) {
+    if (!pos) return `<p>${tDyn('noData')}</p>`;
+    const lkn = String(pos.LKN || '');
+    const desc = getLangField(pos, 'Bezeichnung') || '';
+    const al = parseDecimal(pos['AL_(normiert)']);
+    const ipl = parseDecimal(pos['IPL_(normiert)']);
+    const { includeRelated = true } = options;
+    const metaItems = [
+        { label: tDyn('thAl'), value: al.toFixed(2) },
+        { label: tDyn('thIpl'), value: ipl.toFixed(2) },
+        { label: tDyn('lknMetaTotalLabel'), value: (al + ipl).toFixed(2) }
+    ];
+    const dignities = Array.isArray(pos.Qualitative_Dignität)
+        ? pos.Qualitative_Dignität.map(d => escapeHtml(d.DignitaetText)).join(', ')
+        : '';
+    let groups = '';
+    if (Array.isArray(pos.Leistungsgruppen)) {
+        groups = pos.Leistungsgruppen.map(g => `${createInfoLink(g.Gruppe,'group')}: ${escapeHtml(g.Text || '')}`).join('<br>');
+    }
+    const rules = formatRules(pos.Regeln);
+    const interpretation = getInterpretation(lkn, false);
+
+    const sections = [
+        renderLknHeaderSection(lkn, desc, metaItems),
+        renderInterpretationSection(interpretation),
+        dignities ? `<section class="info-section"><h3>${escapeHtml(tDyn('dignitiesLabel'))}</h3><p>${dignities}</p></section>` : '',
+        groups ? `<section class="info-section"><h3>${tDyn('lknGroupsTitle')}</h3><p>${groups}</p></section>` : '',
+        rules ? `<section class="info-section"><h3>${tDyn('lknRulesTitle')}</h3><p>${rules}</p></section>` : '',
+        includeRelated ? buildRelatedPauschalenSection(lkn) : ''
+    ];
+
+    return sections.filter(Boolean).join('');
+}
+
 function buildLknInfoHtmlFromCode(code) {
     const pos = findTardocPosition(code);
-    if (pos) return buildLknInfoHtml(pos);
+    if (pos) return buildLknInfoHtml(pos, { includeRelated: false });
 
     const cat = findCatalogEntry(code);
     if (cat) {
+        const lkn = String(cat.LKN || code || '');
         const desc = getLangField(cat, 'Beschreibung') || '';
-        const interp = getLangField(cat, 'MedizinischeInterpretation');
-        return `
-            <h3>${escapeHtml(cat.LKN)} - ${escapeHtml(desc)}</h3>
-            ${interp ? `<p>${escapeHtml(interp)}</p>` : ''}
-        `;
+        const interpretation = getLangField(cat, 'MedizinischeInterpretation');
+        const sections = [
+            renderLknHeaderSection(lkn, desc),
+            renderInterpretationSection(interpretation),
+            buildRelatedPauschalenSection(lkn)
+        ];
+        return sections.filter(Boolean).join('');
+    }
+    const medicationEntries = getMedicationEntriesByTable(code);
+    if (medicationEntries.length) {
+        return renderMedicationInfoSections(medicationEntries, code);
     }
     return `<p>${tDyn('noData')}</p>`;
+}
+
+function normalizePrueflogikExpression(raw) {
+    if (!raw) return '';
+    return raw
+        .replace(/\s+/g, ' ')
+        .replace(/\bUND\b/gi, 'AND')
+        .replace(/\bODER\b/gi, 'OR')
+        .replace(/\bNICHT\b/gi, 'NOT')
+        .trim();
+}
+
+function stripOuterParensIfBalanced(str) {
+    let s = (str || '').trim();
+    if (!s) return '';
+    let changed = true;
+    while (changed && s.startsWith('(') && s.endsWith(')')) {
+        changed = false;
+        let depth = 0;
+        let balanced = true;
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (ch === '(') {
+                depth++;
+            } else if (ch === ')') {
+                depth--;
+                if (depth < 0) {
+                    balanced = false;
+                    break;
+                }
+                if (depth === 0 && i < s.length - 1) {
+                    balanced = false;
+                    break;
+                }
+            }
+        }
+        if (balanced && depth === 0) {
+            s = s.slice(1, -1).trim();
+            changed = true;
+        }
+    }
+    return s;
+}
+
+function splitPrueflogikTopLevel(str, operator) {
+    const s = (str || '').trim();
+    if (!s) return [];
+    const parts = [];
+    let depth = 0;
+    let buffer = '';
+    const op = operator;
+    const opLen = op.length;
+
+    for (let i = 0; i < s.length; ) {
+        const ch = s[i];
+        if (ch === '(') {
+            depth++;
+            buffer += ch;
+            i++;
+            continue;
+        }
+        if (ch === ')') {
+            depth = Math.max(0, depth - 1);
+            buffer += ch;
+            i++;
+            continue;
+        }
+        if (depth === 0 && s.slice(i, i + opLen) === op) {
+            const before = i === 0 ? '' : s[i - 1];
+            const after = i + opLen >= s.length ? '' : s[i + opLen];
+            const beforeOk = i === 0 || /[\s()\[\]]/.test(before);
+            const afterOk = i + opLen >= s.length || /[\s()\[\]]/.test(after);
+            if (beforeOk && afterOk) {
+                const trimmed = buffer.trim();
+                if (trimmed) parts.push(trimmed);
+                buffer = '';
+                i += opLen;
+                while (i < s.length && s[i] === ' ') i++;
+                continue;
+            }
+        }
+        buffer += ch;
+        i++;
+    }
+
+    const tail = buffer.trim();
+    if (tail) parts.push(tail);
+    return parts;
+}
+
+function parsePrueflogikNode(input) {
+    let s = stripOuterParensIfBalanced(input);
+    if (!s) return null;
+
+    if (s.startsWith('NOT')) {
+        const remainder = s.slice(3).trim();
+        if (remainder) {
+            const child = parsePrueflogikNode(remainder);
+            if (child) {
+                return { type: 'NOT', children: [child] };
+            }
+        }
+    }
+
+    const orParts = splitPrueflogikTopLevel(s, 'OR');
+    if (orParts.length > 1) {
+        const children = orParts.map(parsePrueflogikNode).filter(Boolean);
+        if (children.length === 1) return children[0];
+        if (children.length > 1) {
+            return { type: 'OR', children };
+        }
+    }
+
+    const andParts = splitPrueflogikTopLevel(s, 'AND');
+    if (andParts.length > 1) {
+        const children = andParts.map(parsePrueflogikNode).filter(Boolean);
+        if (children.length === 1) return children[0];
+        if (children.length > 1) {
+            return { type: 'AND', children };
+        }
+    }
+
+    return { type: 'CLAUSE', text: s };
+}
+
+function normalizeClauseReferenceItem(rawItem) {
+    if (typeof rawItem !== 'string') return '';
+    return rawItem
+        .replace(/where.+$/i, '')
+        .replace(/^['\"]|['\"]$/g, '')
+        .trim();
+}
+
+function renderClauseReference(keyword, rawItem) {
+    const cleaned = normalizeClauseReferenceItem(rawItem);
+    if (!cleaned) return '';
+    const upper = cleaned.toUpperCase();
+
+    let linkHtml = '';
+
+    if (tableRowsLookup && tableRowsLookup.has(upper)) {
+        const displayName = tableDisplayNameLookup.get(upper) || cleaned;
+        const dataContent = getSerializedTableData(upper);
+        if (dataContent) {
+            linkHtml = `<a href="#" class="info-link" data-type="lkn_table" data-code="${escapeHtml(displayName)}" data-content="${escapeHtml(dataContent)}">${escapeHtml(displayName)}</a>`;
+        }
+    } else if (SINGLE_LKN_REGEX.test(upper)) {
+        linkHtml = createInfoLink(cleaned, 'lkn');
+    }
+
+    return linkHtml || escapeHtml(cleaned);
+}
+
+function renderPrueflogikClauseContent(text) {
+    if (!text) return { bodyHtml: '', linksHtml: '' };
+    const normalized = text
+        .replace(/\bAND\b/g, 'und')
+        .replace(/\bOR\b/g, 'oder')
+        .replace(/\bNOT\b/g, 'nicht');
+
+    const parts = [];
+    const regex = /(Tabelle|Liste)\s*\(([^\)]*)\)/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(normalized)) !== null) {
+        const [fullMatch, keyword, inner] = match;
+        const before = normalized.slice(lastIndex, match.index);
+        if (before) {
+            parts.push(escapeHtml(before));
+        }
+
+        const items = inner
+            .split(',')
+            .map(item => {
+                const rendered = renderClauseReference(keyword, item);
+                return rendered ? `<span class="logic-chip">${rendered}</span>` : '';
+            })
+            .filter(Boolean);
+        const chipsHtml = items.length > 0 ? `<span class="logic-chip-group">${items.join('')}</span>` : '';
+        const keywordHtml = escapeHtml(keyword);
+        parts.push(chipsHtml ? `${keywordHtml} ${chipsHtml}` : keywordHtml);
+        lastIndex = match.index + fullMatch.length;
+    }
+
+    const remainder = normalized.slice(lastIndex);
+    if (remainder) {
+        parts.push(escapeHtml(remainder));
+    }
+
+    return {
+        bodyHtml: parts.join(''),
+        linksHtml: ''
+    };
+}
+
+function renderPrueflogikNode(node, isRoot = false) {
+    if (!node) return '';
+    if (node.type === 'CLAUSE') {
+        const { bodyHtml, linksHtml } = renderPrueflogikClauseContent(node.text);
+        const clause = `<div class="logic-clause">${bodyHtml}${linksHtml}</div>`;
+        return isRoot ? `<div class="logic-root">${clause}</div>` : clause;
+    }
+
+    if (node.type === 'NOT') {
+        const childHtml = renderPrueflogikNode(node.children && node.children[0]);
+        if (!childHtml) return '';
+        const block = `
+            <div class="logic-node logic-node-not">
+                <div class="logic-connector logic-connector-inline">${escapeHtml(tDyn('logicOperatorNot'))}</div>
+                <div class="logic-branch">${childHtml}</div>
+            </div>
+        `;
+        return isRoot ? `<div class="logic-root">${block}</div>` : block;
+    }
+
+    if (node.type === 'AND' || node.type === 'OR') {
+        const labelKey = node.type === 'AND' ? 'logicOperatorAnd' : 'logicOperatorOr';
+        const operatorLabel = escapeHtml(tDyn(labelKey));
+        const className = node.type === 'AND' ? 'logic-node logic-node-and' : 'logic-node logic-node-or';
+        const children = (node.children || []).map(child => renderPrueflogikNode(child)).filter(Boolean);
+        if (children.length === 0) return '';
+
+        let html = '';
+        children.forEach((childHtml, index) => {
+            if (index > 0) {
+                html += `<div class="logic-connector logic-connector-between">${operatorLabel}</div>`;
+            }
+            html += `<div class="logic-branch">${childHtml}</div>`;
+        });
+
+        if (isRoot) {
+            return `<div class="logic-root">${html}</div>`;
+        }
+
+        return `<div class="${className}">${html}</div>`;
+    }
+
+    return '';
+}
+
+function renderPrueflogikSection(prueflogikRaw) {
+    if (!prueflogikRaw) return '';
+    try {
+        const normalized = normalizePrueflogikExpression(prueflogikRaw);
+        if (!normalized) {
+            return '';
+        }
+        const tree = parsePrueflogikNode(normalized);
+        const rendered = renderPrueflogikNode(tree, true);
+        if (!rendered) {
+            return '';
+        }
+        return `<section class="info-section"><h3>${escapeHtml(tDyn('pauschaleRuleLogicTitle'))}</h3><div class="logic-tree">${rendered}</div></section>`;
+    } catch (err) {
+        console.warn('Unable to render Prüflogik semigraphically', err);
+        return '';
+    }
+}
+
+function buildDignitiesAttributeContent(details) {
+    const dignitaetenString = details && typeof details.Dignitaeten === 'string' ? details.Dignitaeten : '';
+    if (!dignitaetenString.trim()) {
+        return `<span class="info-muted">${escapeHtml(tDyn('dignitiesNone'))}</span>`;
+    }
+
+    const dignityCodes = dignitaetenString.split('|').map(code => String(code).trim()).filter(Boolean);
+    if (dignityCodes.length === 0) {
+        return `<span class="info-muted">${escapeHtml(tDyn('dignitiesNone'))}</span>`;
+    }
+
+    const lang = (typeof currentLang === 'undefined') ? 'de' : currentLang;
+    const items = dignityCodes.map(code => {
+        const detail = dignitaetenMap[String(code)];
+        let description = '';
+        if (detail) {
+            if (lang === 'fr') {
+                description = detail.DignitaetText_f || detail.DignitaetText || '';
+            } else if (lang === 'it') {
+                description = detail.DignitaetText_i || detail.DignitaetText || '';
+            } else {
+                description = detail.DignitaetText || '';
+            }
+        } else if (Object.keys(dignitaetenMap).length > 0) {
+            console.warn(`No dignityDetail found in dignitaetenMap for code '${code}'.`);
+        }
+
+        const safeDescription = description ? escapeHtml(description) : escapeHtml(tDyn('descriptionNotFound', { code }));
+        return `<li><span class="info-dignity-code">${escapeHtml(code)}</span> &ndash; <span class="info-dignity-text">${safeDescription}</span></li>`;
+    });
+
+    return `<ul class="info-chip-list">${items.join('')}</ul>`;
+}
+
+function buildImplantAttributeContent(details) {
+    if (details && details.Implantate_inbegriffen === true) {
+        return `<span class="status-pill status-positive">${escapeHtml(tDyn('implantsIncluded'))}</span>`;
+    }
+    return `<span class="status-pill status-negative">${escapeHtml(tDyn('implantsNotIncluded'))}</span>`;
+}
+
+function formatTaxpointsDisplay(raw) {
+    if (raw === null || raw === undefined) return '';
+    const rawString = String(raw).trim();
+    if (!rawString) return '';
+    const parsed = parseDecimal(rawString);
+    if (Number.isFinite(parsed)) {
+        return parsed.toFixed(2);
+    }
+    return rawString;
+}
+
+function stripOuterParens(text) {
+    if (!text) return text;
+    const trimmed = String(text).trim();
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+        return trimmed.slice(1, -1).trim();
+    }
+    return trimmed;
+}
+
+function renderPauschaleSummarySection({ code, codeHtml, description, descriptionHtml, taxpoints, taxpointsHtml, metaItems = [] }) {
+    const hasCodeValue = code !== undefined && code !== null && String(code).trim() !== '';
+    const hasDescriptionValue = description !== undefined && description !== null && String(description).trim() !== '';
+    const hasTaxpointValue = taxpoints !== undefined && taxpoints !== null && String(taxpoints).trim() !== '';
+
+    const normalizedCode = hasCodeValue ? String(code).trim() : '';
+    const codeDataAttr = normalizedCode ? ` data-pauschale-code="${escapeHtml(normalizedCode)}"` : '';
+
+    const safeCode = codeHtml !== undefined
+        ? codeHtml
+        : (hasCodeValue ? escapeHtml(String(code)) : `<span class="info-muted">${escapeHtml(tDyn('noData'))}</span>`);
+    const safeDescription = descriptionHtml !== undefined
+        ? descriptionHtml
+        : (hasDescriptionValue ? escapeHtml(String(description)) : `<span class="info-muted">${escapeHtml(tDyn('noData'))}</span>`);
+    const safeTaxpoints = taxpointsHtml !== undefined
+        ? taxpointsHtml
+        : (hasTaxpointValue ? escapeHtml(String(taxpoints)) : `<span class="info-muted">${escapeHtml(tDyn('noData'))}</span>`);
+
+    const filteredMeta = Array.isArray(metaItems) ? metaItems.filter(item => item && (item.label || item.value)) : [];
+    const metaHtml = filteredMeta.length > 0
+        ? `<div class="info-meta-grid">${filteredMeta.map(renderMetaItem).join('')}</div>`
+        : '';
+
+    return `
+        <section class="info-section info-section-summary">
+            <div class="info-summary-heading">
+                <h2>${escapeHtml(tDyn('pauschaleSummaryTitle'))}</h2>
+            </div>
+            <div class="info-summary-table-wrapper">
+                <table class="info-summary-table">
+                    <thead>
+                        <tr>
+                            <th>${escapeHtml(tDyn('pauschaleCode'))}</th>
+                            <th>${escapeHtml(tDyn('description'))}</th>
+                            <th class="info-summary-tax-header">${escapeHtml(tDyn('taxpoints'))}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="info-summary-code"${codeDataAttr}>${safeCode}</td>
+                            <td>${safeDescription}</td>
+                            <td class="info-summary-tax">${safeTaxpoints}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            ${metaHtml}
+        </section>
+    `;
+}
+
+function renderPauschaleInfoContentFromDetails(details, options = {}) {
+    if (!details) {
+        return `<p>${tDyn('noData')}</p>`;
+    }
+
+    const code = details.Pauschale || '';
+    const description = getLangField(details, 'Pauschale_Text') || details.Pauschale_Text || '';
+    const taxpointsDisplay = formatTaxpointsDisplay(details.Taxpunkte);
+    const metaItems = [];
+    const hasStructuredLogic = Boolean(options.hasStructuredLogic);
+    if (Array.isArray(options.extraMetaItems)) {
+        options.extraMetaItems.forEach(item => {
+            if (item && (item.label || item.value)) {
+                metaItems.push(item);
+            }
+        });
+    }
+
+    const sections = [];
+    sections.push(renderPauschaleSummarySection({
+        code,
+        codeHtml: createPauschaleLink(code),
+        description,
+        taxpoints: taxpointsDisplay,
+        metaItems
+    }));
+
+    const attributeCards = [];
+    attributeCards.push(`
+        <div class="info-attribute-card">
+            <div class="info-attribute-label">${escapeHtml(tDyn('dignitiesLabel'))}</div>
+            <div class="info-attribute-value">${buildDignitiesAttributeContent(details)}</div>
+        </div>
+    `);
+    attributeCards.push(`
+        <div class="info-attribute-card">
+            <div class="info-attribute-label">${escapeHtml(tDyn('implantsLabel'))}</div>
+            <div class="info-attribute-value">${buildImplantAttributeContent(details)}</div>
+        </div>
+    `);
+
+    if (attributeCards.some(Boolean)) {
+        sections.push(`
+            <section class="info-section info-section-attributes">
+                <div class="info-attribute-list">${attributeCards.join('')}</div>
+            </section>
+        `);
+    }
+
+    if (details.pauschale_erklaerung_html && options.includeExplanation !== false) {
+        sections.push(`
+            <section class="info-section info-section-explanation">
+                <h3>${escapeHtml(tDyn('reasonPauschale'))}</h3>
+                ${details.pauschale_erklaerung_html}
+            </section>
+        `);
+    }
+
+    const prueflogikRaw = options.prueflogikOverride !== undefined ? options.prueflogikOverride : details['Prüflogik'];
+    if (!hasStructuredLogic && prueflogikRaw) {
+        const logicSection = renderPrueflogikSection(prueflogikRaw);
+        if (logicSection) {
+            sections.push(logicSection);
+        }
+    }
+
+    if (Array.isArray(options.extraSections)) {
+        options.extraSections.filter(Boolean).forEach(sectionHtml => sections.push(sectionHtml));
+    }
+
+    return sections.filter(Boolean).join('');
+}
+
+function buildPauschaleInfoHtmlFromCode(code) {
+    const norm = String(code || '').toUpperCase();
+    if (!norm) return `<p>${tDyn('noData')}</p>`;
+    const entry = pauschalenLookup.get(norm);
+    if (!entry) {
+        return `<p>${tDyn('noData')}</p>`;
+    }
+
+    const extraSections = [];
+    const hasStructuredLogic = Boolean(entry.bedingungs_pruef_html);
+    if (hasStructuredLogic) {
+        extraSections.push(`<section class="info-section info-section-conditions">${entry.bedingungs_pruef_html}</section>`);
+    }
+
+    return renderPauschaleInfoContentFromDetails(entry, { extraSections, hasStructuredLogic });
+}
+
+function buildChapterInfoHtml(code) {
+    const info = getChapterInfo(code);
+    return `<h3>Kapitel ${escapeHtml(code)}${info.name ? ' - ' + escapeHtml(info.name) : ''}</h3>` + (info.interpretation ? `<p>${escapeHtml(info.interpretation)}</p>` : '');
+}
+
+function buildGroupInfoHtml(code) {
+    const key = (code || '').trim();
+    const info = groupInfoMap[key];
+    if (!info) return `<p>${tDyn('groupNoData',{code: escapeHtml(key)})}</p>`;
+    const lkns = Array.from(info.lkns).sort();
+    const links = lkns.map(l => createInfoLink(l,'lkn')).join(', ');
+    return `<h3>Leistungsgruppe ${escapeHtml(key)}</h3>` +
+           (info.text ? `<p>${escapeHtml(info.text)}</p>` : '') +
+           `<p><b>Enthaltene LKN:</b> ${links}</p>`;
 }
 
 function getInterpretation(code, allowFallback = true) {
@@ -823,80 +1836,105 @@ function getChapterInfo(kapitelCode) {
     return info;
 }
 
-function buildLknInfoHtml(pos) {
-    if (!pos) return `<p>${tDyn('noData')}</p>`;
-    const dign = Array.isArray(pos.Qualitative_Dignität) ? pos.Qualitative_Dignität.map(d => escapeHtml(d.DignitaetText)).join(', ') : '';
-    let groups = '';
-    if (Array.isArray(pos.Leistungsgruppen)) {
-        groups = pos.Leistungsgruppen.map(g => `${createInfoLink(g.Gruppe,'group')}: ${escapeHtml(g.Text || '')}`).join('<br>');
-    }
-    const rules = formatRules(pos.Regeln);
-    const interp = getInterpretation(String(pos.LKN), false);
-    const desc = getLangField(pos, 'Bezeichnung') || '';
-    return `
-        <h3>${escapeHtml(pos.LKN)} - ${escapeHtml(desc)}</h3>
-        ${interp ? `<p>${escapeHtml(interp)}</p>` : ''}
-        <p><b>AL:</b> ${pos['AL_(normiert)']} <b>IPL:</b> ${pos['IPL_(normiert)']}</p>
-        ${dign ? `<p><b>Dignitäten:</b> ${dign}</p>` : ''}
-        ${groups ? `<p><b>Leistungsgruppen:</b><br>${groups}</p>` : ''}
-        ${rules ? `<p><b>Regeln:</b> ${rules}</p>` : ''}
-    `;
-}
-
-function buildChapterInfoHtml(code) {
-    const info = getChapterInfo(code);
-    return `<h3>Kapitel ${escapeHtml(code)}${info.name ? ' - ' + escapeHtml(info.name) : ''}</h3>` + (info.interpretation ? `<p>${escapeHtml(info.interpretation)}</p>` : '');
-}
-
-function buildGroupInfoHtml(code) {
-    const key = (code || '').trim();
-    const info = groupInfoMap[key];
-    if (!info) return `<p>${tDyn('groupNoData',{code: escapeHtml(key)})}</p>`;
-    const lkns = Array.from(info.lkns).sort();
-    const links = lkns.map(l => createInfoLink(l,'lkn')).join(', ');
-    return `<h3>Leistungsgruppe ${escapeHtml(key)}</h3>` +
-           (info.text ? `<p>${escapeHtml(info.text)}</p>` : '') +
-           `<p><b>Enthaltene LKN:</b> ${links}</p>`;
-}
-
-
 function buildPauschaleInfoHtml(idx) {
-    if (!evaluatedPauschalenList[idx]) return '';
-    const p = evaluatedPauschalenList[idx];
-    const parse = v => parseFloat(String(v).replace(',', '.')) || 0;
-    const selTp = parse(selectedPauschaleDetails?.Taxpunkte);
-    const otherTp = parse(p.details?.Taxpunkte);
-    const diff = otherTp - selTp;
-    const diffTxt = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
-    let html = `<h4>${escapeHtml(p.details?.Pauschale || '')} <small>${tDyn('diffTaxpoints')}: ${diffTxt}</small></h4>`;
-    html += displayPauschale(p);
-    return html;
+    const entry = evaluatedPauschalenList[idx];
+    if (!entry) return '';
+
+    const baseDetails = entry.details || {};
+    const extraMeta = [];
+    if (typeof entry.is_valid_structured === 'boolean') {
+        const logicStatusKey = entry.is_valid_structured ? 'logicOk' : 'logicNotOk';
+        const logicStatusText = stripOuterParens(tDyn(logicStatusKey));
+        const pillClass = entry.is_valid_structured ? 'status-positive' : 'status-negative';
+        const pillHtml = `<span class="status-pill ${pillClass}">${escapeHtml(logicStatusText)}</span>`;
+        extraMeta.push({ label: tDyn('logicStatusLabel'), valueHtml: pillHtml });
+    }
+    const rawSelectedTax = selectedPauschaleDetails?.Taxpunkte;
+    const rawOtherTax = baseDetails.Taxpunkte;
+    const hasSelectedTax = rawSelectedTax !== undefined && rawSelectedTax !== null && String(rawSelectedTax).trim() !== '';
+    const hasOtherTax = rawOtherTax !== undefined && rawOtherTax !== null && String(rawOtherTax).trim() !== '';
+    if (hasSelectedTax && hasOtherTax) {
+        const selectedTax = parseDecimal(rawSelectedTax);
+        const otherTax = parseDecimal(rawOtherTax);
+        if (Number.isFinite(selectedTax) && Number.isFinite(otherTax)) {
+            const diff = otherTax - selectedTax;
+            extraMeta.push({ label: tDyn('diffTaxpoints'), value: `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}` });
+        }
+    }
+
+    const extraSections = [];
+    const hasStructuredLogic = Boolean(entry.bedingungs_pruef_html);
+    if (hasStructuredLogic) {
+        extraSections.push(`<section class="info-section info-section-conditions">${entry.bedingungs_pruef_html}</section>`);
+    }
+
+    return renderPauschaleInfoContentFromDetails(baseDetails, { extraMetaItems: extraMeta, extraSections, hasStructuredLogic });
 }
 
 function showPauschaleInfoByCode(code) {
     const norm = String(code || '').toUpperCase();
+    let html = '';
+    let titleKey = 'condDetails';
+
     const idx = evaluatedPauschalenList.findIndex(p => String(p.details?.Pauschale || '').toUpperCase() === norm);
-    if (idx === -1) return;
-    const html = buildPauschaleInfoHtml(idx);
+    if (idx !== -1) {
+        html = buildPauschaleInfoHtml(idx);
+    } else if (selectedPauschaleDetails && String(selectedPauschaleDetails.Pauschale || '').toUpperCase() === norm) {
+        const extraSections = [];
+        const hasStructuredLogic = Boolean(selectedPauschaleConditionHtml && selectedPauschaleConditionHtml.trim());
+        if (hasStructuredLogic) {
+            extraSections.push(`<section class="info-section info-section-conditions">${selectedPauschaleConditionHtml}</section>`);
+        }
+        html = renderPauschaleInfoContentFromDetails(selectedPauschaleDetails, {
+            extraSections,
+            hasStructuredLogic
+        });
+    } else {
+        html = buildPauschaleInfoHtmlFromCode(norm);
+        titleKey = 'pauschaleDetails';
+    }
+
+    if (!html || !String(html).trim()) {
+        html = `<p>${tDyn('noData')}</p>`;
+    }
+
+    const detailTitle = $('infoModalDetailTitle');
+    if (detailTitle) {
+        detailTitle.textContent = `${tDyn(titleKey)} (${code})`;
+    }
     showInfoModal(html);
+    return Boolean(html);
 }
 
 function buildTablePopup(data, tableName) {
+    let rows = Array.isArray(data) ? data.slice() : [];
+    if ((rows.length === 0) && tableName) {
+        const medicationFallback = getMedicationEntriesByTable(tableName);
+        if (medicationFallback.length) {
+            rows = medicationFallback;
+        }
+    }
+
     let tableHtml = `<div class="info-modal-header" style="cursor: grab;"><h2>Tabelle: ${escapeHtml(tableName)}</h2></div>`;
     tableHtml += `<div class="info-modal-body" style="max-height: calc(0.75 * 100vh); overflow-y: auto;">`;
     tableHtml += '<table><thead><tr><th>Code</th><th>Text</th></tr></thead><tbody>';
-    data.forEach(row => {
-        const code = row.Code || '';
-        const text = row.Code_Text || '';
-        const isServiceCatalog = row.Tabelle_Typ === 'service_catalog';
-        const isMedication = row.Tabelle_Typ === 402;
-        const isIcd = row.Tabelle_Typ === 'icd';
+    rows.forEach(row => {
+        const code = row && row.Code !== undefined && row.Code !== null ? String(row.Code) : '';
+        const text = row && row.Code_Text !== undefined && row.Code_Text !== null ? row.Code_Text : '';
+        const tableTypeRaw = row && row.Tabelle_Typ !== undefined && row.Tabelle_Typ !== null ? String(row.Tabelle_Typ).trim() : '';
+        const isServiceCatalog = tableTypeRaw === 'service_catalog';
+        const isMedication = tableTypeRaw === '402';
+        const isIcd = tableTypeRaw === 'icd';
+        const tableKeyRaw = row && row.Tabelle ? row.Tabelle : tableName;
+        const tableAttr = tableKeyRaw ? ` data-table="${escapeHtml(String(tableKeyRaw))}"` : '';
 
         let style = '';
         let codeDisplay = escapeHtml(code);
 
         if (isServiceCatalog) {
             style = 'font-weight: bold;';
+        } else if (isMedication) {
+            codeDisplay = `<a href="#" class="info-link" data-type="medication" data-code="${escapeHtml(code)}"${tableAttr}>${escapeHtml(code)}</a>`;
         } else {
             codeDisplay = `<a href="#" class="info-link" data-type="${isIcd ? 'diagnosis' : 'lkn'}" data-code="${escapeHtml(code)}">${escapeHtml(code)}</a>`;
         }
@@ -915,11 +1953,59 @@ function displayOutput(html, type = "info") {
     // Output-Typ-Klasse wird nicht mehr gesetzt, Styling erfolgt über Klassen im HTML.
 }
 
-// --- Mouse Spinner Funktionen ---
-function updateSpinnerPosition(event) {
-    if (mouseSpinnerElement) {
-        mouseSpinnerElement.style.left = (event.clientX + 15) + 'px';
-        mouseSpinnerElement.style.top = (event.clientY + 15) + 'px';
+const busyTabTrapHandler = (event) => {
+    if (event.key === 'Tab') {
+        event.preventDefault();
+    }
+};
+
+let busyPreviousFocus = null;
+
+function setBusyState(isBusy) {
+    const overlay = $('interactionBlocker');
+    const shell = document.querySelector('.app-shell');
+
+    if (isBusy) {
+        if (document.activeElement instanceof HTMLElement) {
+            busyPreviousFocus = document.activeElement;
+        } else {
+            busyPreviousFocus = null;
+        }
+
+        document.body.classList.add('is-busy');
+        if (shell) shell.setAttribute('aria-busy', 'true');
+
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            try { document.activeElement.blur(); } catch (_) {}
+        }
+
+        if (overlay) {
+            overlay.style.display = 'block';
+            overlay.setAttribute('tabindex', '-1');
+            overlay.addEventListener('keydown', busyTabTrapHandler, true);
+            setTimeout(() => {
+                try { overlay.focus({ preventScroll: true }); } catch (_) {}
+            }, 0);
+        }
+    } else {
+        document.body.classList.remove('is-busy');
+        if (shell) shell.setAttribute('aria-busy', 'false');
+
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.removeEventListener('keydown', busyTabTrapHandler, true);
+            overlay.removeAttribute('tabindex');
+        }
+
+        if (busyPreviousFocus && typeof busyPreviousFocus.focus === 'function') {
+            const target = busyPreviousFocus;
+            busyPreviousFocus = null;
+            setTimeout(() => {
+                try { target.focus({ preventScroll: true }); } catch (_) {}
+            }, 0);
+        } else {
+            busyPreviousFocus = null;
+        }
     }
 }
 
@@ -927,51 +2013,34 @@ function showSpinner(text = tDyn('spinnerWorking')) {
     const spinner = $('spinner');
     const spinnerText = $('spinnerText');
     const button = $('analyzeButton');
-    const body = document.body;
 
     if (spinnerText) spinnerText.textContent = text;
     if (spinner) spinner.style.display = 'block';
     if (button) button.disabled = true;
-
-    if (!mouseSpinnerElement) mouseSpinnerElement = $('mouseSpinner');
-    if (mouseSpinnerElement) mouseSpinnerElement.style.display = 'block';
-    if (body) body.style.cursor = 'wait';
-
-    if (!mouseMoveHandler) {
-        mouseMoveHandler = updateSpinnerPosition;
-        document.addEventListener('mousemove', mouseMoveHandler);
-    }
+    setBusyState(true);
 }
 
 function hideSpinner() {
     const spinner = $('spinner');
     const spinnerText = $('spinnerText');
     const button = $('analyzeButton');
-    const body = document.body;
 
     if (spinnerText) spinnerText.textContent = '';
     if (spinner) spinner.style.display = 'none';
     if (button) button.disabled = false;
-
-    if (mouseSpinnerElement) mouseSpinnerElement.style.display = 'none';
-    if (body) body.style.cursor = 'default';
-
-    if (mouseMoveHandler) {
-        document.removeEventListener('mousemove', mouseMoveHandler);
-        mouseMoveHandler = null;
-    }
+    setBusyState(false);
 }
-// --- Ende Mouse Spinner Funktionen ---
 
 // --- Fortschrittsbalken Funktionen ---
 function startProgress() {
     const c = $('progressContainer');
     const bar = $('progressBar');
-    const text = $('progressText');
     const timer = $('progressTimer');
     if (c) c.style.display = 'block';
     if (bar) bar.style.width = '0%';
-    if (text) text.textContent = '';
+    currentProgressPercent = 0;
+    clearProgressHintTimeouts();
+    setProgressHint(null);
     if (timer) {
         timer.textContent = '0 s';
         timer.style.display = 'block';
@@ -986,11 +2055,124 @@ function startProgress() {
     }, 1000);
 }
 
-function updateProgress(percent, textKey) {
-    const bar = $('progressBar');
+function setProgressMessage(message) {
     const text = $('progressText');
-    if (bar) bar.style.width = percent + '%';
-    if (text) text.textContent = tDyn(textKey);
+    if (!text) return;
+    let wrapper = text.querySelector('.progress-text-wrapper');
+    if (!wrapper) {
+        text.textContent = '';
+        wrapper = document.createElement('span');
+        wrapper.className = 'progress-text-wrapper';
+        text.appendChild(wrapper);
+    }
+    let base = wrapper.querySelector('.progress-text-base');
+    if (!base) {
+        base = document.createElement('span');
+        base.className = 'progress-text-base';
+        wrapper.appendChild(base);
+    }
+    let overlay = wrapper.querySelector('.progress-text-overlay');
+    if (!overlay) {
+        overlay = document.createElement('span');
+        overlay.className = 'progress-text-overlay';
+        wrapper.appendChild(overlay);
+    }
+    const content = message || '';
+    base.textContent = content;
+    overlay.textContent = content;
+    updateProgressTextOverlay();
+}
+
+function waitForRender() {
+    return new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => resolve());
+        } else {
+            setTimeout(resolve, 0);
+        }
+    });
+}
+
+function setProgressHint(textKey) {
+    if (!textKey) {
+        setProgressMessage('');
+        return;
+    }
+    setProgressMessage(tDyn(textKey));
+}
+
+function updateProgress(percent, textKey = null) {
+    const bar = $('progressBar');
+    currentProgressPercent = Math.max(currentProgressPercent, percent);
+    if (bar) bar.style.width = currentProgressPercent + '%';
+    if (textKey) {
+        setProgressHint(textKey);
+    }
+    updateProgressTextOverlay();
+}
+
+function updateProgressTextOverlay() {
+    const text = $('progressText');
+    const container = $('progressContainer');
+    if (!text || !container) return;
+    const wrapper = text.querySelector('.progress-text-wrapper');
+    if (!wrapper) return;
+    const overlay = wrapper.querySelector('.progress-text-overlay');
+    const base = wrapper.querySelector('.progress-text-base');
+    if (!overlay || !base) return;
+    const bar = $('progressBar');
+    if (!bar) return;
+    const containerWidth = container.clientWidth;
+    const barWidth = bar.offsetWidth;
+    const textWidth = wrapper.offsetWidth;
+    if (containerWidth === 0 || textWidth === 0) {
+        overlay.style.clipPath = 'inset(0 100% 0 0)';
+        overlay.style.webkitClipPath = 'inset(0 100% 0 0)';
+        base.style.clipPath = 'inset(0 0 0 0)';
+        base.style.webkitClipPath = 'inset(0 0 0 0)';
+        return;
+    }
+    const textLeft = (containerWidth - textWidth) / 2;
+    const overlapPx = Math.max(0, Math.min(barWidth - textLeft, textWidth));
+    const overlayRightClip = Math.max(textWidth - overlapPx, 0);
+    const baseLeftClip = Math.max(overlapPx, 0);
+    const overlayClip = `inset(0 ${overlayRightClip}px 0 0)`;
+    const baseClip = `inset(0 0 0 ${baseLeftClip}px)`;
+    overlay.style.clipPath = overlayClip;
+    overlay.style.webkitClipPath = overlayClip;
+    base.style.clipPath = baseClip;
+    base.style.webkitClipPath = baseClip;
+}
+
+function scheduleProgressHint(percent, textKey, delayMs) {
+    if (!delayMs || delayMs <= 0) return;
+    const handle = setTimeout(() => {
+        progressHintTimeouts = progressHintTimeouts.filter(h => h !== handle);
+        if (currentProgressPercent < percent) {
+            updateProgress(percent, textKey);
+        }
+    }, delayMs);
+    progressHintTimeouts.push(handle);
+}
+
+function clearProgressHintTimeouts() {
+    if (!progressHintTimeouts.length) return;
+    for (const handle of progressHintTimeouts) {
+        clearTimeout(handle);
+    }
+    progressHintTimeouts = [];
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function showProgressStep(percent, textKey, minVisibleMs = 0) {
+    updateProgress(percent, textKey);
+    await waitForRender();
+    if (minVisibleMs && minVisibleMs > 0) {
+        await delay(minVisibleMs);
+    }
 }
 
 function finishProgress() {
@@ -1000,6 +2182,7 @@ function finishProgress() {
     if (timer) timer.style.display = 'none';
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
     if (llm1BarInterval) { clearInterval(llm1BarInterval); llm1BarInterval = null; }
+    clearProgressHintTimeouts();
 }
 
 function startLlm1Progress() {
@@ -1007,7 +2190,7 @@ function startLlm1Progress() {
     let percent = 10;
     llm1BarInterval = setInterval(() => {
         percent = Math.min(percent + 1, 28);
-        updateProgress(percent, 'progressLLM1Request');
+        updateProgress(percent);
     }, 1000);
 }
 
@@ -1015,14 +2198,12 @@ function stopLlm1Progress() {
     if (llm1BarInterval) { clearInterval(llm1BarInterval); llm1BarInterval = null; }
 }
 
-function logProgress(message) {
-    const list = $('progressLog');
-    if (list) {
-        const li = document.createElement('li');
-        li.textContent = message;
-        list.appendChild(li);
-    }
+function armLlmProgressFallbacks() {
+    clearProgressHintTimeouts();
+    scheduleProgressHint(45, 'progressHintLlm1Review', 3500);
+    scheduleProgressHint(60, 'progressHintLlm2Processing', 6500);
 }
+
 // --- Ende Fortschrittsbalken Funktionen ---
 
 
@@ -1102,6 +2283,18 @@ async function loadData() {
              throw new Error(`Folgende kritische Daten fehlen oder konnten nicht geladen werden: ${missingDataErrors.join(', ')}.`);
         }
 
+        buildTableLookups();
+
+        pauschalenLookup = new Map();
+        if (Array.isArray(data_pauschalen)) {
+            data_pauschalen.forEach(entry => {
+                if (entry && entry.Pauschale) {
+                    pauschalenLookup.set(String(entry.Pauschale).toUpperCase(), entry);
+                }
+            });
+        }
+        buildLknPauschaleMap();
+
         // DignitaetenMap aufbauen
         dignitaetenMap = {};
         if (Array.isArray(data_dignitaeten) && data_dignitaeten.length > 0) {
@@ -1161,7 +2354,6 @@ document.addEventListener("DOMContentLoaded", () => {
             console.warn('Unable to apply translations during init:', err);
         }
     }).catch((err) => console.error('Failed to load translations:', err));
-    mouseSpinnerElement = $('mouseSpinner');
     loadIcdCheckboxState();
     loadData();
     // Initial: Umschalter verbergen bis Ergebnis vorliegt
@@ -1187,6 +2379,31 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    const nestedBackButton = document.getElementById(NESTED_MODAL_BACK_BUTTON_ID);
+    if (nestedBackButton) {
+        nestedBackButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            const previousState = popNestedModalHistory();
+            if (!previousState) {
+                return;
+            }
+            const contentDiv = document.getElementById(NESTED_MODAL_CONTENT_ID);
+            if (!contentDiv) {
+                clearNestedModalHistory();
+                return;
+            }
+            contentDiv.innerHTML = previousState.html;
+            logFrontendInteraction('modal-history-back', {
+                modalOverlayId: NESTED_MODAL_OVERLAY_ID,
+                remainingHistory: nestedModalHistory.length
+            });
+            requestAnimationFrame(() => {
+                contentDiv.scrollTop = previousState.scrollTop || 0;
+            });
+        });
+    }
+    updateNestedBackButton();
+
     // --- ESC Key to close top-most modal ---
     document.addEventListener('keydown', (e) => {
         if (e.key === "Escape") {
@@ -1203,6 +2420,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- General Click Handler for Info Links ---
     document.addEventListener('click', (e) => {
+        const pauschaleLink = e.target.closest('a.pauschale-exp-link');
+        if (pauschaleLink) {
+            e.preventDefault();
+            try {
+                const code = (pauschaleLink.dataset.code || '').trim();
+                if (!code) {
+                    return;
+                }
+                logFrontendInteraction('pauschale-expansion-click', { code });
+                const success = showPauschaleInfoByCode(code);
+                if (!success) {
+                    const fallback = `<p>${escapeHtml(tDyn('noData'))}</p>`;
+                    const detailTitle = $('infoModalDetailTitle');
+                    if (detailTitle) {
+                        detailTitle.textContent = `${tDyn('pauschaleDetails')} (${code})`;
+                    }
+                    showModal('infoModalDetailOverlay', fallback);
+                }
+            } catch (handlerError) {
+                console.error('pauschale-exp-link handler failed', handlerError);
+                logFrontendInteraction('pauschale-expansion-error', { message: (handlerError && handlerError.message) ? handlerError.message : String(handlerError) });
+            }
+            return;
+        }
+
         const link = e.target.closest('a.info-link');
         if (link) {
             e.preventDefault();
@@ -1226,8 +2468,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     html = buildChapterInfoHtml(code);
                 } else if (type === 'group') {
                     html = buildGroupInfoHtml(code);
+                } else if (type === 'pauschale') {
+                    html = buildPauschaleInfoHtmlFromCode(code);
                 } else if (type === 'diagnosis') {
                     html = buildDiagnosisInfoHtmlFromCode(code);
+                } else if (type === 'medication') {
+                    html = buildMedicationInfoHtmlFromCode(code, link.dataset.table);
                 } else if (type === 'lkn_table' || type === 'icd_table') {
                     if (dataContent) {
                         try {
@@ -1268,32 +2514,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 logFrontendInteraction('info-link-handler-error', { message: (handlerError && handlerError.message) ? handlerError.message : String(handlerError) });
             }
         }
-
-        const pLink = e.target.closest('a.pauschale-exp-link');
-        if (pLink) {
-            e.preventDefault();
-            try {
-                const code = (pLink.dataset.code || '').trim();
-                logFrontendInteraction('pauschale-expansion-click', { code });
-                // Find the pauschale in evaluatedPauschalenList and show its bedingungs_pruef_html in the detail modal
-                const pauschaleEntry = evaluatedPauschalenList.find(p => String(p.code).toUpperCase() === code.toUpperCase() || String(p.details?.Pauschale).toUpperCase() === code.toUpperCase());
-                if (pauschaleEntry && pauschaleEntry.bedingungs_pruef_html) {
-                    let headerHtml = `<h2>${tDyn('condDetails')} (${escapeHtml(code)})</h2>`;
-                    // Add overall logic status to the header of the detail modal
-                    const logicStatusKey = pauschaleEntry.is_valid_structured ? 'logicOk' : 'logicNotOk';
-                    const logicStatusText = tDyn(logicStatusKey);
-                    const logicStatusColor = pauschaleEntry.is_valid_structured ? 'var(--accent)' : 'var(--danger)';
-                    headerHtml += `<p style="font-weight:bold; color:${logicStatusColor}; margin-top:-10px; margin-bottom:15px;">${escapeHtml(logicStatusText)}</p>`;
-
-                    showModal('infoModalDetailOverlay', headerHtml + pauschaleEntry.bedingungs_pruef_html);
-                } else {
-                    showModal('infoModalDetailOverlay', `<p>Details für Pauschale ${escapeHtml(code)} nicht gefunden oder keine Bedingungs-HTML vorhanden.</p>`);
-                }
-            } catch (handlerError) {
-                console.error('pauschale-exp-link handler failed', handlerError);
-                logFrontendInteraction('pauschale-expansion-error', { message: (handlerError && handlerError.message) ? handlerError.message : String(handlerError) });
-            }
-        }
     });
 });
 
@@ -1323,12 +2543,14 @@ async function getBillingAnalysis() {
     }
     const icdInput = $("icdInput").value.trim().split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const medicationInput = ($("medicationInput") ? $("medicationInput").value.trim().split(",").map(s => s.trim()).filter(Boolean) : []);
-    const useIcd = $('useIcdCheckbox')?.checked ?? true;
+    const useIcdCheckbox = $('useIcdCheckbox')?.checked ?? true;
+    const shouldSendUseIcd = icdInput.length > 0 || !useIcdCheckbox;
     const ageInput = $('ageInput')?.value; // Bleibt vorerst auskommentiert im HTML
     const age = ageInput ? parseInt(ageInput, 10) : null;
     const gender = $('genderSelect')?.value || null; // Bleibt vorerst auskommentiert im HTML
-    console.log(`[getBillingAnalysis] Kontext: useIcd=${useIcd}, Age=${age}, Gender=${gender}`);
-    console.log(`[getBillingAnalysis] ICD-Prüfung berücksichtigen: ${useIcd}`);
+    const useIcdLogValue = shouldSendUseIcd ? useIcdCheckbox : false;
+    console.log(`[getBillingAnalysis] Kontext: useIcd=${useIcdLogValue}, Age=${age}, Gender=${gender}`);
+    console.log(`[getBillingAnalysis] ICD-Prüfung berücksichtigen: ${useIcdLogValue}${shouldSendUseIcd ? '' : ' (implizit deaktiviert, keine ICD-Angaben)'}`);
     let backendResponse = null;
     let rawResponseText = "";
     let htmlOutput = "";
@@ -1340,16 +2562,17 @@ async function getBillingAnalysis() {
     showSpinner(tDyn('spinnerWorking'));
     displayOutput(`
         <div id="progressContainer">
+            <div class="progress-track"></div>
             <div id="progressBar"></div>
             <div id="progressText"></div>
             <div id="progressTimer"></div>
         </div>
-        <ul id="progressLog"></ul>`, 'info');
+        `, 'info');
     startProgress();
-    logProgress(tDyn('progressLLM1Request') + ' ' + tDyn('progressQuery', {text: userInput}));
-    updateProgress(10, 'progressLLM1Request');
+    await showProgressStep(0, 'progressHintPrepare', 220);
+    await showProgressStep(10, 'progressHintLlm1Processing');
     startLlm1Progress();
-    progressTimes.llm1Start = performance.now();
+    armLlmProgressFallbacks();
 
     try {
         console.log("[getBillingAnalysis] Sende Anfrage an Backend...");
@@ -1357,22 +2580,21 @@ async function getBillingAnalysis() {
             inputText: mappedInput,
             icd: icdInput,
             medications: medicationInput,
-            useIcd: useIcd,
             age: age,
             gender: gender,
             lang: currentLang
         };
+        if (shouldSendUseIcd) {
+            requestBody.useIcd = useIcdCheckbox;
+        }
         const res = await fetch("/api/analyze-billing", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(requestBody) });
         rawResponseText = await res.text();
-        const llm1Duration = performance.now() - progressTimes.llm1Start;
         stopLlm1Progress();
-        updateProgress(30, 'progressLLM1Response');
+        clearProgressHintTimeouts();
+        await showProgressStep(45, 'progressHintLlm1Review');
         // console.log("[getBillingAnalysis] Raw Response vom Backend erhalten:", rawResponseText.substring(0, 500) + "..."); // Gekürzt loggen
         if (!res.ok) { throw new Error(`Server antwortete mit ${res.status}`); }
         backendResponse = JSON.parse(rawResponseText);
-        const lknCount = Array.isArray(backendResponse?.llm_ergebnis_stufe1?.rankierte_lkns) ? backendResponse.llm_ergebnis_stufe1.rankierte_lkns.length : 0;
-        logProgress(tDyn('progressLLM1Response') + ' ' + tDyn('progressDuration', {ms: llm1Duration.toFixed(0)}) + ' ' + tDyn('progressCandidates', {count: lknCount}));
-        progressTimes.plausiStart = performance.now();
         lastBackendResponse = backendResponse; // Für spätere Feedback-Übermittlung
         lastUserInput = userInput;
         console.log("[getBillingAnalysis] Backend-Antwort geparst.");
@@ -1386,8 +2608,7 @@ async function getBillingAnalysis() {
              throw new Error("Unerwartete Hauptstruktur vom Server erhalten.");
         }
         console.log("[getBillingAnalysis] Backend-Antwortstruktur ist OK.");
-        updateProgress(50, 'progressPlausi');
-        logProgress(tDyn('progressPlausi'));
+        await showProgressStep(60, 'progressHintLlm2Processing', 180);
 
     } catch (e) {
         console.error("Fehler bei Backend-Anfrage oder Verarbeitung:", e);
@@ -1423,7 +2644,7 @@ async function getBillingAnalysis() {
                 finalResultHeader = `<p class="final-result-header success"><b>${tDyn('billingPauschale')}</b></p>`;
                 if (abrechnung.details) {
                     finalResultDetailsHtml = displayPauschale(abrechnung);
-                    updateSelectedPauschaleDetails(abrechnung.details);
+                    updateSelectedPauschaleDetails(abrechnung.details, abrechnung.bedingungs_pruef_html || '');
                     evaluatedPauschalenList = Array.isArray(abrechnung.evaluated_pauschalen) ? abrechnung.evaluated_pauschalen : [];
                     // Toggle nur anzeigen, wenn sinnvolle ICD-Liste vorhanden
                     const hasPotential = Array.isArray(selectedPauschaleDetails?.potential_icds) && selectedPauschaleDetails.potential_icds.length > 0;
@@ -1472,28 +2693,22 @@ async function getBillingAnalysis() {
         htmlOutput += finalResultHeader;
         // 2. Details zur finalen Abrechnung (Pauschale/TARDOC) hinzufügen
         htmlOutput += finalResultDetailsHtml;
-        progressTimes.llm2Start = performance.now();
-        updateProgress(70, 'progressLLM2Request');
-        logProgress(tDyn('progressLLM2Request'));
+        await showProgressStep(70, 'progressHintLlm2Processing', 150);
         // 3. LLM Stufe 1 Ergebnisse
         htmlOutput += generateLlmStage1Details(llmResultStufe1);
         // 4. LLM Stufe 2 Ergebnisse (Mapping)
         const stage2Html = generateLlmStage2Details(llmResultStufe2); // Ergebnis holen
-        const llm2Duration = performance.now() - progressTimes.llm2Start;
-        updateProgress(80, 'progressLLM2Response');
-        logProgress(tDyn('progressLLM2Response') + ' ' + tDyn('progressDuration', {ms: llm2Duration.toFixed(0)}));
+        await showProgressStep(80, 'progressHintRuleCheck', 150);
         // console.log("[getBillingAnalysis] Ergebnis von generateLlmStage2Details:", stage2Html.substring(0, 100) + "..."); // Loggen
         htmlOutput += stage2Html; // Hinzufügen
         // 5. Regelprüfungsdetails
-        updateProgress(90, 'progressFinal');
-        logProgress(tDyn('progressFinal'));
         htmlOutput += generateRuleCheckDetails(regelErgebnisseDetails, abrechnung.type === "Error");
+        await showProgressStep(90, 'progressHintFinalizing', 180);
+        await showProgressStep(100, 'progressHintDone', 600);
 
         // --- Finalen Output anzeigen ---
         displayOutput(htmlOutput);
-        updateProgress(100, 'progressDone');
-        logProgress(tDyn('progressDone'));
-        setTimeout(finishProgress, 300);
+        setTimeout(finishProgress, 900);
         console.log("[getBillingAnalysis] Frontend-Verarbeitung abgeschlossen.");
         hideSpinner();
 
@@ -1548,7 +2763,8 @@ function generateLlmStage1Details(llmResult) {
             // Hole Beschreibung aus lokalen Daten, wenn möglich
             const desc = beschreibungZuLKN(l.lkn);
             const mengeText = l.menge !== null && l.menge !== 1 ? ` (Menge: ${l.menge})` : ''; // Menge nur anzeigen wenn != 1
-            detailsHtml += `<li><b>Die LKN ${escapeHtml(l.lkn)}:</b> ${escapeHtml(desc)}${mengeText}</li>`;
+            const lknLink = createInfoLink(l.lkn, 'lkn');
+            detailsHtml += `<li><b>LKN ${lknLink}:</b> ${escapeHtml(desc)}${mengeText}</li>`;
         });
         detailsHtml += `</ul>`;
     } else {
@@ -1688,119 +2904,42 @@ function generateRuleCheckDetails(regelErgebnisse, isErrorCase = false) {
 // Zeigt Pauschalen-Details an
 function displayPauschale(abrechnungsObjekt) {
     const pauschaleDetails = abrechnungsObjekt.details;
-    const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || "";
-    const bedingungsFehler = abrechnungsObjekt.bedingungs_fehler || [];
-    // MODIFIED: Check both conditions_met (for main object) and is_valid_structured (for items from evaluated_pauschalen list)
+    const bedingungsHtml = abrechnungsObjekt.bedingungs_pruef_html || '';
+    const bedingungsFehler = Array.isArray(abrechnungsObjekt.bedingungs_fehler) ? abrechnungsObjekt.bedingungs_fehler : [];
     const conditions_met_structured = (abrechnungsObjekt.conditions_met === true) || (abrechnungsObjekt.is_valid_structured === true);
-
-    const PAUSCHALE_KEY = 'Pauschale';
-    const PAUSCHALE_TEXT_KEY = 'Pauschale_Text';
-    const PAUSCHALE_TP_KEY = 'Taxpunkte';
-    const PAUSCHALE_ERKLAERUNG_KEY = 'pauschale_erklaerung_html';
 
     if (!pauschaleDetails) return `<p class='error'>${tDyn('errorPauschaleMissing')}</p>`;
 
-    const pauschaleCode = escapeHtml(pauschaleDetails[PAUSCHALE_KEY] || 'N/A');
-    const pauschaleText = escapeHtml(getLangField(pauschaleDetails, PAUSCHALE_TEXT_KEY) || 'N/A');
-    const pauschaleTP = escapeHtml(pauschaleDetails[PAUSCHALE_TP_KEY] || 'N/A');
-    const pauschaleErklaerung = pauschaleDetails[PAUSCHALE_ERKLAERUNG_KEY] || "";
+    const hasConditionsHtml = typeof bedingungsHtml === 'string' && bedingungsHtml.trim() !== '';
+    const metaItems = [];
+    const logicStatusKey = conditions_met_structured ? 'logicOk' : 'logicNotOk';
+    const logicStatusText = stripOuterParens(tDyn(logicStatusKey));
+    const logicPillClass = conditions_met_structured ? 'status-positive' : 'status-negative';
+    metaItems.push({
+        label: tDyn('logicStatusLabel'),
+        valueHtml: `<span class="status-pill ${logicPillClass}">${escapeHtml(logicStatusText)}</span>`
+    });
 
-    let tableRowsHtml = `
-        <tr>
-            <td><b>${pauschaleCode}</b></td>
-            <td>${pauschaleText}</td>
-            <td>${pauschaleTP}</td>
-        </tr>`;
-
-    let implantsHtml = '';
-    if (pauschaleDetails.Implantate_inbegriffen === true) {
-        implantsHtml = escapeHtml(tDyn('implantsIncluded'));
+    const extraSections = [];
+    if (bedingungsFehler.length > 0) {
+        const statusLabelKey = conditions_met_structured ? 'overallOk' : 'overallNotOk';
+        const statusHeading = `${tDyn('condDetails')} (${tDyn(statusLabelKey)})`;
+        const listItems = bedingungsFehler.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+        extraSections.push(`
+            <section class="info-section info-section-status">
+                <h3>${escapeHtml(statusHeading)}</h3>
+                <ul class="info-hint-list">${listItems}</ul>
+            </section>
+        `);
     }
 
-    let dignitiesHtml = '';
-    const dignitaetenString = pauschaleDetails.Dignitaeten;
-    if (dignitaetenString && typeof dignitaetenString === 'string' && dignitaetenString.trim() !== "") {
-        const dignityCodes = dignitaetenString.split('|').map(code => String(code).trim()).filter(Boolean);
-        if (dignityCodes.length > 0) {
-            if (Object.keys(dignitaetenMap).length === 0) {
-                console.warn("DignitaetenMap is empty when trying to display dignities. Dignities will show 'Beschreibung nicht gefunden'. Check data loading for 'data/DIGNITAETEN.json'.");
-            }
+    const summaryHtml = renderPauschaleInfoContentFromDetails(pauschaleDetails, {
+        extraMetaItems: metaItems,
+        extraSections,
+        hasStructuredLogic: hasConditionsHtml,
+    });
 
-            let dignitiesDisplayList = [];
-            dignityCodes.forEach(code => {
-                const dignityDetail = dignitaetenMap[code];
-                let description;
-                if (dignityDetail) {
-                    const lang = (typeof currentLang === 'undefined') ? 'de' : currentLang;
-                    if (lang === 'fr') {
-                        description = dignityDetail.DignitaetText_f || dignityDetail.DignitaetText || code;
-                    } else if (lang === 'it') {
-                        description = dignityDetail.DignitaetText_i || dignityDetail.DignitaetText || code;
-                    } else {
-                        description = dignityDetail.DignitaetText || code;
-                    }
-                    dignitiesDisplayList.push(`${escapeHtml(code)}, ${escapeHtml(description)}`);
-                } else {
-                    if (Object.keys(dignitaetenMap).length > 0) {
-                        console.warn(`No dignityDetail found in dignitaetenMap for code '${code}'.`);
-                    }
-                    dignitiesDisplayList.push(`${escapeHtml(code)}, ${escapeHtml(tDyn('descriptionNotFound', {code: code}))}`);
-                }
-            });
-
-            if (dignitiesDisplayList.length > 0) {
-                dignitiesHtml = `<b>${escapeHtml(tDyn('dignitiesLabel'))}:</b><br>${dignitiesDisplayList.join('<br>')}`;
-            }
-        }
-    }
-
-    if (implantsHtml || dignitiesHtml) {
-        tableRowsHtml += `
-            <tr>
-                <td></td>
-                <td>${implantsHtml}</td>
-                <td>${dignitiesHtml}</td>
-            </tr>`;
-    }
-
-
-    let detailsContent = `
-        <table border="1" style="border-collapse: collapse; width: 100%; margin-bottom: 10px;">
-            <thead><tr><th>${tDyn('pauschaleCode')}</th><th>${tDyn('description')}</th><th>${tDyn('taxpoints')}</th></tr></thead>
-            <tbody>${tableRowsHtml}</tbody>
-        </table>`;
-
-    if (pauschaleErklaerung) {
-         detailsContent += `<details style="margin-top: 10px;"><summary>${tDyn('reasonPauschale')}</summary>${pauschaleErklaerung}</details>`;
-    }
-
-    if (bedingungsHtml) {
-        // Öffne Details immer, wenn die strukturierte Logik nicht erfüllt war ODER wenn es Einzelfehler gab
-        const openAttr = !conditions_met_structured || (bedingungsFehler && bedingungsFehler.length > 0) ? 'open' : '';
-        let summary_status_text = conditions_met_structured ? tDyn('overallOk') : tDyn('overallNotOk');
-
-        let bedingungenContent = bedingungsHtml;
-
-        const potentialIcds = Array.isArray(pauschaleDetails['potential_icds']) ? pauschaleDetails['potential_icds'] : [];
-        if (potentialIcds.length > 0) {
-            let icdRows = '';
-            for (const icd of potentialIcds) {
-                const code = escapeHtml(icd.Code || '');
-                const text = escapeHtml(icd.Code_Text || '');
-                icdRows += `<tr><td>${code}</td><td>${text}</td></tr>`;
-            }
-            const icdTable = `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 5px;">`+
-                             `<thead><tr><th>${tDyn('thIcdCode')}</th><th>${tDyn('thIcdText')}</th></tr></thead>`+
-                             `<tbody>${icdRows}</tbody></table>`;
-            bedingungenContent += `<details style="margin-top:8px;"><summary>${tDyn('potentialIcds')}</summary>${icdTable}</details>`;
-        }
-
-        detailsContent += `<details ${openAttr} style="margin-top: 10px;"><summary>${tDyn('condDetails')} (${summary_status_text})</summary>${bedingungenContent}</details>`;
-    }
-
-    let summary_main_status = conditions_met_structured ? `<span style="color:green;">${tDyn('logicOk')}</span>` : `<span style="color:red;">${tDyn('logicNotOk')}</span>`;
-    let html = `<details open><summary>${tDyn('pauschaleDetails')}: ${pauschaleCode} ${summary_main_status}</summary>${detailsContent}</details>`;
-    return html;
+    return `<div class="selected-pauschale-block">${summaryHtml}</div>`;
 }
 
 
@@ -1864,7 +3003,7 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
 
         tardocTableBody += `
             <tr>
-                <td>${escapeHtml(lkn)}</td><td>${escapeHtml(name)}</td>
+                <td>${createInfoLink(lkn,'lkn')}</td><td>${escapeHtml(name)}</td>
                 <td>${al.toFixed(2)}</td><td>${ipl.toFixed(2)}</td>
                 <td>${anzahl}</td><td>${total_tp.toFixed(2)}</td>
                 <td>${regelnCellContent}</td>

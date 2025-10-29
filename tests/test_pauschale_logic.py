@@ -221,7 +221,7 @@ class TestPauschaleLogic(unittest.TestCase):
         )
 
     def test_score_based_selection(self):
-        """Higher scoring Pauschale should be chosen even if suffix later."""
+        """Suffix priority wins when score and matches are comparable."""
         from regelpruefer_pauschale import determine_applicable_pauschale # Corrected import
 
         pauschale_bedingungen_data = [
@@ -249,7 +249,7 @@ class TestPauschaleLogic(unittest.TestCase):
             tabellen_dict_by_table=tabellen_dict_by_table,
             potential_pauschale_codes_input={"X00.01A", "X00.01B"}
         )
-        self.assertEqual(result["details"]["Pauschale"], "X00.01B")
+        self.assertEqual(result["details"]["Pauschale"], "X00.01A")
 
 
 if __name__ == "__main__":

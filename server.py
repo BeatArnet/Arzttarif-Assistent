@@ -3,7 +3,7 @@
 Der Server führt Katalogdaten, Synonymerweiterung, Retrieval-Hilfen sowie die
 Regelprüfer für Einzelleistungen und Pauschalen zusammen. Eingehende Anfragen
 durchlaufen eine Pipeline: Stufe 1 extrahiert potenzielle Tarifcodes über ein
-LLM, das Python-Backend prüft Mengen und Regeln, und Stufe 2 ordnet oder
+LLM, das Python-Backend prüft Mengen und Regeln, und Stufe 2 ordnet oder
 korrigiert die Vorschläge bei Bedarf. Zusätzlich stellt das Modul
 Qualitätssicherungs-Endpunkte, das Ausliefern der leichten Weboberfläche sowie
 umfangreiche Logging- und Telemetrie-Hooks bereit. Viele Importe bringen
@@ -14,12 +14,15 @@ funktionieren.
 import os
 import re
 import json
+import math
 import time # für Zeitmessung
 import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 # Use explicit module alias to avoid any name shadowing or analysis confusion
 import datetime as dt
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast
+from functools import lru_cache
+from types import SimpleNamespace
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple
 
 if TYPE_CHECKING:
     from flask import (
@@ -47,6 +50,7 @@ else:
             def __init__(self, *a, **kw):
                 self.routes = {}
                 self.config = {}
+                self._after_request_funcs = []
 
             def route(self, path, methods=None):
                 methods = tuple((methods or ["GET"]))
@@ -56,6 +60,10 @@ else:
                     return func
 
                 return decorator
+
+            def after_request(self, func):
+                self._after_request_funcs.append(func)
+                return func
 
             def test_client(self):
                 app = self
@@ -164,6 +172,29 @@ else:
 
 Request = FlaskRequest
 
+# Ensure a module-like ``flask`` object is always defined so that static analyzers
+# (and code relying on ``flask`` namespace attributes) do not report undefined
+# names even when the real dependency is missing during local development. When
+# Flask is available we expose the real module; otherwise we create a lightweight
+# namespace that mimics the relevant attributes provided by our fallbacks above.
+if TYPE_CHECKING:
+    import flask as _flask_module  # pragma: no cover - import only for typing
+else:
+    try:  # pragma: no cover - executed only when Flask is installed
+        import flask as _flask_module
+    except ModuleNotFoundError:  # pragma: no cover - matches fallback stub usage
+        _flask_module = SimpleNamespace(
+            Blueprint=FlaskBlueprint,
+            Flask=FlaskType,
+            Request=FlaskRequest,
+            abort=abort,
+            jsonify=jsonify,
+            request=request,
+            send_from_directory=send_from_directory,
+        )
+
+flask = cast(Any, _flask_module)
+
 # Typing alias for chat message param to satisfy static analyzers
 from typing import TypeAlias
 
@@ -204,16 +235,30 @@ except ModuleNotFoundError:
     def load_dotenv(*a, **k) -> bool:
         return False
 import regelpruefer_einzelleistungen as regelpruefer  # Dein Modul
-from typing import Dict, List, Any, Set, Tuple, Callable, cast  # Tuple und Callable hinzugefügt
+from typing import Dict, List, Any, Set, Tuple, Callable, Optional, cast  # Tuple und Callable hinzugefügt
 from utils import (
     get_table_content,
     translate_rule_error_message,
     expand_compound_words,
     extract_keywords,
     extract_lkn_codes_from_text,
+    extract_patient_demographics,
     rank_embeddings_entries,
+    STOPWORDS,
+    PatientDemographics,
+)
+from utils import (
+    translate,
+    translate_condition_type,
+    create_html_info_link,
+    get_lang_field,
+    escape as html_escape,
 )
 import html
+try:
+    import bleach  # type: ignore
+except Exception:  # pragma: no cover - optional dependency fallback
+    bleach = None  # type: ignore
 from prompts import get_stage1_prompt, get_stage2_mapping_prompt, get_stage2_ranking_prompt
 from utils import (
     compute_token_doc_freq,
@@ -222,10 +267,12 @@ from utils import (
 from synonyms.expander import expand_query, set_synonyms_enabled
 from synonyms import storage
 from synonyms.models import SynonymCatalog
+from runtime_config import load_merged_config
 from openai_wrapper import chat_completion_safe, enforce_llm_min_interval, ChatCompletionMessageParam
 import configparser
 
 import logging
+from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 import sys
 
@@ -323,11 +370,14 @@ def _get_base_url(provider: str) -> Optional[str]:
     return os.getenv(f"{_env_name(provider)}_BASE_URL")
 
 
-# Lese optionale Einstellungen aus config.ini
-config = configparser.ConfigParser()
-config_file = Path(__file__).with_name("config.ini")
-# Nutze utf-8-sig, um ein evtl. vorhandenes BOM (\ufeff) robust zu behandeln
-config.read(config_file, encoding='utf-8-sig')
+# Lese optionale Einstellungen aus config.ini (ggf. mit Laufzeit-Overrides)
+try:
+    config = load_merged_config()
+except Exception:
+    logging.exception("Konfiguration konnte nicht vollständig geladen werden, nutze Fallback")
+    config = configparser.ConfigParser()
+    # Nutze utf-8-sig, um ein evtl. vorhandenes BOM (\ufeff) robust zu behandeln
+    config.read(Path(__file__).with_name("config.ini"), encoding="utf-8-sig")
 
 
 def _get_stage_settings(stage: str) -> tuple[str, str]:
@@ -499,9 +549,11 @@ for handler in werkzeug_logger.handlers[:]:
         handler.close()
     except Exception:
         pass
-werkzeug_logger.setLevel(logging.INFO)
+desired_werkzeug_level = max(CONSOLE_LOG_LEVEL, logging.INFO)
+werkzeug_logger.setLevel(desired_werkzeug_level)
 werkzeug_handler = SafeEncodingStreamHandler(sys.stdout)
 werkzeug_handler.setFormatter(formatter)
+werkzeug_handler.setLevel(desired_werkzeug_level)
 werkzeug_logger.addHandler(werkzeug_handler)
 werkzeug_logger.propagate = False
 
@@ -512,11 +564,802 @@ if file_handler is not None:
     except Exception:
         pass
 
+# --- HTML Sanitization (server-side) ---
+ALLOWED_HTML_TAGS: list[str] = [
+    # text / structure
+    'div', 'span', 'p', 'ul', 'ol', 'li', 'br', 'b', 'i', 'em', 'strong', 'code', 'hr',
+    # interactive summaries used by explanations
+    'details', 'summary',
+    # links used by frontend handlers (info-link, pauschale-exp-link)
+    'a',
+    # optional: icons created by condition lists
+    'svg', 'use',
+]
+
+ALLOWED_HTML_ATTRS: dict[str, list[str]] = {
+    '*': ['class'],
+    'a': ['href', 'target', 'rel', 'data-code', 'data-type', 'data-content'],
+    'svg': ['viewBox'],
+    'use': ['xlink:href', 'href'],
+    'details': ['open', 'class'],
+    'summary': ['class'],
+}
+
+def sanitize_html_fragment(html_text: str) -> str:
+    """Sanitize an HTML fragment while preserving required data-* attributes and links.
+
+    Falls bleach nicht installiert ist, wird der Text unverändert zurückgegeben.
+    """
+    if not isinstance(html_text, str):
+        return ''
+    if bleach is None:
+        # Best-effort: return as-is to avoid breaking output in test environments
+        return html_text
+    try:
+        cleaned = bleach.clean(
+            html_text,
+            tags=ALLOWED_HTML_TAGS,
+            attributes=ALLOWED_HTML_ATTRS,
+            strip=True,
+            protocols=['http', 'https', 'mailto'],
+        )
+        # Ensure external links are safe
+        cleaned = cleaned.replace('target="_blank"', 'target="_blank" rel="noopener noreferrer"')
+        return cleaned
+    except Exception as _san_exc:  # pragma: no cover - robust fallback
+        try:
+            logger.warning("Sanitize failed, returning original HTML: %s", _san_exc)
+        except Exception:
+            pass
+        return html_text
+
+def _sanitize_abrechnung_payload(abrechnung: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Sanitize known HTML fields within the 'abrechnung' object returned to clients.
+
+    - abrechnung['bedingungs_pruef_html']
+    - abrechnung['details']['pauschale_erklaerung_html']
+    - abrechnung['evaluated_pauschalen'][i]['bedingungs_pruef_html']
+    """
+    if not isinstance(abrechnung, dict):
+        return abrechnung
+    try:
+        if 'bedingungs_pruef_html' in abrechnung:
+            abrechnung['bedingungs_pruef_html'] = sanitize_html_fragment(abrechnung.get('bedingungs_pruef_html') or '')
+        details = abrechnung.get('details')
+        if isinstance(details, dict) and 'pauschale_erklaerung_html' in details:
+            details['pauschale_erklaerung_html'] = sanitize_html_fragment(details.get('pauschale_erklaerung_html') or '')
+        eval_list = abrechnung.get('evaluated_pauschalen')
+        if isinstance(eval_list, list):
+            for item in eval_list:
+                if isinstance(item, dict) and 'bedingungs_pruef_html' in item:
+                    item['bedingungs_pruef_html'] = sanitize_html_fragment(item.get('bedingungs_pruef_html') or '')
+    except Exception as _:
+        # Keep payload intact even if sanitization fails for some element
+        pass
+    return abrechnung
+
+
+def _normalize_gender(value: Any) -> str:
+    """Normalize various gender inputs to 'm' or 'w' used by rule engine.
+
+    Accepts German/French/Italian/English synonyms and single letters.
+    Returns 'unbekannt' if not recognized.
+    """
+    if value is None:
+        return 'unbekannt'
+    s = str(value).strip().lower()
+    if not s:
+        return 'unbekannt'
+    female = {
+        'w', 'f', 'weiblich', 'frau', 'feminin', 'féminin', 'femminile', 'female', 'woman', 'donna', 'femme'
+    }
+    male = {
+        'm', 'männlich', 'mann', 'masculin', 'maschio', 'male', 'homme', 'uomo'
+    }
+    if s in female:
+        return 'w'
+    if s in male:
+        return 'm'
+    return s  # passt ggf. schon ('w'/'m') oder bleibt als freier Wert
+
+
+class CombinedDemographics(TypedDict, total=False):
+    age_value: Optional[int]
+    age_operator: Optional[str]
+    age_source: Optional[str]
+    gender_value: Optional[str]
+    gender_source: Optional[str]
+
+
+def _merge_patient_demographics(
+    alter_user: Optional[int],
+    geschlecht_user: Optional[str],
+    extracted_info: Dict[str, Any],
+    heuristic_demo: PatientDemographics | None,
+) -> CombinedDemographics:
+    """Combine user, LLM and heuristics to derive age/gender context."""
+
+    if heuristic_demo is None:
+        heuristic_demo = cast(PatientDemographics, {})
+
+    def _clean_operator(value: Any) -> Optional[str]:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped in {"<", "<=", "=", ">=", ">"}:
+                return stripped
+        return None
+
+    age_value: Optional[int] = None
+    age_operator: Optional[str] = None
+    age_source: Optional[str] = None
+    if isinstance(alter_user, int):
+        age_value = alter_user
+        age_operator = "="
+        age_source = "user"
+    else:
+        extracted_age = extracted_info.get("alter")
+        if isinstance(extracted_age, int):
+            age_value = extracted_age
+            age_operator = _clean_operator(extracted_info.get("alter_operator")) or "="
+            age_source = "llm"
+        else:
+            heur_age = heuristic_demo.get("age_value")
+            if isinstance(heur_age, int):
+                age_value = heur_age
+                age_operator = _clean_operator(heuristic_demo.get("age_operator"))
+                if not age_operator:
+                    age_operator = "=" if heuristic_demo.get("age_source") == "text" else "<="
+                age_source = str(heuristic_demo.get("age_source") or "heuristic")
+
+    if age_value is not None and not age_operator:
+        age_operator = "="
+
+    gender_value: Optional[str] = None
+    gender_source: Optional[str] = None
+    if geschlecht_user:
+        normalized = _normalize_gender(geschlecht_user)
+        if normalized != 'unbekannt':
+            gender_value = normalized
+            gender_source = "user"
+    if not gender_value or gender_value == 'unbekannt':
+        extracted_gender = extracted_info.get("geschlecht")
+        if isinstance(extracted_gender, str) and extracted_gender.strip():
+            normalized = _normalize_gender(extracted_gender)
+            if normalized != 'unbekannt':
+                gender_value = normalized
+                gender_source = "llm"
+    if not gender_value or gender_value == 'unbekannt':
+        heur_gender = heuristic_demo.get("gender")
+        if isinstance(heur_gender, str) and heur_gender.strip():
+            normalized = _normalize_gender(heur_gender)
+            if normalized != 'unbekannt':
+                gender_value = normalized
+                gender_source = str(heuristic_demo.get("gender_source") or "heuristic")
+    if not gender_value:
+        gender_value = 'unbekannt'
+
+    return cast(
+        CombinedDemographics,
+        {
+            "age_value": age_value,
+            "age_operator": age_operator,
+            "age_source": age_source,
+            "gender_value": gender_value,
+            "gender_source": gender_source,
+        },
+    )
+
+
+def _demographics_imply_child(demo: PatientDemographics | CombinedDemographics | None, upper_bound: int = 12) -> bool:
+    """Return True if demographics indicate a child up to ``upper_bound`` years."""
+
+    if not isinstance(demo, dict):
+        return False
+    value = demo.get("age_value")
+    if not isinstance(value, int):
+        return False
+    operator = demo.get("age_operator")
+    if operator in (None, "", "="):
+        return value <= upper_bound
+    if operator == "<":
+        return value <= upper_bound
+    if operator == "<=":
+        return value <= upper_bound
+    return False
+
+
+def _coerce_age_value(value: Any) -> Optional[float]:
+    """Convert raw TARDOC min/max age values to float."""
+
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip().replace(",", ".")
+        if not text:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    return None
+
+
+def _extract_tardoc_demographics(info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return normalized demographic constraints from a TARDOC record."""
+
+    min_age = _coerce_age_value(info.get("MinAlter"))
+    max_age = _coerce_age_value(info.get("MaxAlter"))
+    unit_texts = {
+        "de": info.get("Einheit_Text_d"),
+        "fr": info.get("Einheit_Text_f"),
+        "it": info.get("Einheit_Text_i"),
+    }
+    unit_texts = {lang: text for lang, text in unit_texts.items() if isinstance(text, str) and text.strip()}
+
+    gender_raw = info.get("Geschlecht")
+    gender_map = {"0": "m", "1": "w", "M": "m", "W": "w"}
+    gender_norm = None
+    if isinstance(gender_raw, str):
+        gender_norm = gender_map.get(gender_raw.strip())
+    elif isinstance(gender_raw, (int, float)):
+        gender_norm = gender_map.get(str(int(gender_raw)))
+
+    result: Dict[str, Any] = {}
+    if min_age is not None:
+        result["min_age"] = min_age
+    if max_age is not None:
+        result["max_age"] = max_age
+    if unit_texts:
+        result["unit_texts"] = unit_texts
+    if gender_norm:
+        result["gender"] = gender_norm
+
+    if 'Kapitel' in info:
+        kapitel_text = str(info.get("Kapitel", "")).lower()
+    else:
+        kapitel_text = ""
+    bezeichnung_text = str(info.get("Bezeichnung", "")).lower()
+    is_surcharge = "zuschlag" in kapitel_text or "zuschlag" in bezeichnung_text
+
+    kapitel_nummer = str(info.get("KapitelNummer", "")).strip()
+    if kapitel_nummer:
+        result["kapitel_nummer"] = kapitel_nummer
+    kapitel_name = str(info.get("Kapitel", "")).strip()
+    if kapitel_name:
+        result["kapitel"] = kapitel_name
+
+    if result and is_surcharge:
+        result["is_surcharge"] = True
+
+    return result or None
+
+
+_GENDER_LABELS = {
+    "m": {"de": "nur männlich", "fr": "masculin uniquement", "it": "solo maschile"},
+    "w": {"de": "nur weiblich", "fr": "féminin uniquement", "it": "solo femminile"},
+}
+
+_GENDER_TOKEN_HINTS = {
+    "m": ["männlich", "maennlich", "male", "homme", "maschio", "uomo", "mann", "garcon", "boy"],
+    "w": ["weiblich", "female", "femme", "frau", "donna", "fille", "ragazza", "girl"],
+}
+
+_AGE_UNIT_FALLBACK = {"de": "Jahre", "fr": "ans", "it": "anni", "en": "years"}
+
+
+def _format_tardoc_demographics(code: str, lang: str) -> Optional[str]:
+    """Generate a localized demographic string for the given LKN."""
+
+    info = tardoc_demographic_cache.get(code)
+    if not info:
+        return None
+
+    parts: List[str] = []
+    unit_texts: Dict[str, str] = info.get("unit_texts", {}) if isinstance(info.get("unit_texts"), dict) else {}
+    unit_text = unit_texts.get(lang) or unit_texts.get("de") or _AGE_UNIT_FALLBACK["de"]
+
+    def _fmt(value: float | None) -> Optional[str]:
+        if value is None:
+            return None
+        if float(value).is_integer():
+            return str(int(value))
+        return f"{value:g}"
+
+    min_age = info.get("min_age")
+    max_age = info.get("max_age")
+    min_str = _fmt(min_age) if isinstance(min_age, (int, float)) else None
+    max_str = _fmt(max_age) if isinstance(max_age, (int, float)) else None
+
+    if min_str:
+        parts.append(f"ab {min_str} {unit_text}")
+    if max_str:
+        parts.append(f"bis {max_str} {unit_text}")
+
+    gender = info.get("gender")
+    if isinstance(gender, str) and gender in _GENDER_LABELS:
+        label = _GENDER_LABELS[gender].get(lang) or _GENDER_LABELS[gender]["de"]
+        parts.append(label)
+
+    return "; ".join(parts) if parts else None
+
+
+def _format_age_value_for_tokens(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return f"{value:g}"
+
+
+def _build_demographic_seed_terms(demo: PatientDemographics) -> List[str]:
+    """Generate multilingual tokens that describe inferred demographics."""
+
+    tokens: List[str] = []
+    age_value = demo.get("age_value")
+    operator = demo.get("age_operator")
+    age_num = None
+    if isinstance(age_value, (int, float)):
+        age_num = float(age_value)
+        age_str = _format_age_value_for_tokens(age_num)
+        tokens.extend([
+            f"{age_str} {_AGE_UNIT_FALLBACK['de']}",
+            f"{age_str} {_AGE_UNIT_FALLBACK['fr']}",
+            f"{age_str} {_AGE_UNIT_FALLBACK['it']}",
+            f"{age_str} {_AGE_UNIT_FALLBACK['en']}",
+            f"Alter {age_str}",
+            f"age {age_str}",
+        ])
+        if operator in {"<", "<="}:
+            tokens.extend([
+                f"bis {age_str} {_AGE_UNIT_FALLBACK['de']}",
+                f"moins de {age_str} {_AGE_UNIT_FALLBACK['fr']}",
+                f"fino a {age_str} {_AGE_UNIT_FALLBACK['it']}",
+                f"under {age_str} {_AGE_UNIT_FALLBACK['en']}",
+                f"<={age_str}",
+            ])
+        elif operator in {">", ">="}:
+            tokens.extend([
+                f"ab {age_str} {_AGE_UNIT_FALLBACK['de']}",
+                f"au moins {age_str} {_AGE_UNIT_FALLBACK['fr']}",
+                f"almeno {age_str} {_AGE_UNIT_FALLBACK['it']}",
+                f"over {age_str} {_AGE_UNIT_FALLBACK['en']}",
+                f">={age_str}",
+            ])
+        elif operator == "=":
+            tokens.extend([
+                f"genau {age_str} {_AGE_UNIT_FALLBACK['de']}",
+                f"exactement {age_str} {_AGE_UNIT_FALLBACK['fr']}",
+                f"esattamente {age_str} {_AGE_UNIT_FALLBACK['it']}",
+                f"exactly {age_str} {_AGE_UNIT_FALLBACK['en']}",
+            ])
+
+        if age_num <= 12:
+            tokens.extend(["Kind", "Kinder", "Kindern", "child", "children", "enfant", "enfants", "pediatrie", "pédiatrie", "bambino", "bambini", "pediatric"])
+        if age_num >= 65:
+            tokens.extend(["Senioren", "Senior", "geriatrie", "gériatrie", "anziani", "elderly", "aged", "personnes âgées"])
+
+    gender_value = demo.get("gender") or demo.get("gender_value")
+    if isinstance(gender_value, str):
+        gender_tokens = _GENDER_TOKEN_HINTS.get(gender_value.lower())
+        if gender_tokens:
+            tokens.extend(gender_tokens)
+
+    # Deduplicate while preserving order
+    deduped = list(dict.fromkeys(token for token in tokens if isinstance(token, str) and token.strip()))
+    return deduped
+
+
+def _match_codes_for_demographics(demo: PatientDemographics) -> Set[str]:
+    """Return TARDOC codes whose demographic constraints match the inferred patient info."""
+
+    matches: Set[str] = set()
+    if not tardoc_demographic_cache or not isinstance(demo, dict):
+        return matches
+
+    age_value = demo.get("age_value")
+    age_operator = demo.get("age_operator")
+    age_known = isinstance(age_value, (int, float))
+
+    user_min = -math.inf
+    user_max = math.inf
+    if age_known:
+        val = float(age_value)  # type: ignore[arg-type]
+        if age_operator in (None, "="):
+            user_min = user_max = val
+        elif age_operator == ">=":
+            user_min = val
+        elif age_operator == ">":
+            user_min = val + 1e-6
+        elif age_operator == "<=":
+            user_max = val
+        elif age_operator == "<":
+            user_max = val - 1e-6
+        else:
+            user_min = user_max = val
+
+    raw_gender = demo.get("gender") or demo.get("gender_value")
+    gender_norm = None
+    if isinstance(raw_gender, str) and raw_gender:
+        gender_norm = raw_gender.lower()[0]
+
+    for code, info in tardoc_demographic_cache.items():
+        if not info.get("is_surcharge"):
+            continue
+        chapter = str(
+            info.get("kapitel_nummer")
+            or info.get("KapitelNummer")
+            or ""
+        ).strip()
+        if chapter and not chapter.startswith("CG.15"):
+            continue
+        code_min = info.get("min_age")
+        code_max = info.get("max_age")
+        if (code_min is not None or code_max is not None) and not age_known:
+            continue
+        if isinstance(code_min, (int, float)) and user_max < float(code_min):
+            continue
+        if isinstance(code_max, (int, float)) and user_min > float(code_max):
+            continue
+        code_gender = info.get("gender")
+        if code_gender:
+            if not gender_norm:
+                continue
+            if gender_norm != code_gender:
+                continue
+        matches.add(code)
+
+    return matches
+
+
+# --- Rendering helpers for structured Pauschale conditions ---
+def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -> str:
+    """Render HTML for structured condition groups.
+
+    This function expects the structure returned by
+    regelpruefer_pauschale.check_pauschale_conditions_structured.
+    """
+    try:
+        groups = structured.get('groups') or []
+        inter_ops = structured.get('inter_group_ops') or []
+
+        def _normalize_identifier(value: Any) -> Any:
+            if value is None:
+                return None
+            try:
+                return int(str(value).strip())
+            except Exception:
+                return str(value).strip()
+
+        raw_children = structured.get('group_children') or {}
+        normalized_children: dict[Any, list[tuple[Any, str]]] = {}
+        for parent_key, entries in raw_children.items():
+            parent_norm = _normalize_identifier(parent_key)
+            if parent_norm is None:
+                continue
+            normalized_entries: list[tuple[Any, str]] = []
+            for entry in entries or []:
+                child_norm = _normalize_identifier(entry.get('child'))
+                op_norm = str(entry.get('operator') or '').upper()
+                normalized_entries.append((child_norm, op_norm))
+            normalized_children[parent_norm] = normalized_entries
+
+        group_index_map: dict[Any, int] = {}
+        for idx, group in enumerate(groups):
+            gid_norm = _normalize_identifier(group.get('normalized_id', group.get('id')))
+            group['normalized_id'] = gid_norm
+            if gid_norm is not None:
+                group_index_map[gid_norm] = idx
+
+        parent_link: dict[Any, tuple[Any, str]] = {}
+        for parent_gid, children in normalized_children.items():
+            for child_gid, op_val in children:
+                if child_gid is None:
+                    continue
+                parent_link[child_gid] = (parent_gid, op_val)
+
+        @lru_cache(maxsize=None)
+        def _cluster_end_for(group_id: Any) -> int:
+            idx = group_index_map.get(group_id)
+            if idx is None:
+                return -1
+            max_idx = idx
+            for child_gid, op_val in normalized_children.get(group_id, []):
+                if op_val != 'UND':
+                    continue
+                child_end = _cluster_end_for(child_gid)
+                if child_end > max_idx:
+                    max_idx = child_end
+            return max_idx
+
+        cluster_starts: dict[int, list[dict[str, Any]]] = {}
+        for parent_gid, children in normalized_children.items():
+            und_children = [child_gid for child_gid, op_val in children if op_val == 'UND']
+            if not und_children:
+                continue
+            parent_idx = group_index_map.get(parent_gid)
+            if parent_idx is None:
+                continue
+            parent_parent = parent_link.get(parent_gid)
+            if parent_parent and parent_parent[1] == 'UND':
+                continue  # Teil einer bestehenden UND-Kette, Cluster startet weiter oben
+            max_idx = parent_idx
+            for child_gid in und_children:
+                child_end_idx = _cluster_end_for(child_gid)
+                if child_end_idx > max_idx:
+                    max_idx = child_end_idx
+            if max_idx > parent_idx:
+                cluster_starts.setdefault(parent_idx, []).append({
+                    'end_index': max_idx,
+                    'parent_id': parent_gid,
+                })
+
+        connector_index = 0
+        prueflogik_expr = structured.get('prueflogik_expr')
+        prueflogik_pretty = structured.get('prueflogik_pretty')
+        group_logic_terms = structured.get('group_logic_terms') or []
+        prueflogik_header = ""
+        expr_trimmed = prueflogik_expr.strip() if isinstance(prueflogik_expr, str) else ""
+        pretty_trimmed = str(prueflogik_pretty).strip() if isinstance(prueflogik_pretty, str) else ""
+        if expr_trimmed or pretty_trimmed:
+            label_text = translate('prueflogik_header', lang)
+            prueflogik_header = (
+                f"<div class=\"condition-prueflogik\"><strong>{html_escape(label_text)}</strong></div>"
+            )
+        if not groups:
+            empty_parts: list[str] = []
+            if prueflogik_header:
+                empty_parts.append(prueflogik_header)
+            empty_parts.append(f"<p><i>{html_escape(translate('no_conditions_for_pauschale', lang))}</i></p>")
+            return "".join(empty_parts)
+
+        html_parts: list[str] = [prueflogik_header] if prueflogik_header else []
+        active_clusters: list[dict[str, Any]] = []
+
+        for gi, group in enumerate(groups):
+            gid = group.get('id')
+            gid_norm = group.get('normalized_id', gid)
+            group_negated = bool(group.get('negated'))
+            while active_clusters and active_clusters[-1]['end_index'] < gi:
+                html_parts.append("</div>")
+                active_clusters.pop()
+
+            current_op_raw = ""
+            if gi > 0 and connector_index < len(inter_ops):
+                current_op_raw = str(inter_ops[connector_index] or "").upper()
+            if gi > 0:
+                connector_index += 1
+                if current_op_raw in ("UND", "ODER"):
+                    op_label = translate('AND' if current_op_raw == 'UND' else 'OR', lang)
+                    if active_clusters:
+                        html_parts.append(
+                            f"<div class=\"condition-separator cluster-operator\">{html_escape(op_label)}</div>"
+                        )
+                    else:
+                        html_parts.append(
+                            f"<div class=\"condition-separator inter-group-operator\">{html_escape(op_label)}</div>"
+                        )
+
+            for cluster_info in cluster_starts.get(gi, []):
+                html_parts.append("<div class=\"condition-group-cluster\">")
+                active_clusters.append(cluster_info)
+
+            title = f"{translate('condition_group', lang)} {html_escape(str(gid))}"
+            group_class = "condition-group condition-group-negated" if group_negated else "condition-group"
+            html_parts.append(f"<div class=\"{group_class}\"><div class=\"condition-group-title\">{title}</div>")
+
+            conditions = group.get('conditions') or []
+            intra_ops = group.get('intra_ops') or []
+            for ci, cond in enumerate(conditions):
+                if ci > 0 and (ci - 1) < len(intra_ops):
+                    link_op = (intra_ops[ci - 1] or '').upper()
+                    if link_op in ('UND', 'ODER'):
+                        if group_negated and link_op == 'UND':
+                            op_label = translate('AND_NOT', lang)
+                        elif group_negated and link_op == 'ODER':
+                            op_label = translate('OR_NOT', lang)
+                        else:
+                            op_label = translate('AND' if link_op == 'UND' else 'OR', lang)
+                        html_parts.append(
+                            f"<div class=\"condition-separator intra-group-operator\">{html_escape(op_label)}</div>"
+                        )
+
+                matched = bool(cond.get('matched'))
+                display_matched = (not matched) if group_negated else matched
+                icon_svg_path = "#icon-check" if display_matched else "#icon-cross"
+                icon_class = "condition-icon-fulfilled" if display_matched else "condition-icon-not-fulfilled"
+                cond_type = str(cond.get('type', 'N/A'))
+                cond_type_display = translate_condition_type(cond_type, lang)
+                value_html = _render_condition_value_html(cond, lang)
+
+                html_parts.append(
+                    """
+                    <div class="condition-item">
+                        <span class="condition-status-icon {icon_class}">
+                            <svg viewBox="0 0 24 24"><use xlink:href="{icon_svg_path}"></use></svg>
+                        </span>
+                        <span class="condition-type-display">{cond_type_display}:</span>
+                        <span class="condition-text-wrapper">{value_html}</span>
+                    </div>
+                    """.format(
+                        icon_class=icon_class,
+                        icon_svg_path=icon_svg_path,
+                        cond_type_display=html_escape(cond_type_display),
+                        value_html=value_html,
+                    )
+                )
+
+            html_parts.append("</div>")
+
+        while active_clusters:
+            html_parts.append("</div>")
+            active_clusters.pop()
+
+        return "".join(html_parts)
+    except Exception as _render_exc:
+        try:
+            logger.error("render_condition_groups_html failed: %s", _render_exc)
+        except Exception:
+            pass
+        return "<p><i>Rendering error</i></p>"
+
+
+def _render_condition_value_html(cond: dict[str, Any], lang: str = 'de') -> str:
+    """Render the display value of a condition (links, values)."""
+    ctype = str(cond.get('type', '')).upper()
+    raw_values = str(cond.get('werte') or '').strip()
+    if not raw_values:
+        return f"<i>{html_escape(translate('not_specified', lang))}</i>"
+
+    try:
+        if ctype in ("GESCHLECHT IN LISTE",):
+            # Display rule's allowed genders using abbreviations (W/M)
+            tokens = [v.strip() for v in raw_values.split(',') if v.strip()]
+            if not tokens:
+                return f"<i>{html_escape(translate('no_gender_spec', lang))}</i>"
+            abbrev: list[str] = []
+            for t in tokens:
+                canon = _normalize_gender(t)
+                if canon == 'w':
+                    abbrev.append('W')
+                elif canon == 'm':
+                    abbrev.append('M')
+                else:
+                    abbrev.append(str(t).strip().upper())
+            return f"{html_escape(translate('geschlecht_list', lang))}{', '.join(html_escape(x) for x in abbrev)}"
+
+        if ctype in ("ALTER IN JAHREN BEI EINTRITT",):
+            op = str(cond.get('vergleich') or '').strip()
+            val = raw_values
+            # Show only the comparator and value; the type label is rendered separately
+            return f"{html_escape(op)} {html_escape(val)}" if op else html_escape(val)
+
+        if ctype in ("ANZAHL",):
+            op = str(cond.get('vergleich') or '').strip()
+            val = raw_values
+            return html_escape(translate('anzahl_condition', lang, value=f"{op} {val}".strip()))
+
+        if ctype in ("SEITIGKEIT",):
+            # Normalize quoted tokens like '\'B\'' to B
+            token = raw_values.replace("'", "").strip().lower()
+            label_key = None
+            if token == 'b':
+                label_key = 'bilateral'
+            elif token == 'e':
+                label_key = 'unilateral'
+            elif token == 'l':
+                label_key = 'left'
+            elif token == 'r':
+                label_key = 'right'
+            display = translate(label_key, lang) if label_key else token.upper()
+            op = str(cond.get('vergleich') or '=').strip() or '='
+            # Render like "= beidseits" localized
+            return html_escape(translate('seitigkeit_condition', lang, value=f"{display}"))
+
+        if ctype in ("LEISTUNGSPOSITIONEN IN LISTE", "LKN", "LKN IN LISTE"):
+            codes = [v.strip().upper() for v in raw_values.split(',') if v.strip()]
+            parts: list[str] = []
+            for code in codes:
+                desc = get_lang_field(leistungskatalog_dict.get(code, {}), 'Beschreibung', lang) or code
+                parts.append(create_html_info_link(code, 'lkn', html_escape(f"{code} ({desc})")))
+            return translate('condition_text_lkn_list', lang, linked_codes=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_lkns_spec', lang))}</i>"
+
+        if ctype in ("LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"):
+            table_names = [v.strip() for v in raw_values.split(',') if v.strip()]
+            parts: list[str] = []
+            for tn in table_names:
+                entries = get_table_content(tn, 'service_catalog', tabellen_dict_by_table, lang)
+                parts.append(create_html_info_link(tn, 'lkn_table', html_escape(tn), data_content=json.dumps(entries)))
+            return translate('condition_text_lkn_table', lang, table_names=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_table_name', lang))}</i>"
+
+        if ctype in ("HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"):
+            table_names = [v.strip() for v in raw_values.split(',') if v.strip()]
+            parts: list[str] = []
+            for tn in table_names:
+                entries = get_table_content(tn, 'icd', tabellen_dict_by_table, lang)
+                parts.append(create_html_info_link(tn, 'icd_table', html_escape(tn), data_content=json.dumps(entries)))
+            return translate('condition_text_icd_table', lang, table_names=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_table_name', lang))}</i>"
+
+        if ctype in ("ICD", "HAUPTDIAGNOSE IN LISTE", "ICD IN LISTE"):
+            codes = [v.strip().upper() for v in raw_values.split(',') if v.strip()]
+            parts: list[str] = []
+            for code in codes:
+                # Use a diagnosis link; frontend knows how to render it
+                link = f'<a href="#" class="info-link" data-type="diagnosis" data-code="{html_escape(code)}">{html_escape(code)}</a>'
+                parts.append(link)
+            return ", ".join(parts) if parts else f"<i>{html_escape(translate('no_icds_spec', lang))}</i>"
+
+        if ctype in ("MEDIKAMENTE IN LISTE",):
+            codes = [v.strip().upper() for v in raw_values.split(',') if v.strip()]
+            parts: list[str] = []
+            for code in codes:
+                display_text = html_escape(code)
+                parts.append(create_html_info_link(code, 'medication', display_text))
+            return translate('condition_text_medication_list', lang, linked_codes=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_medications_spec', lang))}</i>"
+
+        # Fallback: show the value as plain text
+        return html_escape(raw_values)
+    except Exception as _:
+        return html_escape(raw_values)
+
+
+def render_pauschale_explanation_html(selected: dict[str, Any] | None,
+                                      evaluated: list[dict[str, Any]] | None,
+                                      lang: str = 'de') -> str:
+    """Render a compact explanation list for evaluated Pauschalen.
+
+    - Shows a bullet list of all evaluated candidates with status
+    - If a selection is given, adds a short header line
+    """
+    try:
+        html_parts: list[str] = []
+        if selected and selected.get('details'):
+            sel_code = str(selected.get('code') or selected.get('details', {}).get('Pauschale') or '')
+            sel_text = get_lang_field(selected.get('details', {}), 'Pauschale_Text', lang) or ''
+            if sel_code:
+                sel_code_disp = html_escape(sel_code)
+                sel_link = (
+                    f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+                    f"data-code='{sel_code_disp}'>{sel_code_disp}</a>"
+                )
+                html_parts.append(
+                    f"<p><b>{sel_link}</b> {html_escape(sel_text)}</p>"
+                )
+        if evaluated:
+            html_parts.append("<ul>")
+            for cand in evaluated:
+                code = str(cand.get('code') or '')
+                details = cand.get('details') or {}
+                text = get_lang_field(details, 'Pauschale_Text', lang) or ''
+                valid = bool(cand.get('is_valid_structured'))
+                status = translate('conditions_met' if valid else 'conditions_not_met', lang)
+                status_html = f"<span style=\"color:{'green' if valid else 'red'};\">{html_escape(status)}</span>"
+                code_disp = html_escape(code)
+                link = (
+                    f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+                    f"data-code='{code_disp}'>{code_disp}</a>"
+                )
+                html_parts.append(
+                    f"<li><b>{link}</b> {html_escape(text)} {status_html}</li>"
+                )
+            html_parts.append("</ul>")
+        return "".join(html_parts) if html_parts else ""
+    except Exception as _exc:
+        try:
+            logger.error("render_pauschale_explanation_html failed: %s", _exc)
+        except Exception:
+            pass
+        return ""
+
 USE_RAG = config.getint('RAG', 'enabled', fallback=0) == 1
 APP_VERSION = config.get('APP', 'version', fallback='unknown')
 TARIF_VERSION = config.get('APP', 'tarif_version', fallback='')
 # Base data directory
 DATA_DIR = Path("data")
+# Rendering feature flag: prefer server-side rendering for conditions HTML from structured data
+try:
+    RENDER_SERVER_SIDE_CONDITIONS = config.getint('RENDER', 'server_side_conditions', fallback=0) == 1
+except Exception:
+    RENDER_SERVER_SIDE_CONDITIONS = False
 # Configure synonym support
 SYNONYMS_ENABLED = config.getint('SYNONYMS', 'enabled', fallback=0) == 1
 
@@ -543,27 +1386,32 @@ if SYNONYMS_ENABLED and SYNONYMS_CATALOG_PATH:
         logger.error("Failed to load synonym catalog: %s", exc)
         synonym_catalog = SynonymCatalog()
 
-EMBEDDING_FILE = DATA_DIR / "leistungskatalog_embeddings.json"
-EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# ... (andere Imports)
+FAISS_INDEX_FILE = DATA_DIR / "vektor_index.faiss"
+FAISS_CODES_FILE = DATA_DIR / "vektor_index_codes.json"
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 
 try:  # optional dependency
     from sentence_transformers import SentenceTransformer
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     SentenceTransformer = None  # type: ignore
+try:
+    import faiss
+except ModuleNotFoundError:
+    faiss = None
 
 embedding_model = None
+faiss_index = None
 embedding_codes: List[str] = []
-embedding_vectors: List[List[float]] = []
-if USE_RAG and SentenceTransformer:
+if USE_RAG and SentenceTransformer and faiss:
     try:
-        with EMBEDDING_FILE.open("r", encoding="utf-8") as f:
-            _data = json.load(f)
-            embedding_codes = _data.get("codes", [])
-            embedding_vectors = _data.get("embeddings", [])
+        faiss_index = faiss.read_index(str(FAISS_INDEX_FILE))
+        with FAISS_CODES_FILE.open("r", encoding="utf-8") as f:
+            embedding_codes = json.load(f)
         embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        logger.info(" ✓ Embedding model and vectors geladen.")
+        logger.info(" ✓ FAISS index, embedding model and codes geladen.")
     except Exception as e:  # pragma: no cover - ignore on missing file
-        logger.warning(f"Konnte Embeddings nicht laden: {e}")
+        logger.warning(f"Konnte FAISS-Index oder Embeddings nicht laden: {e}")
 
 LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
 TARDOC_TARIF_PATH = DATA_DIR / "TARDOC_Tarifpositionen.json"
@@ -659,11 +1507,49 @@ try:
     GEMINI_TRIM_MIN_CONTEXT_CHARS = config.getint('GEMINI', 'trim_min_context_chars', fallback=1000)
 except Exception:
     GEMINI_TRIM_MIN_CONTEXT_CHARS = 1000
- 
+
+# --- Stage-1 Kontextaufbau: Feintuning-Konstanten ---
+# Anzahl alternativer Query-Varianten (z.B. Synonyme), die wir bei der Kontexterstellung berücksichtigen.
+MAX_QUERY_VARIANTS = 80
+# Höchstzahl zusätzlicher Tokens, die Varianten pro Suchlauf beitragen dürfen (begrenzt Streuung).
+MAX_TOKEN_VARIANT_ADDITIONS = 24
+# Maximale Zeichenlänge einzelner Variantenbeschreibungen, um ausufernde Texte zu vermeiden.
+MAX_VARIANT_LENGTH = 120
+# Mindestanzahl an Keyword-basierten Treffern, bevor Zusatzvarianten gesucht werden.
+MIN_KEYWORD_RESULTS = 40
+# Zielgröße für eindeutig gerankte LKN-Kodes im Kontextblock.
+MIN_RANKED_CODE_TARGET = 80
+# Wie viele Varianten wir bei Bedarf für zusätzliche Suchläufe heranziehen.
+EXTRA_VARIANT_SEARCH_LIMIT = 6
+# Maximale Anzahl Katalogtreffer, die pro Zusatzvariante übernommen werden.
+EXTRA_VARIANT_RESULT_LIMIT = 40
+# Untere Token-Schwelle des Kontextblocks; fällt der Wert darunter, hängen wir medizinische Interpretationen an.
+MIN_CONTEXT_TOKEN_THRESHOLD = 6000
+# Maximalzahl an Fallback-Zeilen mit medizinischer Interpretation, die ergänzt werden dürfen.
+MAX_FALLBACK_MED_LINES = 40
+# Anzahl Seed-Ergebnisse aus der initialen Keyword-Suche für Variantenbildung.
+SEED_KEYWORD_RESULT_LIMIT = 10
+# Anzahl Top-Keyword-Treffer, die bevorzugt (mit Score) in die Rangliste eingehen.
+KEYWORD_PRIORITY_LIMIT = 3
+# Wie viele Katalogbeschreibungen als zusätzliche Variantenformulierungen genutzt werden.
+KEYWORD_VARIANT_DESCRIPTION_LIMIT = 3
+# Zahl direkter Synonym-Kodes, die wir als Rangierhinweise einschieben.
+MAX_DIRECT_SYNONYM_RANK_HINTS = 4
+# Limit für explizit in den Prompt aufgenommenen Synonymbezeichnungen.
+MAX_PROMPT_SYNONYMS = 12
+
 EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
 CheckPauschaleConditionsType = Callable[
-    [str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]],
-    List[Dict[str, Any]]
+    [
+        str,
+        Dict[Any, Any],
+        List[Dict[Any, Any]],
+        Dict[str, List[Dict[Any, Any]]],
+        Dict[str, Dict[str, Any]],
+        str,
+        Optional[Dict[str, Dict[str, Any]]],
+    ],
+    Dict[str, Any]
 ]
 GetSimplifiedConditionsType = Callable[[str, List[Dict[Any, Any]]], Set[Any]]
 GenerateConditionDetailHtmlType = Callable[
@@ -690,10 +1576,20 @@ def default_check_html_fallback(
     pauschale_code: str,
     context: Dict[Any, Any],
     pauschale_bedingungen_data: List[Dict[Any, Any]],
-    tabellen_dict_by_table: Dict[str, List[Dict[Any, Any]]]
-) -> List[Dict[str, Any]]:
+    tabellen_dict_by_table: Dict[str, List[Dict[Any, Any]]],
+    leistungskatalog_dict: Dict[str, Dict[str, Any]],
+    lang: str = "de",
+    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     logger.warning("Fallback für 'check_pauschale_conditions' aktiv.")
-    return [{"html": "HTML-Prüfung nicht verfügbar (Fallback)", "errors": ["Fallback aktiv"], "trigger_lkn_condition_met": False}]
+    message = translate('detail_html_not_generated', lang)
+    return {
+        "html": f"<p><i>{html_escape(message)}</i></p>",
+        "errors": ["Fallback aktiv"],
+        "trigger_lkn_condition_met": False,
+        "prueflogik_expr": None,
+        "prueflogik_pretty": "",
+    }
 
 def default_get_simplified_conditions_fallback( # Matches: get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set
     pauschale_code: str,
@@ -814,6 +1710,7 @@ leistungskatalog_dict: dict[str, dict] = {}
 regelwerk_dict: dict[str, list] = {} # Annahme: lade_regelwerk gibt List[RegelDict] pro LKN
 tardoc_tarif_dict: dict[str, dict] = {}
 tardoc_interp_dict: dict[str, dict] = {}
+tardoc_demographic_cache: dict[str, Dict[str, Any]] = {}
 pauschale_lp_data: list[dict] = []
 pauschalen_data: list[dict] = []
 pauschalen_dict: dict[str, dict] = {}
@@ -829,6 +1726,7 @@ examples_data: list[dict] = []
 token_doc_freq: dict[str, int] = {}
 chop_data: list[dict] = []
 full_catalog_token_count: int = 0
+catalog_description_lookup: Set[str] = set()
 
 def create_app() -> FlaskType:
     """
@@ -837,6 +1735,13 @@ def create_app() -> FlaskType:
     und bekommt das WSGI-Objekt zurück.
     """
     app = FlaskType(__name__, static_folder='.', static_url_path='')
+    # Stelle sicher, dass alle JSON-Antworten UTF-8 liefern und nicht auf ASCII
+    # zurückfallen. Ohne dieses Flag werden Umlaute in Kombination mit bestimmten
+    # Browsern als "Prüflogik" dargestellt.
+    app.config.update(
+        JSON_AS_ASCII=False,
+        JSONIFY_MIMETYPE="application/json; charset=utf-8",
+    )
 
     # Daten nur einmal laden – egal ob lokal oder Render-Worker
     global daten_geladen
@@ -851,6 +1756,21 @@ def create_app() -> FlaskType:
             app.register_blueprint(cast(FlaskBlueprint, synonyms_bp))
         except Exception as exc:
             logger.error("Failed to register synonyms API: %s", exc)
+
+    @app.after_request
+    def _ensure_utf8_charset(response):
+        """Stelle sicher, dass textbasierte Antworten explizit UTF-8 senden."""
+        content_type = response.headers.get("Content-Type")
+        if content_type:
+            lowered = content_type.lower()
+            needs_charset = "charset=" not in lowered and (
+                lowered.startswith("text/")
+                or lowered.startswith("application/json")
+                or lowered.startswith("application/javascript")
+            )
+            if needs_charset:
+                response.headers["Content-Type"] = f"{content_type}; charset=utf-8"
+        return response
 
     # Ab hier bleiben alle @app.route-Dekorationen unverändert
     return app
@@ -1027,9 +1947,24 @@ def load_data() -> bool:
                 if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "PauschaleBedingungen", "Tabellen"]:
                     all_loaded_successfully = False
         except (json.JSONDecodeError, IOError, Exception) as e:
-             logger.error("  FEHLER beim Laden/Verarbeiten von %s (%s): %s", name, path, e)
-             all_loaded_successfully = False
-             traceback.print_exc()
+            logger.error("  FEHLER beim Laden/Verarbeiten von %s (%s): %s", name, path, e)
+            all_loaded_successfully = False
+            traceback.print_exc()
+
+    # Extract demographic helper data from TARDOC tariff entries
+    try:
+        tardoc_demographic_cache.clear()
+        for lkn, info in tardoc_tarif_dict.items():
+            if not isinstance(info, dict):
+                continue
+            demo = _extract_tardoc_demographics(info)
+            if demo:
+                tardoc_demographic_cache[lkn] = demo
+        if tardoc_demographic_cache:
+            logger.info("  Demografische Metadaten aus TARDOC geladen (%s LKNs).", len(tardoc_demographic_cache))
+    except Exception as e:
+        logger.warning("  WARNUNG: Konnte demografische Metadaten aus TARDOC nicht extrahieren: %s", e)
+        tardoc_demographic_cache.clear()
 
     # Zusätzliche optionale Dateien laden
     try:
@@ -1064,6 +1999,18 @@ def load_data() -> bool:
     # Compute document frequencies for ranking
     compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
     logger.info("  Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
+
+    catalog_description_lookup.clear()
+    for details in leistungskatalog_dict.values():
+        if not isinstance(details, dict):
+            continue
+        for field in ("Beschreibung", "Beschreibung_f", "Beschreibung_i"):
+            value = details.get(field)
+            if not isinstance(value, str):
+                continue
+            normalized_desc = " ".join(value.split()).lower()
+            if normalized_desc:
+                catalog_description_lookup.add(normalized_desc)
 
     global full_catalog_token_count
     if not USE_RAG:
@@ -1219,8 +2166,9 @@ def call_gemini_stage1(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -1421,11 +2369,13 @@ def call_gemini_stage1(
         # Validierung und Default-Setzung für extracted_info
         extracted_info_defaults = {
             "dauer_minuten": None, "menge_allgemein": None, "alter": None,
+            "alter_operator": None,
             "geschlecht": None, "seitigkeit": "unbekannt", "anzahl_prozeduren": None
         }
         expected_types_extracted_info = {
             "dauer_minuten": (int, type(None)), "menge_allgemein": (int, type(None)),
-            "alter": (int, type(None)), "geschlecht": (str, type(None)),
+            "alter": (int, type(None)), "alter_operator": (str, type(None)),
+            "geschlecht": (str, type(None)),
             "seitigkeit": (str, type(None)), "anzahl_prozeduren": (int, type(None))
         }
 
@@ -1603,8 +2553,9 @@ def call_openai_stage1(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -1999,8 +2950,9 @@ def call_gemini_stage2_mapping(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -2211,8 +3163,9 @@ def call_openai_stage2_mapping(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 2 (Mapping): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -2338,8 +3291,9 @@ def call_gemini_stage2_ranking(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -2520,8 +3474,9 @@ def call_openai_stage2_ranking(
                 # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
                 pass
         else:
+            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
             logger.warning(
-                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0).",
+                "LLM Stufe 2 (Ranking): Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
                 prompt_tokens,
                 TOKEN_BUDGET,
             )
@@ -3037,9 +3992,10 @@ def _parse_billing_request(request: "Request") -> Dict[str, Any]:
     user_input = data.get('inputText', "")
     if isinstance(user_input, str):
         # Vereinheitliche typografische Apostrophe und Gravis, damit Suche/Synonyme greifen.
-        user_input = user_input.replace("’", "'").replace("‘", "'").replace("`", "'")
+        user_input = user_input.replace("'", "'").replace("'", "'").replace("`", "'")
     if not user_input.strip():
         raise ValueError("'inputText' darf nicht leer sein")
+    heuristic_demo: PatientDemographics = extract_patient_demographics(user_input)
 
     lang = data.get('lang', 'de')
     if lang not in ['de', 'fr', 'it']:
@@ -3072,7 +4028,27 @@ def _parse_billing_request(request: "Request") -> Dict[str, Any]:
     if unresolved_medications:
         logger.info("Nicht zuordenbare Medikamentenangaben: %s", unresolved_medications)
 
-    use_icd_flag = data.get('useIcd', True)
+    use_icd_flag_raw = data.get('useIcd')
+    if use_icd_flag_raw is None:
+        # Standard: Nur dann streng nach ICD prüfen, wenn tatsächlich Codes übergeben wurden.
+        # Ohne ICD-Angaben würden Pauschalen mit obligatorischen ICD-Bedingungen sonst
+        # systematisch scheitern (z.B. Hallux-Valgus-Operationen).
+        use_icd_flag = bool(icd_input)
+    else:
+        # Nutzer*innen können die Prüfung explizit steuern (z.B. über Checkbox im UI).
+        # Akzeptiere auch String-Werte wie "true"/"false" oder "1"/"0".
+        if isinstance(use_icd_flag_raw, str):
+            use_icd_flag = use_icd_flag_raw.strip().lower() in {"1", "true", "ja", "yes"}
+        else:
+            use_icd_flag = bool(use_icd_flag_raw)
+
+    if use_icd_flag and not icd_input:
+        # Eine explizite ICD-Prüfung ohne übergebene ICD-Codes führt zwangsläufig dazu,
+        # dass jede Pauschale mit Diagnosen-Anforderungen scheitert. Das tritt in der
+        # Praxis auf, wenn Frontends den Standardwert "True" mitsenden. In diesem Fall
+        # schalten wir die ICD-Prüfung defensiv aus und loggen die Anpassung.
+        logger.info("ICD-Prüfung deaktiviert, da keine ICD-Codes übermittelt wurden (useIcd-Flag=%s).", use_icd_flag_raw)
+        use_icd_flag = False
     age_input = data.get('age')
     gender_input = data.get('gender')
 
@@ -3099,6 +4075,7 @@ def _parse_billing_request(request: "Request") -> Dict[str, Any]:
         "use_icd_flag": use_icd_flag,
         "alter_user": alter_user,
         "geschlecht_user": geschlecht_user,
+        "demographics_heuristic": heuristic_demo,
     }
 
 
@@ -3107,17 +4084,129 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     Performs hybrid search to find relevant LKNs and builds the context for the LLM.
     Returns the context string, top ranking results, and query variants.
     """
+    # Nutzung der global definierten MAX_*/MIN_* Konstanten siehe Modulkopf.
+
+    def _normalize_query_variants(
+        primary_variant: str,
+        candidates: List[str],
+    ) -> List[str]:
+        """Deduplicate and cap the list of variants while keeping the primary variant."""
+        seen: Set[str] = set()
+        normalized: List[str] = []
+        primary_lower = primary_variant.lower() if isinstance(primary_variant, str) else ""
+
+        def _try_add(value: str) -> None:
+            if not isinstance(value, str):
+                return
+            stripped = value.strip()
+            if not stripped:
+                return
+            key = stripped.lower()
+            if key in seen:
+                return
+            if len(stripped) > MAX_VARIANT_LENGTH and key != primary_lower:
+                return
+            seen.add(key)
+            normalized.append(stripped)
+
+        if isinstance(primary_variant, str):
+            _try_add(primary_variant)
+
+        for cand in candidates:
+            if len(normalized) >= MAX_QUERY_VARIANTS:
+                break
+            _try_add(cand)
+        return normalized[:MAX_QUERY_VARIANTS]
+
+    def _ordered_keyword_tokens(text: str) -> List[str]:
+        ordered_tokens: List[str] = []
+        seen_tokens: Set[str] = set()
+        if not isinstance(text, str):
+            return ordered_tokens
+        expanded = expand_compound_words(text)
+        for match in re.finditer(r"\b\w+\b", expanded.lower()):
+            token = match.group(0)
+            if len(token) < 4 or token in STOPWORDS:
+                continue
+            if token not in seen_tokens:
+                seen_tokens.add(token)
+                ordered_tokens.append(token)
+        return ordered_tokens
+
     katalog_context_parts = []
+    prompt_synonym_entries: List[Tuple[str, str]] = []
+    prompt_synonym_seen: Set[str] = set()
+    catalog_description_variant_keys: Set[str] = set(catalog_description_lookup)
+
+    def _register_prompt_synonym(candidate: str) -> None:
+        if not isinstance(candidate, str):
+            return
+        normalized_candidate = " ".join(candidate.split())
+        if not normalized_candidate:
+            return
+        key = normalized_candidate.lower()
+        if key in prompt_synonym_seen:
+            return
+        prompt_synonym_seen.add(key)
+        prompt_synonym_entries.append((normalized_candidate, key))
     preprocessed_input = expand_compound_words(user_input)
+    demographics_hint: PatientDemographics = extract_patient_demographics(user_input)
+    synonym_seed_input = preprocessed_input
+    demographic_seed_terms = _build_demographic_seed_terms(demographics_hint)
+    if demographic_seed_terms:
+        extra_terms = " ".join(dict.fromkeys(demographic_seed_terms))
+        synonym_seed_input = f"{synonym_seed_input} {extra_terms}".strip()
+    query_variants: List[str] = [synonym_seed_input]
+    seed_top_codes: List[str] = []
+    base_keyword_tokens = extract_keywords(synonym_seed_input)
+    if base_keyword_tokens:
+        seed_keyword_results = cast(
+            List[Tuple[float, str]],
+            rank_leistungskatalog_entries(
+                base_keyword_tokens,
+                leistungskatalog_dict,
+                token_doc_freq,
+                limit=SEED_KEYWORD_RESULT_LIMIT,
+                return_scores=True,
+            ),
+        )
+        seed_top_codes = [
+            code for _, code in seed_keyword_results[:KEYWORD_VARIANT_DESCRIPTION_LIMIT]
+        ]
+        if seed_top_codes:
+            lang_desc_field_map = {
+                "de": "Beschreibung",
+                "fr": "Beschreibung_f",
+                "it": "Beschreibung_i",
+            }
+            desc_field = lang_desc_field_map.get(lang, "Beschreibung")
+            for candidate_code in seed_top_codes:
+                details = leistungskatalog_dict.get(candidate_code, {})
+                if not isinstance(details, dict):
+                    continue
+                for field in (desc_field, "Beschreibung"):
+                    value = details.get(field)
+                    if not isinstance(value, str):
+                        continue
+                    cleaned = " ".join(value.split())
+                    if not cleaned or len(cleaned) > MAX_VARIANT_LENGTH:
+                        continue
+                    query_variants.append(cleaned)
+                    catalog_description_variant_keys.add(cleaned.lower())
     direct_synonym_codes: List[str] = []
     if SYNONYMS_ENABLED:
         candidate_bases: List[str] = []
-        if preprocessed_input in synonym_catalog.entries:
-            candidate_bases.append(preprocessed_input)
-        normalized = " ".join(preprocessed_input.lower().split())
-        for base in synonym_catalog.index.get(normalized, []):
-            if base not in candidate_bases:
-                candidate_bases.append(base)
+        base_candidates = []
+        for candidate in [preprocessed_input, synonym_seed_input]:
+            if candidate and candidate not in base_candidates:
+                base_candidates.append(candidate)
+        for base_candidate in base_candidates:
+            normalized = " ".join(base_candidate.lower().split())
+            if base_candidate in synonym_catalog.entries and base_candidate not in candidate_bases:
+                candidate_bases.append(base_candidate)
+            for base in synonym_catalog.index.get(normalized, []):
+                if base not in candidate_bases:
+                    candidate_bases.append(base)
 
         code_set: Set[str] = set()
         for base in candidate_bases:
@@ -3132,22 +4221,149 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             direct_synonym_codes = sorted(code_set)
             logger.info(
                 "Direkter Synonym-Treffer: '%s' -> %s",
-                preprocessed_input,
+                synonym_seed_input,
                 direct_synonym_codes,
             )
 
-    query_variants = [preprocessed_input]
     if SYNONYMS_ENABLED:
         try:
             # expand_query now returns a list, not a dict
-            query_variants = expand_query(
-                preprocessed_input,
+            expanded_variants = expand_query(
+                synonym_seed_input,
                 synonym_catalog,
                 lang=lang,
             )
+            base_prompt_key = (
+                " ".join(synonym_seed_input.split()).lower()
+                if isinstance(synonym_seed_input, str)
+                else ""
+            )
+            for variant in expanded_variants:
+                if not isinstance(variant, str):
+                    continue
+                normalized_variant = " ".join(variant.split())
+                if (
+                    not normalized_variant
+                    or len(normalized_variant) > MAX_VARIANT_LENGTH
+                ):
+                    continue
+                key = normalized_variant.lower()
+                if key == base_prompt_key or key in catalog_description_variant_keys:
+                    continue
+                _register_prompt_synonym(normalized_variant)
+            query_variants = _normalize_query_variants(
+                synonym_seed_input,
+                query_variants + expanded_variants,
+            )
         except Exception as e:
             logger.warning("Synonym expansion failed: %s", e)
-            query_variants = [preprocessed_input]
+            query_variants = _normalize_query_variants(
+                synonym_seed_input,
+                query_variants,
+            )
+
+        # If the full Eingabetext selbst kein Synonym ist, erweitere auf Token-Ebene.
+        lower_seen_variants = {
+            str(variant).lower(): str(variant)
+            for variant in query_variants
+            if isinstance(variant, str)
+        }
+        token_candidate_order: List[str] = []
+
+        def _extend_token_candidates(source: str) -> None:
+            try:
+                for token in _ordered_keyword_tokens(source):
+                    if token not in token_candidate_order:
+                        token_candidate_order.append(token)
+            except Exception as token_err:
+                logger.debug(
+                    "Keyword extraction for synonym expansion failed: %s",
+                    token_err,
+                )
+
+        _extend_token_candidates(synonym_seed_input)
+        _extend_token_candidates(preprocessed_input)
+
+        token_variant_budget = MAX_TOKEN_VARIANT_ADDITIONS
+        for token in token_candidate_order:
+            if token_variant_budget <= 0 or len(query_variants) >= MAX_QUERY_VARIANTS:
+                break
+            if not isinstance(token, str) or len(token) < 4:
+                continue
+            try:
+                token_variants = expand_query(token, synonym_catalog, lang=lang)
+            except Exception as exp_err:
+                logger.debug("Token-based synonym expansion failed for '%s': %s", token, exp_err)
+                continue
+
+            has_additional_variant = any(
+                isinstance(variant, str)
+                and variant.strip()
+                and variant.lower() not in lower_seen_variants
+                and variant.lower() != token.lower()
+                for variant in token_variants
+            )
+            if not has_additional_variant:
+                continue
+
+            for variant in token_variants:
+                if (
+                    token_variant_budget <= 0
+                    or len(query_variants) >= MAX_QUERY_VARIANTS
+                ):
+                    break
+                if not isinstance(variant, str):
+                    continue
+                normalized_variant = variant.strip()
+                if (
+                    not normalized_variant
+                    or len(normalized_variant) > MAX_VARIANT_LENGTH
+                ):
+                    continue
+                key = normalized_variant.lower()
+                if key in lower_seen_variants or key == token.lower():
+                    continue
+                query_variants.append(normalized_variant)
+                lower_seen_variants[key] = normalized_variant
+                if key not in catalog_description_variant_keys:
+                    _register_prompt_synonym(normalized_variant)
+                token_variant_budget -= 1
+                if token_variant_budget <= 0:
+                    break
+
+        query_variants = _normalize_query_variants(
+            query_variants[0] if query_variants else synonym_seed_input,
+            query_variants,
+        )
+
+    synonym_hint_codes: Set[str] = set(direct_synonym_codes)
+    if SYNONYMS_ENABLED and synonym_catalog:
+        for variant in query_variants:
+            if not isinstance(variant, str):
+                continue
+            normalized_variant = " ".join(variant.lower().split())
+            base_terms = list(synonym_catalog.index.get(normalized_variant, []))
+            if not base_terms and variant in synonym_catalog.entries:
+                base_terms.append(variant)
+            for base_term in base_terms:
+                entry = synonym_catalog.entries.get(base_term)
+                if not entry:
+                    continue
+                for code in entry.lkns:
+                    normalized_code = str(code).strip().upper()
+                    if normalized_code:
+                        synonym_hint_codes.add(normalized_code)
+    demographic_matches = _match_codes_for_demographics(demographics_hint)
+    if demographic_matches:
+        synonym_hint_codes.update(demographic_matches)
+        logger.debug("Demografie-Hinweise fügten Kandidaten hinzu: %s", sorted(demographic_matches))
+    for candidate_code in seed_top_codes:
+        normalized_code = str(candidate_code).strip().upper()
+        if normalized_code:
+            synonym_hint_codes.add(normalized_code)
+
+    if preprocessed_input not in query_variants:
+        query_variants.append(preprocessed_input)
 
     keyword_token_set: Set[str] = set()
     for _q in query_variants:
@@ -3176,11 +4392,18 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     )
     keyword_codes = [code for _, code in keyword_results]
     logger.info(f"Keyword-Suche fand {len(keyword_codes)} Kandidaten.")
+    keyword_focus_limit = max(KEYWORD_PRIORITY_LIMIT, KEYWORD_VARIANT_DESCRIPTION_LIMIT)
+    keyword_top_codes = [code for _, code in keyword_results[:keyword_focus_limit]]
+    for candidate_code in keyword_top_codes:
+        normalized_code = str(candidate_code).strip().upper()
+        if normalized_code:
+            synonym_hint_codes.add(normalized_code)
+    direct_synonym_codes = sorted(synonym_hint_codes)
 
     # 2. Embedding-based search (for semantic similarity)
     embedding_results: List[Tuple[float, str]] = []
     embedding_codes_ranked: List[str] = []
-    if USE_RAG and embedding_model and embedding_vectors:
+    if USE_RAG and embedding_model and faiss_index:
         logger.info(
             "Suchanfrage für RAG (ohne Synonym-Erweiterung): %s",
             embedding_query,
@@ -3204,8 +4427,8 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         )[0]
 
         embedding_results = rank_embeddings_entries(
-            cast(List[float], q_vec.tolist()),
-            embedding_vectors,
+            q_vec,
+            faiss_index,
             embedding_codes,
             limit=100,
         )
@@ -3216,13 +4439,56 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
 
     # 3. Combine and de-duplicate results
     # The order is important: direct codes first, then keyword matches, then semantic matches.
-    direct_codes = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
+    direct_codes_from_input = [c.upper() for c in extract_lkn_codes_from_text(user_input)]
+    direct_codes = list(direct_codes_from_input)
     for code in direct_synonym_codes:
         if code not in direct_codes:
             direct_codes.append(code)
+    synonym_only_codes = [
+        code for code in direct_synonym_codes if code not in direct_codes_from_input
+    ]
 
     combined_codes = direct_codes + keyword_codes + embedding_codes_ranked
     ranked_codes = list(dict.fromkeys(combined_codes))  # De-duplicate while preserving order
+    extra_variant_codes: List[str] = []
+    target_shortfall = (
+        len(ranked_codes) < MIN_RANKED_CODE_TARGET
+        or len(keyword_results) < MIN_KEYWORD_RESULTS
+    )
+    if target_shortfall and query_variants:
+        logger.debug(
+            "Starte zusätzliche Variantensuche: %s Basis-Kandidaten, %s Keyword-Ergebnisse.",
+            len(ranked_codes),
+            len(keyword_results),
+        )
+        for variant in query_variants[:EXTRA_VARIANT_SEARCH_LIMIT]:
+            variant_tokens = extract_keywords(variant)
+            if not variant_tokens:
+                continue
+            variant_results = cast(
+                List[Tuple[float, str]],
+                rank_leistungskatalog_entries(
+                    variant_tokens,
+                    leistungskatalog_dict,
+                    token_doc_freq,
+                    limit=EXTRA_VARIANT_RESULT_LIMIT,
+                    return_scores=True,
+                ),
+            )
+            for _, code in variant_results:
+                if code in ranked_codes or code in extra_variant_codes:
+                    continue
+                extra_variant_codes.append(code)
+                if len(ranked_codes) + len(extra_variant_codes) >= MIN_RANKED_CODE_TARGET:
+                    break
+            if len(ranked_codes) + len(extra_variant_codes) >= MIN_RANKED_CODE_TARGET:
+                break
+        if extra_variant_codes:
+            ranked_codes.extend(extra_variant_codes)
+            logger.info(
+                "Fallback-Suche pro Variante ergänzte %s zusätzliche Kandidaten.",
+                len(extra_variant_codes),
+            )
 
     logger.info(
         f"Kombinierte Suche ergab {len(ranked_codes)} einzigartige Kandidaten für den Kontext."
@@ -3251,10 +4517,38 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             top_ranking_results.append((score, normalized))
             seen_rank_codes.add(normalized)
 
-    _add_direct_codes(direct_codes)
-    _add_scored_entries(keyword_results)
-    if USE_RAG and embedding_model and embedding_vectors:
+    priority_keyword_entries = (
+        keyword_results[:KEYWORD_PRIORITY_LIMIT]
+        if KEYWORD_PRIORITY_LIMIT > 0
+        else keyword_results
+    )
+    remaining_keyword_entries = (
+        keyword_results[KEYWORD_PRIORITY_LIMIT:]
+        if KEYWORD_PRIORITY_LIMIT > 0
+        else []
+    )
+    synonym_rank_hints = (
+        synonym_only_codes[:MAX_DIRECT_SYNONYM_RANK_HINTS]
+        if MAX_DIRECT_SYNONYM_RANK_HINTS > 0
+        else synonym_only_codes
+    )
+
+    _add_direct_codes(direct_codes_from_input)
+    if priority_keyword_entries:
+        _add_scored_entries(priority_keyword_entries)
+    if synonym_rank_hints:
+        _add_direct_codes(synonym_rank_hints)
+    if remaining_keyword_entries:
+        _add_scored_entries(remaining_keyword_entries)
+    if USE_RAG and embedding_model and faiss_index:
         _add_scored_entries(embedding_results)
+    if extra_variant_codes:
+        for code in extra_variant_codes:
+            normalized = code.strip().upper()
+            if not normalized or normalized in seen_rank_codes:
+                continue
+            top_ranking_results.append((0.05, normalized))
+            seen_rank_codes.add(normalized)
 
     def _collect_code_text(code: str) -> str:
         details = leistungskatalog_dict.get(code)
@@ -3299,6 +4593,14 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
 
     # Baue den Kontext: erzwungene Codes zuerst, dann restliche Kandidaten, optional begrenzt
     included: set[str] = set()
+    med_info_candidates: List[str] = []
+
+    def _shorten_text(value: str, max_length: int = 220) -> str:
+        collapsed = " ".join(str(value).split())
+        if len(collapsed) <= max_length:
+            return collapsed
+        return collapsed[: max_length - 1].rstrip() + "…"
+
     def _add_line_for(code: str) -> None:
         details = leistungskatalog_dict.get(code, {})
         desc_text = get_localized_text(details, "Beschreibung", lang)
@@ -3311,6 +4613,13 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         line = ", ".join(parts)
         if CONTEXT_INCLUDE_MED_INTERPRETATION and mi_text:
             line += f", MedizinischeInterpretation: {html.escape(mi_text)}"
+        elif mi_text:
+            med_info_candidates.append(
+                f"LKN: {code}, MedizinischeInterpretation: {html.escape(_shorten_text(mi_text))}"
+            )
+        demo_line = _format_tardoc_demographics(code, lang)
+        if demo_line:
+            line += f", Demografie: {html.escape(demo_line)}"
         katalog_context_parts.append(line)
         included.add(code)
 
@@ -3332,7 +4641,20 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
                 break
     katalog_context_str = "\n".join(katalog_context_parts)
-    logger.info("Tokens im Katalog-Kontext dieses Requests: %s", count_tokens(katalog_context_str))
+    current_token_count = count_tokens(katalog_context_str)
+    if (
+        not CONTEXT_INCLUDE_MED_INTERPRETATION
+        and med_info_candidates
+        and current_token_count < MIN_CONTEXT_TOKEN_THRESHOLD
+    ):
+        katalog_context_parts.extend(med_info_candidates[:MAX_FALLBACK_MED_LINES])
+        katalog_context_str = "\n".join(katalog_context_parts)
+        current_token_count = count_tokens(katalog_context_str)
+        logger.info(
+            "Medizinische Interpretation als Fallback ergänzt (%s zusätzliche Zeilen).",
+            min(len(med_info_candidates), MAX_FALLBACK_MED_LINES),
+        )
+    logger.info("Tokens im Katalog-Kontext dieses Requests: %s", current_token_count)
     # --- DEBUGGING START ---
     logger.debug(f"DEBUG: len(katalog_context_str): {len(katalog_context_str)}")
     if not katalog_context_str:
@@ -3341,7 +4663,36 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     if not katalog_context_str:
         raise ValueError("Leistungskatalog für LLM-Kontext (Stufe 1) ist leer.")
 
-    return katalog_context_str, top_ranking_results, query_variants
+    normalized_query_keys = {
+        " ".join(str(value).split()).lower()
+        for value in query_variants
+        if isinstance(value, str) and str(value).strip()
+    }
+
+    filtered_prompt_synonyms: List[str] = []
+    for display_value, key in prompt_synonym_entries:
+        if key not in normalized_query_keys:
+            continue
+        if key in catalog_description_variant_keys:
+            continue
+        filtered_prompt_synonyms.append(display_value)
+        if len(filtered_prompt_synonyms) >= MAX_PROMPT_SYNONYMS:
+            break
+
+    prompt_base = (
+        " ".join(synonym_seed_input.split())
+        if isinstance(synonym_seed_input, str)
+        else ""
+    )
+    prompt_variants: List[str] = []
+    if filtered_prompt_synonyms:
+        if prompt_base:
+            prompt_variants.append(prompt_base)
+        prompt_variants.extend(filtered_prompt_synonyms)
+    elif prompt_base:
+        prompt_variants = [prompt_base]
+
+    return katalog_context_str, top_ranking_results, prompt_variants
 
 
 def _validate_and_apply_rules(
@@ -3350,6 +4701,7 @@ def _validate_and_apply_rules(
     icd_input: List[str],
     medication_atcs: List[str],
     alter_user: Optional[int],
+    alter_operator: Optional[str],
     geschlecht_user: Optional[str],
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Vergleicht LLM-Vorschläge mit Katalog und Regelwerk.
@@ -3418,7 +4770,10 @@ def _validate_and_apply_rules(
                     "Typ": leistung_typ,
                     "Begleit_LKNs": begleit_lkns_upper,
                     "Begleit_Typen": begleit_typen_context,
-                    "ICD": icd_input, "Geschlecht": geschlecht_user or "unbekannt", "Alter": alter_user,
+                    "ICD": icd_input,
+                    "Geschlecht": geschlecht_user or "unbekannt",
+                    "Alter": alter_user,
+                    "AlterOperator": alter_operator,
                     "Pauschalen": [], "Medikamente": medication_atcs, "GTIN": medication_atcs
                 }
                 try:
@@ -3569,6 +4924,7 @@ def _determine_final_billing(
 
     tardoc_lkns_to_map_list = [l for l in rule_checked_leistungen_list if l.get('typ') in ['E', 'EZ']]
     mapped_lkn_codes_set: Set[str] = set()
+    wa_codes_replaced_by_sa: Set[str] = set()
     mapping_process_had_connection_error = False
 
     if tardoc_lkns_to_map_list and mapping_candidate_lkns_dict:
@@ -3587,13 +4943,46 @@ def _determine_final_billing(
                 if filtered_anast_candidates:
                     current_candidates_for_llm = filtered_anast_candidates
 
+            t_lkn_code_upper: Optional[str] = None
+            if isinstance(t_lkn_code, str):
+                t_lkn_code_upper = t_lkn_code.strip().upper()
+
+            direct_mapping_code: Optional[str] = None
+            if t_lkn_code_upper and current_candidates_for_llm and t_lkn_code_upper in current_candidates_for_llm:
+                direct_mapping_code = t_lkn_code_upper
+
+            if direct_mapping_code:
+                mapped_lkn_codes_set.add(direct_mapping_code)
+                if ".SA." in direct_mapping_code and isinstance(t_lkn_code, str):
+                    source_code = t_lkn_code.strip().upper()
+                    if source_code.startswith("WA."):
+                        wa_codes_replaced_by_sa.add(source_code)
+                logger.info(
+                    "LLM Stufe 2 (Mapping) Ǭbersprungen: %s ist bereits Teil der Kandidatenliste.",
+                    direct_mapping_code,
+                )
+                llm_stage2_mapping_results["mapping_results"].append({
+                    "tardoc_lkn": t_lkn_code,
+                    "tardoc_desc": t_lkn_desc,
+                    "mapped_lkn": direct_mapping_code,
+                    "candidates_considered_count": len(current_candidates_for_llm),
+                    "info": "Direktzuordnung ohne LLM"
+                })
+                continue
+
             if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
                 try:
                     mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
                     token_usage["llm_stage2"]["input_tokens"] += map_tokens.get("input_tokens", 0)
                     token_usage["llm_stage2"]["output_tokens"] += map_tokens.get("output_tokens", 0)
                     if mapped_target_lkn_code:
-                        mapped_lkn_codes_set.add(mapped_target_lkn_code)
+                        mapped_target_lkn_code = str(mapped_target_lkn_code).strip().upper()
+                        if mapped_target_lkn_code:
+                            mapped_lkn_codes_set.add(mapped_target_lkn_code)
+                            if ".SA." in mapped_target_lkn_code and isinstance(t_lkn_code, str):
+                                source_code = t_lkn_code.strip().upper()
+                                if source_code.startswith("WA."):
+                                    wa_codes_replaced_by_sa.add(source_code)
                     llm_stage2_mapping_results["mapping_results"].append({
                         "tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc,
                         "mapped_lkn": mapped_target_lkn_code,
@@ -3616,8 +5005,40 @@ def _determine_final_billing(
     if mapping_process_had_connection_error:
         return {"type": "Error", "message": "Connection error during mapping"}, llm_stage2_mapping_results
 
-    final_lkn_context_for_pauschale_set = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')}
+    final_lkn_context_for_pauschale_set: Set[str] = set()
+    for leistung in rule_checked_leistungen_list:
+        if not isinstance(leistung, dict):
+            continue
+        raw_code = leistung.get('lkn')
+        if not isinstance(raw_code, str):
+            continue
+        normalized_code = raw_code.strip().upper()
+        if normalized_code:
+            final_lkn_context_for_pauschale_set.add(normalized_code)
+
+    llm_validated_codes_for_context: Set[str] = set()
+    for code in context.get("llm_validated_lkns", []):
+        if not isinstance(code, str):
+            continue
+        normalized_code = code.strip().upper()
+        if normalized_code:
+            llm_validated_codes_for_context.add(normalized_code)
     final_lkn_context_for_pauschale_set.update(mapped_lkn_codes_set)
+    final_lkn_context_for_pauschale_set.update(llm_validated_codes_for_context)
+    contains_sa_code = any(".SA." in code for code in final_lkn_context_for_pauschale_set)
+    if contains_sa_code:
+        wa_codes_to_remove = set(wa_codes_replaced_by_sa)
+        wa_codes_to_remove.update(
+            code
+            for code in final_lkn_context_for_pauschale_set
+            if code.startswith("WA.") and code in llm_validated_codes_for_context
+        )
+        if wa_codes_to_remove:
+            final_lkn_context_for_pauschale_set = {
+                code
+                for code in final_lkn_context_for_pauschale_set
+                if code not in wa_codes_to_remove
+            }
     final_lkn_context_list_for_pauschale = list(final_lkn_context_for_pauschale_set)
     logger.info(
         "Finaler LKN-Kontext für Pauschalen-Hauptprüfung (%s LKNs): %s",
@@ -3672,10 +5093,19 @@ def _determine_final_billing(
     )
 
     pauschale_haupt_pruef_kontext = {
-        "ICD": context.get("icd_input"), "Medikamente": context.get("medication_atcs"), "GTIN": context.get("medication_atcs"), "Alter": context.get("alter_context_val"),
-        "Geschlecht": context.get("geschlecht_context_val"), "useIcd": context.get("use_icd_flag"),
-        "LKN": final_lkn_context_list_for_pauschale, "Seitigkeit": context.get("seitigkeit_context_val"),
-        "Anzahl": context.get("anzahl_fuer_pauschale_context")
+        "ICD": context.get("icd_input"),
+        "Medikamente": context.get("medication_atcs"),
+        "GTIN": context.get("medication_atcs"),
+        "Alter": context.get("alter_context_val"),
+        "AlterOperator": context.get("alter_operator_context"),
+        "AlterBeiEintritt": context.get("alter_context_val"),
+        "AlterSource": context.get("alter_source_context"),
+        "Geschlecht": context.get("geschlecht_context_val") or "unbekannt",
+        "GeschlechtSource": context.get("geschlecht_source_context"),
+        "useIcd": context.get("use_icd_flag"),
+        "LKN": final_lkn_context_list_for_pauschale,
+        "Seitigkeit": context.get("seitigkeit_context_val"),
+        "Anzahl": context.get("anzahl_fuer_pauschale_context"),
     }
     try:
         logger.info(f"Starte Pauschalen-Hauptprüfung (useIcd=%s)...", context.get("use_icd_flag"))
@@ -3720,6 +5150,7 @@ def analyze_billing():
     use_icd_flag = req_data["use_icd_flag"]
     alter_user = req_data["alter_user"]
     geschlecht_user = req_data["geschlecht_user"]
+    heuristic_demo = cast(PatientDemographics, req_data.get("demographics_heuristic", {}))
 
     start_time = time.time()
     request_id = f"req_{time.time_ns()}"
@@ -3741,7 +5172,9 @@ def analyze_billing():
             payload_parts.append(f"Gender={geschlecht_user}")
         input_payload_msg = f"[{request_id}] InputText: " + " | ".join(payload_parts)
         if LOG_INPUT_TEXT:
-            logger.info(input_payload_msg)
+            detail_logger.info(input_payload_msg)
+            if CONSOLE_LOG_LEVEL <= logging.INFO:
+                logger.info(input_payload_msg)
         elif LOG_LLM_INPUT:
             detail_logger.info(input_payload_msg)
     if LOG_LLM_INPUT and normalized_input is not None:
@@ -3774,17 +5207,66 @@ def analyze_billing():
     llm1_time = time.time()
     logger.info(f"[{request_id}] Zeit nach LLM Stufe 1: {llm1_time - start_time:.2f}s")
 
+    extracted_info_llm = llm_stage1_result.get("extracted_info", {})
+    patient_context = _merge_patient_demographics(alter_user, geschlecht_user, extracted_info_llm, heuristic_demo)
+    alter_context_val: Optional[int] = patient_context.get("age_value")
+    alter_operator: Optional[str] = patient_context.get("age_operator")
+    alter_context_source: Optional[str] = patient_context.get("age_source")
+    geschlecht_context_raw: Optional[str] = patient_context.get("gender_value")
+    geschlecht_context_val: str = geschlecht_context_raw or 'unbekannt'
+    geschlecht_source: Optional[str] = patient_context.get("gender_source")
+
+    heur_demo_for_match: PatientDemographics = {
+        "age_value": alter_context_val,
+        "age_operator": alter_operator,
+        "gender": geschlecht_context_val if geschlecht_context_val in {"m", "w"} else None,
+    }
+    heuristic_codes = _match_codes_for_demographics(heur_demo_for_match)
+    if heuristic_codes:
+        identified_list = llm_stage1_result.setdefault("identified_leistungen", [])
+        existing_codes = {
+            item.get("lkn", "").strip().upper()
+            for item in identified_list
+            if isinstance(item, dict) and isinstance(item.get("lkn"), str)
+        }
+        added_codes = []
+        for code in heuristic_codes:
+            norm_code = str(code).strip().upper()
+            if not norm_code or norm_code in existing_codes:
+                continue
+            katalog_entry = leistungskatalog_dict.get(norm_code)
+            if not katalog_entry:
+                continue
+            identified_list.append(
+                {
+                    "lkn": norm_code,
+                    "typ": katalog_entry.get("Typ", "N/A"),
+                    "beschreibung": katalog_entry.get("Beschreibung", "N/A"),
+                    "menge": 1,
+                }
+            )
+            added_codes.append(norm_code)
+            existing_codes.add(norm_code)
+        if added_codes:
+            logger.info("Demografie-Heuristik fügte LKN hinzu: %s", added_codes)
+
     rule_checked_leistungen_list, regel_ergebnisse_details_list = _validate_and_apply_rules(
-        llm_stage1_result, lang, icd_input, medication_atcs, alter_user, geschlecht_user
+        llm_stage1_result, lang, icd_input, medication_atcs, alter_context_val, alter_operator, geschlecht_context_val
     )
     final_validated_llm_leistungen = llm_stage1_result["identified_leistungen"]
+    stage1_validated_code_list: List[str] = []
+    for item in final_validated_llm_leistungen:
+        if not isinstance(item, dict):
+            continue
+        raw_code = item.get("lkn")
+        if not isinstance(raw_code, str):
+            continue
+        normalized_code = raw_code.strip().upper()
+        if normalized_code:
+            stage1_validated_code_list.append(normalized_code)
 
     candidate_codes = [code for _, code in top_ranking_results if (len(top_ranking_results) <= 1 or not final_validated_llm_leistungen or (top_ranking_results[0][0] / (top_ranking_results[1][0] or 1)) <= 1.5)]
     llm_stage1_result["ranking_candidates"] = candidate_codes
-
-    extracted_info_llm = llm_stage1_result.get("extracted_info", {})
-    alter_context_val = alter_user if alter_user is not None else extracted_info_llm.get("alter")
-    geschlecht_context_val = geschlecht_user if geschlecht_user is not None else extracted_info_llm.get("geschlecht", "unbekannt")
 
     seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
     anzahl_prozeduren_val = extracted_info_llm.get("anzahl_prozeduren")
@@ -3809,7 +5291,22 @@ def analyze_billing():
 
         potential_pauschale_codes_set = set(ranking_codes)
         if potential_pauschale_codes_set:
-            pruef_kontext = {"ICD": icd_input, "Medikamente": medication_atcs, "GTIN": medication_atcs, "Alter": alter_context_val, "Geschlecht": geschlecht_context_val, "useIcd": use_icd_flag, "LKN": [], "Seitigkeit": seitigkeit_context_val, "Anzahl": anzahl_fuer_pauschale_context}
+            heuristische_lkns = [code for _, code in top_ranking_results]
+            pruef_kontext = {
+                "ICD": icd_input,
+                "Medikamente": medication_atcs,
+                "GTIN": medication_atcs,
+                "Alter": alter_context_val,
+                "AlterOperator": alter_operator,
+                "AlterBeiEintritt": alter_context_val,
+                "AlterSource": alter_context_source,
+                "Geschlecht": geschlecht_context_val or "unbekannt",
+                "GeschlechtSource": geschlecht_source,
+                "useIcd": use_icd_flag,
+                "LKN": heuristische_lkns,
+                "Seitigkeit": seitigkeit_context_val,
+                "Anzahl": anzahl_fuer_pauschale_context,
+            }
             try:
                 finale_abrechnung_obj = determine_applicable_pauschale_func(user_input, [], pruef_kontext, pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict, leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set, lang)
             except Exception as e:
@@ -3819,20 +5316,81 @@ def analyze_billing():
             finale_abrechnung_obj = None
         llm_stage2_mapping_results = {}
     else:
-        billing_context = {"icd_input": icd_input, "medication_inputs": medication_inputs, "medication_atcs": medication_atcs, "alter_context_val": alter_context_val, "geschlecht_context_val": geschlecht_context_val, "use_icd_flag": use_icd_flag, "seitigkeit_context_val": seitigkeit_context_val, "anzahl_fuer_pauschale_context": anzahl_fuer_pauschale_context}
+        billing_context = {
+            "icd_input": icd_input,
+            "medication_inputs": medication_inputs,
+            "medication_atcs": medication_atcs,
+            "alter_context_val": alter_context_val,
+            "alter_operator_context": alter_operator,
+            "alter_source_context": alter_context_source,
+            "geschlecht_context_val": geschlecht_context_val or "unbekannt",
+            "geschlecht_source_context": geschlecht_source,
+            "use_icd_flag": use_icd_flag,
+            "seitigkeit_context_val": seitigkeit_context_val,
+            "anzahl_fuer_pauschale_context": anzahl_fuer_pauschale_context,
+            "llm_validated_lkns": stage1_validated_code_list,
+            "demographics_heuristic": heuristic_demo,
+        }
         finale_abrechnung_obj, llm_stage2_mapping_results = _determine_final_billing(rule_checked_leistungen_list, regel_ergebnisse_details_list, user_input, lang, billing_context, token_usage)
 
     rule_time = time.time()
     logger.info(f"[{request_id}] Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
 
     safe_abrechnung_obj = finale_abrechnung_obj or {}
+    # Optionally rerender conditions HTML using structured data and sanitize
+    try:
+        if RENDER_SERVER_SIDE_CONDITIONS and isinstance(safe_abrechnung_obj, dict):
+            # Top-level selected Pauschale
+            if 'conditions_structured' in safe_abrechnung_obj and safe_abrechnung_obj.get('conditions_structured'):
+                _html = render_condition_groups_html(safe_abrechnung_obj['conditions_structured'], lang)
+                safe_abrechnung_obj['bedingungs_pruef_html'] = sanitize_html_fragment(_html)
+            # Evaluated candidates
+            eval_list = safe_abrechnung_obj.get('evaluated_pauschalen')
+            if isinstance(eval_list, list):
+                for item in eval_list:
+                    if isinstance(item, dict) and item.get('conditions_structured'):
+                        _html = render_condition_groups_html(item['conditions_structured'], lang)
+                        item['bedingungs_pruef_html'] = sanitize_html_fragment(_html)
+            # Explanation rendering
+            details = safe_abrechnung_obj.get('details') if isinstance(safe_abrechnung_obj, dict) else None
+            if isinstance(details, dict):
+                selected_entry = None
+                if isinstance(eval_list, list):
+                    sel_code = details.get('Pauschale')
+                    for c in eval_list:
+                        if isinstance(c, dict) and (str(c.get('code')) == str(sel_code)):
+                            selected_entry = c
+                            break
+                exp_html = render_pauschale_explanation_html(selected_entry, eval_list if isinstance(eval_list, list) else [], lang)
+                if exp_html:
+                    details['pauschale_erklaerung_html'] = sanitize_html_fragment(exp_html)
+    except Exception:
+        pass
+    # Sanitize HTML fragments in abrechnung payload before responding
+    try:
+        _sanitize_abrechnung_payload(safe_abrechnung_obj)
+    except Exception:
+        pass
+
+    # Also provide sanitized copy of evaluated_pauschalen at top-level for convenience
+    sanitized_evaluated_list = []
+    try:
+        for _it in safe_abrechnung_obj.get('evaluated_pauschalen', []) or []:
+            if isinstance(_it, dict) and 'bedingungs_pruef_html' in _it:
+                _clone = dict(_it)
+                _clone['bedingungs_pruef_html'] = sanitize_html_fragment(_clone.get('bedingungs_pruef_html') or '')
+                sanitized_evaluated_list.append(_clone)
+            else:
+                sanitized_evaluated_list.append(_it)
+    except Exception:
+        sanitized_evaluated_list = safe_abrechnung_obj.get('evaluated_pauschalen', []) or []
 
     final_response_payload = {
         "llm_ergebnis_stufe1": llm_stage1_result,
         "regel_ergebnisse_details": regel_ergebnisse_details_list,
         "abrechnung": finale_abrechnung_obj,
         "llm_ergebnis_stufe2": llm_stage2_mapping_results,
-        "evaluated_pauschalen": safe_abrechnung_obj.get("evaluated_pauschalen", []),
+        "evaluated_pauschalen": sanitized_evaluated_list,
         "token_usage": token_usage,
         "fallback_pauschale_search": fallback_pauschale_search,
     }
@@ -3849,7 +5407,7 @@ def analyze_billing():
 def perform_analysis(text: str,
                      icd: list[str] | None = None,
                      medications: list[str] | None = None,
-                     use_icd: bool = True,
+                     use_icd: bool | None = None,
                      age: int | None = None,
                      gender: str | None = None,
                      lang: str = 'de') -> dict:
@@ -3865,11 +5423,12 @@ def perform_analysis(text: str,
             'icd': icd,
             'medications': medications,
             'gtin': medications,
-            'useIcd': use_icd,
             'age': age,
             'gender': gender,
             'lang': lang,
         }
+        if use_icd is not None:
+            payload['useIcd'] = use_icd
         resp = client.post('/api/analyze-billing', json=payload)
         if resp.status_code != 200:
             raise RuntimeError(f"analyze-billing failed: {resp.status_code} {resp.get_data(as_text=True)}")
@@ -4033,9 +5592,7 @@ def test_example():
         'token_usage': token_usage
     })
 
-
 # --- Feedback via GitHub --------------------------------------------------
-
 @app.route('/api/frontend-log', methods=['POST'])
 def frontend_log() -> Any:
     """Receive diagnostic messages from the frontend and write them to the server log."""
@@ -4180,20 +5737,58 @@ def api_version() -> Any:
     return jsonify({"version": APP_VERSION, "tarif_version": TARIF_VERSION})
 
 # --- Static‑Routes & Start ---
+_CUSTOM_MIME_TYPES: Dict[str, str] = {
+    "index.html": "text/html; charset=utf-8",
+    "quality.html": "text/html; charset=utf-8",
+    "calculator.js": "application/javascript; charset=utf-8",
+    "quality.js": "application/javascript; charset=utf-8",
+    "translations.json": "application/json; charset=utf-8",
+}
+
+
+def _apply_no_cache_headers(response: Any) -> Any:
+    """Force browsers to refresh local assets during development."""
+    cache_control = getattr(response, "cache_control", None)
+    if cache_control is not None:
+        try:
+            cache_control.max_age = 0
+            cache_control.no_cache = True
+            cache_control.no_store = True
+            cache_control.must_revalidate = True
+        except Exception:
+            pass
+    headers = getattr(response, "headers", None)
+    if headers is not None:
+        try:
+            headers["Pragma"] = "no-cache"
+            headers["Expires"] = "0"
+        except Exception:
+            pass
+    return response
+
+
+def _send_static(filename: str, mimetype: str | None = None) -> Any:
+    """Wrapper around send_from_directory with disabled caching."""
+    options: Dict[str, Any] = {"mimetype": mimetype} if mimetype else {}
+    resp = send_from_directory(".", filename, **options)
+    return _apply_no_cache_headers(resp)
+
+
 @app.route("/")
 def index_route(): # Umbenannt, um Konflikt mit Modul 'index' zu vermeiden, falls es existiert
     """Liefert die im Repository enthaltene Single-Page-Anwendung aus."""
-    return send_from_directory(".", "index.html")
+    mimetype = _CUSTOM_MIME_TYPES.get("index.html")
+    return _send_static("index.html", mimetype=mimetype)
 
 @app.route("/favicon.ico")
 def favicon_ico():
     """Stellt das klassische Favicon für ältere Browser-Anfragen bereit."""
-    return send_from_directory(".", "favicon.ico", mimetype='image/vnd.microsoft.icon')
+    return _send_static("favicon.ico", mimetype='image/vnd.microsoft.icon')
 
 @app.route("/favicon-32.png")
 def favicon_png():
     """Gibt das hochauflösende PNG-Favicon zurück."""
-    return send_from_directory(".", "favicon-32.png", mimetype='image/png')
+    return _send_static("favicon-32.png", mimetype='image/png')
 
 @app.route("/<path:filename>")
 def serve_static(filename: str): # Typ hinzugefügt
@@ -4202,6 +5797,7 @@ def serve_static(filename: str): # Typ hinzugefügt
         'calculator.js',
         'quality.js',
         'quality.html',
+        'translations.json',
         'favicon.ico',
         'favicon-32.png',
         'favicon-512.png',
@@ -4218,11 +5814,20 @@ def serve_static(filename: str): # Typ hinzugefügt
 
     # Erlaube JS-Datei oder Dateien im data-Verzeichnis (und Unterverzeichnisse)
     if filename in allowed_files or (file_path.parts and file_path.parts[0] in allowed_dirs):
-         # print(f"INFO: Sende statische Datei: {filename}")
-         return send_from_directory('.', filename)
+        # print(f"INFO: Sende statische Datei: {filename}")
+        mimetype = _CUSTOM_MIME_TYPES.get(filename)
+        if mimetype is None:
+            suffix = file_path.suffix.lower()
+            if suffix == '.html':
+                mimetype = 'text/html; charset=utf-8'
+            elif suffix in {'.js', '.mjs'}:
+                mimetype = 'application/javascript; charset=utf-8'
+            elif suffix == '.json':
+                mimetype = 'application/json; charset=utf-8'
+        return _send_static(filename, mimetype=mimetype)
     else:
-         logger.warning("Zugriff verweigert (nicht erlaubt): %s", filename)
-         abort(404)
+        logger.warning("Zugriff verweigert (nicht erlaubt): %s", filename)
+        abort(404)
 
 def _run_local() -> None:
     """Lokaler Debug-Server (wird von Render **nicht** aufgerufen)."""
@@ -4237,4 +5842,3 @@ def _run_local() -> None:
 if __name__ == "__main__" and os.getenv("RENDER_SERVICE_TYPE") is None:
     # Nur wenn das Skript direkt gestartet wird – nicht in der Render-Runtime
     _run_local()
-

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Führt Schritt für Schritt durch einen sicheren Merge eines Feature-Branches in ``main``.
 

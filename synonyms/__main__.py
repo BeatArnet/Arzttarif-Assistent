@@ -4,7 +4,7 @@ Der Aufruf ``python -m synonyms`` startet eine GUI auf Basis der
 Generator- und Speicher-Module. Fachpersonen können damit Katalogeinträge
 prüfen, automatische Synonymvorschläge erzeugen, Unterschiede zwischen Versionen
 vergleichen und Embeddings exportieren. Diese Datei bündelt vor allem die
-UI-Logik: Sie koordiniert Worker-Threads, sichert Einstellungen in ``config.ini``
+UI-Logik: Sie koordiniert Worker-Threads, sichert Einstellungen in ``config.runtime.ini``
 und verbindet die im Paket enthaltenen Fenster.
 """
 
@@ -14,12 +14,11 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import List, Tuple, Callable, Any, TYPE_CHECKING, Dict, cast
+from typing import List, Tuple, Callable, Any, TYPE_CHECKING, Dict, Mapping, cast
 import sys
 import queue
 import configparser
 import json
-
 # Paketpfad korrigieren, falls direkt als Skript gestartet
 if __package__ in {None, ""}:
     import sys
@@ -45,9 +44,95 @@ from .models import SynonymCatalog, SynonymEntry
 from .synonyms_tk import open_synonym_editor
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.ini"
+RUNTIME_CONFIG_PATH = CONFIG_PATH.with_name("config.runtime.json")
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 LEISTUNGSKATALOG_PATH = DATA_DIR / "LKAAT_Leistungskatalog.json"
+
+
+def load_runtime_config(path: Path = RUNTIME_CONFIG_PATH) -> Dict[str, Dict[str, str]]:
+    """Return runtime overrides stored alongside ``config.ini``.
+
+    The GUI stores window geometry and recently used catalogue paths in a
+    JSON file so that we do not have to mutate the checked-in ``config.ini``.
+    Invalid structures are ignored to keep the application resilient against
+    manual edits or truncated files.
+    """
+
+    if not path.exists():
+        return {}
+
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        logging.exception("Runtime-Konfiguration konnte nicht geladen werden")
+        return {}
+
+    if not isinstance(data, dict):
+        logging.warning("Runtime-Konfiguration hat unerwartetes Format: %s", type(data).__name__)
+        return {}
+
+    result: Dict[str, Dict[str, str]] = {}
+    for section, values in data.items():
+        if not isinstance(section, str) or not isinstance(values, dict):
+            continue
+        cleaned: Dict[str, str] = {}
+        for key, value in values.items():
+            if not isinstance(key, str):
+                continue
+            cleaned[key] = "" if value is None else str(value)
+        if cleaned:
+            result[section] = cleaned
+    return result
+
+
+def save_runtime_config(data: Mapping[str, Mapping[str, object]] | Dict[str, Dict[str, object]], path: Path = RUNTIME_CONFIG_PATH) -> None:
+    """Persist runtime overrides as JSON with basic validation."""
+
+    serialisable: Dict[str, Dict[str, object]] = {}
+    for section, values in data.items():
+        if not isinstance(section, str):
+            continue
+        if not isinstance(values, Mapping):
+            continue
+        cleaned: Dict[str, object] = {}
+        for key, value in values.items():
+            if not isinstance(key, str):
+                continue
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                cleaned[key] = value
+            else:
+                cleaned[key] = str(value)
+        if cleaned:
+            serialisable[section] = cleaned
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as fh:
+            json.dump(serialisable, fh, ensure_ascii=False, indent=2, sort_keys=True)
+    except Exception:
+        logging.exception("Runtime-Konfiguration konnte nicht gespeichert werden")
+
+
+def load_merged_config() -> configparser.ConfigParser:
+    """Load ``config.ini`` and merge runtime overrides from JSON."""
+
+    config = configparser.ConfigParser()
+    try:
+        config.read(CONFIG_PATH, encoding="utf-8-sig")
+    except Exception:
+        logging.exception("CONFIG lesen fehlgeschlagen")
+
+    for section, values in load_runtime_config().items():
+        if section not in config:
+            config[section] = {}
+        config_section = config[section]
+        for key, value in values.items():
+            config_section[key] = value
+    return config
 try:
     with LEISTUNGSKATALOG_PATH.open("r", encoding="utf-8") as f:
         _leistungskatalog_list = json.load(f)
@@ -105,12 +190,7 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # --- Konfiguration und Pfade ---
-        self._config = configparser.ConfigParser()
-        try:
-            # Use utf-8-sig to gracefully handle BOM if present
-            self._config.read(CONFIG_PATH, encoding="utf-8-sig")
-        except Exception:
-            logging.exception("CONFIG lesen fehlgeschlagen")
+        self._config = load_merged_config()
 
         geom = self._config.get("SYNONYMS", "list_geometry", fallback="1200x700")
         try:
@@ -275,11 +355,16 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
         try:
             if "SYNONYMS" not in self._config:
                 self._config["SYNONYMS"] = {}
-            self._config["SYNONYMS"]["list_geometry"] = self.geometry()
+            section = self._config["SYNONYMS"]
+            section["list_geometry"] = self.geometry()
             widths = [str(self.tree.column(col, "width")) for col in ("lkn", "term", "syns", "status")]
-            self._config["SYNONYMS"]["list_columns"] = ",".join(widths)
-            with CONFIG_PATH.open("w", encoding="utf-8") as cfg:
-                self._config.write(cfg)
+            section["list_columns"] = ",".join(widths)
+
+            runtime = load_runtime_config()
+            runtime_section = runtime.setdefault("SYNONYMS", {})
+            runtime_section["list_geometry"] = section["list_geometry"]
+            runtime_section["list_columns"] = section["list_columns"]
+            save_runtime_config(runtime)
         except Exception:
             logging.exception("Fensterzustand konnte nicht gespeichert werden")
 
@@ -491,15 +576,21 @@ class GeneratorApp(tk.Tk):  # type: ignore[misc]
 
     def _save_output_filename(self, path: str) -> None:
         try:
-            self._config.read(CONFIG_PATH)
             if "SYNONYMS" not in self._config:
                 self._config["SYNONYMS"] = {}
-            self._config["SYNONYMS"]["catalog_filename"] = Path(path).name
-            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with CONFIG_PATH.open("w", encoding="utf-8") as cfg:
-                self._config.write(cfg)
+            section = self._config["SYNONYMS"]
+            selected_path = Path(path)
+            filename = selected_path.name
+            section["catalog_filename"] = filename
+            section["catalog_path"] = str(selected_path)
+
+            runtime = load_runtime_config()
+            runtime_section = runtime.setdefault("SYNONYMS", {})
+            runtime_section["catalog_filename"] = filename
+            runtime_section["catalog_path"] = str(selected_path)
+            save_runtime_config(runtime)
         except Exception:
-            logging.exception("Konnte catalog_filename nicht in config.ini schreiben")
+            logging.exception("Konnte runtime-Konfiguration nicht schreiben")
 
     # ---------- Queue / Timer ----------
     def _process_queue(self) -> None:

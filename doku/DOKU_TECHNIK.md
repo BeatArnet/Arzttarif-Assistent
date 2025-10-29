@@ -4,22 +4,22 @@
 
 ```mermaid
 flowchart LR
-  U[User] --> B[Browser\nindex.html / calculator.js]
-  B -->|/api/analyze-billing| S[Flask Backend\nserver.py]
+  U[User] --> B[Browser<br/>index.html / calculator.js]
+  B -->|/api/analyze-billing| S[Flask Backend<br/>server.py]
   B -->|/api/icd| S
   B -->|/api/chop| S
   B -->|/api/quality| S
-  S -->|Stage 1 Prompt\nget_stage1_prompt| L1[LLM Provider]
-  S -->|Synonym‑Expand| SY[synonyms/expander]
-  S -->|RAG Lookup| R[Embeddings\nleistungskatalog_embeddings.json]
+  S -->|Stage 1 Prompt<br/>get_stage1_prompt| L1[LLM Provider]
+  S -->|Synonym Expand| SY[synonyms/expander]
+  S -->|RAG Lookup| R[Embeddings<br/>data/leistungskatalog_embeddings.json]
   S -->|Regeln| P[regelpruefer_*]
-  S -->|Stage 2 Mapping/Ranking\nget_stage2_*| L2[LLM Provider]
+  S -->|Stage 2 Mapping / Ranking<br/>get_stage2_*| L2[LLM Provider]
   S -->|Ergebnis JSON| B
   S -->|/api/version| B
   S -->|/api/submit-feedback| G[(GitHub)]
 
   subgraph Daten
-    D1[data/*.json\n(TARDOC, Pauschalen, Tabellen)]
+    D1["data JSON<br/>TARDOC / Pauschalen / Tabellen"]
     D2[data/synonyms.json]
     D3[data/leistungskatalog_embeddings.json]
   end
@@ -59,6 +59,12 @@ Grober Ablauf:
 
 ## 2. Hauptprozesse (Pipeline)
 
+### Stage‑1‑Promptaufbau (Kurzüberblick)
+- Der Prompt enthält einen langen, mehrsprachigen Anweisungsteil aus `prompts.get_stage1_prompt` (Regeln, JSON‑Format, Qualitätschecks).
+- Darin eingebettet ist der Katalogkontext (`katalog_context`) mit bis zu 5 relevanten LKN‑Zeilen inkl. Beschreibung, medizinischer Interpretation und `Demografie:`‑Hinweisen.
+- Wenn `_build_context_for_llm` Synonymvarianten erzeugt, entsteht zusätzlich ein „Wichtige Synonyme“-Block mit allen Varianten (teils hunderte Einträge).
+- Am Ende folgt der Originaltext des Nutzers zwischen `--- Start ... ---` Markern.
+- `call_gemini_stage1` misst die Länge (`count_tokens`) und versucht bei Überschreitung des Budgets (Standard 8000 Tokens) den Prompt proportional zu kürzen.
 ```mermaid
 flowchart LR
   A[Input\nText, Alter, Geschlecht, ICD, GTIN] --> P[Vorverarbeitung\nexpand_compound_words / extract_keywords / expand_query]
@@ -245,7 +251,7 @@ Servers geladen. Das Paket im Verzeichnis `synonyms/` bietet einen GUI‑Editor,
 der über `python -m synonyms` gestartet wird, um neue Vorschläge zu erzeugen
 oder Einträge zu kuratieren. Über den Abschnitt `[SYNONYMS]` in `config.ini`
 lässt sich steuern, ob die Liste genutzt wird und wie sie heisst. Die Synonyme
-fliessen in die Stichwortsuche sowie in den Aufbau der Embeddings ein.
+fließen in die Stichwortsuche ein und erweitern Nutzeranfragen zur Laufzeit.
 
 ### RAG-Modus und Embeddings
 
@@ -257,17 +263,23 @@ werden beim Aufruf von `/api/analyze-billing` nur die passendsten Einträge an d
 LLM geschickt.
 Ohne RAG umfasst der Prompt mehr als 600 000 Tokens; mit RAG genügen rund 10 000.
 
-Der Embedding‑Generator berücksichtigt dabei auch Synonyme. `generate_embeddings.py`
-lädt den Synonymkatalog aus `data/synonyms.json` und fügt alle dort hinterlegten
-Varianten den Beschreibungstexten der jeweiligen LKN hinzu, bevor der Vektor
-berechnet wird. Dadurch landet jede bekannte Formulierung der Leistung im
-Embedding und steht später für die semantische Suche zur Verfügung.
+Synonyme fließen aktuell nicht in die Embedding-Generierung ein.
 
-Bei der Ermittlung der Leistungskandidaten für LLM 1 nutzt `server.py`
-dieselben Synonyme: über `expand_query` werden Eingaben des Nutzers um passende
-Begriffe ergänzt, direkte Treffer in der Synonymliste liefern sofort die
-zugehörigen LKN‑Codes. Die Embedding‑Suche verwendet hingegen ausschliesslich den
-vorverarbeiteten Originaltext ohne Synonym‑Erweiterung.
+Stattdessen nutzt `server.py` den Katalog zur Laufzeit, um Anfragen zu erweitern.
+
+So greifen Änderungen an `data/synonyms.json` sofort ohne Neuaufbau des FAISS-Index.
+
+Würden Synonyme in `generate_embeddings.py` eingebettet, müsste der Index bei jeder Anpassung neu erstellt werden.
+
+Die dadurch entstehenden langen Texte würden den Vektorraum verwässern.
+
+Besonders generische Begriffe könnten die Trennschärfe des Rankings mindern.
+
+Außerdem ginge das explizite Logging der direkten Synonym-Treffer verloren.
+
+Auch die getrennte Sprachbehandlung (de/fr/it) lässt sich zur Laufzeit besser steuern.
+
+Deshalb bleibt die Synonym-Logik bewusst im Server und nicht im Embedding-Workflow.
 
 ### LLM‑Vergleich
 

@@ -21,16 +21,20 @@ from typing import Dict, Iterable, List, Optional, TypedDict, cast
 import unicodedata
 import re
 import configparser
+from runtime_config import load_merged_config
 from .models import SynonymCatalog, SynonymEntry
 from openai_wrapper import chat_completion_safe, enforce_llm_min_interval
 
 
-_CONFIG = configparser.ConfigParser()
 try:
-    # Use utf-8-sig to handle potential BOM at start of file
-    _CONFIG.read("config.ini", encoding="utf-8-sig")
+    _CONFIG = load_merged_config()
 except Exception:
     logging.exception("CONFIG lesen fehlgeschlagen")
+    _CONFIG = configparser.ConfigParser()
+    try:
+        _CONFIG.read("config.ini", encoding="utf-8-sig")
+    except Exception:
+        logging.exception("Fallback: config.ini konnte nicht gelesen werden")
 LLM_PROVIDER = (
     os.getenv("SYNONYM_LLM_PROVIDER")
     or _CONFIG.get("SYNONYMS", "llm_provider", fallback="ollama")

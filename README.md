@@ -19,113 +19,7 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
-Ausführlichere Änderungen: siehe `CHANGELOG.md`.
-
-### V3.4 (Aktuell)
-- Favicon-Auslieferung behoben (Chrome/Render): Whitelist der statischen
-  Dateien in `server.py` erweitert; Favicon-Links in `index.html` auf absolute
-  Pfade und `sizes` umgestellt.
-- DX-Fix: Pylance-Warnung zu `datetime` durch Modul-Alias (`import datetime as dt`) gelöst.
-- Keine Änderungen an der Abrechnungs-/Regellogik.
-
-### V3.3
-- Neues, responsives GUI-Layout: breitere TARDOC-Tabelle, verbesserte Spaltenbreiten und Abstände, Layout passt sich dem Viewport an.
-- Hinweis-/Kommentarspalte verbreitert, Eingabefeld-Gestaltung verfeinert; diverse Darstellungsfehler (Umlaute, Farben) korrigiert.
-- Fokus auf Usability und Lesbarkeit; keine fachlichen Logikänderungen.
-
-### V3.2
-- Synonym-Subsystem neu strukturiert: Katalog basiert nun auf LKN und erlaubt m:n‑Zuordnungen; bestehende Dateien bleiben kompatibel.
-- Verbesserte Regelprüfung: strikteres Einhalten von Kumulationsregeln bei Einzelleistungen; Medikamentenprüfung primär via ATC‑Code (optional GTIN/Bezeichnung).
-- Prompts überarbeitet und gehärtet (DE/FR/IT); Korrektur beim Trimmen des Stage‑2‑Kontexts.
-- Logging: kleinere Korrekturen; Temperatur pro Modell in `config.ini` konfigurierbar; erweiterte Qualitätstests.
-- Qualitätssicherung: Tests ergänzt, fehlerhafte Warnungen behoben, QS‑Szenarien beantworten nun konsistenter.
-
-### V3.1
-- Suche und Ranking: tokenbasierte Suche für Pauschalen, allgemeiner Keyword‑Filter; erneuter LKN‑Suchlauf bei Nulltreffern; konsistentere Algorithmen.
-- Codequalität: `analyze_billing` refaktoriert (geringere Komplexität); robustere Typisierungen und Request‑Guards.
-- Logging: granulare Logging‑Konfiguration eingeführt (feiner steuerbar per `[LOGGING]`).
-- Feintuning LLM: getrennte Temperatur‑Parameter pro Stufe und Sub‑Task (z. B. `stage2_mapping_temperature`, `stage2_ranking_temperature`).
-
-### V3.0
-- Mehrere LLM‑Provider konfigurierbar (Gemini, OpenAI, SwissAI/Apertus, Ollama‑kompatibel) pro Stufe (Stage 1/2) via `config.ini` und Umgebungsvariablen.
-- OpenAI‑kompatible Einbindung von Apertus (PublicAI) inkl. anpassbarer `*_BASE_URL` und Token‑Budgets.
-- Konfigurierbares Prompt‑Trimming zur Einhaltung von Tokenbudgets:
-  - Apertus: automatisches Kürzen des Kontexts gemäss `[OPENAI] trim_*`.
-  - Gemini: optionales Trimmen gemäss `[GEMINI]`.
-- Feinsteuerung des Kontexts über `[CONTEXT]` in `config.ini` (z. B. `include_*`, `max_context_items`, `force_include_codes`).
-- Synonym-Editor stabilisiert (`python -m synonyms`), zusaetzliche Optionen in `[SYNONYMS]` (Fenstergeometrie/Spaltenbreiten); das Katalogformat unterstuetzt jetzt `lkns` fuer Mehrfachzuordnungen und bleibt mit bestehenden `lkn`-Eintraegen kompatibel.
-- Erweiterte Logging‑Optionen und Rotations‑Logging (`[LOGGING]`), optional Rohantworten.
-- Regelprüfung: Option `kumulation_explizit` zur strikteren Kumulationslogik.
-- Standardkonfiguration aktualisiert (Version 3.0, Tarif 1.1c).
-
-### V2.8
-- Synonymverwaltung mit GUI, konfigurierbar in `config.ini`. 
-  Synonymverwaltung unterstützt beim Vergleich der aktuellen zur neuen Tarifversion 
-  (farblich markierte Eintragungen für neue, gelöscht und geänderte LKNs).)
-- Vergleich verschiedener LLM‑Provider und Modelle über `llm_vergleich.py`, inklusive unterschiedliche Provider und Modelle.
-- RAG‑Modus nutzt Embeddings zur massiven Tokenreduktion (Faktor 10) in Kombination mit der Synonymtabelle, so dass (fast) kein Qualitätsverlust entsteht.
-- Aktualisiert auf Tarifversion 1.1c der OAAT‑OTMA AG (Stand 08.08.2025).
-
-### V2.7
-- Erweiterte Logging-Optionen: Granulare Steuerung der LLM-Zwischenschritte über `config.ini`.
-- Erkennt einmalig fehlende `temperature`-Unterstützung von Modellen und speichert dies in `config.ini`.
-
-### V2.6
-- Optionaler RAG-Modus über `config.ini` schaltbar.
-- Versionsnummer ebenfalls in `config.ini` definiert und in der Oberfläche angezeigt.
-- Reduziert die Grösse des LLM-Kontexts: mit RAG werden nur rund 10 000 Tokens übertragen, ohne RAG sind es über 600 000.
-
-### V2.5
-- Einheitliches Übersetzungssystem: Alle UI-Texte liegen jetzt zentral in `translations.json`.
-- Die Übersetzungsfunktionen sind direkt in `calculator.js` und `quality.js` eingebaut.
-- Sämtliche Oberflächenelemente werden darüber dynamisch lokalisiert.
-- Der Hinweis, keine persönlichen Daten einzugeben, ist nun deutlich sichtbar.
-
-### V2.4
-- Neuer CHOP‑Lookup: `/api/chop?q=<term>` liefert passende Codes mit Kurzbeschreibung.
-- Kleine Beispieldatei `CHOP_Katalog.json` hinzugefügt.
-- GUI erweitert um CHOP-Suche. Gewählter Code wird beim Verlassen des Feldes automatisch in das Formular übernommen.
-- ICD-Codes lassen sich jetzt über ein dynamisches Dropdown suchen und übernehmen.
-- Verbesserte LKN-Erkennung unterstützt gemischte Formate wie `ANN.AA.NNNN`.
-- Einheitliches Layout: Dropdown-Pfeile sind klickbar und Modalfenster lassen sich am Kopf verschieben.
-
-### V2.3
-- Überarbeitetes Feedback-Modul mit modalem Formular und Kontextinformationen.
-- In der Pilotphase werden alle Rückmeldungen im Repository
-  [BeatArnet/Arzttarif_Assistent_dev](https://github.com/BeatArnet/Arzttarif_Assistent_dev)
-  gesammelt.
-
-### V2.2
-- Dokumentation (README.md, INSTALLATION.md) aktualisiert mit den neuesten Hinweisen und Versionsdetails.
-- Neue Feedback-Funktion: Über ein Formular kann Feedback an ein GitHub-Repository gesendet oder lokal gespeichert werden, wenn keine GitHub-Konfiguration vorliegt.
-
-### V2.0
-- **Qualitätstests und Baseline-Vergleiche:** Einführung einer neuen Testseite (`quality.html`, `quality.js`) und eines Skripts (`run_quality_tests.py`) zum automatisierten Vergleich von Beispielen mit Referenzwerten (`baseline_results.json`). Ein neuer Backend-Endpunkt `/api/quality` wurde dafür in `server.py` hinzugefügt.
-- **Erweiterte Pop-up-Funktionen:** Pop-up-Fenster im Frontend sind nun verschiebbar und in der Grösse anpassbar (`calculator.js`).
-- **Verbesserte Pauschalenlogik:** Die Auswertung strukturierter Pauschalenbedingungen erfolgt nun über den Orchestrator `evaluate_pauschale_logic_orchestrator` in `regelpruefer_pauschale.py`, begleitet von neuen Unittests.
-- **Daten- und Funktionsumfang:** Zusätzliche Datendateien wie `DIGNITAETEN.json` wurden integriert. Die TARDOC-Daten wurden in `TARDOC_Tarifpositionen.json` und `TARDOC_Interpretationen.json` aufgeteilt.
-- **Verbesserte Textaufbereitung:** Neue Hilfsfunktionen in `utils.py` zur Erweiterung von Komposita (`expand_compound_words`) und zur Synonym-Erkennung (`SYNONYM_MAP`).
-- **Ausgelagerte Prompts:** Die Prompt-Definitionen für die KI wurden in die separate Datei `prompts.py` ausgelagert und unterstützen Mehrsprachigkeit.
-- **Test-Endpoint `/api/test-example`:** Über diesen Endpunkt lassen sich Beispiele gegen die erwarteten Ergebnisse in `baseline_results.json` prüfen (siehe `quality.html`).
-
-### V1.1
-- JSON-Datendateien wurden umbenannt und der ehemals kombinierte TARDOC-Datensatz in **TARDOC_Tarifpositionen.json** und **TARDOC_Interpretationen.json** aufgeteilt.
-- Alte Dateinamen wie `tblLeistungskatalog.json`, `tblPauschaleLeistungsposition.json` oder `tblTabellen.json` heissen nun entsprechend `LKAAT_Leistungskatalog.json`, `PAUSCHALEN_Leistungspositionen.json` und `PAUSCHALEN_Tabellen.json`.
-- `server.py` sowie das README verwenden diese neuen Namen; `index.html` weist nun die Version "V1.1" aus.
-- `utils.py` bietet ein Übersetzungssystem für Regelmeldungen und Condition-Typen in Deutsch, Französisch und Italienisch.
-- In `regelpruefer_pauschale.py` sorgt eine Operator-Präzedenzlogik für korrektes "UND vor ODER" bei strukturierten Bedingungen.
-- `evaluate_structured_conditions` unterstützt einen konfigurierbaren `GruppenOperator` (Standard `UND`).
-- Die mehrsprachigen Prompts für LLM Stufe 1 und Stufe wurden in `prompts.py` ausgelagert.
-- Funktionale Erweiterungen: interaktive Info-Pop-ups, mehrsprachige Oberfläche, erweiterte Suchhilfen, Fallback-Logik für Pauschalen, mobile Ansicht, zusätzliche Beispieldaten sowie Korrekturen bei Mengenbegrenzungen und ICD-Verarbeitung.
-
-### V1.0
-- Erste lauffähige Version des Prototyps.
-
-## Beschreibung
-
-Der Assistent analysiert die eingegebene Leistungsbeschreibung mithilfe eines Large Language Models (Google Gemini), um relevante Leistungspositionen (LKNs) zu identifizieren. Ein Backend-Regelwerk prüft die Konformität dieser LKNs (Mengen, Kumulationen etc.). Die Kernlogik entscheidet dann, ob eine Pauschale für die (regelkonformen) Leistungen anwendbar ist. Falls ja, wird die passendste Pauschale ausgewählt und deren Bedingungen detailliert geprüft. Falls keine Pauschale greift, wird eine Abrechnung nach TARDOC-Einzelleistungen vorbereitet.
-
-Das Frontend zeigt das Ergebnis übersichtlich an, mit Details zur initialen KI-Analyse, der Regelprüfung und zur finalen Abrechnungsempfehlung (inklusive Pauschalenbegründung und detaillierter Bedingungsprüfung).
+Die vollständige Versionshistorie befindet sich in `doku/CHANGELOG.md`.
 
 ## Mehrsprachigkeit
 
@@ -298,8 +192,8 @@ enabled = 1
 catalog_filename = synonyms.json
 ```
 
-Steht `enabled` auf `0`, nutzt der Assistent ausschliesslich die in
-`utils.py` hinterlegte Basismenge `SYNONYM_MAP`.
+Steht `enabled` auf `0`, bleibt der Synonymkatalog deaktiviert und es werden
+lediglich die ursprünglichen Schlüsselwörter der Eingabe verwendet.
 
 ### Verwendung im System
 
@@ -332,9 +226,8 @@ Beispiel:
 }
 ```
 
-Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage`
-Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage` eingelesen. Vorherige Dateien ohne `lkn`- oder `lkns`-Feld oder ohne Sprachaufteilung werden weiterhin unterstuetzt.
-weiterhin unterstützt.
+Dieses Format wird vom GUI-Werkzeug erzeugt und von `synonyms.storage` eingelesen. Vorherige Dateien ohne `lkn`- oder `lkns`-Feld oder ohne Sprachaufteilung werden weiterhin unterstützt.
+
 
 **Hinweis zu den Tokenanforderungen:** Ohne RAG müssen mehr als 600 000 Tokens an
 das LLM geschickt werden. Mit RAG reichen etwa 10 000 Tokens für eine typische

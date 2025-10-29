@@ -4,34 +4,241 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Qualitätskontrolle</title>
-    <link rel="icon" href="favicon-32.png" type="image/png">
+    <!-- Favicon Links wie in index.html -->
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="alternate icon" href="/favicon.ico" type="image/x-icon">
     <style>
-        body {font-family: sans-serif; padding:20px; background:#E6F0FA; color:#333;}
-        table {border-collapse: collapse; width:100%; max-width:900px; margin-bottom:20px;}
-        th, td {border:1px solid #ccc; padding:8px;}
-        th {background:#f0f0f0;}
-        button {padding:6px 10px; cursor:pointer;}
+        /* Design an index.html angelehnt */
+        :root {
+            --primary: #005EB8;
+            --primary-light: #E6F0FA;
+            --primary-strong: #0a4ea1;
+            --accent: #00856F;
+            --danger: #D80027;
+            --text-color: #333;
+            --text-muted: #5b6b80;
+            --border-color: #ccc;
+            --background-color: #f9f9f9;
+            --details-bg: #fdfdfd;
+            --details-border: #eee;
+            --surface: rgba(255, 255, 255, 0.78);
+            --surface-strong: rgba(255, 255, 255, 0.95);
+            --shadow-flat: 0 1px 2px rgba(12, 38, 86, 0.06);
+            --shadow-card: 0 22px 38px rgba(15, 36, 84, 0.16);
+            --focus-ring: 0 0 0 3px rgba(0,94,184,0.3);
+            --form-width: 760px;
+            --content-max: calc(100vw - 26px);
+        }
+
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 44px 32px 36px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            background: radial-gradient(120% 140% at 15% 10%, rgba(0, 94, 184, 0.12), transparent 55%),
+                        radial-gradient(110% 130% at 85% 15%, rgba(0, 133, 111, 0.12), transparent 52%),
+                        linear-gradient(125deg, #f8fbff, #eef3ff, #f6fbff);
+            background-size: 120% 120%, 120% 120%, 200% 200%;
+            color: var(--text-color);
+            font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .app-shell {
+            width: 100%;
+            max-width: var(--content-max);
+            margin: 0;
+            padding: 0 28px 36px;
+            box-sizing: border-box;
+        }
+
+        /* Top-Bar wie in index */
+        .top-info {
+            display: flex;
+            justify-content: flex-start;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 14px 28px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 22px 38px rgba(15, 36, 84, 0.16);
+            margin-bottom: 24px;
+            width: 100%;
+            max-width: var(--content-max);
+            box-sizing: border-box;
+        }
+        .top-info-left,
+        .top-info-right {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        .top-info-right { margin-left: auto; }
+        .language-select { display:flex; align-items:center; gap:8px; margin:0; }
+        .language-select label { font-weight: 600; color: var(--text-muted); }
+        #languageSelect {
+            width: auto;
+            margin-bottom: 0;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 8px 12px;
+            border: 1px solid rgba(0, 94, 184, 0.18);
+            box-shadow: var(--shadow-flat);
+        }
+        #backLink { color: var(--primary-strong); text-decoration: underline; font-weight: 600; }
+        #backLink:hover { text-decoration: underline; }
+        .version-line { font-size: 0.95em; color: var(--text-muted); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .version-line a { color: var(--primary-strong); font-weight: 600; }
+
+        /* Überschrift */
+        h1 {
+            color: var(--primary-strong);
+            font-size: clamp(1.9rem, 2.6vw, 2.4rem);
+            letter-spacing: 0.01em;
+            margin: 12px 0 10px;
+            font-weight: 650;
+        }
+
+        /* Card für Inhalt */
+        .content-card {
+            margin-top: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.76);
+            padding: 22px 26px;
+            background: linear-gradient(180deg, var(--surface-strong) 0%, rgba(246, 250, 255, 0.95) 100%);
+            border-radius: 24px;
+            box-shadow: var(--shadow-card);
+            width: 100%;
+            max-width: var(--content-max);
+            box-sizing: border-box;
+        }
+
+        /* Tabelle im Card-Stil */
+        table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; background:#fff; }
+        th, td {
+            border: 1px solid var(--details-border);
+            padding: 5px 10px;
+            font-size: 0.95em;
+            line-height: 1.25;
+        }
+        th { background: var(--primary-light); text-align: left; }
+        #overallSummary, #tokenSummary { color: var(--text-muted); margin-top: 8px; }
+
+        /* Buttons wie in index */
+        button {
+            padding: 12px 22px;
+            cursor: pointer;
+            margin-top: 8px;
+            background: linear-gradient(132deg, var(--primary) 0%, #0a7bd4 100%);
+            color: #fff;
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 16px 28px rgba(0, 82, 168, 0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-position 0.25s ease;
+            background-size: 150% 150%;
+        }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 22px 36px rgba(0, 82, 168, 0.28); background-position: 100% 0%; }
+        button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.8), var(--focus-ring); }
+        button:disabled { background: linear-gradient(135deg, #adb8c8 0%, #94a2b5 100%); cursor:not-allowed; box-shadow:none; transform:none; opacity:0.75; }
+
+        @media (max-width: 768px) {
+            :root { --content-max: calc(100vw - 32px); }
+            body { padding: 32px 12px 24px; }
+            .top-info { flex-direction: column; align-items: stretch; gap: 10px; text-align: left; }
+        }
     </style>
+    <!-- Optional: kleine Grund-Animation wie in index (falls benötigt) -->
+    <script>
+        // Keyframes optional, falls Animation genutzt wird
+        try {
+            const style = document.createElement('style');
+            style.textContent = '@keyframes gradientShift { 0%{background-position:0% 0%, 100% 0%, 0% 0%} 50%{background-position:100% 100%, 0% 100%, 100% 100%} 100%{background-position:0% 0%, 100% 0%, 0% 0%} }';
+            document.head.appendChild(style);
+        } catch(e) {}
+    </script>
+    
 </head>
 <body>
-    <h1 id="qcHeader">Qualitätskontrolle</h1>
-    <table id="exampleTable">
-        <thead>
-            <tr>
-                <th id="qcId">ID</th>
-                <th id="qcExample">Beispiel</th>
-                <th id="qcAction">Aktion</th>
-                <th id="qcResDe">Ergebnis DE</th>
-                <th id="qcResFr">Ergebnis FR</th>
-                <th id="qcResIt">Ergebnis IT</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-    <button id="testAllBtn">Alle Beispiele testen</button>
-    <div id="overallSummary"></div>
-    <div id="tokenSummary"></div>
+    <div class="app-shell">
+        <div class="top-info">
+            <div class="top-info-left">
+                <div class="language-select">
+                    <label id="langLabel" for="languageSelect">Sprache:</label>
+                    <select id="languageSelect">
+                        <option value="de">Deutsch</option>
+                        <option value="fr">Fran&ccedil;ais</option>
+                        <option value="it">Italiano</option>
+                    </select>
+                </div>
+            </div>
+            <div class="top-info-right">
+                <a id="backLink" href="index.html">Zur App</a>
+                <div class="version-line">
+                    <span id="versionSpan">V?</span>
+                    <span>&middot;</span>
+                    <span>Arnet Konsilium</span>
+                    <span>&middot;</span>
+                    <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>
+                    <span>&middot;</span>
+                    <span class="version-year">2025</span>
+                    <span>&middot;</span>
+                    <span id="tarifVersionSpan"></span>
+                </div>
+            </div>
+        </div>
+
+        <h1 id="qcHeader">Qualitätskontrolle</h1>
+
+        <div class="content-card">
+            <table id="exampleTable">
+                <thead>
+                    <tr>
+                        <th id="qcId">ID</th>
+                        <th id="qcExample">Beispiel</th>
+                        <th id="qcAction">Aktion</th>
+                        <th id="qcResDe">Ergebnis DE</th>
+                        <th id="qcResFr">Ergebnis FR</th>
+                        <th id="qcResIt">Ergebnis IT</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button id="testAllBtn">Alle Beispiele testen</button>
+            <div id="overallSummary"></div>
+            <div id="tokenSummary"></div>
+        </div>
+    </div>
 
     <script src="quality.js"></script>
+    <script>
+        // Version wie in index anzeigen
+        fetch('/api/version')
+            .then(r => r.json())
+            .then(d => {
+                const span = document.getElementById('versionSpan');
+                if (span && d && d.version) span.textContent = 'V' + d.version;
+                const tspan = document.getElementById('tarifVersionSpan');
+                if (tspan && d && d.tarif_version) tspan.textContent = d.tarif_version;
+            })
+            .catch(() => {});
+
+        // Sprache synchron mit index steuern
+        document.addEventListener('DOMContentLoaded', () => {
+            const sel = document.getElementById('languageSelect');
+            const stored = localStorage.getItem('language');
+            const initial = (stored && ['de','fr','it'].includes(stored)) ? stored : 'de';
+            if (sel) sel.value = initial;
+            sel?.addEventListener('change', (e) => {
+                const lang = e.target.value;
+                localStorage.setItem('language', lang);
+                if (typeof applyLanguage === 'function') applyLanguage(lang);
+            });
+        });
+    </script>
 </body>
 </html>

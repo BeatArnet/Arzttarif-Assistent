@@ -43,13 +43,29 @@ def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
     return result
 
 
+def _append_index_entry(target: Dict[str, List[str]], key: str, base: str) -> None:
+    if not key:
+        return
+    bucket = target.setdefault(key, [])
+    if base not in bucket:
+        bucket.append(base)
+
+
 def _add_index(target: Dict[str, List[str]], key: str, base: str) -> None:
     norm = " ".join(str(key).lower().split())
     if not norm:
         return
-    bucket = target.setdefault(norm, [])
-    if base not in bucket:
-        bucket.append(base)
+
+    _append_index_entry(target, norm, base)
+
+    simplified = re.sub(r"[^a-z0-9]+", " ", norm).strip()
+    if simplified and simplified != norm:
+        _append_index_entry(target, simplified, base)
+
+    if simplified:
+        for token in simplified.split():
+            if len(token) >= 4:
+                _append_index_entry(target, token, base)
 
 
 def _add_lkn_index(target: Dict[str, List[str]], code: str, base: str) -> None:

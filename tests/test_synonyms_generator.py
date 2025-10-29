@@ -35,7 +35,7 @@ def test_incremental_returns_entry_with_lkn_and_by_lang(tmp_path, monkeypatch):
     mod = importlib.reload(generator)
 
     def fake_query(data: Dict[str, str]):
-        assert mod.LLM_PROVIDER == "ollama"
+        assert mod.LLM_PROVIDER == "gemini"
         term = data["de"]
         return {
             "de": {term: [f"{term}-de"]},

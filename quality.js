@@ -139,7 +139,6 @@ function processTestQueue(isTestAll = false) {
     return new Promise(resolve => {
         if (isTesting || testQueue.length === 0) {
             if (!isTesting && testQueue.length === 0) {
-                document.body.style.cursor = 'default';
                 if (isTestAll) {
                     const testAllBtn = document.getElementById('testAllBtn');
                     const singleTestBtns = document.querySelectorAll('.single-test-all-langs');
@@ -151,8 +150,6 @@ function processTestQueue(isTestAll = false) {
             return;
         }
         isTesting = true;
-        document.body.style.cursor = 'wait';
-
         const id = testQueue.shift();
 
         const singleTestBtn = document.querySelector(`.single-test-all-langs[data-id="${id}"]`);
