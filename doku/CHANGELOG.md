@@ -6,6 +6,7 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ### V3.9 (2025-10-30)
 - GUI passt auf eine normale Bildschirmseite (vertikale Abstände der einzelnen Elemente reduziert)
+- Ausgabe kann als PDF gespeichert bzw. gedruckt werden
 
 ### V3.8 (2025-10-29)
 - Backend/Regelprüfung: Pauschalen-Erklärungen zeigen nur noch Kandidaten mit relevanten LKN-Beispielen; Ausschlusstabellen sind via `config.ini` steuerbar, generische C9x-Fallbacks bleiben erhalten. Listenbedingungen akzeptieren nun Medikationsangaben und neue LKN-Tabellentypen.

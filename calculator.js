@@ -65,6 +65,7 @@ let icdFilterMode = 'all';
 window.icdFilterMode = icdFilterMode;
 window.selectedPauschaleDetails = selectedPauschaleDetails;
 window.selectedPauschaleConditionHtml = selectedPauschaleConditionHtml;
+let pdfExportInProgress = false;
 
 function getHiddenIcdToggleInput(){
     return document.getElementById('icdToggleState');
@@ -118,6 +119,97 @@ function updateSelectedPauschaleDetails(details, conditionHtml = ''){
     window.selectedPauschaleDetails = selectedPauschaleDetails;
     window.selectedPauschaleConditionHtml = selectedPauschaleConditionHtml;
 }
+
+function exportPageAsPdf(){
+    if (pdfExportInProgress) {
+        return;
+    }
+    pdfExportInProgress = true;
+    const body = document.body;
+    const exportButton = document.getElementById('exportPdfButton');
+    if (exportButton) {
+        exportButton.disabled = true;
+    }
+    const detailNodes = Array.from(document.querySelectorAll('details'));
+    const openStates = detailNodes.map(detail => detail.open);
+    detailNodes.forEach(detail => {
+        detail.open = true;
+    });
+    body.classList.add('pdf-export-active');
+    let mediaQueryList = null;
+    let fallbackTimer = null;
+    function cleanup(){
+        if (!pdfExportInProgress) {
+            return;
+        }
+        pdfExportInProgress = false;
+        if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+        }
+        detailNodes.forEach((detail, index) => {
+            detail.open = !!openStates[index];
+        });
+        body.classList.remove('pdf-export-active');
+        window.removeEventListener('afterprint', handleAfterPrint);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        if (mediaQueryList) {
+            if (typeof mediaQueryList.removeEventListener === 'function') {
+                mediaQueryList.removeEventListener('change', handleMediaChange);
+            } else if (typeof mediaQueryList.removeListener === 'function') {
+                mediaQueryList.removeListener(handleMediaChange);
+            }
+        }
+        if (exportButton) {
+            exportButton.disabled = false;
+        }
+    }
+    function handleAfterPrint(){
+        cleanup();
+    }
+    function handleMediaChange(event){
+        if (!event.matches) {
+            cleanup();
+        }
+    }
+    function handleVisibilityChange(){
+        if (typeof document.hidden === 'boolean') {
+            if (!document.hidden) {
+                cleanup();
+            }
+        } else {
+            cleanup();
+        }
+    }
+    window.addEventListener('afterprint', handleAfterPrint);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof window.matchMedia === 'function') {
+        try {
+            mediaQueryList = window.matchMedia('print');
+            if (mediaQueryList) {
+                if (typeof mediaQueryList.addEventListener === 'function') {
+                    mediaQueryList.addEventListener('change', handleMediaChange);
+                } else if (typeof mediaQueryList.addListener === 'function') {
+                    mediaQueryList.addListener(handleMediaChange);
+                }
+            }
+        } catch (err) {
+            console.debug('PDF export: matchMedia not available', err);
+        }
+    }
+    setTimeout(() => {
+        try {
+            window.print();
+        } catch (err) {
+            console.error('PDF export: unable to open print dialog', err);
+            cleanup();
+        }
+    }, 50);
+    fallbackTimer = setTimeout(() => {
+        cleanup();
+    }, 60000);
+}
+window.exportPageAsPdf = exportPageAsPdf;
 
 // Exporte für index.html Inline-Skript
 window.setIcdFilterMode = setIcdFilterMode;
