@@ -105,6 +105,37 @@
             transform: translateY(-1px); /* Leichter Anhebe-Effekt */
         }
         button:disabled { background-color: #aaa; cursor: not-allowed; box-shadow: none; transform: none;}
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .action-buttons button {
+            margin-top: 0;
+        }
+        .secondary-button {
+            background: #fff;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        .secondary-button:hover {
+            filter: none;
+            background: var(--primary-light);
+            color: var(--primary-strong);
+        }
+        body.pdf-export-active {
+            background: #fff;
+        }
+        #exportPdfButton {
+            margin-left: auto;
+        }
+        body.pdf-export-active #interactionBlocker,
+        body.pdf-export-active #spinner,
+        body.pdf-export-active .info-modal-overlay {
+            display: none !important;
+        }
 
         /* --- Output Bereich --- */
         #output {
@@ -1734,6 +1765,54 @@
         #output .tardoc-rule-content li {
             overflow-wrap: break-word;
         }
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 12mm;
+            }
+            body {
+                background: #fff !important;
+                color: #000;
+                max-width: none;
+                width: auto;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+            body.pdf-export-active {
+                background: #fff !important;
+            }
+            .action-buttons,
+            button,
+            #interactionBlocker,
+            #spinner,
+            .info-modal-overlay,
+            .modal-close,
+            #progressContainer {
+                display: none !important;
+            }
+            #output,
+            .input-frame,
+            .disclaimer-card,
+            #output details,
+            #output .tardoc-table td:last-child details {
+                box-shadow: none !important;
+                background: #fff !important;
+                border-color: #999;
+            }
+            details {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            table {
+                width: 100% !important;
+                page-break-inside: auto;
+            }
+            a::after {
+                content: " (" attr(href) ")";
+                font-size: 0.9em;
+            }
+        }
 </style>
 </head>
 <body>
@@ -1851,7 +1930,10 @@
             </div>
         </div>
 
-        <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
+        <div class="action-buttons">
+            <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
+            <button id="exportPdfButton" type="button" class="secondary-button" onclick="exportPageAsPdf()">Als PDF speichern</button>
+        </div>
         <div id="spinner"><span id="spinnerText">Wird geladen...</span></div>
         <div id="output">Daten geladen. Bereit zur Prüfung.</div>
 
