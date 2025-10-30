@@ -59,6 +59,26 @@ function Assert-Success {
     }
 }
 
+function Get-GitSafeTagName {
+    param([string]$Version)
+
+    if (-not $Version) {
+        throw "Versionsstring fuer Git-Tag fehlt."
+    }
+
+    $candidate = $Version -replace '[^0-9A-Za-z._-]+', '-'
+    $candidate = $candidate.Trim('-')
+
+    if (-not $candidate) {
+        throw "Versionsstring '$Version' konnte nicht in einen gueltigen Git-Tag-Namen umgewandelt werden."
+    }
+
+    git check-ref-format --branch $candidate | Out-Null
+    Assert-Success $LASTEXITCODE "Automatisch erzeugter Tag-Name '$candidate' ist ungueltig."
+
+    return $candidate
+}
+
 $RepoUrl = "https://github.com/BeatArnet/Arzttarif-Assistent"
 
 if (-not (Test-Path $DevPath)) {
@@ -69,6 +89,7 @@ if (-not (Test-Path $DevPath)) {
 try {
     $configPath = Join-Path $DevPath 'config.ini'
     $Version = Get-AppVersion -IniPath $configPath
+    $TagName = Get-GitSafeTagName -Version $Version
 } catch {
     Write-Error $_
     exit 1
@@ -83,6 +104,10 @@ $previousLocation = Get-Location
 
 try {
     Set-Location $ProdPath
+
+    if ($TagName -ne $Version) {
+        Write-Host "Hinweis: Verwende Git-Tag '$TagName' fuer Version '$Version'."
+    }
 
     git fetch origin
     Assert-Success $LASTEXITCODE "git fetch origin fehlgeschlagen."
@@ -128,20 +153,20 @@ try {
     git push origin $Branch
     Assert-Success $LASTEXITCODE "git push origin $Branch fehlgeschlagen."
 
-    $existingTag = git tag --list $Version
-    Assert-Success $LASTEXITCODE "git tag --list $Version fehlgeschlagen."
+    $existingTag = git tag --list $TagName
+    Assert-Success $LASTEXITCODE "git tag --list $TagName fehlgeschlagen."
 
     if ($existingTag) {
-        Write-Warning "Tag $Version existiert bereits. Push des Tags wurde uebersprungen."
+        Write-Warning "Tag $TagName existiert bereits. Push des Tags wurde uebersprungen."
     } else {
-        git tag $Version
-        Assert-Success $LASTEXITCODE "git tag $Version fehlgeschlagen."
+        git tag $TagName
+        Assert-Success $LASTEXITCODE "git tag $TagName fehlgeschlagen."
 
-        git push origin $Version
-        Assert-Success $LASTEXITCODE "git push origin $Version fehlgeschlagen."
+        git push origin $TagName
+        Assert-Success $LASTEXITCODE "git push origin $TagName fehlgeschlagen."
     }
 
-    Write-Host "[OK] Deployment von Version $Version abgeschlossen."
+    Write-Host "[OK] Deployment von Version $Version abgeschlossen (Tag: $TagName)."
 } finally {
     Set-Location $previousLocation
 }
