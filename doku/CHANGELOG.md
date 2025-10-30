@@ -4,6 +4,9 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
+### V3.9 (2025-10-30)
+- GUI passt auf eine normale Bildschirmseite (vertikale Abstände der einzelnen Elemente reduziert)
+
 ### V3.8 (2025-10-29)
 - Backend/Regelprüfung: Pauschalen-Erklärungen zeigen nur noch Kandidaten mit relevanten LKN-Beispielen; Ausschlusstabellen sind via `config.ini` steuerbar, generische C9x-Fallbacks bleiben erhalten. Listenbedingungen akzeptieren nun Medikationsangaben und neue LKN-Tabellentypen.
 - LLM-Kontext & Prompts: Variantenbildung filtert aggressive Stopwörter, koppelt Synonyme enger an reale Nutzereingaben und verhindert doppelte Katalogtitel; Stage-1-Instruktionen analysieren sorgfältig, wenn Beratungsminuten genannt werden.
