@@ -158,7 +158,9 @@ else:
             return str(path)
 
         class Request:
-            is_json = False
+            def __init__(self) -> None:
+                self.is_json = False
+                self.environ: Dict[str, Any] = {}
 
             def get_json(self, silent: bool = False) -> Any:
                 return {}
@@ -246,6 +248,8 @@ from utils import (
     rank_embeddings_entries,
     STOPWORDS,
     PatientDemographics,
+    activate_table_content_cache,
+    deactivate_table_content_cache,
 )
 from utils import (
     translate,
@@ -1742,6 +1746,24 @@ def create_app() -> FlaskType:
         JSON_AS_ASCII=False,
         JSONIFY_MIMETYPE="application/json; charset=utf-8",
     )
+
+    @app.before_request
+    def _activate_table_cache_per_request() -> None:
+        token = activate_table_content_cache()
+        if token is not None:
+            environ = getattr(request, "environ", None)
+            if isinstance(environ, dict):
+                environ['_table_cache_token'] = token
+            else:
+                request.environ = {'_table_cache_token': token}  # type: ignore[attr-defined]
+
+    @app.teardown_request
+    def _cleanup_table_cache_per_request(_exc: Optional[BaseException]) -> None:
+        environ = getattr(request, "environ", None)
+        token = None
+        if isinstance(environ, dict):
+            token = environ.pop('_table_cache_token', None)
+        deactivate_table_content_cache(token)
 
     # Daten nur einmal laden – egal ob lokal oder Render-Worker
     global daten_geladen

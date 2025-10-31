@@ -4,6 +4,9 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
+### V4.0  (2025-10-31)
+- Optimierter Code zur beschleunigten Validierung von Pauschalen
+
 ### V3.9 (2025-10-30)
 - GUI passt auf eine normale Bildschirmseite (vertikale Abstände der einzelnen Elemente reduziert)
 - Ausgabe kann als PDF gespeichert bzw. gedruckt werden
