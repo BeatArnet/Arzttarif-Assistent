@@ -15,10 +15,32 @@ import traceback
 import json
 import logging
 import ast
-from functools import lru_cache
-from typing import Dict, List, Any, Set, Optional, Tuple
+from dataclasses import dataclass, field
+from functools import lru_cache, wraps
+from typing import (
+    Dict,
+    List,
+    Any,
+    Set,
+    Optional,
+    Tuple,
+    Mapping,
+    Sequence,
+    DefaultDict,
+    MutableMapping,
+    cast,
+)
 from collections import defaultdict
-from utils import escape, get_table_content, get_lang_field, translate, translate_condition_type, create_html_info_link
+from utils import (
+    escape,
+    get_table_content,
+    get_lang_field,
+    translate,
+    translate_condition_type,
+    create_html_info_link,
+    activate_table_content_cache,
+    deactivate_table_content_cache,
+)
 from runtime_config import load_base_config
 import re, html
 
@@ -35,12 +57,27 @@ __all__ = [
     "check_single_condition",               # Added
     "DEFAULT_GROUP_OPERATOR",               # Added
     "get_group_operator_for_pauschale",     # Added
+    "build_pauschale_condition_structure_index",
     # _evaluate_boolean_tokens and evaluate_single_condition_group are internal
 ]
 
 # Standardoperator zur Verknüpfung der Bedingungsgruppen. (Wird für Funktions-Defaults benötigt)
 # "UND" ist der konservative Default und kann zentral angepasst werden.
 DEFAULT_GROUP_OPERATOR = "UND"
+
+
+def with_table_content_cache(func):
+    """Ensure table lookups reuse a request-scoped cache while the function runs."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = activate_table_content_cache()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            deactivate_table_content_cache(token)
+
+    return wrapper
 
 
 _DEFAULT_EXCLUDED_LKN_TABLES = {"or", "elt", "nonelt", "anast"}
@@ -117,6 +154,300 @@ LKN_TABLE_CONDITION_TYPES = {
 
 _PRUEFLOGIK_ICD_TOKENS = ('icd', 'hauptdiagnose')
 
+
+@dataclass(frozen=True)
+class NormalizedContext:
+    """Collection of precomputed context values used during rule evaluation."""
+
+    raw: Mapping[str, Any]
+    use_icd: bool
+    icd_codes: frozenset[str]
+    medication_codes: frozenset[str]
+    lkn_codes: frozenset[str]
+    geschlecht_lower: str
+    seitigkeit_lower: str
+    alter: Any
+    alter_bei_eintritt: Any
+    anzahl: Any
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Proxy dict-style access to the original context."""
+        return self.raw.get(key, default)
+
+
+def build_normalized_context(context: Optional[Mapping[str, Any]]) -> NormalizedContext:
+    """Return a :class:`NormalizedContext` with cached lookups for expensive checks."""
+
+    base_context: Mapping[str, Any] = context or {}
+
+    icd_codes = frozenset(
+        str(icd).upper() for icd in base_context.get("ICD", []) if icd
+    )
+    medication_candidates = [
+        str(item).upper() for item in base_context.get("Medikamente", []) if item
+    ]
+    if not medication_candidates:
+        medication_candidates = [
+            str(item).upper() for item in base_context.get("GTIN", []) if item
+        ]
+    medication_codes = frozenset(medication_candidates)
+    lkn_codes = frozenset(
+        str(lkn).upper() for lkn in base_context.get("LKN", []) if lkn
+    )
+
+    geschlecht_lower = str(base_context.get("Geschlecht", "unbekannt") or "unbekannt").lower()
+    seitigkeit_lower = str(base_context.get("Seitigkeit", "unbekannt") or "unbekannt").lower()
+
+    return NormalizedContext(
+        raw=base_context,
+        use_icd=bool(base_context.get("useIcd", True)),
+        icd_codes=icd_codes,
+        medication_codes=medication_codes,
+        lkn_codes=lkn_codes,
+        geschlecht_lower=geschlecht_lower,
+        seitigkeit_lower=seitigkeit_lower,
+        alter=base_context.get("Alter"),
+        alter_bei_eintritt=base_context.get("AlterBeiEintritt"),
+        anzahl=base_context.get("Anzahl"),
+    )
+
+
+@dataclass
+class PreparedConditionGroup:
+    """Static definition of a Pauschalen-Bedingungsgruppe."""
+
+    id: Any
+    normalized_id: Any
+    sort_index: Any
+    parent: Any
+    group_operator: str
+    negated: bool
+    conditions: List[MutableMapping[str, Any]] = field(default_factory=list)
+    intra_ops: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PreparedPauschaleStructure:
+    """Precomputed representation of all Bedingungen for a Pauschale."""
+
+    groups: List[PreparedConditionGroup] = field(default_factory=list)
+    inter_group_ops: List[str] = field(default_factory=list)
+    group_children: Dict[Any, List[Dict[str, Any]]] = field(default_factory=dict)
+    sequence: List[Dict[str, Any]] = field(default_factory=list)
+    has_real_conditions: bool = False
+    group_lookup: Dict[Any, PreparedConditionGroup] = field(default_factory=dict)
+
+
+def _normalize_group_identifier(value: Any) -> Any:
+    """Normalize group identifiers to comparable values."""
+
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        stripped = str(value).strip()
+        if not stripped:
+            return None
+        return int(stripped)
+    except (ValueError, TypeError):
+        stripped = str(value).strip()
+        return stripped if stripped else None
+
+
+def _normalize_operator_label(value: Any, default: str = "") -> str:
+    """Normalize UND/ODER operators while keeping unknown tokens untouched."""
+
+    if value is None:
+        return default
+    upper = str(value).strip().upper()
+    if upper in ("UND", "AND"):
+        return "UND"
+    if upper in ("ODER", "OR"):
+        return "ODER"
+    return upper if upper else default
+
+
+def _condition_sort_key(cond: Mapping[str, Any]) -> Tuple[Any, Any, Any]:
+    """Stable ordering for Bedingungszeilen innerhalb einer Pauschale."""
+
+    return (
+        cond.get("GruppeSortIndex", cond.get("Gruppe", 0)),
+        cond.get("BedingungSortIndex", cond.get("BedingungsID", 0)),
+        cond.get("BedingungsID", 0),
+    )
+
+
+def _sort_group_key(value: Any) -> Tuple[int, str]:
+    """Sort key that mirrors the previous orchestrator ordering."""
+
+    if isinstance(value, int):
+        return (0, str(value))
+    return (1, str(value))
+
+
+def build_pauschale_condition_structure_index(
+    pauschale_bedingungen_data: Sequence[Mapping[str, Any]]
+) -> Dict[str, PreparedPauschaleStructure]:
+    """Create a map ``pauschale_code -> PreparedPauschaleStructure`` once."""
+
+    grouped: DefaultDict[str, List[Mapping[str, Any]]] = defaultdict(list)
+    for cond in pauschale_bedingungen_data:
+        code = cond.get("Pauschale")
+        if code is None:
+            continue
+        grouped[str(code)].append(cond)
+
+    return {
+        code: _prepare_single_pauschale_structure(code, items)
+        for code, items in grouped.items()
+    }
+
+
+def _prepare_single_pauschale_structure(
+    pauschale_code: str,
+    conditions: Sequence[Mapping[str, Any]],
+) -> PreparedPauschaleStructure:
+    """Precompute grouping, AST links and ordering for one Pauschale."""
+
+    sorted_conditions = sorted(conditions, key=_condition_sort_key)
+    has_real_conditions = any(
+        str(cond.get("Bedingungstyp", "")).upper() != "AST VERBINDUNGSOPERATOR"
+        for cond in sorted_conditions
+    )
+
+    group_meta: Dict[Any, Dict[str, Any]] = {}
+    inter_group_operators_map: Dict[Any, str] = {}
+    inter_group_ops_out: List[str] = []
+    sequence: List[Dict[str, Any]] = []
+    ast_links: List[Tuple[Any, Any, str, int]] = []
+    groups: List[PreparedConditionGroup] = []
+    group_lookup: Dict[Any, PreparedConditionGroup] = {}
+
+    current_group: Optional[PreparedConditionGroup] = None
+    synthetic_group_counter = 0
+
+    for cond in sorted_conditions:
+        cond_type_upper = str(cond.get("Bedingungstyp", "")).upper()
+        if cond_type_upper == "AST VERBINDUNGSOPERATOR":
+            parent_norm = _normalize_group_identifier(cond.get("Gruppe"))
+            child_candidate = cond.get("Spezialbedingung")
+            if child_candidate is None or str(child_candidate).strip() == "":
+                child_candidate = cond.get("Werte")
+            child_norm = _normalize_group_identifier(child_candidate)
+            op_logic = _normalize_operator_label(cond.get("Operator"), default="ODER")
+            ast_links.append((parent_norm, child_norm, op_logic, cond.get("BedingungsID", 0)))
+            if child_norm is not None and op_logic in ("UND", "ODER"):
+                inter_group_operators_map[child_norm] = op_logic
+            op_display = _normalize_operator_label(cond.get("Werte"), default="")
+            if op_display in ("UND", "ODER"):
+                sequence.append({"type": "ast_operator", "operator": op_display})
+            continue
+
+        group_id_raw = cond.get("Gruppe")
+        normalized_gid = _normalize_group_identifier(group_id_raw)
+        if normalized_gid is None:
+            normalized_gid = f"__synthetic__{synthetic_group_counter}"
+            synthetic_group_counter += 1
+
+        meta = group_meta.setdefault(
+            normalized_gid,
+            {
+                "DisplayId": group_id_raw,
+                "GroupNegated": False,
+                "ParentGroup": _normalize_group_identifier(cond.get("ParentGroup")),
+                "GroupOperator": _normalize_operator_label(cond.get("GruppenOperator")),
+                "SortIndex": cond.get("GruppeSortIndex", group_id_raw),
+            },
+        )
+        if cond.get("GroupNegated"):
+            meta["GroupNegated"] = True
+        if meta.get("ParentGroup") is None:
+            meta["ParentGroup"] = _normalize_group_identifier(cond.get("ParentGroup"))
+        if not meta.get("GroupOperator"):
+            meta["GroupOperator"] = _normalize_operator_label(cond.get("GruppenOperator"))
+        if meta.get("SortIndex") is None:
+            meta["SortIndex"] = cond.get("GruppeSortIndex", group_id_raw)
+        if meta.get("DisplayId") is None:
+            meta["DisplayId"] = group_id_raw
+
+        if current_group is None or current_group.normalized_id != normalized_gid:
+            if current_group is not None:
+                groups.append(current_group)
+                group_lookup[current_group.normalized_id] = current_group
+            op_between = inter_group_operators_map.pop(normalized_gid, None)
+            if op_between:
+                inter_group_ops_out.append(op_between)
+            meta_for_group = group_meta[normalized_gid]
+            current_group = PreparedConditionGroup(
+                id=meta_for_group.get("DisplayId"),
+                normalized_id=normalized_gid,
+                sort_index=meta_for_group.get("SortIndex"),
+                parent=meta_for_group.get("ParentGroup"),
+                group_operator=meta_for_group.get("GroupOperator", ""),
+                negated=bool(meta_for_group.get("GroupNegated")),
+            )
+            sequence.append({"type": "group", "group_id": normalized_gid})
+        else:
+            meta_for_group = group_meta[normalized_gid]
+            current_group.negated = bool(meta_for_group.get("GroupNegated"))
+            current_group.parent = meta_for_group.get("ParentGroup")
+            current_group.group_operator = meta_for_group.get("GroupOperator", "")
+            if meta_for_group.get("SortIndex") is not None:
+                current_group.sort_index = meta_for_group.get("SortIndex")
+
+        current_group.conditions.append(cast(MutableMapping[str, Any], cond))
+        if len(current_group.conditions) > 1:
+            prev_cond = current_group.conditions[-2]
+            link_op = _normalize_operator_label(prev_cond.get("Operator"), default="UND")
+            if link_op in ("UND", "ODER"):
+                current_group.intra_ops.append(link_op)
+
+    if current_group is not None:
+        groups.append(current_group)
+        group_lookup[current_group.normalized_id] = current_group
+
+    group_children_map: Dict[Any, List[Dict[str, Any]]] = {}
+    for parent_id, child_id, op_val, bed_id in ast_links:
+        entry = {
+            "child": child_id,
+            "operator": op_val if op_val in ("UND", "ODER") else _normalize_operator_label(op_val, default="ODER"),
+            "bed_id": bed_id or 0,
+        }
+        group_children_map.setdefault(parent_id, []).append(entry)
+
+    for entries in group_children_map.values():
+        entries.sort(key=lambda item: item.get("bed_id", 0))
+
+    return PreparedPauschaleStructure(
+        groups=groups,
+        inter_group_ops=inter_group_ops_out,
+        group_children=group_children_map,
+        sequence=sequence,
+        has_real_conditions=has_real_conditions,
+        group_lookup=group_lookup,
+    )
+
+
+def _get_prepared_structure(
+    pauschale_code: str,
+    all_conditions: Sequence[Mapping[str, Any]],
+    prepared_index: Optional[Dict[str, PreparedPauschaleStructure]] = None,
+) -> PreparedPauschaleStructure:
+    """Return the prepared structure for ``pauschale_code`` (compute on demand)."""
+
+    key = str(pauschale_code)
+    if prepared_index and key in prepared_index:
+        return prepared_index[key]
+
+    relevant = [
+        cond for cond in all_conditions if str(cond.get("Pauschale")) == key
+    ]
+    if not relevant:
+        return PreparedPauschaleStructure()
+    return _prepare_single_pauschale_structure(key, relevant)
+
+
 def pauschale_requires_icd(
     pauschale_code: str,
     pauschale_bedingungen_data: List[Dict[str, Any]],
@@ -139,9 +470,10 @@ def pauschale_requires_icd(
     return False
 
 
+@with_table_content_cache
 def count_matching_lkn_codes(
     pauschale_code: str,
-    context: Dict[str, Any],
+    context: Mapping[str, Any],
     pauschale_bedingungen_data: List[Dict[str, Any]],
     tabellen_dict_by_table: Dict[str, List[Dict]],
 ) -> int:
@@ -154,15 +486,27 @@ def count_matching_lkn_codes(
         if cond.get('Pauschale') != pauschale_code:
             continue
         cond_type = str(cond.get('Bedingungstyp', '')).upper()
+        cond_cache: Dict[str, Any] = cond.setdefault('__parsed_cache__', {})
         if cond_type in LKN_LIST_CONDITION_TYPES:
-            values = {item.strip().upper() for item in str(cond.get('Werte', '')).split(',') if item.strip()}
+            values = cond_cache.get('lkn_required_set')
+            if values is None:
+                values = frozenset(
+                    item.strip().upper() for item in str(cond.get('Werte', '')).split(',') if item.strip()
+                )
+                cond_cache['lkn_required_set'] = values
             matches.update(provided_lkns.intersection(values))
         elif cond_type in LKN_TABLE_CONDITION_TYPES:
             table_ref = str(cond.get('Werte', '')).strip()
             if not table_ref:
                 continue
-            entries = get_table_content(table_ref, 'service_catalog', tabellen_dict_by_table)
-            table_codes = {str(entry.get('Code', '')).upper() for entry in entries if entry.get('Code')}
+            cache_key_codes = 'table_codes::service_catalog'
+            table_codes = cond_cache.get(cache_key_codes)
+            if table_codes is None:
+                entries = get_table_content(table_ref, 'service_catalog', tabellen_dict_by_table)
+                table_codes = frozenset(
+                    str(entry.get('Code', '')).upper() for entry in entries if entry.get('Code')
+                )
+                cond_cache[cache_key_codes] = table_codes
             matches.update(provided_lkns.intersection(table_codes))
     return len(matches)
 
@@ -234,26 +578,61 @@ def _parse_comparison(expr: str) -> tuple[str, str]:
     raise ValueError(f"Cannot parse comparison '{expr}'.")
 
 
-def _evaluate_simple_condition(condition_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+def _evaluate_simple_condition(
+    condition_text: str,
+    normalized_context: NormalizedContext,
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+) -> bool:
     text_lower = condition_text.strip().lower()
     if text_lower.startswith('anzahl'):
         operator, value = _parse_comparison(condition_text[len('Anzahl'):])
         cond = {'Bedingungstyp': 'ANZAHL', 'Vergleichsoperator': operator, 'Werte': value}
-        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+        return bool(
+            check_single_condition(
+                cond,
+                normalized_context.raw,
+                tabellen_dict_by_table,
+                normalized_context,
+            )
+        )
     if text_lower.startswith('seitigkeit'):
         operator, value = _parse_comparison(condition_text[len('Seitigkeit'):])
         cond = {'Bedingungstyp': 'SEITIGKEIT', 'Vergleichsoperator': operator, 'Werte': value}
-        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+        return bool(
+            check_single_condition(
+                cond,
+                normalized_context.raw,
+                tabellen_dict_by_table,
+                normalized_context,
+            )
+        )
     if text_lower.startswith('alter in jahren bei eintritt'):
         operator, value = _parse_comparison(condition_text[len('Alter in Jahren bei Eintritt'):])
         cond = {'Bedingungstyp': 'ALTER IN JAHREN BEI EINTRITT', 'Vergleichsoperator': operator, 'Werte': value}
-        return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+        return bool(
+            check_single_condition(
+                cond,
+                normalized_context.raw,
+                tabellen_dict_by_table,
+                normalized_context,
+            )
+        )
     if text_lower.startswith('geschlecht in liste'):
-        return bool(_evaluate_condition_text(condition_text, context, tabellen_dict_by_table))
+        return bool(
+            _evaluate_condition_text(
+                condition_text,
+                normalized_context,
+                tabellen_dict_by_table,
+            )
+        )
     raise ValueError(f"Unsupported WHERE condition fragment '{condition_text}'.")
 
 
-def _evaluate_where_clause(where_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+def _evaluate_where_clause(
+    where_text: str,
+    normalized_context: NormalizedContext,
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+) -> bool:
     clause = _strip_surrounding_parentheses(where_text.strip())
     if not clause:
         return True
@@ -263,7 +642,13 @@ def _evaluate_where_clause(where_text: str, context: Dict, tabellen_dict_by_tabl
     def _replace(match: re.Match) -> str:
         idx = len(simple_results)
         fragment = match.group(0)
-        simple_results.append(_evaluate_simple_condition(fragment, context, tabellen_dict_by_table))
+        simple_results.append(
+            _evaluate_simple_condition(
+                fragment,
+                normalized_context,
+                tabellen_dict_by_table,
+            )
+        )
         return f'__WHERE{idx}__'
 
     simple_pattern = re.compile(
@@ -283,13 +668,25 @@ def _evaluate_where_clause(where_text: str, context: Dict, tabellen_dict_by_tabl
     return bool(eval(expr_python, {'__builtins__': None}, env))
 
 
-def _evaluate_condition_text(condition_text: str, context: Dict, tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool:
+def _evaluate_condition_text(
+    condition_text: str,
+    normalized_context: NormalizedContext,
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+) -> bool:
     text = _strip_surrounding_parentheses(condition_text.strip())
     where_match = re.search(r'\swhere\s', text, flags=re.IGNORECASE)
     if where_match:
         base_text = text[:where_match.start()].strip()
         where_clause = text[where_match.end():].strip()
-        return _evaluate_condition_text(base_text, context, tabellen_dict_by_table) and _evaluate_where_clause(where_clause, context, tabellen_dict_by_table)
+        return _evaluate_condition_text(
+            base_text,
+            normalized_context,
+            tabellen_dict_by_table,
+        ) and _evaluate_where_clause(
+            where_clause,
+            normalized_context,
+            tabellen_dict_by_table,
+        )
 
     if '(' not in text or not text.endswith(')'):
         raise ValueError(f"Unexpected condition fragment '{condition_text}'.")
@@ -315,12 +712,19 @@ def _evaluate_condition_text(condition_text: str, context: Dict, tabellen_dict_b
         raise ValueError(f"Unsupported condition type '{prefix}'.")
 
     cond = {'Bedingungstyp': cond_type, 'Werte': values_str}
-    return bool(check_single_condition(cond, context, tabellen_dict_by_table))
+    return bool(
+        check_single_condition(
+            cond,
+            normalized_context.raw,
+            tabellen_dict_by_table,
+            normalized_context,
+        )
+    )
 
 
 def _evaluate_prueflogik_expression(
     prueflogik_expr: str,
-    context: Dict,
+    normalized_context: NormalizedContext,
     tabellen_dict_by_table: Dict[str, List[Dict]],
     pauschale_code: str,
     debug: bool = False,
@@ -339,11 +743,19 @@ def _evaluate_prueflogik_expression(
             or fragment_lower.startswith('alter in jahren bei eintritt')
             or fragment_lower.startswith('geschlecht in liste')
         ):
-            result = _evaluate_simple_condition(fragment_clean, context, tabellen_dict_by_table)
+            result = _evaluate_simple_condition(
+                fragment_clean,
+                normalized_context,
+                tabellen_dict_by_table,
+            )
         elif fragment_lower.replace(' ', '') == '1=1':
             result = True
         else:
-            result = _evaluate_condition_text(fragment_clean, context, tabellen_dict_by_table)
+            result = _evaluate_condition_text(
+                fragment_clean,
+                normalized_context,
+                tabellen_dict_by_table,
+            )
 
         values.append(bool(result))
         return f'__COND{idx}__'
@@ -702,12 +1114,15 @@ def _extract_group_logic_terms(
 
 # === FUNKTION ZUR PRÜFUNG EINER EINZELNEN BEDINGUNG ===
 def check_single_condition(
-    condition: Dict,
-    context: Dict,
-    tabellen_dict_by_table: Dict[str, List[Dict]]
+    condition: MutableMapping[str, Any],
+    context: Mapping[str, Any],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    normalized_context: Optional[NormalizedContext] = None,
 ) -> bool:
     """Prüft eine einzelne Bedingungszeile und gibt True/False zurück."""
-    check_icd_conditions_at_all = context.get("useIcd", True)
+    normalized_context = normalized_context or build_normalized_context(context)
+
+    check_icd_conditions_at_all = normalized_context.use_icd
     pauschale_code_for_debug = condition.get('Pauschale', 'N/A_PAUSCHALE') # Für besseres Debugging
     gruppe_for_debug = condition.get('Gruppe', 'N/A_GRUPPE') # Für besseres Debugging
 
@@ -718,51 +1133,84 @@ def check_single_condition(
     feld_ref = condition.get(BED_FELD_KEY); min_val_regel = condition.get(BED_MIN_KEY) # Umbenannt für Klarheit
     max_val_regel = condition.get(BED_MAX_KEY); wert_regel_explizit = condition.get(BED_WERTE_KEY) # Umbenannt für Klarheit
 
+    condition_cache: Dict[str, Any] = condition.setdefault('__parsed_cache__', {})
+
     # Kontextwerte holen
-    provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-    provided_medications_upper = {str(m).upper() for m in context.get("Medikamente", []) if m}
-    if not provided_medications_upper:
-        provided_medications_upper = {str(m).upper() for m in context.get("GTIN", []) if m}
-    provided_lkns_upper = {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn}
-    provided_alter = context.get("Alter")
-    provided_geschlecht_str = str(context.get("Geschlecht", "unbekannt")).lower() # Default 'unbekannt' und lower
-    provided_anzahl = context.get("Anzahl") # Aus dem Kontext für "ANZAHL" Typ
-    provided_seitigkeit_str = str(context.get("Seitigkeit", "unbekannt")).lower() # Default 'unbekannt' und lower
+    provided_icds_upper = normalized_context.icd_codes
+    provided_medications_upper = normalized_context.medication_codes
+    provided_lkns_upper = normalized_context.lkn_codes
+    provided_alter = normalized_context.alter
+    provided_geschlecht_str = normalized_context.geschlecht_lower
+    provided_anzahl = normalized_context.anzahl
+    provided_seitigkeit_str = normalized_context.seitigkeit_lower
 
     # print(f"--- DEBUG check_single --- P: {pauschale_code_for_debug} G: {gruppe_for_debug} Typ: {bedingungstyp}, Regel-Werte: '{werte_str}', Kontext: {context.get('Seitigkeit', 'N/A')}/{context.get('Anzahl', 'N/A')}")
 
     try:
         if bedingungstyp == "ICD": # ICD IN LISTE
-            if not check_icd_conditions_at_all: return True
-            required_icds_in_rule_list = {w.strip().upper() for w in str(werte_str).split(',') if w.strip()}
-            if not required_icds_in_rule_list: return True # Leere Regel-Liste ist immer erfüllt
-            return any(req_icd in provided_icds_upper for req_icd in required_icds_in_rule_list)
+            if not check_icd_conditions_at_all:
+                return True
+            required_icds: Optional[frozenset[str]] = condition_cache.get('icd_required_set')
+            if required_icds is None:
+                required_icds = frozenset(
+                    w.strip().upper() for w in str(werte_str).split(',') if w.strip()
+                )
+                condition_cache['icd_required_set'] = required_icds
+            if not required_icds:  # Leere Regel-Liste ist immer erfüllt
+                return True
+            return any(req_icd in provided_icds_upper for req_icd in required_icds)
 
         elif bedingungstyp == "HAUPTDIAGNOSE IN TABELLE": # ICD IN TABELLE
-            if not check_icd_conditions_at_all: return True
-            table_ref = werte_str
-            icd_codes_in_rule_table = {entry['Code'].upper() for entry in get_table_content(table_ref, "icd", tabellen_dict_by_table) if entry.get('Code')}
-            extra_codes = DIAGNOSIS_TABLE_EXTRA_CODES.get(str(table_ref).upper())
-            if extra_codes:
-                icd_codes_in_rule_table.update(code.upper() for code in extra_codes)
-            if not icd_codes_in_rule_table: # Wenn Tabelle leer oder nicht gefunden
-                 return False if provided_icds_upper else True # Nur erfüllt, wenn auch keine ICDs im Kontext sind
-            return any(provided_icd in icd_codes_in_rule_table for provided_icd in provided_icds_upper)
+            if not check_icd_conditions_at_all:
+                return True
+            table_ref = str(werte_str)
+            cached_icd_codes: Optional[frozenset[str]] = condition_cache.get('icd_table_codes')
+            if cached_icd_codes is None:
+                icd_codes_in_rule_table = {
+                    entry['Code'].upper()
+                    for entry in get_table_content(table_ref, "icd", tabellen_dict_by_table)
+                    if entry.get('Code')
+                }
+                extra_codes = DIAGNOSIS_TABLE_EXTRA_CODES.get(str(table_ref).upper())
+                if extra_codes:
+                    icd_codes_in_rule_table.update(code.upper() for code in extra_codes)
+                cached_icd_codes = frozenset(icd_codes_in_rule_table)
+                condition_cache['icd_table_codes'] = cached_icd_codes
+            if not cached_icd_codes:  # Wenn Tabelle leer oder nicht gefunden
+                return False if provided_icds_upper else True  # Nur erfüllt, wenn auch keine ICDs im Kontext sind
+            return any(provided_icd in cached_icd_codes for provided_icd in provided_icds_upper)
 
         elif bedingungstyp in ("GTIN", "MEDIKAMENTE IN LISTE"):
-            werte_list_med = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
-            if not werte_list_med: return True
-            return any(req_med in provided_medications_upper for req_med in werte_list_med)
+            required_meds: Optional[frozenset[str]] = condition_cache.get('medication_required_set')
+            if required_meds is None:
+                required_meds = frozenset(
+                    w.strip().upper() for w in str(werte_str).split(',') if w.strip()
+                )
+                condition_cache['medication_required_set'] = required_meds
+            if not required_meds:
+                return True
+            return any(req_med in provided_medications_upper for req_med in required_meds)
 
         elif bedingungstyp == "LKN" or bedingungstyp == "LEISTUNGSPOSITIONEN IN LISTE":
-            werte_list_upper_lkn = [w.strip().upper() for w in str(werte_str).split(',') if w.strip()]
-            if not werte_list_upper_lkn: return True
-            return any(req_lkn in provided_lkns_upper for req_lkn in werte_list_upper_lkn)
+            required_lkns: Optional[frozenset[str]] = condition_cache.get('lkn_required_set')
+            if required_lkns is None:
+                required_lkns = frozenset(
+                    w.strip().upper() for w in str(werte_str).split(',') if w.strip()
+                )
+                condition_cache['lkn_required_set'] = required_lkns
+            if not required_lkns:
+                return True
+            return any(req_lkn in provided_lkns_upper for req_lkn in required_lkns)
 
         elif bedingungstyp == "GESCHLECHT IN LISTE": # Z.B. Werte: "Männlich,Weiblich"
             if werte_str: # Nur prüfen, wenn Regel einen Wert hat
-                geschlechter_in_regel_lower = {g.strip().lower() for g in str(werte_str).split(',') if g.strip()}
-                return provided_geschlecht_str in geschlechter_in_regel_lower
+                gender_values: Optional[frozenset[str]] = condition_cache.get('gender_required_set')
+                if gender_values is None:
+                    gender_values = frozenset(
+                        g.strip().lower() for g in str(werte_str).split(',') if g.strip()
+                    )
+                    condition_cache['gender_required_set'] = gender_values
+                return provided_geschlecht_str in gender_values
             return True # Wenn Regel keinen Wert hat, ist es für jedes Geschlecht ok
 
         elif bedingungstyp == "LEISTUNGSPOSITIONEN IN TABELLE" or bedingungstyp == "TARIFPOSITIONEN IN TABELLE" or bedingungstyp == "LKN IN TABELLE":
@@ -777,12 +1225,17 @@ def check_single_condition(
                 table_type = "service_catalog"
                 provided_codes = provided_lkns_upper
 
-            table_entries = get_table_content(table_ref, table_type, tabellen_dict_by_table)
-            table_codes = {
-                str(entry.get('Code', '')).upper()
-                for entry in table_entries
-                if entry.get('Code')
-            }
+            cache_key_codes = f"table_codes::{table_type}"
+            table_codes: Optional[frozenset[str]] = condition_cache.get(cache_key_codes)
+            if table_codes is None:
+                table_entries = get_table_content(table_ref, table_type, tabellen_dict_by_table)
+                codes = {
+                    str(entry.get('Code', '')).upper()
+                    for entry in table_entries
+                    if entry.get('Code')
+                }
+                table_codes = frozenset(codes)
+                condition_cache[cache_key_codes] = table_codes
             if not table_codes:
                 return False
             return any(code in table_codes for code in provided_codes)
@@ -815,7 +1268,7 @@ def check_single_condition(
                 return True # Oder False, je nach gewünschtem Verhalten
 
         elif bedingungstyp == "ALTER IN JAHREN BEI EINTRITT":
-            alter_eintritt = context.get("AlterBeiEintritt")
+            alter_eintritt = normalized_context.alter_bei_eintritt
             if alter_eintritt is None:
                 return False
             try:
@@ -961,6 +1414,7 @@ def get_beschreibung_fuer_lkn_im_backend(lkn_code: str, leistungskatalog_dict: D
 #     return default
 
 
+@with_table_content_cache
 def get_beschreibung_fuer_icd_im_backend(
     icd_code: str,
     tabellen_dict_by_table: Dict,
@@ -1126,12 +1580,13 @@ def _evaluate_boolean_tokens(tokens: List[Any]) -> bool:
 
 # === FUNKTION ZUR AUSWERTUNG EINER EINZELNEN BEDINGUNGSGRUPPE ===
 def evaluate_single_condition_group(
-    conditions_in_group: List[Dict],
-    context: Dict,
+    conditions_in_group: Sequence[MutableMapping[str, Any]],
+    context: Mapping[str, Any],
     tabellen_dict_by_table: Dict[str, List[Dict]],
     pauschale_code_for_debug: str = "N/A_PAUSCHALE", # For logging
     group_id_for_debug: Any = "N/A_GRUPPE",      # For logging
-    debug: bool = False
+    debug: bool = False,
+    normalized_context: Optional[NormalizedContext] = None,
 ) -> bool:
     """
     Evaluates the conditions for a single, isolated condition group.
@@ -1146,8 +1601,10 @@ def evaluate_single_condition_group(
             )
         return True
 
+    normalized_context = normalized_context or build_normalized_context(context)
+
     diagnostic_types = {"HAUPTDIAGNOSE IN TABELLE", "HAUPTDIAGNOSE IN LISTE", "ICD", "ICD IN TABELLE", "ICD IN LISTE"}
-    use_icd_flag = context.get('useIcd', True)
+    use_icd_flag = normalized_context.use_icd
     group_has_non_diag = any(str(cond.get('Bedingungstyp', '')).upper() not in diagnostic_types for cond in conditions_in_group)
 
     baseline_level_group = 1
@@ -1156,7 +1613,10 @@ def evaluate_single_condition_group(
         first_level_group = baseline_level_group
 
     first_res_group = check_single_condition(
-        conditions_in_group[0], context, tabellen_dict_by_table
+        conditions_in_group[0],
+        context,
+        tabellen_dict_by_table,
+        normalized_context,
     )
 
     tokens_group: List[Any] = ["("] * (first_level_group - baseline_level_group)
@@ -1193,7 +1653,12 @@ def evaluate_single_condition_group(
         if cur_level_group > prev_level_group:
             tokens_group.extend(["("] * (cur_level_group - prev_level_group))
 
-        cur_res_group = check_single_condition(cond_grp, context, tabellen_dict_by_table)
+        cur_res_group = check_single_condition(
+            cond_grp,
+            context,
+            tabellen_dict_by_table,
+            normalized_context,
+        )
         tokens_group.append(bool(cur_res_group))
 
         prev_level_group = cur_level_group
@@ -1251,7 +1716,7 @@ def evaluate_single_condition_group(
         # calculated_result remains False (its initialization)
 
     if not use_icd_flag and not group_has_non_diag:
-        provided_icds = [icd for icd in context.get('ICD', []) if icd]
+        provided_icds = [icd for icd in normalized_context.icd_codes if icd]
         if not provided_icds:
             return False
     return calculated_result
@@ -1262,108 +1727,56 @@ def evaluate_single_condition_group(
 
 def _evaluate_pauschale_logic_via_ast(
     pauschale_code: str,
-    context: Dict,
+    context: Mapping[str, Any],
     all_pauschale_bedingungen_data: List[Dict],
     tabellen_dict_by_table: Dict[str, List[Dict]],
     debug: bool = False,
+    normalized_context: Optional[NormalizedContext] = None,
+    prepared_structures: Optional[Dict[str, PreparedPauschaleStructure]] = None,
 ) -> bool:
-    def _condition_sort_key(cond: Dict[str, Any]) -> tuple[Any, Any, Any]:
-        return (
-            cond.get("GruppeSortIndex", cond.get("Gruppe", 0)),
-            cond.get("BedingungSortIndex", cond.get("BedingungsID", 0)),
-            cond.get("BedingungsID", 0),
-        )
+    normalized_context = normalized_context or build_normalized_context(context)
 
-    conditions_for_pauschale = sorted(
-        [cond for cond in all_pauschale_bedingungen_data if cond.get("Pauschale") == pauschale_code],
-        key=_condition_sort_key
+    structure = _get_prepared_structure(
+        pauschale_code,
+        all_pauschale_bedingungen_data,
+        prepared_structures,
     )
 
-    if not conditions_for_pauschale:
+    if not structure.groups and not structure.has_real_conditions:
         if debug:
-            logger.info("DEBUG Orchestrator Pauschale %s: No conditions defined. Result: True", pauschale_code)
+            logger.info(
+                "DEBUG Orchestrator Pauschale %s: No conditions defined. Result: True",
+                pauschale_code,
+            )
         return True
 
-    def _normalize_group_id(value: Any) -> Any:
-        if value is None:
-            return None
-        if isinstance(value, int):
-            return value
-        try:
-            return int(str(value).strip())
-        except (TypeError, ValueError):
-            string_value = str(value).strip()
-            return string_value if string_value else None
-
-    def _normalize_operator(value: Any) -> str:
-        if value is None:
-            return "OR"
-        value_upper = str(value).strip().upper()
-        if value_upper in ("UND", "AND"):
-            return "AND"
-        if value_upper in ("ODER", "OR"):
-            return "OR"
-        logger.warning(
-            "WARNUNG Orchestrator Pauschale %s: Unexpected operator '%s'. Defaulting to OR.",
-            pauschale_code,
-            value,
-        )
-        return "OR"
-
-    def _sort_key(value: Any) -> tuple[int, str]:
-        if isinstance(value, int):
-            return (0, str(value))
-        return (1, str(value))
-
-    group_conditions_map: defaultdict[Any, List[Dict]] = defaultdict(list)
-    group_meta: Dict[Any, Dict[str, Any]] = {}
-    ast_entries: List[Dict] = []
-    synthetic_group_counter = 0
-
-    for cond in conditions_for_pauschale:
-        cond_type_upper = str(cond.get("Bedingungstyp", "")).upper()
-        if cond_type_upper == "AST VERBINDUNGSOPERATOR":
-            ast_entries.append(cond)
-            continue
-
-        group_id_raw = cond.get("Gruppe")
-        group_id_normalized = _normalize_group_id(group_id_raw)
-        if group_id_normalized is None:
-            group_id_normalized = f"__synthetic__{synthetic_group_counter}"
-            synthetic_group_counter += 1
-        group_conditions_map[group_id_normalized].append(cond)
-        meta = group_meta.setdefault(group_id_normalized, {})
-        meta.setdefault("GroupNegated", bool(cond.get("GroupNegated")))
-        if "ParentGroup" not in meta:
-            meta["ParentGroup"] = _normalize_group_id(cond.get("ParentGroup"))
-        if "GroupOperator" not in meta:
-            meta["GroupOperator"] = _normalize_operator(cond.get("GruppenOperator"))
-        if "GruppeSortIndex" not in meta and "GruppeSortIndex" in cond:
-            meta["GruppeSortIndex"] = cond.get("GruppeSortIndex")
-
     group_results: Dict[Any, bool] = {}
-    for group_id, conds_in_group in group_conditions_map.items():
+    for group in structure.groups:
         result_group = evaluate_single_condition_group(
-            conds_in_group,
+            group.conditions,
             context,
             tabellen_dict_by_table,
             pauschale_code,
-            conds_in_group[0].get("Gruppe", group_id),
+            group.id or group.normalized_id,
             debug,
+            normalized_context,
         )
-        if group_meta.get(group_id, {}).get("GroupNegated"):
+        if group.negated:
             result_group = not result_group
-        group_results[group_id] = bool(result_group)
+        group_results[group.normalized_id] = bool(result_group)
 
-    if not ast_entries:
+    if not structure.group_children:
         if not group_results:
             if debug:
-                logger.info("DEBUG Orchestrator Pauschale %s: No evaluable groups. Result: True", pauschale_code)
+                logger.info(
+                    "DEBUG Orchestrator Pauschale %s: No evaluable groups. Result: True",
+                    pauschale_code,
+                )
             return True
 
         default_operator = DEFAULT_GROUP_OPERATOR.upper()
         final_without_ast = None
-        for group_id in sorted(group_results.keys(), key=_sort_key):
+        for group_id in sorted(group_results.keys(), key=_sort_group_key):
             group_value = group_results[group_id]
             if final_without_ast is None:
                 final_without_ast = group_value
@@ -1386,19 +1799,22 @@ def _evaluate_pauschale_logic_via_ast(
     parent_nodes: Set[Any] = set()
     child_nodes: Set[Any] = set()
 
-    for ast_cond in ast_entries:
-        parent_id = _normalize_group_id(ast_cond.get("Gruppe"))
-        child_id = _normalize_group_id(ast_cond.get("Spezialbedingung") or ast_cond.get("Werte"))
-        operator_normalized = _normalize_operator(ast_cond.get("Operator"))
-        entry = {
-            "child": child_id,
-            "operator": operator_normalized,
-            "bed_id": ast_cond.get("BedingungsID", 0),
-        }
-        children_map[parent_id].append(entry)
-        parent_nodes.add(parent_id)
-        if child_id is not None:
-            child_nodes.add(child_id)
+    for parent_id, entries in structure.group_children.items():
+        if not entries:
+            continue
+        for entry in entries:
+            child_id = entry.get("child")
+            op_norm = _normalize_operator_label(entry.get("operator"), default="ODER")
+            operator_eval = "AND" if op_norm == "UND" else "OR"
+            mapped_entry = {
+                "child": child_id,
+                "operator": operator_eval,
+                "bed_id": entry.get("bed_id", 0),
+            }
+            children_map[parent_id].append(mapped_entry)
+            parent_nodes.add(parent_id)
+            if child_id is not None:
+                child_nodes.add(child_id)
 
     for entries in children_map.values():
         entries.sort(key=lambda item: item.get("bed_id", 0))
@@ -1448,9 +1864,9 @@ def _evaluate_pauschale_logic_via_ast(
 
     root_candidates = [node for node in parent_nodes if node not in child_nodes]
     if not root_candidates:
-        root_candidates = sorted(parent_nodes, key=_sort_key)
+        root_candidates = sorted(parent_nodes, key=_sort_group_key)
     else:
-        root_candidates = sorted(root_candidates, key=_sort_key)
+        root_candidates = sorted(root_candidates, key=_sort_group_key)
 
     if not root_candidates:
         final_result_ast = all(group_results.values()) if group_results else True
@@ -1473,7 +1889,7 @@ def _evaluate_pauschale_logic_via_ast(
     accounted_nodes = parent_nodes.union(child_nodes)
     unused_groups = [gid for gid in group_results.keys() if gid not in accounted_nodes]
 
-    for unused_group in sorted(unused_groups, key=_sort_key):
+    for unused_group in sorted(unused_groups, key=_sort_group_key):
         final_result_ast = final_result_ast and group_results[unused_group]
         if debug:
             logger.info(
@@ -1495,12 +1911,15 @@ def _evaluate_pauschale_logic_via_ast(
 
 def evaluate_pauschale_logic_orchestrator(
     pauschale_code: str,
-    context: Dict,
+    context: Mapping[str, Any],
     all_pauschale_bedingungen_data: List[Dict],
     tabellen_dict_by_table: Dict[str, List[Dict]],
     pauschalen_dict: Optional[Dict[str, Dict]] = None,
-    debug: bool = False
+    debug: bool = False,
+    prepared_structures: Optional[Dict[str, PreparedPauschaleStructure]] = None,
 ) -> bool:
+    normalized_context = build_normalized_context(context)
+
     prueflogik_expr = None
     if pauschalen_dict:
         pauschale_details = pauschalen_dict.get(pauschale_code)
@@ -1508,7 +1927,13 @@ def evaluate_pauschale_logic_orchestrator(
             prueflogik_expr = pauschale_details.get('Pr\u00fcflogik')
     if prueflogik_expr:
         try:
-            return _evaluate_prueflogik_expression(prueflogik_expr, context, tabellen_dict_by_table, pauschale_code, debug)
+            return _evaluate_prueflogik_expression(
+                prueflogik_expr,
+                normalized_context,
+                tabellen_dict_by_table,
+                pauschale_code,
+                debug,
+            )
         except Exception as exc:
             logger.warning(
                 "WARNUNG Orchestrator Pauschale %s: Pr\u00fcflogik-Auswertung fehlgeschlagen (%s). Fallback auf AST-Auswertung.",
@@ -1521,75 +1946,65 @@ def evaluate_pauschale_logic_orchestrator(
         all_pauschale_bedingungen_data,
         tabellen_dict_by_table,
         debug,
+        normalized_context,
+        prepared_structures,
     )
 
 
 # === PRUEFUNG DER BEDINGUNGEN (STRUKTURIERTES RESULTAT) ===
+@with_table_content_cache
 def check_pauschale_conditions(
     pauschale_code: str,
-    context: dict,
+    context: Mapping[str, Any],
     pauschale_bedingungen_data: list[dict],
     tabellen_dict_by_table: Dict[str, List[Dict]],
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
     lang: str = "de",
     pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+    prepared_structures: Optional[Dict[str, PreparedPauschaleStructure]] = None,
 ) -> Dict[str, Any]:
-    """
-    Prueft alle Bedingungen einer Pauschale und generiert strukturiertes HTML,
-    inklusive Inter- und Intra-Gruppen-Operatoren und korrekter Übersetzung für Gruppentitel.
-    """
-    PAUSCHALE_KEY = "Pauschale"
+    """Render ein HTML-Fragment für die Bedingungen einer Pauschale."""
+
     BED_TYP_KEY = "Bedingungstyp"
-    BED_ID_KEY = "BedingungsID"
-    GRUPPE_KEY = "Gruppe"
-    OPERATOR_KEY = "Operator"
     BED_WERTE_KEY = "Werte"
     BED_FELD_KEY = "Feld"
     BED_MIN_KEY = "MinWert"
     BED_MAX_KEY = "MaxWert"
     BED_VERGLEICHSOP_KEY = "Vergleichsoperator"
 
-    def _normalize_group_id(value: Any) -> Any:
-        if value is None:
-            return None
-        if isinstance(value, int):
-            return value
-        try:
-            return int(str(value).strip())
-        except (TypeError, ValueError):
-            string_value = str(value).strip()
-            return string_value if string_value else None
-
-    def _condition_sort_key(cond: Dict[str, Any]) -> tuple[Any, Any, Any]:
-        return (
-            cond.get("GruppeSortIndex", cond.get(GRUPPE_KEY, 0)),
-            cond.get("BedingungSortIndex", cond.get(BED_ID_KEY, 0)),
-            cond.get(BED_ID_KEY, 0),
-        )
-
-    all_conditions_for_pauschale_sorted_by_id = sorted(
-        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
-        key=_condition_sort_key
+    normalized_context = build_normalized_context(context)
+    structure = _get_prepared_structure(
+        pauschale_code,
+        pauschale_bedingungen_data,
+        prepared_structures,
     )
 
     prueflogik_expr: Optional[str] = None
-    prueflogik_pretty: str = ""
+    prueflogik_pretty = ""
     if pauschalen_dict:
-        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get('Pr\u00fcflogik')
+        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get("Pr\u00fcflogik")
         if isinstance(prueflogik_raw, str) and prueflogik_raw.strip():
             prueflogik_expr = prueflogik_raw.strip()
             prueflogik_pretty = _format_prueflogik_for_display(prueflogik_expr, lang)
-    group_logic_terms = _extract_group_logic_terms(pauschale_code, prueflogik_expr, pauschale_bedingungen_data)
+    group_logic_terms = _extract_group_logic_terms(
+        pauschale_code,
+        prueflogik_expr,
+        pauschale_bedingungen_data,
+    )
 
     def _render_prueflogik_header() -> str:
-        label = translate('prueflogik_header', lang)
-        return f"<div class=\"condition-prueflogik\"><strong>{escape(label)}</strong></div>"
+        label = translate("prueflogik_header", lang)
+        return (
+            f"<div class=\"condition-prueflogik\"><strong>{escape(label)}</strong></div>"
+        )
 
-    if not any(str(c.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR" for c in all_conditions_for_pauschale_sorted_by_id):
+    if not structure.has_real_conditions:
         html_snippets: list[str] = []
         if prueflogik_expr:
             html_snippets.append(_render_prueflogik_header())
-        html_snippets.append(f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>")
+        html_snippets.append(
+            f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>"
+        )
         return {
             "html": "".join(html_snippets),
             "errors": [],
@@ -1599,291 +2014,358 @@ def check_pauschale_conditions(
             "group_logic_terms": group_logic_terms,
         }
 
-    html_parts = []
-    current_display_group_id = None
-    last_processed_actual_condition = None
-    trigger_lkn_condition_overall_met = False
-    group_negated_map: Dict[Any, bool] = {}
-    for _cond in all_conditions_for_pauschale_sorted_by_id:
-        if str(_cond.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
-            continue
-        gid_norm = _normalize_group_id(_cond.get(GRUPPE_KEY))
-        if gid_norm not in group_negated_map:
-            group_negated_map[gid_norm] = bool(_cond.get("GroupNegated"))
-
-    pending_operator_by_group: Dict[Any, str] = {}
-    for _cond in all_conditions_for_pauschale_sorted_by_id:
-        if str(_cond.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
-            child_raw = _cond.get('Spezialbedingung') or _cond.get(BED_WERTE_KEY)
-            child_group_id = _normalize_group_id(child_raw)
-            op_val = str(_cond.get(OPERATOR_KEY, "ODER")).upper()
-            translated = ''
-            if op_val == "ODER":
-                translated = translate('OR', lang)
-            elif op_val == "UND":
-                translated = translate('AND', lang)
-            if child_group_id is not None and translated:
-                pending_operator_by_group[child_group_id] = translated
-
+    html_parts: list[str] = []
     if prueflogik_expr:
         html_parts.append(_render_prueflogik_header())
 
-    for idx, cond_data in enumerate(all_conditions_for_pauschale_sorted_by_id):
-        condition_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
+    trigger_lkn_condition_overall_met = False
+    current_group_open = False
 
-        if condition_type_upper == "AST VERBINDUNGSOPERATOR":
-            if current_display_group_id is not None:
+    for token in structure.sequence:
+        token_type = token.get("type")
+        if token_type == "ast_operator":
+            if current_group_open:
                 html_parts.append("</div>")
-                current_display_group_id = None
-                last_processed_actual_condition = None
+                current_group_open = False
+            op_val = str(token.get("operator") or "").upper()
+            if op_val == "ODER":
+                html_parts.append(
+                    f"<div class=\"condition-separator group-operator\">{translate('OR', lang)}</div>"
+                )
+            elif op_val == "UND":
+                html_parts.append(
+                    f"<div class=\"condition-separator group-operator\">{translate('AND', lang)}</div>"
+                )
             continue
 
-        else:
-            actual_cond_group_id = cond_data.get(GRUPPE_KEY)
+        if token_type != "group":
+            continue
 
-            if actual_cond_group_id != current_display_group_id:
-                # Close the previous group div if it exists
-                if current_display_group_id is not None:
-                    html_parts.append("</div>")
+        group = structure.group_lookup.get(token.get("group_id"))
+        if not group:
+            continue
 
-                # Logic to add the operator between groups
-                operator_for_group = pending_operator_by_group.pop(_normalize_group_id(actual_cond_group_id), None)
-                if operator_for_group:
-                    html_parts.append(f"<div class=\"condition-separator inter-group-operator\">{operator_for_group}</div>")
-                elif last_processed_actual_condition:
-                    previous_condition_index = idx - 1
-                    if previous_condition_index >= 0:
-                        prev_cond_data = all_conditions_for_pauschale_sorted_by_id[previous_condition_index]
-                        if str(prev_cond_data.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR":
-                            inter_group_op_val = str(last_processed_actual_condition.get(OPERATOR_KEY, "UND")).upper()
-                            translated_inter_group_op = ""
-                            if inter_group_op_val == "ODER":
-                                translated_inter_group_op = translate('OR', lang)
-                            elif inter_group_op_val == "UND":
-                                translated_inter_group_op = translate('AND', lang)
+        if current_group_open:
+            html_parts.append("</div>")
 
-                            if translated_inter_group_op:
-                                html_parts.append(f"<div class=\"condition-separator inter-group-operator\">{translated_inter_group_op}</div>")
+        group_identifier = group.id if group.id is not None else group.normalized_id
+        group_title = f"{translate('condition_group', lang)} {escape(str(group_identifier))}"
+        group_class = "condition-group condition-group-negated" if group.negated else "condition-group"
+        html_parts.append(
+            f"<div class=\"{group_class}\"><div class=\"condition-group-title\">{group_title}</div>"
+        )
+        current_group_open = True
 
-                # Start the new group
-                current_display_group_id = actual_cond_group_id
-                normalized_group_id = _normalize_group_id(actual_cond_group_id)
-                negated_flag = group_negated_map.get(normalized_group_id, False)
-                group_title = f"{translate('condition_group', lang)} {escape(str(current_display_group_id))}"
-                group_class = "condition-group condition-group-negated" if negated_flag else "condition-group"
-                html_parts.append(f"<div class=\"{group_class}\"><div class=\"condition-group-title\">{group_title}</div>")
-                last_processed_actual_condition = None # Reset for the new group
+        for cond_index, cond_data in enumerate(group.conditions):
+            if cond_index > 0 and (cond_index - 1) < len(group.intra_ops):
+                link_op = group.intra_ops[cond_index - 1]
+                if link_op in ("UND", "ODER"):
+                    op_label = translate("AND", lang) if link_op == "UND" else translate("OR", lang)
+                    html_parts.append(
+                        f"<div class=\"condition-separator intra-group-operator\">{op_label}</div>"
+                    )
 
-            elif last_processed_actual_condition and \
-                 last_processed_actual_condition.get(GRUPPE_KEY) == current_display_group_id:
-                # This is for the operator *within* a group (intra-group)
-                linking_op_val = str(last_processed_actual_condition.get(OPERATOR_KEY, "UND")).upper()
-                translated_linking_op = ""
-                if linking_op_val == "ODER":
-                    translated_linking_op = translate('OR', lang)
-                elif linking_op_val == "UND":
-                    translated_linking_op = translate('AND', lang)
+            condition_met = check_single_condition(
+                cond_data,
+                context,
+                tabellen_dict_by_table,
+                normalized_context,
+            )
 
-                if translated_linking_op:
-                    html_parts.append(f"<div class=\"condition-separator intra-group-operator\">{translated_linking_op}</div>")
-
-            condition_met = check_single_condition(cond_data, context, tabellen_dict_by_table)
-
-            current_cond_data_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
-            if condition_met and current_cond_data_type_upper in [
-                "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
-                "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"
-            ]:
+            cond_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
+            if condition_met and cond_type_upper in (
+                "LEISTUNGSPOSITIONEN IN LISTE",
+                "LKN",
+                "LEISTUNGSPOSITIONEN IN TABELLE",
+                "TARIFPOSITIONEN IN TABELLE",
+            ):
                 trigger_lkn_condition_overall_met = True
 
             icon_svg_path = "#icon-check" if condition_met else "#icon-cross"
             icon_class = "condition-icon-fulfilled" if condition_met else "condition-icon-not-fulfilled"
-            translated_cond_type_display = translate_condition_type(cond_data.get(BED_TYP_KEY, "N/A"), lang)
+
+            translated_cond_type_display = translate_condition_type(
+                cond_data.get(BED_TYP_KEY, "N/A"),
+                lang,
+            )
 
             original_werte = str(cond_data.get(BED_WERTE_KEY, ""))
             werte_display = ""
 
-            active_condition_type_for_display = current_cond_data_type_upper
-
-            if active_condition_type_for_display in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN", "LKN IN LISTE"]:
+            if cond_type_upper in ("LEISTUNGSPOSITIONEN IN LISTE", "LKN"):
                 lkn_codes = [l.strip().upper() for l in original_werte.split(',') if l.strip()]
                 if lkn_codes:
-                    linked_lkn_parts = []
-                    for lkn_c in lkn_codes:
-                        desc = get_beschreibung_fuer_lkn_im_backend(lkn_c, leistungskatalog_dict, lang)
-                        display_text = escape(f"{lkn_c} ({desc})")
-                        linked_lkn_parts.append(create_html_info_link(lkn_c, "lkn", display_text))
-                    werte_display = translate('condition_text_lkn_list', lang, linked_codes=", ".join(linked_lkn_parts))
+                    lkn_details = []
+                    for lkn_code in lkn_codes:
+                        desc = get_beschreibung_fuer_lkn_im_backend(
+                            lkn_code,
+                            leistungskatalog_dict,
+                            lang,
+                        )
+                        lkn_details.append(f"<b>{escape(lkn_code)}</b> ({escape(desc)})")
+                    werte_display = ", ".join(lkn_details)
                 else:
                     werte_display = f"<i>{translate('no_lkns_spec', lang)}</i>"
 
-            elif active_condition_type_for_display in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"]:
-                table_names_orig = [t.strip() for t in original_werte.split(',') if t.strip()]
-                if table_names_orig:
-                    linked_table_names = []
-                    for tn in table_names_orig:
-                        table_content = get_table_content(tn, "service_catalog", tabellen_dict_by_table, lang)
-                        table_content_json = json.dumps(table_content)
-                        linked_table_names.append(create_html_info_link(tn, "lkn_table", escape(tn), data_content=table_content_json))
-                    werte_display = translate('condition_text_lkn_table', lang, table_names=", ".join(linked_table_names))
+            elif cond_type_upper in (
+                "LEISTUNGSPOSITIONEN IN TABELLE",
+                "TARIFPOSITIONEN IN TABELLE",
+            ):
+                table_names = [t.strip() for t in original_werte.split(',') if t.strip()]
+                if table_names:
+                    werte_display = ", ".join(f"<i>{escape(t)}</i>" for t in table_names)
                 else:
                     werte_display = f"<i>{translate('no_table_name', lang)}</i>"
 
-            elif active_condition_type_for_display in ["HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"]:
-                table_names_icd = [t.strip() for t in original_werte.split(',') if t.strip()]
-                if table_names_icd:
-                    linked_table_names_icd = []
-                    for tn in table_names_icd:
-                        table_content = get_table_content(tn, "icd", tabellen_dict_by_table, lang)
-                        table_content_json = json.dumps(table_content)
-                        linked_table_names_icd.append(create_html_info_link(tn, "icd_table", escape(tn), data_content=table_content_json))
-                    werte_display = translate('condition_text_icd_table', lang, table_names=", ".join(linked_table_names_icd))
+            elif cond_type_upper in ("HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"):
+                table_names = [t.strip() for t in original_werte.split(',') if t.strip()]
+                if table_names:
+                    werte_display = ", ".join(f"<i>{escape(t)}</i>" for t in table_names)
                 else:
                     werte_display = f"<i>{translate('no_table_name', lang)}</i>"
 
-            elif active_condition_type_for_display in ["ICD", "HAUPTDIAGNOSE IN LISTE", "ICD IN LISTE"]:
-                icd_codes_list = [icd.strip().upper() for icd in original_werte.split(',') if icd.strip()]
-                if icd_codes_list:
-                    linked_icd_parts = []
-                    for icd_c in icd_codes_list:
-                        desc_icd = get_beschreibung_fuer_icd_im_backend(icd_c, tabellen_dict_by_table, lang=lang)
-                        display_text = escape(f"{icd_c} ({desc_icd})")
-                        linked_icd_parts.append(create_html_info_link(icd_c, "diagnosis", display_text))
-                    werte_display = translate('condition_text_icd_list', lang, linked_codes=", ".join(linked_icd_parts))
+            elif cond_type_upper in ("ICD", "HAUPTDIAGNOSE IN LISTE"):
+                icd_codes = [icd.strip().upper() for icd in original_werte.split(',') if icd.strip()]
+                if icd_codes:
+                    icd_details = []
+                    for icd_code in icd_codes:
+                        desc_icd = get_beschreibung_fuer_icd_im_backend(
+                            icd_code,
+                            tabellen_dict_by_table,
+                            lang=lang,
+                        )
+                        icd_details.append(f"<b>{escape(icd_code)}</b> ({escape(desc_icd)})")
+                    werte_display = ", ".join(icd_details)
                 else:
-                     werte_display = f"<i>{translate('no_icds_spec', lang)}</i>"
+                    werte_display = f"<i>{translate('no_icds_spec', lang)}</i>"
 
-            elif active_condition_type_for_display == "PATIENTENBEDINGUNG":
+            elif cond_type_upper == "PATIENTENBEDINGUNG":
                 feld_name_pat_orig = str(cond_data.get(BED_FELD_KEY, ""))
-                feld_name_pat_display = translate(feld_name_pat_orig.lower(), lang) if feld_name_pat_orig.lower() in ['alter', 'geschlecht'] else escape(feld_name_pat_orig.capitalize())
-                
+                feld_name_pat_display = (
+                    translate(feld_name_pat_orig.lower(), lang)
+                    if feld_name_pat_orig.lower() in ["alter", "geschlecht"]
+                    else escape(feld_name_pat_orig.capitalize())
+                )
+
+                translated_cond_type_display = translate(
+                    "patient_condition_display",
+                    lang,
+                    field=feld_name_pat_display,
+                )
+
                 min_w_pat = cond_data.get(BED_MIN_KEY)
                 max_w_pat = cond_data.get(BED_MAX_KEY)
                 expl_wert_pat = cond_data.get(BED_WERTE_KEY)
 
-                # Update translated_cond_type_display for PATIENTENBEDINGUNG to include the field
-                translated_cond_type_display = translate('patient_condition_display', lang, field=feld_name_pat_display)
-
                 if feld_name_pat_orig.lower() == "alter":
                     if min_w_pat is not None or max_w_pat is not None:
                         val_disp_parts = []
-                        if min_w_pat is not None: val_disp_parts.append(f"{translate('min', lang)} {escape(str(min_w_pat))}")
-                        if max_w_pat is not None: val_disp_parts.append(f"{translate('max', lang)} {escape(str(max_w_pat))}")
+                        if min_w_pat is not None:
+                            val_disp_parts.append(
+                                f"{translate('min', lang)} {escape(str(min_w_pat))}"
+                            )
+                        if max_w_pat is not None:
+                            val_disp_parts.append(
+                                f"{translate('max', lang)} {escape(str(max_w_pat))}"
+                            )
                         werte_display = " ".join(val_disp_parts)
                     elif expl_wert_pat is not None:
                         werte_display = escape(str(expl_wert_pat))
                     else:
                         werte_display = translate('not_specified', lang)
                 elif feld_name_pat_orig.lower() == "geschlecht":
-                     werte_display = translate(str(expl_wert_pat).lower(), lang) if expl_wert_pat else translate('not_specified', lang)
-                else: # Other patient conditions
-                    werte_display = escape(str(expl_wert_pat if expl_wert_pat is not None else translate('not_specified', lang)))
+                    werte_display = (
+                        translate(str(expl_wert_pat).lower(), lang)
+                        if expl_wert_pat
+                        else translate('not_specified', lang)
+                    )
+                else:
+                    werte_display = escape(
+                        str(
+                            expl_wert_pat
+                            if expl_wert_pat is not None
+                            else translate('not_specified', lang)
+                        )
+                    )
 
-            elif active_condition_type_for_display == "ALTER IN JAHREN BEI EINTRITT":
+            elif cond_type_upper == "ALTER IN JAHREN BEI EINTRITT":
                 op_val = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
                 werte_display = f"{escape(op_val)} {escape(original_werte)}"
 
-            elif active_condition_type_for_display == "ANZAHL":
-                op_val_anz = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
-                werte_display = f"{escape(op_val_anz)} {escape(original_werte)}"
+            elif cond_type_upper == "ANZAHL":
+                op_val = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
+                werte_display = f"{escape(op_val)} {escape(original_werte)}"
 
-            elif active_condition_type_for_display == "SEITIGKEIT":
-                op_val_seit = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
-                regel_wert_seit_norm_disp = original_werte.strip().replace("'", "").lower()
-                # Translate the seitigkeit value for display
-                if regel_wert_seit_norm_disp == 'b': regel_wert_seit_norm_disp = translate('bilateral', lang)
-                elif regel_wert_seit_norm_disp == 'e': regel_wert_seit_norm_disp = translate('unilateral', lang)
-                elif regel_wert_seit_norm_disp == 'l': regel_wert_seit_norm_disp = translate('left', lang)
-                elif regel_wert_seit_norm_disp == 'r': regel_wert_seit_norm_disp = translate('right', lang)
-                else: regel_wert_seit_norm_disp = escape(regel_wert_seit_norm_disp) # Escape if not a known key
-                werte_display = f"{escape(op_val_seit)} {regel_wert_seit_norm_disp}"
+            elif cond_type_upper == "SEITIGKEIT":
+                op_val = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
+                regel_wert_norm = original_werte.strip().replace("'", "").lower()
+                if regel_wert_norm == "b":
+                    regel_wert_norm = translate("bilateral", lang)
+                elif regel_wert_norm == "e":
+                    regel_wert_norm = translate("unilateral", lang)
+                elif regel_wert_norm == "l":
+                    regel_wert_norm = translate("left", lang)
+                elif regel_wert_norm == "r":
+                    regel_wert_norm = translate("right", lang)
+                else:
+                    regel_wert_norm = escape(regel_wert_norm)
+                werte_display = f"{escape(op_val)} {regel_wert_norm}"
 
-            elif active_condition_type_for_display == "GESCHLECHT IN LISTE":
-                gender_list_keys = [g.strip().lower() for g in original_werte.split(',') if g.strip()]
-                translated_genders = [translate(g_key, lang) for g_key in gender_list_keys]
+            elif cond_type_upper == "GESCHLECHT IN LISTE":
+                gender_tokens = [g.strip().lower() for g in original_werte.split(',') if g.strip()]
+                translated_genders = [translate(g, lang) for g in gender_tokens]
                 werte_display = escape(", ".join(translated_genders))
-            
-            elif active_condition_type_for_display == "MEDIKAMENTE IN LISTE":
+
+            elif cond_type_upper == "MEDIKAMENTE IN LISTE":
                 med_codes = [med.strip() for med in original_werte.split(',') if med.strip()]
                 if med_codes:
-                    # Medikamentencodes werden hier lediglich angezeigt.
                     werte_display = escape(", ".join(med_codes))
                 else:
                     werte_display = f"<i>{translate('no_medications_spec', lang)}</i>"
-            else: # Fallback for any other types
+
+            else:
                 werte_display = escape(original_werte)
 
-            # Context match information
             context_match_info_html = ""
             if condition_met:
-                match_details_parts = []
-                # Check for ICD matches (List or Table)
-                if active_condition_type_for_display in ["ICD", "HAUPTDIAGNOSE IN LISTE", "ICD IN LISTE", "HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"]:
-                    provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-                    
+                match_details_parts: list[str] = []
+
+                if cond_type_upper in (
+                    "ICD",
+                    "HAUPTDIAGNOSE IN LISTE",
+                    "ICD IN LISTE",
+                    "HAUPTDIAGNOSE IN TABELLE",
+                    "ICD IN TABELLE",
+                ):
+                    provided_icds_upper = {
+                        p_icd.upper() for p_icd in context.get("ICD", []) if p_icd
+                    }
+
                     required_codes_in_rule = set()
-                    if "TABELLE" in active_condition_type_for_display:
-                        table_ref_icd = cond_data.get(BED_WERTE_KEY)
-                        if table_ref_icd and isinstance(table_ref_icd, str): # Check if table_ref_icd is a string and not None
-                            for entry in get_table_content(table_ref_icd, "icd", tabellen_dict_by_table, lang): # lang for potential text in table
-                                 if entry.get('Code'): required_codes_in_rule.add(entry['Code'].upper())
-                        # If table_ref_icd is None or not a string, required_codes_in_rule remains empty for table part
-                    else: # LIST type
-                        required_codes_in_rule = {w.strip().upper() for w in str(cond_data.get(BED_WERTE_KEY, "")).split(',') if w.strip()}
-                    
-                    matching_icds = list(provided_icds_upper.intersection(required_codes_in_rule))
+                    if "TABELLE" in cond_type_upper:
+                        table_ref = cond_data.get(BED_WERTE_KEY)
+                        if table_ref and isinstance(table_ref, str):
+                            for entry in get_table_content(
+                                table_ref,
+                                "icd",
+                                tabellen_dict_by_table,
+                                lang,
+                            ):
+                                if entry.get("Code"):
+                                    required_codes_in_rule.add(entry["Code"].upper())
+                    else:
+                        required_codes_in_rule = {
+                            w.strip().upper()
+                            for w in str(cond_data.get(BED_WERTE_KEY, "")).split(',')
+                            if w.strip()
+                        }
+
+                    matching_icds = sorted(
+                        provided_icds_upper.intersection(required_codes_in_rule)
+                    )
                     if matching_icds:
                         linked_matching_icds = []
-                        for icd_c_match in sorted(matching_icds):
-                            desc_icd_match = get_beschreibung_fuer_icd_im_backend(icd_c_match, tabellen_dict_by_table, lang=lang)
-                            display_text_match = escape(f"{icd_c_match} ({desc_icd_match})")
-                            linked_matching_icds.append(create_html_info_link(icd_c_match, "diagnosis", display_text_match))
+                        for icd_code in matching_icds:
+                            desc = get_beschreibung_fuer_icd_im_backend(
+                                icd_code,
+                                tabellen_dict_by_table,
+                                lang=lang,
+                            )
+                            display_text = escape(f"{icd_code} ({desc})")
+                            linked_matching_icds.append(
+                                create_html_info_link(icd_code, "diagnosis", display_text)
+                            )
                         if linked_matching_icds:
-                             match_details_parts.append(translate('fulfilled_by_icd', lang, icd_code_link=", ".join(linked_matching_icds)))
+                            match_details_parts.append(
+                                translate(
+                                    "fulfilled_by_icd",
+                                    lang,
+                                    icd_code_link=", ".join(linked_matching_icds),
+                                )
+                            )
 
-                # Check for LKN matches (List or Table)
-                elif active_condition_type_for_display in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN", "LKN IN LISTE", "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"]:
-                    provided_lkns_upper = {p_lkn.upper() for p_lkn in context.get("LKN", []) if p_lkn}
-                    
-                    required_lkn_codes_in_rule = set()
-                    if "TABELLE" in active_condition_type_for_display:
-                        table_ref_lkn = cond_data.get(BED_WERTE_KEY)
-                        if table_ref_lkn and isinstance(table_ref_lkn, str): # Check if table_ref_lkn is a string and not None
-                            for entry in get_table_content(table_ref_lkn, "service_catalog", tabellen_dict_by_table, lang): # lang for potential text
-                                if entry.get('Code'): required_lkn_codes_in_rule.add(entry['Code'].upper())
-                        # If table_ref_lkn is None or not a string, required_lkn_codes_in_rule remains empty for table part
-                    else: # LIST type
-                        required_lkn_codes_in_rule = {w.strip().upper() for w in str(cond_data.get(BED_WERTE_KEY, "")).split(',') if w.strip()}
+                elif cond_type_upper in (
+                    "LEISTUNGSPOSITIONEN IN LISTE",
+                    "LKN",
+                    "LKN IN LISTE",
+                    "LEISTUNGSPOSITIONEN IN TABELLE",
+                    "TARIFPOSITIONEN IN TABELLE",
+                    "LKN IN TABELLE",
+                ):
+                    provided_lkns_upper = {
+                        lkn.upper() for lkn in context.get("LKN", []) if lkn
+                    }
 
-                    matching_lkns = list(provided_lkns_upper.intersection(required_lkn_codes_in_rule))
+                    required_lkn_codes = set()
+                    if "TABELLE" in cond_type_upper:
+                        table_ref = cond_data.get(BED_WERTE_KEY)
+                        if table_ref and isinstance(table_ref, str):
+                            for entry in get_table_content(
+                                table_ref,
+                                "service_catalog",
+                                tabellen_dict_by_table,
+                                lang,
+                            ):
+                                if entry.get("Code"):
+                                    required_lkn_codes.add(entry["Code"].upper())
+                    else:
+                        required_lkn_codes = {
+                            w.strip().upper()
+                            for w in str(cond_data.get(BED_WERTE_KEY, "")).split(',')
+                            if w.strip()
+                        }
+
+                    matching_lkns = sorted(
+                        provided_lkns_upper.intersection(required_lkn_codes)
+                    )
                     if matching_lkns:
                         linked_matching_lkns = []
-                        for lkn_c_match in sorted(matching_lkns):
-                            desc_lkn_match = get_beschreibung_fuer_lkn_im_backend(lkn_c_match, leistungskatalog_dict, lang)
-                            display_text_match = escape(f"{lkn_c_match} ({desc_lkn_match})")
-                            linked_matching_lkns.append(create_html_info_link(lkn_c_match, "lkn", display_text_match))
+                        for lkn_code in matching_lkns:
+                            desc = get_beschreibung_fuer_lkn_im_backend(
+                                lkn_code,
+                                leistungskatalog_dict,
+                                lang,
+                            )
+                            display_text = escape(f"{lkn_code} ({desc})")
+                            linked_matching_lkns.append(
+                                create_html_info_link(lkn_code, "lkn", display_text)
+                            )
                         if linked_matching_lkns:
-                            match_details_parts.append(translate('fulfilled_by_lkn', lang, lkn_code_link=", ".join(linked_matching_lkns)))
-                
-                # Fallback generic message if no specific details were generated but condition is met
+                            match_details_parts.append(
+                                translate(
+                                    "fulfilled_by_lkn",
+                                    lang,
+                                    lkn_code_link=", ".join(linked_matching_lkns),
+                                )
+                            )
+
                 if not match_details_parts:
-                    match_details_parts.append(translate('condition_met_context_generic', lang))
-                
-                context_match_info_html = f"<span class=\"context-match-info fulfilled\">({'; '.join(match_details_parts)})</span>"
+                    match_details_parts.append(
+                        translate('condition_met_context_generic', lang)
+                    )
+                context_match_info_html = (
+                    f"<span class=\"context-match-info fulfilled\">({'; '.join(match_details_parts)})</span>"
+                )
 
-
-            html_parts.append(f"""
+            html_parts.append(
+                """
                 <div class="condition-item-row">
                     <span class="condition-status-icon {icon_class}">
                         <svg viewBox="0 0 24 24"><use xlink:href="{icon_svg_path}"></use></svg>
                     </span>
-                    <span class="condition-type-display">{escape(translated_cond_type_display)}:</span>
-                    <span class="condition-text-wrapper">{werte_display} {context_match_info_html}</span>
+                    <span class="condition-type-display">{cond_type_display}:</span>
+                    <span class="condition-text-wrapper">{value_html} {context_match}</span>
                 </div>
-            """)
-            last_processed_actual_condition = cond_data
+                """.format(
+                    icon_class=icon_class,
+                    icon_svg_path=icon_svg_path,
+                    cond_type_display=escape(translated_cond_type_display),
+                    value_html=werte_display,
+                    context_match=context_match_info_html,
+                )
+            )
 
-    if current_display_group_id is not None:
+    if current_group_open:
         html_parts.append("</div>")
 
     return {
@@ -1894,546 +2376,119 @@ def check_pauschale_conditions(
         "prueflogik_pretty": prueflogik_pretty,
         "group_logic_terms": group_logic_terms,
     }
-    """
-    Prueft alle Bedingungen einer Pauschale und generiert strukturiertes HTML.
-    """
-    PAUSCHALE_KEY = "Pauschale"
+@with_table_content_cache
+def check_pauschale_conditions_structured(
+    pauschale_code: str,
+    context: Mapping[str, Any],
+    pauschale_bedingungen_data: list[dict],
+    tabellen_dict_by_table: Dict[str, List[Dict]],
+    lang: str = "de",
+    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+    prepared_structures: Optional[Dict[str, PreparedPauschaleStructure]] = None,
+) -> Dict[str, Any]:
+    """Gibt eine strukturierte Darstellung der Bedingungen einer Pauschale zurück."""
+
     BED_TYP_KEY = "Bedingungstyp"
-    BED_ID_KEY = "BedingungsID"
-    GRUPPE_KEY = "Gruppe"
-    OPERATOR_KEY = "Operator" # Für UND/ODER Logik innerhalb der Gruppe
     BED_WERTE_KEY = "Werte"
     BED_FELD_KEY = "Feld"
     BED_MIN_KEY = "MinWert"
     BED_MAX_KEY = "MaxWert"
     BED_VERGLEICHSOP_KEY = "Vergleichsoperator"
 
-    # Get ALL conditions for the pauschale, sorted by BedingungsID for sequential processing
-    all_conditions_for_pauschale_sorted = sorted(
-        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
-        key=lambda x: x.get(BED_ID_KEY, 0)
+    normalized_context = build_normalized_context(context)
+    structure = _get_prepared_structure(
+        pauschale_code,
+        pauschale_bedingungen_data,
+        prepared_structures,
     )
 
-    if not any(str(c.get(BED_TYP_KEY, "")).upper() != "AST VERBINDUNGSOPERATOR" for c in all_conditions_for_pauschale_sorted):
-        html_snippets: list[str] = []
-        if prueflogik_expr:
-            html_snippets.append(_render_prueflogik_header())
-        html_snippets.append(f"<p><i>{translate('no_conditions_for_pauschale', lang)}</i></p>")
+    prueflogik_expr: Optional[str] = None
+    prueflogik_pretty = ""
+    if pauschalen_dict:
+        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get("Pr\u00fcflogik")
+        if isinstance(prueflogik_raw, str) and prueflogik_raw.strip():
+            prueflogik_expr = prueflogik_raw.strip()
+            prueflogik_pretty = _format_prueflogik_for_display(prueflogik_expr, lang)
+    group_logic_terms = _extract_group_logic_terms(
+        pauschale_code,
+        prueflogik_expr,
+        pauschale_bedingungen_data,
+    )
+
+    if not structure.has_real_conditions:
         return {
-            "html": "".join(html_snippets),
-            "errors": [],
+            "groups": [],
+            "inter_group_ops": [],
+            "group_children": {},
             "trigger_lkn_condition_met": False,
             "prueflogik_expr": prueflogik_expr,
             "prueflogik_pretty": prueflogik_pretty,
             "group_logic_terms": group_logic_terms,
         }
 
-    html_parts = []
-    current_group_id_for_display_logic = None # Tracks the current group being displayed
-    last_actual_condition_in_current_group = None # To get the operator for intra-group separator
-    trigger_lkn_condition_overall_met = False # Für das Resultat der Funktion
+    groups_output: list[dict[str, Any]] = []
+    trigger_lkn_condition_overall_met = False
 
-    # Need to re-sort for display purposes: by Group, then Ebene, then BedingungsID for non-AST items
-    # This is tricky because AST operators break this sorting.
-    # We will iterate through the BedingungsID sorted list and manage display groups manually.
+    for group in structure.groups:
+        group_entry: dict[str, Any] = {
+            "id": group.id,
+            "normalized_id": group.normalized_id,
+            "conditions": [],
+            "intra_ops": list(group.intra_ops),
+            "negated": bool(group.negated),
+            "sort_index": group.sort_index,
+            "parent": group.parent,
+            "group_operator": group.group_operator,
+        }
 
-    # Let's refine the iteration to handle group display and AST operators correctly.
-    # We'll iterate through the BedingungsID-sorted list, which reflects the defined logical order.
+        for cond in group.conditions:
+            cond_type_upper = str(cond.get(BED_TYP_KEY, "")).upper()
+            matched = bool(
+                check_single_condition(
+                    cond,
+                    context,
+                    tabellen_dict_by_table,
+                    normalized_context,
+                )
+            )
 
-    processed_groups_in_current_ast_block = set()
+            if matched and cond_type_upper in (
+                "LEISTUNGSPOSITIONEN IN LISTE",
+                "LKN",
+                "LEISTUNGSPOSITIONEN IN TABELLE",
+                "TARIFPOSITIONEN IN TABELLE",
+            ):
+                trigger_lkn_condition_overall_met = True
 
-    for i, cond_data in enumerate(all_conditions_for_pauschale_sorted):
-        condition_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
+            group_entry["conditions"].append(
+                {
+                    "type": cond.get(BED_TYP_KEY),
+                    "werte": cond.get(BED_WERTE_KEY),
+                    "feld": cond.get(BED_FELD_KEY),
+                    "min": cond.get(BED_MIN_KEY),
+                    "max": cond.get(BED_MAX_KEY),
+                    "vergleich": cond.get(BED_VERGLEICHSOP_KEY),
+                    "matched": matched,
+                }
+            )
 
-        if condition_type_upper == "AST VERBINDUNGSOPERATOR":
-            if current_group_id_for_display_logic is not None: # Close the last open condition-group
-                html_parts.append("</div>")
-                current_group_id_for_display_logic = None
-                last_actual_condition_in_current_group = None
-                processed_groups_in_current_ast_block.clear()
+        groups_output.append(group_entry)
 
+    inter_group_ops_out = list(structure.inter_group_ops)
+    group_children_out: dict[Any, list[dict[str, Any]]] = {
+        parent: [dict(entry) for entry in entries]
+        for parent, entries in structure.group_children.items()
+    }
 
-            ast_operator_value = str(cond_data.get(BED_WERTE_KEY, "ODER")).upper()
-            if ast_operator_value == "ODER":
-                html_parts.append(f"<div class=\"condition-separator group-operator\">{translate('OR', lang)}</div>")
-            elif ast_operator_value == "UND":
-                html_parts.append(f"<div class=\"condition-separator group-operator\">{translate('AND', lang)}</div>")
-            # else: don't display if it's not UND/ODER (should not happen with clean data)
-
-        else: # It's an actual condition line
-            group_val = cond_data.get(GRUPPE_KEY)
-
-            if group_val != current_group_id_for_display_logic:
-                if current_group_id_for_display_logic is not None: # Close previous group
-                    html_parts.append("</div>") # condition-group
-
-                # Check if this group is new within the current AST block or if an implicit operator is needed
-                if group_val in processed_groups_in_current_ast_block and last_actual_condition_in_current_group:
-                    # This means we are starting a new group, but there was a previous group in this same AST block.
-                    # The operator from the last condition of that *previous group* should apply.
-                    # This is complex as `last_actual_condition_in_current_group` refers to the previous line.
-                    # The logic for implicit inter-group operators (if not AST) is handled by orchestrator.
-                    # For display, if an AST operator wasn't just printed, and we are switching groups,
-                    # the orchestrator implies UND by default between groups in a sequence if no AST.
-                    # This display logic might not perfectly mirror the orchestrator's implicit UND between groups
-                    # without an explicit AST operator. The user asked for operators between groups.
-                    # AST operators are explicit. Implicit ones are harder to display here cleanly.
-                    # For now, we only display explicit AST operators.
-                    pass
-
-
-                current_group_id_for_display_logic = group_val
-                processed_groups_in_current_ast_block.add(group_val)
-                group_title = f"{translate('condition_group', lang)} {escape(str(current_group_id_for_display_logic))}"
-                html_parts.append(f"<div class=\"condition-group\"><div class=\"condition-group-title\">{group_title}</div>")
-                last_actual_condition_in_current_group = None # Reset for the new group
-
-            # Intra-Gruppen Operator (between conditions *within* the same group div)
-            if last_actual_condition_in_current_group and last_actual_condition_in_current_group.get(GRUPPE_KEY) == current_group_id_for_display_logic:
-                # Operator from the *previous actual condition line* within the same group
-                prev_cond_operator_intra = str(last_actual_condition_in_current_group.get(OPERATOR_KEY, "UND")).upper()
-                if prev_cond_operator_intra == "ODER":
-                    html_parts.append(f"<div class=\"condition-separator\">{translate('OR', lang)}</div>")
-                elif prev_cond_operator_intra == "UND":
-                    html_parts.append(f"<div class=\"condition-separator\">{translate('AND', lang)}</div>")
-
-            condition_met = check_single_condition(cond_data, context, tabellen_dict_by_table)
-
-        # Überprüfen, ob eine LKN-basierte Bedingung erfüllt ist (für das Funktionsergebnis)
-        cond_type_upper = str(cond_data.get(BED_TYP_KEY, "")).upper()
-        if condition_met and cond_type_upper in [
-            "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
-            "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"
-        ]:
-            trigger_lkn_condition_overall_met = True
-
-
-        icon_svg_path = "#icon-check" if condition_met else "#icon-cross"
-        icon_class = "condition-icon-fulfilled" if condition_met else "condition-icon-not-fulfilled"
-
-        # Bedingungstext formatieren
-        translated_cond_type = translate_condition_type(cond_data.get(BED_TYP_KEY, "N/A"), lang)
-
-        # Werte-Darstellung verbessern
-        werte_display = ""
-        # ... (Logik zur besseren Darstellung von Werten, siehe vorherige Implementierung von `generate_condition_detail_html`)
-        # Für den Moment: einfache Darstellung
-        original_werte = str(cond_data.get(BED_WERTE_KEY, ""))
-
-        if cond_type_upper in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-            lkn_codes = [l.strip().upper() for l in original_werte.split(',') if l.strip()]
-            lkn_details_parts = []
-            if lkn_codes:
-                for lkn_c in lkn_codes:
-                    # leistungskatalog_dict wird jetzt direkt an check_pauschale_conditions übergeben
-                    desc = get_beschreibung_fuer_lkn_im_backend(lkn_c, leistungskatalog_dict, lang)
-                    lkn_details_parts.append(f"<b>{escape(lkn_c)}</b> ({escape(desc)})")
-                werte_display = ", ".join(lkn_details_parts)
-            else:
-                werte_display = f"<i>{translate('no_lkns_spec', lang)}</i>"
-
-        elif cond_type_upper in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-            table_names_orig = [t.strip() for t in original_werte.split(',') if t.strip()]
-            table_links_parts = []
-            if table_names_orig:
-                for table_name_o in table_names_orig:
-                    # TODO: Hier könnte man die Anzahl der Einträge und eine aufklappbare Liste einfügen,
-                    # ähnlich wie in generate_condition_detail_html.
-                    # Fürs Erste nur der Tabellenname.
-                    table_links_parts.append(f"<i>{escape(table_name_o)}</i>")
-                werte_display = ", ".join(table_links_parts)
-            else:
-                werte_display = f"<i>{translate('no_table_name', lang)}</i>"
-
-        elif cond_type_upper in ["HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"]:
-            table_names_icd = [t.strip() for t in original_werte.split(',') if t.strip()]
-            table_links_icd_parts = []
-            if table_names_icd:
-                for table_name_i in table_names_icd:
-                    table_links_icd_parts.append(f"<i>{escape(table_name_i)}</i>")
-                werte_display = ", ".join(table_links_icd_parts)
-            else:
-                werte_display = f"<i>{translate('no_table_name', lang)}</i>"
-
-        elif cond_type_upper in ["ICD", "HAUPTDIAGNOSE IN LISTE"]:
-            icd_codes_list = [icd.strip().upper() for icd in original_werte.split(',') if icd.strip()]
-            icd_details_parts = []
-            if icd_codes_list:
-                for icd_c in icd_codes_list:
-                    # Annahme: tabellen_dict_by_table ist im context oder global
-                    desc_icd = get_beschreibung_fuer_icd_im_backend(icd_c, tabellen_dict_by_table, lang=lang)
-                    icd_details_parts.append(f"<b>{escape(icd_c)}</b> ({escape(desc_icd)})")
-                werte_display = ", ".join(icd_details_parts)
-            else:
-                 werte_display = f"<i>{translate('no_icds_spec', lang)}</i>"
-
-        elif cond_type_upper == "PATIENTENBEDINGUNG":
-            feld_name_pat = str(cond_data.get(BED_FELD_KEY, "")).capitalize()
-            min_w_pat = cond_data.get(BED_MIN_KEY)
-            max_w_pat = cond_data.get(BED_MAX_KEY)
-            expl_wert_pat = cond_data.get(BED_WERTE_KEY)
-
-            if feld_name_pat.lower() == "alter":
-                if min_w_pat is not None or max_w_pat is not None:
-                    val_disp = []
-                    if min_w_pat is not None: val_disp.append(f"{translate('min', lang)} {escape(str(min_w_pat))}")
-                    if max_w_pat is not None: val_disp.append(f"{translate('max', lang)} {escape(str(max_w_pat))}")
-                    werte_display = " ".join(val_disp)
-                else:
-                    werte_display = escape(str(expl_wert_pat))
-            else: # z.B. Geschlecht
-                werte_display = escape(str(expl_wert_pat))
-            translated_cond_type = translate('patient_condition_display', lang, field=escape(feld_name_pat))
-
-        elif cond_type_upper == "ALTER IN JAHREN BEI EINTRITT":
-            op_val = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
-            werte_display = f"{escape(op_val)} {escape(original_werte)}"
-
-        elif cond_type_upper == "ANZAHL":
-            op_val_anz = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
-            werte_display = f"{escape(op_val_anz)} {escape(original_werte)}"
-
-        elif cond_type_upper == "SEITIGKEIT":
-            op_val_seit = cond_data.get(BED_VERGLEICHSOP_KEY, "=")
-            # Normalisiere Regelwert für Anzeige
-            regel_wert_seit_norm_disp = original_werte.strip().replace("'", "").lower()
-            if regel_wert_seit_norm_disp == 'b': regel_wert_seit_norm_disp = translate('bilateral', lang)
-            elif regel_wert_seit_norm_disp == 'e': regel_wert_seit_norm_disp = translate('unilateral', lang)
-            elif regel_wert_seit_norm_disp == 'l': regel_wert_seit_norm_disp = translate('left', lang)
-            elif regel_wert_seit_norm_disp == 'r': regel_wert_seit_norm_disp = translate('right', lang)
-            werte_display = f"{escape(op_val_seit)} {escape(regel_wert_seit_norm_disp)}"
-
-        elif cond_type_upper == "GESCHLECHT IN LISTE":
-            gender_list = [g.strip().lower() for g in original_werte.split(',') if g.strip()]
-            translated_genders = [translate(g, lang) for g in gender_list]
-            werte_display = escape(", ".join(translated_genders))
-
-        else: # Fallback für andere Typen
-            werte_display = escape(original_werte)
-
-        # Kontext-Info für erfüllte Bedingungen
-        context_match_info_html = ""
-        if condition_met:
-            match_details = [] # Hier Details sammeln, was genau zum Match geführt hat
-            # Beispiel für ICD:
-            if cond_type_upper == "ICD" or cond_type_upper == "HAUPTDIAGNOSE IN LISTE":
-                provided_icds_upper = {p_icd.upper() for p_icd in context.get("ICD", []) if p_icd}
-                required_icds_in_rule_list = {w.strip().upper() for w in str(cond_data.get(BED_WERTE_KEY, "")).split(',') if w.strip()}
-                matching_icds = list(provided_icds_upper.intersection(required_icds_in_rule_list))
-                if matching_icds:
-                    match_details.append(f"{translate('fulfilled_by_icd', lang)}: {', '.join(matching_icds)}")
-            # TODO: Ähnliche Logik für LKN, GTIN, etc. hinzufügen
-
-            if match_details:
-                context_match_info_html = f"<span class=\"context-match-info fulfilled\">({'; '.join(match_details)})</span>"
-            else: # Generischer Text, wenn keine spezifischen Details gesammelt wurden
-                context_match_info_html = f"<span class=\"context-match-info fulfilled\">({translate('condition_met_context_generic', lang)})</span>"
-
-
-        html_parts.append(f"""
-            <div class="condition-item-row">
-                <span class="condition-status-icon {icon_class}">
-                    <svg viewBox="0 0 24 24"><use xlink:href="{icon_svg_path}"></use></svg>
-                </span>
-                <span class="condition-type-display">{escape(translated_cond_type)}:</span>
-                <span class="condition-text-wrapper">{werte_display} {context_match_info_html}</span>
-            </div>
-        """)
-
-    if current_group is not None: # Letzte Gruppe abschliessen
-        html_parts.append("</div>") # condition-group
-
-    # Rückgabe als Dictionary, um konsistent mit der vorherigen Struktur zu sein,
-    # die möglicherweise auch Fehler oder andere Infos zurückgeben könnte.
     return {
-        "html": "".join(html_parts),
-        "errors": [], # Vorerst keine Fehlerbehandlung hier, kann erweitert werden
+        "groups": groups_output,
+        "inter_group_ops": inter_group_ops_out,
+        "group_children": group_children_out,
         "trigger_lkn_condition_met": trigger_lkn_condition_overall_met,
         "prueflogik_expr": prueflogik_expr,
         "prueflogik_pretty": prueflogik_pretty,
         "group_logic_terms": group_logic_terms,
     }
-
-
-def check_pauschale_conditions_structured(
-    pauschale_code: str,
-    context: dict,
-    pauschale_bedingungen_data: list[dict],
-    tabellen_dict_by_table: Dict[str, List[Dict]],
-    lang: str = "de",
-    pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    """Return a structured representation of conditions for a Pauschale.
-
-    The result contains groups with conditions and the connecting operators.
-    This function performs the same boolean checks as the HTML generator but
-    returns data only, allowing server-side rendering and sanitization.
-    """
-    PAUSCHALE_KEY = "Pauschale"
-    BED_TYP_KEY = "Bedingungstyp"
-    BED_ID_KEY = "BedingungsID"
-    GRUPPE_KEY = "Gruppe"
-    OPERATOR_KEY = "Operator"
-
-    conditions_sorted = sorted(
-        [c for c in pauschale_bedingungen_data if c.get(PAUSCHALE_KEY) == pauschale_code],
-        key=lambda x: x.get(BED_ID_KEY, 0),
-    )
-
-    prueflogik_expr: Optional[str] = None
-    prueflogik_pretty: str = ""
-    if pauschalen_dict:
-        prueflogik_raw = pauschalen_dict.get(pauschale_code, {}).get('Pr\u00fcflogik')
-        if isinstance(prueflogik_raw, str) and prueflogik_raw.strip():
-            prueflogik_expr = prueflogik_raw.strip()
-            prueflogik_pretty = _format_prueflogik_for_display(prueflogik_expr, lang)
-    group_logic_terms = _extract_group_logic_terms(pauschale_code, prueflogik_expr, pauschale_bedingungen_data)
-
-    # Collect operator overrides defined by AST VERBINDUNGSOPERATOR
-    inter_group_operators_map: Dict[Any, str] = {}
-    ast_links: list[tuple[Any, Any, str, int]] = []
-
-    def _normalize_group_id(value: Any) -> Any:
-        if value is None:
-            return None
-        try:
-            return int(str(value).strip())
-        except Exception:
-            s = str(value).strip()
-            return s if s else None
-
-    def _normalize_operator(value: Any) -> str:
-        if value is None:
-            return ""
-        value_upper = str(value).strip().upper()
-        if value_upper in ("UND", "AND"):
-            return "UND"
-        if value_upper in ("ODER", "OR"):
-            return "ODER"
-        return value_upper
-
-    group_meta: Dict[Any, Dict[str, Any]] = {}
-
-    for entry in conditions_sorted:
-        gid_norm = _normalize_group_id(entry.get(GRUPPE_KEY))
-        meta = group_meta.setdefault(
-            gid_norm,
-            {
-                "GroupNegated": False,
-                "ParentGroup": _normalize_group_id(entry.get("ParentGroup")),
-                "GroupOperator": "",
-                "SortIndex": entry.get("GruppeSortIndex", entry.get(GRUPPE_KEY, 0)),
-            },
-        )
-        if entry.get("GroupNegated"):
-            meta["GroupNegated"] = True
-        if meta.get("GroupOperator") == "":
-            meta["GroupOperator"] = _normalize_operator(entry.get("GruppenOperator"))
-        if meta.get("ParentGroup") is None:
-            meta["ParentGroup"] = _normalize_group_id(entry.get("ParentGroup"))
-
-    for c in conditions_sorted:
-        if str(c.get(BED_TYP_KEY, "")).upper() == "AST VERBINDUNGSOPERATOR":
-            parent_id_norm = _normalize_group_id(c.get(GRUPPE_KEY))
-            child_raw = c.get('Spezialbedingung') or c.get('Werte')
-            gid = _normalize_group_id(child_raw)
-            op_val = str(c.get(OPERATOR_KEY, "ODER")).upper()
-            if gid is not None and op_val in ("UND", "ODER"):
-                inter_group_operators_map[gid] = op_val
-            if parent_id_norm is not None and gid is not None:
-                ast_links.append((parent_id_norm, gid, op_val, c.get(BED_ID_KEY, 0)))
-
-    groups: list[dict[str, Any]] = []
-    current_gid: Any = None
-    current_group: dict[str, Any] | None = None
-    inter_group_ops_out: list[str] = []
-    any_lkn_condition_met = False
-
-    last_condition_in_group: dict | None = None
-    for cond in conditions_sorted:
-        cond_type_upper = str(cond.get(BED_TYP_KEY, "")).upper()
-        if cond_type_upper == "AST VERBINDUNGSOPERATOR":
-            # close group if open
-            if current_group is not None:
-                groups.append(current_group)
-                current_group = None
-            current_gid = None
-            last_condition_in_group = None
-            continue
-
-        gid = cond.get(GRUPPE_KEY)
-        if gid != current_gid:
-            # append inter-group operator (if any) between groups
-            if current_group is not None:
-                groups.append(current_group)
-                current_group = None
-                last_condition_in_group = None
-            # operator between groups
-            op_between = inter_group_operators_map.pop(_normalize_group_id(gid), None)
-            if op_between:
-                inter_group_ops_out.append(op_between)
-            current_gid = gid
-            normalized_gid = _normalize_group_id(gid)
-            current_group = {
-                "id": gid,
-                "conditions": [],
-                "intra_ops": [],
-                "negated": bool(group_meta.get(normalized_gid, {}).get("GroupNegated")),
-                "sort_index": group_meta.get(normalized_gid, {}).get("SortIndex", cond.get("GruppeSortIndex", gid)),
-                "normalized_id": normalized_gid,
-                "parent": group_meta.get(normalized_gid, {}).get("ParentGroup"),
-                "group_operator": group_meta.get(normalized_gid, {}).get("GroupOperator"),
-            }
-
-        # compute match
-        met = bool(check_single_condition(cond, context, tabellen_dict_by_table))
-
-        # detect if LKN-related condition matched (for convenience flag)
-        if met and cond_type_upper in (
-            "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
-            "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE",
-        ):
-            any_lkn_condition_met = True
-
-        # store condition summary
-        cond_entry = {
-            "type": cond.get(BED_TYP_KEY),
-            "werte": cond.get('Werte'),
-            "feld": cond.get('Feld'),
-            "min": cond.get('MinWert'),
-            "max": cond.get('MaxWert'),
-            "vergleich": cond.get('Vergleichsoperator'),
-            "matched": met,
-        }
-        if current_group is None:
-            # ensure group exists even if data inconsistent
-            normalized_gid = _normalize_group_id(gid)
-            meta = group_meta.get(normalized_gid, {})
-            current_group = {
-                "id": gid,
-                "conditions": [],
-                "intra_ops": [],
-                "negated": bool(meta.get("GroupNegated")),
-                "sort_index": meta.get("SortIndex", cond.get("GruppeSortIndex", gid)),
-                "normalized_id": normalized_gid,
-                "parent": meta.get("ParentGroup"),
-                "group_operator": meta.get("GroupOperator"),
-            }
-            current_gid = gid
-        current_group["conditions"].append(cond_entry)
-
-        # intra-group operator (based on previous actual condition)
-        if last_condition_in_group is not None and last_condition_in_group.get(GRUPPE_KEY) == gid:
-            link_op = str(last_condition_in_group.get(OPERATOR_KEY, "UND")).upper()
-            if link_op in ("UND", "ODER"):
-                current_group["intra_ops"].append(link_op)
-        last_condition_in_group = cond
-
-    if current_group is not None:
-        groups.append(current_group)
-
-    group_lookup: Dict[Any, dict[str, Any]] = {}
-    for grp in groups:
-        normalized_gid = grp.get("normalized_id")
-        if normalized_gid is None:
-            normalized_gid = _normalize_group_id(grp.get("id"))
-            grp["normalized_id"] = normalized_gid
-        group_lookup[normalized_gid] = grp
-
-    from collections import defaultdict
-
-    children_map: defaultdict[Any, list[dict[str, Any]]] = defaultdict(list)
-    parent_nodes: set[Any] = set()
-    child_nodes: set[Any] = set()
-
-    for parent_id, child_id, op_raw, bed_id in ast_links:
-        if parent_id is None or child_id is None:
-            continue
-        parent_meta = group_meta.get(parent_id, {})
-        child_meta = group_meta.get(child_id, {})
-        display_operator = _normalize_operator(op_raw)
-        if child_meta.get("ParentGroup") == parent_id:
-            display_operator = _normalize_operator(parent_meta.get("GroupOperator") or display_operator)
-        if display_operator not in ("UND", "ODER"):
-            display_operator = "UND" if parent_meta.get("GroupOperator") == "UND" else "ODER"
-        children_map[parent_id].append({
-            "child": child_id,
-            "operator": display_operator,
-            "bed": bed_id,
-        })
-        parent_nodes.add(parent_id)
-        child_nodes.add(child_id)
-
-    for entries in children_map.values():
-        entries.sort(key=lambda item: item.get("bed", 0))
-
-    def _group_sort_key(gid: Any) -> tuple[int, Any, str]:
-        grp = group_lookup.get(gid)
-        if grp:
-            return (0, grp.get("sort_index", gid), str(grp.get("id")))
-        return (1, gid if isinstance(gid, int) else 0, str(gid))
-
-    ordered_pairs: list[tuple[dict[str, Any], Optional[str]]] = []
-    visited_groups: set[Any] = set()
-
-    def _traverse(node_id: Any, operator_from_parent: Optional[str]) -> None:
-        if node_id in visited_groups:
-            return
-        group_obj = group_lookup.get(node_id)
-        if not group_obj:
-            return
-        ordered_pairs.append((group_obj, operator_from_parent))
-        visited_groups.add(node_id)
-        for child_entry in children_map.get(node_id, []):
-            _traverse(child_entry.get("child"), child_entry.get("operator"))
-
-    root_candidates = sorted(
-        [gid for gid in parent_nodes if gid not in child_nodes],
-        key=_group_sort_key,
-    )
-    if not root_candidates:
-        root_candidates = sorted(group_lookup.keys(), key=_group_sort_key)
-
-    for root_id in root_candidates:
-        _traverse(root_id, None)
-
-    for remaining_id in sorted(group_lookup.keys(), key=_group_sort_key):
-        if remaining_id not in visited_groups:
-            _traverse(remaining_id, None)
-
-    ordered_groups: list[dict[str, Any]] = []
-    ordered_inter_ops: list[str] = []
-    for idx, (grp_obj, op_raw) in enumerate(ordered_pairs):
-        ordered_groups.append(grp_obj)
-        if idx > 0:
-            op_value = op_raw if op_raw in ("UND", "ODER") else DEFAULT_GROUP_OPERATOR
-            ordered_inter_ops.append(op_value)
-
-    group_children_serializable: Dict[str, list[dict[str, Any]]] = {
-        str(parent_id): [
-            {"child": entry.get("child"), "operator": entry.get("operator")}
-            for entry in entries
-        ]
-        for parent_id, entries in children_map.items()
-    }
-
-    groups = ordered_groups
-    inter_group_ops_out = ordered_inter_ops
-
-    return {
-        "groups": groups,
-        "inter_group_ops": inter_group_ops_out,
-        "any_lkn_condition_met": any_lkn_condition_met,
-        "pauschale_code": pauschale_code,
-        "lang": lang,
-        "prueflogik_expr": prueflogik_expr,
-        "prueflogik_pretty": prueflogik_pretty,
-        "group_logic_terms": group_logic_terms,
-        "group_children": group_children_serializable,
-        "group_root_ids": [root for root in root_candidates],
-    }
-
-# === RENDERER FUER CONDITION-ERGEBNISSE (WIRD NICHT MEHR DIREKT VERWENDET, LOGIK IST IN check_pauschale_conditions) ===
 def render_condition_results_html(
     results: List[Dict[str, Any]], # results ist hier das Ergebnis von der alten check_pauschale_conditions
     lang: str = "de"
@@ -2457,10 +2512,11 @@ def render_condition_results_html(
 
 
 # --- Ausgelagerte Pauschalen-Ermittlung ---
+@with_table_content_cache
 def determine_applicable_pauschale(
     user_input: str, # Bleibt für potenzielles LLM-Ranking, aktuell nicht primär genutzt
     rule_checked_leistungen: list[dict], # Für die initiale Findung potenzieller Pauschalen
-    context: dict, # Enthält LKN, ICD, Alter, Geschlecht, Seitigkeit, Anzahl, useIcd
+    context: Mapping[str, Any], # Enthält LKN, ICD, Alter, Geschlecht, Seitigkeit, Anzahl, useIcd
     pauschale_lp_data: List[Dict],
     pauschale_bedingungen_data: List[Dict],
     pauschalen_dict: Dict[str, Dict], # Dict aller Pauschalen {code: details}
@@ -2633,6 +2689,8 @@ def determine_applicable_pauschale(
     if not potential_pauschale_codes:
         return {"type": "Error", "message": "Keine potenziellen Pauschalen für die erbrachten Leistungen und den Kontext gefunden.", "evaluated_pauschalen": []}
 
+    prepared_structures = build_pauschale_condition_structure_index(pauschale_bedingungen_data)
+
     evaluated_candidates = []
     # print(f"INFO: Werte strukturierte Bedingungen für {len(potential_pauschale_codes)} potenzielle Pauschalen aus...")
     # print(f"  Kontext für evaluate_structured_conditions: {context}")
@@ -2652,7 +2710,8 @@ def determine_applicable_pauschale(
                 all_pauschale_bedingungen_data=pauschale_bedingungen_data,
                 tabellen_dict_by_table=tabellen_dict_by_table,
                 pauschalen_dict=pauschalen_dict,
-                debug=logger.isEnabledFor(logging.DEBUG) # Pass appropriate debug flag
+                debug=logger.isEnabledFor(logging.DEBUG), # Pass appropriate debug flag
+                prepared_structures=prepared_structures,
             )
             check_res = check_pauschale_conditions(
                 code,
@@ -2662,6 +2721,7 @@ def determine_applicable_pauschale(
                 leistungskatalog_dict,
                 lang,
                 pauschalen_dict=pauschalen_dict,
+                prepared_structures=prepared_structures,
             )
             bedingungs_html = check_res.get("html", "")
         except Exception as e_eval:
@@ -2694,6 +2754,7 @@ def determine_applicable_pauschale(
                 tabellen_dict_by_table,
                 lang,
                 pauschalen_dict=pauschalen_dict,
+                prepared_structures=prepared_structures,
             )
         except Exception:
             structured_cond = None
@@ -2812,6 +2873,7 @@ def determine_applicable_pauschale(
             leistungskatalog_dict,
             lang,
             pauschalen_dict=pauschalen_dict,
+            prepared_structures=prepared_structures,
         )
         bedingungs_pruef_html_result = condition_result_html_dict.get("html", "<p class='error'>Fehler bei HTML-Generierung der Bedingungen.</p>")
         # Errors from check_pauschale_conditions itself (if any were designed to be returned, currently it's an empty list)
@@ -3048,6 +3110,7 @@ def determine_applicable_pauschale(
                 tabellen_dict_by_table,
                 lang,
                 pauschalen_dict=pauschalen_dict,
+                prepared_structures=prepared_structures,
             )
     except Exception:
         selected_structured = None
@@ -3167,6 +3230,7 @@ def get_simplified_conditions(
     return simplified_set
 
 
+@with_table_content_cache
 def generate_condition_detail_html(
     condition_tuple: tuple[Any, Any],
     leistungskatalog_dict: Dict[str, Dict[str, Any]], # Für LKN-Beschreibungen

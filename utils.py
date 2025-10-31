@@ -10,11 +10,77 @@ werden.
 # utils.py
 import html
 import logging
-from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
+from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict, Optional, Iterator
 import re
 import unicodedata
 
 logger = logging.getLogger(__name__)
+
+# --- Tabellen-Cache für Request-Lebenszyklen ---------------------------------
+
+TableNameTuple = Tuple[str, ...]
+TableContentCacheKey = Tuple[TableNameTuple, str, str]
+
+
+class _TableCacheEntry(TypedDict):
+    source: Dict[str, List[Dict[str, Any]]]
+    data: Dict[TableContentCacheKey, List[Dict[str, Any]]]
+
+
+TableContentCacheMap = Dict[int, _TableCacheEntry]
+
+_table_content_cache_var: ContextVar[Optional[TableContentCacheMap]] = ContextVar(
+    "_table_content_cache",
+    default=None,
+)
+
+
+def activate_table_content_cache() -> Optional[Token]:
+    """Ensure a fresh table content cache is available for the current context."""
+    current = _table_content_cache_var.get()
+    if current is not None:
+        return None
+    cache: TableContentCacheMap = {}
+    return _table_content_cache_var.set(cache)
+
+
+def deactivate_table_content_cache(token: Optional[Token]) -> None:
+    """Reset the table content cache for the given activation token."""
+    if token is None:
+        return
+    _table_content_cache_var.reset(token)
+
+
+def _get_cache_bucket(
+    tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]]
+) -> Optional[Dict[TableContentCacheKey, List[Dict[str, Any]]]]:
+    cache_map = _table_content_cache_var.get()
+    if cache_map is None:
+        return None
+
+    dict_id = id(tabellen_dict_by_table)
+    entry = cache_map.get(dict_id)
+    if entry is None or entry["source"] is not tabellen_dict_by_table:
+        cache_data: Dict[TableContentCacheKey, List[Dict[str, Any]]] = {}
+        entry = cast(_TableCacheEntry, {
+            "source": tabellen_dict_by_table,
+            "data": cache_data,
+        })
+        cache_map[dict_id] = entry
+
+    return entry["data"]
+
+
+@contextmanager
+def table_content_cache_scope() -> Iterator[None]:
+    """Context manager that establishes a request-scoped table content cache."""
+    token = activate_table_content_cache()
+    try:
+        yield
+    finally:
+        deactivate_table_content_cache(token)
 
 if TYPE_CHECKING:
     import faiss
@@ -27,8 +93,6 @@ def escape(text: Any) -> str:
 def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict, lang: str = 'de') -> list[dict]:
     """Holt Einträge für eine Tabelle und einen Typ (Case-Insensitive).
     Berücksichtigt die Sprache für den Text."""
-    content = []
-    # Schlüssel für PAUSCHALEN_Tabellen - anpassen falls nötig!
     TAB_CODE_KEY = 'Code'; TAB_TEXT_KEY = 'Code_Text'; TAB_TYP_KEY = 'Tabelle_Typ'
 
     def _normalize_table_type_value(raw_value: Any) -> str:
@@ -48,22 +112,24 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
         }
         return synonyms.get(value, value)
 
-    table_names = [t.strip() for t in table_ref.split(',') if t.strip()]
-    all_entries_for_type = []
-
     requested_type = _normalize_table_type_value(table_type)
+    lang_code = str(lang or 'de').lower()
 
-    for name in table_names:
-        normalized_key = name.lower() # Suche immer mit kleinem Schlüssel
-        # print(f"DEBUG (get_table_content): Suche normalisierten Schlüssel '{normalized_key}' für Typ '{table_type}'") # Optional
+    raw_table_names = [t.strip() for t in table_ref.split(',') if t.strip()]
+    normalized_table_names: TableNameTuple = tuple(name.lower() for name in raw_table_names)
 
+    cache_bucket = _get_cache_bucket(tabellen_dict_by_table)
+    cache_key: TableContentCacheKey = (normalized_table_names, requested_type, lang_code)
+    if cache_bucket is not None:
+        cached_entries = cache_bucket.get(cache_key)
+        if cached_entries is not None:
+            return cached_entries[:]
+
+    all_entries_for_type: List[Dict[str, Any]] = []
+    for name_original, normalized_key in zip(raw_table_names, normalized_table_names):
         if normalized_key in tabellen_dict_by_table:
-            # print(f"DEBUG (get_table_content): Schlüssel '{normalized_key}' gefunden.") # Optional
             for entry in tabellen_dict_by_table[normalized_key]:
                 entry_type_normalized = _normalize_table_type_value(entry.get(TAB_TYP_KEY))
-                # If the table entry has no explicit type we assume it matches the
-                # requested ``table_type``. This mirrors the simplified mocks in
-                # the tests where only the ``Code`` field is provided.
                 if requested_type and entry_type_normalized and entry_type_normalized != requested_type:
                     continue
                 code = entry.get(TAB_CODE_KEY)
@@ -74,11 +140,14 @@ def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: d
             logger.info(
                 "INFO (get_table_content): Normalisierter Schlüssel '%s' (Original: '%s') nicht in tabellen_dict_by_table gefunden.",
                 normalized_key,
-                name,
+                name_original,
             )
 
     unique_content = {item['Code']: item for item in all_entries_for_type}.values()
-    return sorted(unique_content, key=lambda x: x.get('Code', ''))
+    result_list = sorted(unique_content, key=lambda x: x.get('Code', ''))
+    if cache_bucket is not None:
+        cache_bucket[cache_key] = result_list[:]
+    return result_list
 
 def get_lang_field(entry: Dict[str, Any], base_key: str, lang: str) -> Any:
     """Liefert den Wert eines sprachspezifischen Feldes, falls vorhanden."""
