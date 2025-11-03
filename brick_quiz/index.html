@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick-Quiz · Arzttarif-Assistent</title>
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="alternate icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/brick_quiz/style.css">
+</head>
+<body>
+    <div class="quiz-shell">
+        <header class="quiz-header">
+            <div class="quiz-header-left">
+                <span class="quiz-app-badge">Arzttarif-Assistent</span>
+                <h1 class="quiz-title">Brick-Quiz</h1>
+                <p class="quiz-subtitle">Trainiere dein Wissen zum neuen Arzttarif spielerisch.</p>
+            </div>
+            <a class="quiz-back-link" href="/">Zurück zur Anwendung</a>
+        </header>
+        <main class="quiz-main">
+            <div class="game-wrapper">
+                <p class="game-hint">Zerstöre Steine, sammle Punkte und beantworte Quizfragen rund um Leistungen und Pauschalen.</p>
+                <div id="gameContainer">
+                    <canvas id="gameCanvas" width="800" height="600" role="application" aria-label="Brick-Quiz Spielfeld"></canvas>
+                    <div id="scoreDisplay" aria-live="polite">Punktestand: 0</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="startScreen" class="overlay">
+        <div id="startScreenContent" class="overlay-card">
+            <div id="startScreenTextLine1">Willkommen zum Brick-Quiz!</div>
+            <div id="startScreenTextLine2">Sammle Punkte und beantworte Fachfragen aus dem Arzttarif.</div>
+            <button id="startButton" disabled>Spiel und Quiz beginnen</button>
+        </div>
+    </div>
+
+    <div id="loadingScreen" class="overlay overlay-dim">
+        <div class="overlay-card">
+            <div class="loading-indicator" aria-hidden="true"></div>
+            <div class="loading-text">Spiel und Quiz werden vorbereitet...</div>
+        </div>
+    </div>
+
+    <div id="quizPopup" class="modal-card" style="display: none;">
+        <div class="modal-header" id="quizTitle">Quiz Titel</div>
+        <div class="modal-body">
+            <div id="quizQuestion">Quiz Frage</div>
+            <div id="quizAnswers"></div>
+            <div id="quizFeedback" role="status" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <div id="gameEndPopup" class="modal-card" style="display: none;">
+        <h2 id="gameEndTitle">Spielende</h2>
+        <p id="gameEndScore">Punktestand: 0</p>
+        <p id="gameEndCorrect">Richtig beantwortet: 0</p>
+        <p id="gameEndIncorrect">Falsch beantwortet: 0</p>
+        <button id="gameEndPlayAgainButton">Nochmal spielen</button>
+    </div>
+
+    <script src="/brick_quiz/questions.js"></script>
+    <script src="/brick_quiz/game.js"></script>
+</body>
+</html>

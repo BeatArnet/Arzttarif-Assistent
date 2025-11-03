@@ -1,0 +1,1112 @@
+window.questionsData = [
+    {
+        "title": "TARDOC",
+        "question": "Was ist der TARDOC?",
+        "answers": [
+            "A) Einzelleistungstarif für ambulante ärztliche Leistungen in der Schweiz",
+            "B) Eine Datenbank zur Verwaltung von Patientendaten.",
+            "C) Ein Tool zur Simulation von Abrechnungen im stationären Bereich."
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Ambulante Pauschalen",
+        "question": "Was sind Ambulante Pauschalen?",
+        "answers": [
+            "A) Ein Instrument zur Leistungserfassung im stationären Bereich.",
+            "B) Eine Tarifstruktur zur Abrechnung ambulanter, ärztlicher Leistungen, die zusammen mit dem TARDOC den TARMED ablösen wird.",
+            "C) Ein Verzeichnis der separat abrechenbaren Medikamente."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "TARMED",
+        "question": "Welche Tarifstruktur werden TARDOC und die Ambulanten Pauschalen ablösen?",
+        "answers": [
+            "A) REKOLE",
+            "B) TARMED",
+            "C) LKAAT"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Taxpunkte",
+        "question": "Was bestimmt zusammen mit dem Taxpunktwert den Ertrag einer Leistung im TARDOC und bei den Ambulanten Pauschalen?",
+        "answers": [
+            "A) Die Diagnose des Patienten.",
+            "B) Die Anzahl der Taxpunkte einer Tarifposition.",
+            "C) Die Dauer der Sitzung."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Taxpunktwert",
+        "question": "Wer verhandelt den Taxpunktwert?",
+        "answers": [
+            "A) Das BAG.",
+            "B) Der Bundesrat.",
+            "C) Die Tarifpartner."
+        ],
+        "correct_answer_index": 2
+    },
+    {
+        "title": "Tarifpartner",
+        "question": "Wer sind unter anderem Tarifpartner, die am Antragsverfahren zur Tarifentwicklung teilnehmen können?",
+        "answers": [
+            "A) Einzelne Ärzte und Patienten.",
+            "B) Die Gesellschafter der OAAT AG (FMH, H+, prio.swiss, santésuisse, MTK).",
+            "C) Nur die Krankenversicherer."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Grouper",
+        "question": "Was macht der Grouper im Zusammenhang mit den Ambulanten Pauschalen?",
+        "answers": [
+            "A) Er rechnet die erbrachten Leistungen ab.",
+            "B) Er ordnet eine ambulante Behandlung automatisiert einer Pauschale zu, basierend auf Diagnose, Leistungen und weiteren Merkmalen.",
+            "C) Er wandelt LKAAT-Codes in TARDOC-Codes um."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Sitzung",
+        "question": "Wie ist eine Sitzung im ambulanten Setting definiert?",
+        "answers": [
+            "A) Nur als physisches Zusammentreffen eines Patienten mit einem Leistungserbringer.",
+            "B) Als physisches oder fernmündliches Zusammentreffen eines Patienten mit einem Leistungserbringer, bei dem eine Leistung der Diagnose oder Behandlung dient.",
+            "C) Eine ambulante Behandlung, die aus mehreren Leistungspositionen besteht."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Ambulante Behandlung",
+        "question": "Was kann zu ambulanten Behandlungen zusammengefasst werden?",
+        "answers": [
+            "A) Nur stationäre Leistungen.",
+            "B) Einzelne Sitzungen sowie zugeordnete Leistungen wie Pathologie-, Analyseleistungen, Leistungen in Abwesenheit, Verfassen von Berichten.",
+            "C) Die gesamte Jahresabrechnung eines Patienten."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Leistungserbringer im ambulanten Setting",
+        "question": "Wer gilt gemäss Anhang B als Leistungserbringer im ambulanten Setting?",
+        "answers": [
+            "A) Nur Ärztinnen und Ärzte gemäss Art. 35 Abs 2 lit a KVG.",
+            "B) Ärztinnen und Ärzte, Einrichtungen zur ambulanten Krankenpflege durch Ärzte mit einem Fachbereich oder Fachbereiche innerhalb eines Spitals oder einer solchen Einrichtung.",
+            "C) Nur Spitäler gemäss Art. 35 Abs. 2 lit. h KVG."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "LKAAT",
+        "question": "Wozu dient der LKAAT (Leistungskatalog)?",
+        "answers": [
+            "A) Als alleinige Tarifstruktur für ambulante Leistungen.",
+            "B) Als Instrument zur Leistungserfassung für die Anwendung der ambulanten Pauschalen und TARDOC.",
+            "C) Als Datenbank für Besitzstandsanträge."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Qualitative Dignität",
+        "question": "Was gibt die qualitative Dignität an?",
+        "answers": [
+            "A) Das Erfahrungslevel einer Ärztin oder eines Arztes.",
+            "B) Welche Weiterbildungstitel, Facharzttitel, Schwerpunkte und Fähigkeits-/Fertigkeitsausweise berechtigen, eine Leistung zulasten der Sozialversicherungen abzurechnen.",
+            "C) Die Höhe des Taxpunktwerts für eine bestimmte Leistung."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Besitzstand",
+        "question": "Was berechtigt eine Ärztin oder einen Arzt zum Besitzstand?",
+        "answers": [
+            "A) Jeder erbrachte Weiterbildungstitel.",
+            "B) Die fachlich eigenverantwortliche, regelmässige und unbeanstandete Erbringung und Abrechnung von Leistungspositionen während mindestens dreier Jahre vor Inkraftsetzung der LKAAT-Tarifstruktur, über deren Weiterbildungstitel sie jedoch nicht verfügt.",
+            "C) Eine Registrierung bei der SASIS."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Besitzstandswahrung",
+        "question": "Wie lange ist eine befristete Besitzstandswahrung maximal möglich, wenn die geforderte qualitative Dignität fehlt?",
+        "answers": [
+            "A) Maximal 3 Jahre.",
+            "B) Maximal 6 Jahre.",
+            "C) Unbefristet, solange die Leistung erbracht wird."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "LegiData",
+        "question": "Wo erfolgt die Deklaration von Besitzstandspositionen?",
+        "answers": [
+            "A) Auf der Webseite der FMH.",
+            "B) In der OAAT-Datenbank LegiData.",
+            "C) Per Post an die zuständige Sozialversicherung."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "OAAT AG",
+        "question": "Welche Organisation ist für die Tarifstruktur von TARDOC und den Ambulanten Pauschalen verantwortlich?",
+        "answers": [
+            "A) Das Bundesamt für Gesundheit (BAG).",
+            "B) Die Organisation Ambulante Arzttarife (OAAT) AG.",
+            "C) Die SASIS."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "SASIS",
+        "question": "Welche Organisation wird ab 1. Juli 2025 eine Helpline für das Beantragen von Besitzständen betreiben?",
+        "answers": [
+            "A) Die FMH.",
+            "B) Die SASIS.",
+            "C) Die OAAT AG."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "TarifMatcher",
+        "question": "Was ist der TarifMatcher?",
+        "answers": [
+            "A) Ein System zur Abrechnung stationärer Leistungen.",
+            "B) Eine Java-basierte Softwarebibliothek zur korrekten Anwendung ambulanter Arzttarife (TARDOC und Ambulante Pauschalen), die Behandlungen klassifiziert und entscheidet, welche Tarifstruktur angewendet wird.",
+            "C) Ein Tool zur Verwaltung von Besitzständen."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Casemaster",
+        "question": "Wann wird der Casemaster verwendet?",
+        "answers": [
+            "A) Immer, unabhängig vom Fallführungssystem.",
+            "B) Wenn die Definition ambulanter Behandlungen gemäss Anhang B noch nicht im eigenen Fallführungssystem abgebildet ist.",
+            "C) Um Kumulationsregelverletzungen zu erkennen."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Mapper",
+        "question": "Welche Funktion hat der Mapper im TarifMatcher?",
+        "answers": [
+            "A) Er ordnet Behandlungen Pauschalen zu.",
+            "B) Er wandelt TARMED-Codes in LKAAT-Codes um.",
+            "C) Er wandelt LKAAT-Codes in entsprechende TARDOC-Codes um und prüft die Einhaltung von Regeln."
+        ],
+        "correct_answer_index": 2
+    },
+    {
+        "title": "Transcodierung",
+        "question": "Was passiert bei der Transcodierung im Simulationstool?",
+        "answers": [
+            "A) Das TARMED Taxpunktvolumen wird statistisch auf TARDOC transcodiert, wobei die Information der tarifarischen Einheit (ambulante Behandlung) verloren geht.",
+            "B) Es wird eine Prüfung der Limitationen auf Sitzungsebene vorgenommen.",
+            "C) Neue Tarifpositionen ohne TARMED Vorgängerposition werden berücksichtigt."
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Simulationstool",
+        "question": "Was dient zur Simulation von TARMED Abrechnungsdaten?",
+        "answers": [
+            "A) Der TarifMatcher.",
+            "B) Das Simulationstool.",
+            "C) Der Onlinegrouper auf Basis LKAAT."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Anhang B (Anwendungsmodalitäten)",
+        "question": "Wo sind die Voraussetzungen geregelt, unter welchen Sitzungen zu einer oder mehreren ambulanten Behandlungen zusammengefasst werden?",
+        "answers": [
+            "A) In der Analysenliste (AL).",
+            "B) In den Anwendungsmodalitäten (Anhang B zum Tarifstrukturvertrag).",
+            "C) Im Definitionshandbuch des Groupers."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Triggerpositionen",
+        "question": "Wodurch sind Triggerpositionen im LKAAT gekennzeichnet?",
+        "answers": [
+            "A) Durch die Typenbezeichnung \"T\".",
+            "B) Durch die Typenbezeichnung \"P\".",
+            "C) Durch die Typenbezeichnung \"N\"."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Kostenneutrale Einführung",
+        "question": "Wodurch wird die kostenneutrale Einführung neuer Tarifstrukturen sichergestellt?",
+        "answers": [
+            "A) Durch die Erhöhung des Taxpunktwerts.",
+            "B) Durch eine lineare Kürzung der Taxpunkte (Normierung).",
+            "C) Durch die vollständige Abschaffung separat abrechenbarer Leistungen."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Normierung",
+        "question": "Was stellt bei der kostenneutralen Einführung sicher, dass die relativen Verhältnisse zwischen den einzelnen medizinischen Leistungen unverändert bleiben?",
+        "answers": [
+            "A) Die regelmässige Aktualisierung der Pauschalen.",
+            "B) Die lineare Kürzung der Taxpunkte (Normierung).",
+            "C) Die Verhandlung des Taxpunktwerts durch die Tarifpartner."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Tarifstrukturvertrag",
+        "question": "Was müssen Ärztinnen und Ärzte sowie Einrichtungen und Spitäler unterzeichnen, um über TARDOC oder Ambulante Pauschalen abrechnen zu können?",
+        "answers": [
+            "A) Einen Einzelvertrag mit der OAAT AG.",
+            "B) Einen Vertrag mit der SASIS.",
+            "C) Dem Tarifstrukturvertrag beitreten."
+        ],
+        "correct_answer_index": 2
+    },
+    {
+        "title": "Tarifbrowser",
+        "question": "Wo sind die Tarifkataloge für TARDOC und die Ambulanten Pauschalen als interaktive Version verfügbar?",
+        "answers": [
+            "A) Im MedReg.",
+            "B) Im Tarifbrowser der OAAT AG.",
+            "C) Auf der Webseite des BAG."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Definitionshandbuch",
+        "question": "Wo kann die Gruppierungslogik der Ambulanten Pauschalen nachvollzogen werden?",
+        "answers": [
+            "A) Im Anhang H des Tarifstrukturvertrags.",
+            "B) Im Definitionshandbuch des Groupers.",
+            "C) In der technischen Dokumentation zum TarifMatcher."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Spartenanerkennung",
+        "question": "Müssen Spartenanerkennungen für eine Abrechnung unter TARDOC neu beantragt werden?",
+        "answers": [
+            "A) Nein, bestehende TARMED-Anerkennungen bleiben gültig.",
+            "B) Ja, unbesehen davon, ob im TARMED bereits eine Anerkennung bestand.",
+            "C) Nur für Leistungen in der Psychiatrie."
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Mengenbeschränkung AA",
+        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA",
+        "question": "Können „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010) und „Besuch, erste 5 Min.“ (AA.00.0030) zusammen abgerechnet werden?",
+        "answers": [
+            "Ja, immer",
+            "Nein, sie sind nicht kumulierbar",
+            "Nur an Wochenenden"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Zuschlagregel AA.00.0020",
+        "question": "Unter welcher Voraussetzung darf „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020 – + Ärztliche Konsultation, jede weitere 1 Min.) abgerechnet werden?",
+        "answers": [
+            "Nur als Zuschlag zu AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "Als eigenständige Leistung",
+            "Als Pauschale abrechenbar"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0020",
+        "question": "Wie viele „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020) dürfen pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro Sitzung",
+            "Maximal 20 pro Sitzung",
+            "Maximal 30 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation Besuch und Telemedizin",
+        "question": "Ist „Besuch, erste 5 Min.“ (AA.00.0030) kumulierbar mit „Notfallkonsultation am Telefon, erste 5 Min.“ (CA.15.0030)?",
+        "answers": [
+            "Ja",
+            "Nein",
+            "Nur bei Hausärzten"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Trigger Pauschalen",
+        "question": "Wann wird die Pauschale „C00.10A“ (Stereotaktische Radiochirurgie: Gamma-Knife oder Bestrahlung v. Hirnmetastasen mit Anästhesie d. Anästhesist/in) ausgelöst?",
+        "answers": [
+            "Wenn bestimmte Einzelleistungen zusammen auftreten",
+            "Bei jeder Gamma-Knife-Therapie",
+            "Bei ambulanten Fällen mit Anästhesie"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation Konsultation und Telemedizin",
+        "question": "Können AA.00.0010 – Ärztliche Konsultation, erste 5 Min. und AA.10.0010 – telemedizinische zeitgleiche Konsultation,  erste 5 Min. gemeinsam abgerechnet werden?",
+        "answers": [
+            "Ja, wenn verschiedene Ärzte beteiligt sind",
+            "Nein, sie sind nicht kumulierbar",
+            "Nur bei besonderen Notfällen"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0030",
+        "question": "Wie oft darf „Besuch, erste 5 Min.“ (AA.00.0030) pro Sitzung verrechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Abrechnungsregel Wegzeit",
+        "question": "Wann ist die Wegzeit (AA.00.0050) für einen erfolglosen Hausbesuch abrechenbar?",
+        "answers": [
+            "Immer, wenn der Patient nicht angetroffen wurde",
+            "Nur wenn die Abwesenheit medizinisch begründbar war",
+            "Nie, Wegzeit ist nur bei erfolgreichem Besuch erlaubt"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Abrechnungsregel Wegzeit",
+        "question": "Wie wird die Wegzeit (AA.00.0050) bei mehreren Patienten in einer Besuchstour abgerechnet?",
+        "answers": [
+            "Die gesamte Tour kann abgerechnet werden",
+            "Nur die Zeit zwischen zwei Patienten darf abgerechnet werden",
+            "Wegzeit ist hier nicht abrechenbar"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Konsilium",
+        "question": "Welche Leistungen sind in einem Konsilium (AA.00.0080) inkludiert?",
+        "answers": [
+            "Nur die Beratung des Patienten",
+            "Beratung, Befragung, Studium der Akten, Dokumentation und schriftlicher Bericht",
+            "Nur das Schreiben eines Berichts"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Konsilium",
+        "question": "Wer darf ein Konsilium (AA.00.0080) abrechnen?",
+        "answers": [
+            "Jeder Arzt",
+            "Nur Fachärzte mit spezieller Qualifikation",
+            "Nur der Hausarzt"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Versicherungsauftrag",
+        "question": "Dürfen Leistungen im Auftrag des Versicherers über AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) abgerechnet werden?",
+        "answers": [
+            "Ja, immer",
+            "Nein, hierfür ist AA.15.0090 (Leistung im Auftrag des Versicherers) zu verwenden",
+            "Nur bei stationären Aufenthalten"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Telemedizin",
+        "question": "Welche Tarifpositionen sind für telemedizinische Grundleistungen im Kapitel AA – Ärztliche allgemeine Grundleistungen vorgesehen?",
+        "answers": [
+            "AA.10.0010 bis AA.10.0030 (Telemedizinische Grundleistungen)",
+            "AA.00.0010 bis AA.00.0040 (Konsultationen und Besuche)",
+            "Nur AA.00.0010 (Konsultation, erste 5 Min.)"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Vor-/Nachbesprechung",
+        "question": "Wie wird die Vor- und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten (AA.00.0060) abgerechnet?",
+        "answers": [
+            "Pro begonnene 10 Minuten",
+            "Pro Minute, max. 20 Minuten pro Sitzung",
+            "Pro Sitzung, pauschal"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Definition Einzelleistung",
+        "question": "Was ist eine Einzelleistung im TARDOC?",
+        "answers": [
+            "Eine einzelne, genau definierte abrechenbare medizinische Handlung",
+            "Ein Bündel von Einzelleistungen",
+            "Eine spezielle Form der Pauschale"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulationsverbot",
+        "question": "Was bedeutet ein Kumulationsverbot bei zwei TARDOC-Leistungen?",
+        "answers": [
+            "Sie dürfen nicht in derselben Sitzung abgerechnet werden",
+            "Sie müssen gemeinsam abgerechnet werden",
+            "Sie gelten nur im Spital"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Dignität",
+        "question": "Wo findet man die für eine Leistung vorgeschriebene Dignität im Katalog?",
+        "answers": [
+            "Direkt in der Leistungstabelle, bei jeder Tarifposition",
+            "Nur im Anhang",
+            "Auf der Rechnung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Trigger",
+        "question": "Was ist ein typischer \"Trigger\" für eine ambulante Pauschale?",
+        "answers": [
+            "Das gleichzeitige Vorliegen mehrerer vordefinierter Einzelleistungen",
+            "Die Unterschrift des Arztes",
+            "Die Abgabe eines Medikaments"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Definition Pauschale",
+        "question": "Was ist eine Pauschale laut TARDOC?",
+        "answers": [
+            "Eine abgerechnete Kombination medizinisch sinnvoll zusammengefasster Leistungen",
+            "Eine frei wählbare Abrechnungseinheit",
+            "Eine doppelt so hohe Einzelleistung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbegrenzung",
+        "question": "Wie oft darf AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Telemedizin",
+        "question": "Was unterscheidet AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) von der Präsenz-Konsultation?",
+        "answers": [
+            "Sie darf nicht zusammen mit AA.00.0010 (Konsultation, erste 5 Min.) abgerechnet werden",
+            "Sie ist immer günstiger",
+            "Sie braucht keine Dokumentation"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation",
+        "question": "Können AA.00.0030 (Besuch, erste 5 Min.) und AA.00.0010  (Konsultation, erste 5 Min.) in derselben Sitzung abgerechnet werden?",
+        "answers": [
+            "Nein, ein Kumulationsverbot besteht",
+            "Ja, wenn sie am gleichen Tag stattfinden",
+            "Nur bei unterschiedlichen Diagnosen"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Wegzeit",
+        "question": "Wann darf AA.00.0050 (Wegzeit, pro 1 Min.) abgerechnet werden?",
+        "answers": [
+            "Nur bei ärztlichen Hausbesuchen außerhalb der Praxis",
+            "Bei jedem Praxisbesuch",
+            "Nie"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Pauschaleninhalt",
+        "question": "Was ist in den meisten ambulanten Pauschalen (z.B. C00.10A) zusätzlich zu den Hauptleistungen enthalten?",
+        "answers": [
+            "Gewisse diagnostische Einzelleistungen und bestimmte Grundpflege",
+            "Alle Medikamente",
+            "Nur ärztliche Zeit"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Pauschalenprüfung",
+        "question": "Wie erkennt das System, ob eine Pauschale ausgelöst wird?",
+        "answers": [
+            "Durch die technische Prüflogik im Katalog (Triggerregeln und Mindestleistungen)",
+            "Durch Handaufschreiben",
+            "Per Zufall"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Hausarzt-Notfall",
+        "question": "Welche Voraussetzung braucht es für CA.15.0030 – Hausärztliche Palliative Care: Besuch, erste 5 Min.?",
+        "answers": [
+            "Akute, nicht planbare gesundheitliche Situation",
+            "Jedes Symptom",
+            "Vorherige Konsultation"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Hausbesuch",
+        "question": "Was gilt als Hausbesuch im Kapitel CA – Hausarztmedizin?",
+        "answers": [
+            "Persönliche ärztliche Behandlung außerhalb der Praxis",
+            "Telefonischer Kontakt",
+            "Behandlung im Spital"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Zuschläge",
+        "question": "Wann darf der Zuschlag AA.00.0040 (+ Besuch, jede weitere 1 Min.) abgerechnet werden?",
+        "answers": [
+            "Nur als Zuschlag zu AA.00.0030 (Besuch, erste 5 Min.)",
+            "Als eigenständige Leistung",
+            "Als Pauschale abrechenbar"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Einzelleistung in Pauschale",
+        "question": "Was passiert mit Einzelleistungen, die im Gültigkeitsbereich einer Pauschale erbracht werden?",
+        "answers": [
+            "Sie sind in der Pauschale abgegolten und nicht separat abrechnungsfähig",
+            "Sie müssen immer separat abgerechnet werden",
+            "Sie gelten doppelt"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kombinierbarkeit Pauschale",
+        "question": "Können zwei ambulante Pauschalen für die gleiche Sitzung abgerechnet werden?",
+        "answers": [
+            "Nur, wenn beide unterschiedliche Leistungsbereiche abdecken und kein Kumulationsverbot besteht",
+            "Immer",
+            "Nie"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Dokumentation",
+        "question": "Was ist bei der Abrechnung jeder Pauschale zwingend erforderlich?",
+        "answers": [
+            "Die lückenlose Dokumentation der erbrachten Einzelleistungen und Begründungen",
+            "Nur der Name des Patienten",
+            "Die Höhe der Vergütung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Auslösung Pauschale",
+        "question": "Wer löst die Pauschale technisch aus?",
+        "answers": [
+            "Das Abrechnungssystem/Grouper anhand der hinterlegten Trigger",
+            "Der Patient selbst",
+            "Der Chefarzt"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kombinierbarkeit AA/CA",
+        "question": "Dürfen Leistungen aus Kapitel AA – Ärztliche allgemeine Grundleistungen und CA – Hausarztmedizin kombiniert abgerechnet werden?",
+        "answers": [
+            "Nur, wenn kein Kumulationsverbot besteht",
+            "Immer",
+            "Nie"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Leistungsbeschreibung",
+        "question": "Wo findet man die Beschreibung einer Pauschale wie C00.20A?",
+        "answers": [
+            "Im Leistungskatalog (z.B. TARDOC/AMBULANT), direkt neben dem Pauschalencode",
+            "Nur auf der Rechnung",
+            "Nur beim Versicherer"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0010",
+        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.\" (AA.00.0010) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.00.0010",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0010 – Ärztliche Konsultation, erste 5 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.20.0040",
+            "AA.30.0090",
+            "AA.00.0030"
+        ],
+        "correct_answer_index": 2
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0020",
+        "question": "Wie oft darf die Leistung „+ Ärztliche Konsultation, jede weitere 1 Min.\" (AA.00.0020) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro Sitzung",
+            "Maximal 20 pro Sitzung",
+            "Maximal 30 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0030",
+        "question": "Wie oft darf die Leistung „Besuch, erste 5 Min.\" (AA.00.0030) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.00.0030",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0030 – Besuch, erste 5 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.10.0010",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0040",
+        "question": "Wie oft darf die Leistung „+ Besuch, jede weitere 1 Min.\" (AA.00.0040) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro Sitzung",
+            "Maximal 20 pro Sitzung",
+            "Maximal 30 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0050",
+        "question": "Wie oft darf die Leistung „Wegzeit, pro 1 Min.\" (AA.00.0050) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 60 pro Sitzung",
+            "Maximal 65 pro Sitzung",
+            "Maximal 120 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0060",
+        "question": "Wie oft darf die Leistung „Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.\" (AA.00.0060) pro 90 Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 60 pro 90 Tage",
+            "Maximal 90 pro 90 Tage",
+            "Maximal 120 pro 90 Tage"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0070",
+        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro Sitzung",
+            "Maximal 20 pro Sitzung",
+            "Maximal 30 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0070",
+        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070) pro 90 Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro 90 Tage",
+            "Maximal 20 pro 90 Tage",
+            "Maximal 30 pro 90 Tage"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0080",
+        "question": "Wie oft darf die Leistung „Ärztliches Konsilium, pro 1 Min.\" (AA.00.0080) pro 180 Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 120 pro 180 Tage",
+            "Maximal 130 pro 180 Tage",
+            "Maximal 140 pro 180 Tage"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.00.0080",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0080 – Ärztliches Konsilium, pro 1 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.00.0010",
+            "AA.00.0020",
+            "AA.00.0040"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.00.0090",
+        "question": "Wie oft darf die Leistung „Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min.\" (AA.00.0090) pro 90 Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 20 pro 90 Tage",
+            "Maximal 25 pro 90 Tage",
+            "Maximal 40 pro 90 Tage"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.00.0090",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0090 – Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min. nicht kumuliert werden?",
+        "answers": [
+            "CG.00.0020",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0010",
+        "question": "Wie oft darf die Leistung „Untersuchung: Kreislauf\" (AA.05.0010) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0020",
+        "question": "Wie oft darf die Leistung „Untersuchung: Augen\" (AA.05.0020) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0030",
+        "question": "Wie oft darf die Leistung „Untersuchung: Ohren\" (AA.05.0030) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0040",
+        "question": "Wie oft darf die Leistung „Untersuchung: Luftwege\" (AA.05.0040) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0050",
+        "question": "Wie oft darf die Leistung „Untersuchung: Wirbelsäule\" (AA.05.0050) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0060",
+        "question": "Wie oft darf die Leistung „Untersuchung: Abdomen\" (AA.05.0060) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0070",
+        "question": "Wie oft darf die Leistung „Untersuchung: Uro-Genital\" (AA.05.0070) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0080",
+        "question": "Wie oft darf die Leistung „Untersuchung: Haut\" (AA.05.0080) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0090",
+        "question": "Wie oft darf die Leistung „Untersuchung: Muskulatur\" (AA.05.0090 – Untersuchung: Muskulatur) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0100",
+        "question": "Wie oft darf die Leistung „Untersuchung: Gelenke\" (AA.05.0100) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0110",
+        "question": "Wie oft darf die Leistung „Untersuchung: Gefässe\" (AA.05.0110) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0120",
+        "question": "Wie oft darf die Leistung „Untersuchung: Lymphatische Organe\" (AA.05.0120) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0130",
+        "question": "Wie oft darf die Leistung „Untersuchung: Neurologie\" (AA.05.0130) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.05.0140",
+        "question": "Wie oft darf die Leistung „Untersuchung: Pubertätsentwicklung\" (AA.05.0140) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.10.0010",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.\" (AA.10.0010) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.10.0010",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0010 – Ärztliche, telemedizinische zeitgleiche Konsultation,  erste 5 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.05",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.10.0020",
+        "question": "Wie oft darf die Leistung „+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.\" (AA.10.0020) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 15 pro Sitzung",
+            "Maximal 20 pro Sitzung",
+            "Maximal 30 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.10.0030",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030) pro tag abgerechnet werden?",
+        "answers": [
+            "Maximal 4 pro Sitzung",
+            "Maximal 9 pro Sitzung",
+            "Maximal 8 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.10.0030",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030) pro Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 4 pro Sitzung",
+            "Maximal 9 pro Sitzung",
+            "Maximal 8 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.10.0030",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0030 – Ärztliche, telemedizinische zeitversetzte Konsultation nicht kumuliert werden?",
+        "answers": [
+            "EA",
+            "AA.05.0070",
+            "AA.05.0060"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.15.0050",
+        "question": "Wie oft darf die Leistung „Ärztliches Expertenboard in An- oder Abwesenheit des Patienten, pro 1 Min.\" (AA.15.0050) pro Tage abgerechnet werden?",
+        "answers": [
+            "Maximal 30 pro Sitzung",
+            "Maximal 35 pro Sitzung",
+            "Maximal 60 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.15.0090",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.15.0090 – Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.25.0030",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.20.0040",
+        "question": "Wie oft darf die Leistung „Stomapflege ohne Irrigation\" (AA.20.0040) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.20.0050",
+        "question": "Wie oft darf die Leistung „Stomapflege mit Irrigation\" (AA.20.0050) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.20.0070",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.20.0070 – Legalinspektion durch den Arzt, pro 1 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.25.0010",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.25.0010",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.\" (AA.25.0010) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 20 pro Sitzung",
+            "Maximal 25 pro Sitzung",
+            "Maximal 40 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.25.0010",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0010 – Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min. nicht kumuliert werden?",
+        "answers": [
+            "AA.30.0090",
+            "AA.05.0130",
+            "AA.25.0020"
+        ],
+        "correct_answer_index": 2
+    },
+    {
+        "title": "Mengenbeschränkung AA.25.0020",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.\" (AA.25.0020) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 20 pro Sitzung",
+            "Maximal 25 pro Sitzung",
+            "Maximal 40 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.25.0020",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0020 – Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.  nicht kumuliert werden?",
+        "answers": [
+            "AA.25.0030",
+            "AA.00.0010",
+            "AA.00.0020"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Mengenbeschränkung AA.25.0030",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.\" (AA.25.0030) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 20 pro Sitzung",
+            "Maximal 25 pro Sitzung",
+            "Maximal 40 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    },
+    {
+        "title": "Kumulation AA.25.0030",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0030 – Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.  nicht kumuliert werden?",
+        "answers": [
+            "AA.20.0070",
+            "AA.25.0050",
+            "AA.10.0020"
+        ],
+        "correct_answer_index": 1
+    },
+    {
+        "title": "Mengenbeschränkung AA.25.0040",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Zeugnisses in Abwesenheit des Patienten\" (AA.25.0040) pro Sitzung abgerechnet werden?",
+        "answers": [
+            "Maximal 1 pro Sitzung",
+            "Maximal 6 pro Sitzung",
+            "Maximal 2 pro Sitzung"
+        ],
+        "correct_answer_index": 0
+    }
+];
