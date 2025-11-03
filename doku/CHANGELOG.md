@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
+### V4.1 (2025-11-03, aktuell)
+- Brick-Quiz als optionales Trainingsmodul integriert: neue Seite `/brick-quiz`, Feature-Flag `FEATURES.brick_quiz_enabled` in `config.ini`, statische Auslieferung über `server.py`; Button samt Übersetzungen direkt aus `/api/version` gesteuert.
+- Navigationsleiste überarbeitet: Feedback, PDF-Export und Qualitätskontrolle liegen nun im Hamburger-Menü; Brick-Quiz-Schalter sitzt neben der Sprachauswahl und lokalisiert sich unmittelbar beim Sprachwechsel.
+- Frontend-Polish: Styles des Brick-Quiz an das bestehende UI angepasst (Pill-Buttons, Overlays, Blur-Dropdowns) und kleinere Layout-Korrekturen (Menü-Schattierung, Sicherheit beim Öffnen neuer Tabs).
+- Dokumentation und Konfiguration auf Version 4.1 / 03.11.2025 aktualisiert.
+
 ### V4.0  (2025-10-31)
 - Optimierter Code zur beschleunigten Validierung von Pauschalen
 
@@ -30,7 +36,7 @@ Alle nennenswerten Änderungen dieses Projekts.
 - Pauschalen-Orchestrator liefert pro Kandidat eine aufbereitete Trefferanalyse (ICD-, LKN-, Mengen- und Kontexttreffer) zurück, sodass die UI klar markieren kann, warum eine Bedingung erfüllt wurde.
 - Feedback-Dialog reichert Meldungen automatisch mit Nutzerinput, Analyseergebnis und Browserkontext an und spart damit die manuelle Nachdokumentation bei Rückmeldungen.
 
-### V3.4 (2025-10-10, aktuell)
+### V3.4 (2025-10-10)
 - Favicon-Auslieferung korrigiert: Catch-all-Whitelist in `server.py` erweitert
   (u. a. `favicon-32.png`, `favicon.ico`, `robots.txt`), Favicon-Links in
   `index.html` auf absolute Pfade mit `sizes` umgestellt. Behebt 404 in Chrome

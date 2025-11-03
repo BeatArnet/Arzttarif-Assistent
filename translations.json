@@ -27,6 +27,7 @@
     "pass": "OK",
     "fail": "Fehler",
     "feedbackButton": "Feedback geben",
+    "exportPdfMenu": "Als PDF speichern",
     "fbCategory": "Kategorie:",
     "fbCode": "Code (optional):",
     "fbMessage": "Nachricht:",
@@ -57,7 +58,8 @@
     "qcTokensLlm1": "LLM1 Tokens (Input/Ausgabe): {in} / {out}",
     "qcTokensLlm2": "LLM2 Tokens (Input/Ausgabe): {in} / {out}",
     "medicationLabel": "Medikamente (kommagetrennt, optional):",
-    "medicationPlaceholder": "z.B. M09AX07, Spinraza, 7680664950014"
+    "medicationPlaceholder": "z.B. M09AX07, Spinraza, 7680664950014",
+    "brickQuizButton": "Brick-Quiz starten"
   },
   "fr": {
     "langLabel": "Langue :",
@@ -87,6 +89,7 @@
     "pass": "OK",
     "fail": "Erreur",
     "feedbackButton": "Envoyer un feedback",
+    "exportPdfMenu": "Enregistrer en PDF",
     "fbCategory": "Catégorie:",
     "fbCode": "Code (optionnel):",
     "fbMessage": "Message:",
@@ -117,7 +120,8 @@
     "qcTokensLlm1": "Tokens LLM1 (Entrée/Sortie) : {in} / {out}",
     "qcTokensLlm2": "Tokens LLM2 (Entrée/Sortie) : {in} / {out}",
     "medicationLabel": "Medicaments (separes par des virgules, optionnel) :",
-    "medicationPlaceholder": "p. ex. M09AX07, Spinraza, 7680664950014"
+    "medicationPlaceholder": "p. ex. M09AX07, Spinraza, 7680664950014",
+    "brickQuizButton": "Lancer le Brick-Quiz"
   },
   "it": {
     "langLabel": "Lingua:",
@@ -147,6 +151,7 @@
     "pass": "OK",
     "fail": "Errore",
     "feedbackButton": "Invia feedback",
+    "exportPdfMenu": "Salvare come PDF",
     "fbCategory": "Categoria:",
     "fbCode": "Codice (opzionale):",
     "fbMessage": "Messaggio:",
@@ -177,6 +182,7 @@
     "qcTokensLlm1": "Token LLM1 (Input/Output): {in} / {out}",
     "qcTokensLlm2": "Token LLM2 (Input/Output): {in} / {out}",
     "medicationLabel": "Medicamenti (separati da virgola, opzionale):",
-    "medicationPlaceholder": "es. M09AX07, Spinraza, 7680664950014"
+    "medicationPlaceholder": "es. M09AX07, Spinraza, 7680664950014",
+    "brickQuizButton": "Avviare il Brick-Quiz"
   }
 }

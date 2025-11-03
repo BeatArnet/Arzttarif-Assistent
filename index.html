@@ -128,9 +128,6 @@
         body.pdf-export-active {
             background: #fff;
         }
-        #exportPdfButton {
-            margin-left: auto;
-        }
         body.pdf-export-active #interactionBlocker,
         body.pdf-export-active #spinner,
         body.pdf-export-active .info-modal-overlay {
@@ -1250,12 +1247,6 @@
         .top-info-right {
             margin-left: auto;
         }
-        #qualityLink {
-            color: var(--primary-strong);
-            text-decoration: underline;
-            font-weight: 600;
-        }
-        #qualityLink:hover { text-decoration: underline; }
         .language-select {
             display: flex;
             align-items: center;
@@ -1343,17 +1334,109 @@
             color: var(--primary-strong);
             font-weight: 600;
         }
-        #feedbackButton {
+        .nav-pill-button {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
             color: var(--primary-strong);
             border: 1px solid rgba(0, 94, 184, 0.24);
             box-shadow: none;
             border-radius: 999px;
-            padding: 7px 15px;
+            padding: 8px 18px;
             font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 0;
+            transition: box-shadow 0.2s ease, transform 0.12s ease, background 0.2s ease;
         }
-        #feedbackButton:hover:not(:disabled) {
+        .nav-pill-button:hover:not(:disabled) {
+            filter: none;
             box-shadow: 0 14px 24px rgba(0, 94, 184, 0.22);
+            transform: translateY(-1px);
+        }
+        .nav-pill-button:disabled {
+            filter: none;
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .app-menu {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .app-menu-toggle {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+        }
+        .app-menu-toggle .hamburger {
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+        }
+        .app-menu-toggle .hamburger-line {
+            width: 18px;
+            height: 2px;
+            background: var(--primary-strong);
+            border-radius: 2px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .app-menu-toggle[aria-expanded="true"] .hamburger-line:nth-child(1) {
+            transform: translateY(6px) rotate(45deg);
+        }
+        .app-menu-toggle[aria-expanded="true"] .hamburger-line:nth-child(2) {
+            opacity: 0;
+        }
+        .app-menu-toggle[aria-expanded="true"] .hamburger-line:nth-child(3) {
+            transform: translateY(-6px) rotate(-45deg);
+        }
+        .app-menu-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 0;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 220px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 18px;
+            box-shadow: 0 22px 40px rgba(12, 40, 88, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 20;
+        }
+        .app-menu-dropdown.open {
+            display: flex;
+        }
+        .app-menu-item {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            background: rgba(0, 94, 184, 0.08);
+            background-clip: padding-box;
+            color: var(--primary-strong);
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            margin-top: 0;
+            transition: background 0.2s ease, transform 0.12s ease;
+            text-decoration: none;
+        }
+        .app-menu-item:hover,
+        .app-menu-item:focus-visible {
+            filter: none;
+            background: rgba(0, 94, 184, 0.16);
+            outline: none;
+            transform: translateY(-1px);
+            text-decoration: none;
         }
         #analyzeButton {
             margin-top: 10px;
@@ -1861,7 +1944,20 @@
     <div class="app-shell">
         <div class="top-info">
             <div class="top-info-left">
-                <button id="feedbackButton" type="button">Feedback geben</button>
+                <div class="app-menu">
+                    <button id="appMenuToggle" type="button" class="nav-pill-button app-menu-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="appMenuDropdown" aria-label="Menü">
+                        <span class="hamburger" aria-hidden="true">
+                            <span class="hamburger-line"></span>
+                            <span class="hamburger-line"></span>
+                            <span class="hamburger-line"></span>
+                        </span>
+                    </button>
+                    <div id="appMenuDropdown" class="app-menu-dropdown" role="menu" aria-labelledby="appMenuToggle">
+                        <button type="button" id="menuFeedback" class="app-menu-item" role="menuitem">Feedback geben</button>
+                        <button type="button" id="menuExportPdf" class="app-menu-item" role="menuitem" data-default-label="Als PDF speichern">Als PDF speichern</button>
+                        <a id="menuQuality" class="app-menu-item" role="menuitem" href="quality.html">Qualitätskontrolle</a>
+                    </div>
+                </div>
                 <div class="language-select">
                     <label id="langLabel" for="languageSelect">Sprache:</label>
                     <select id="languageSelect">
@@ -1870,9 +1966,9 @@
                         <option value="it">Italiano</option>
                     </select>
                 </div>
+                <button id="openBrickQuizButton" type="button" class="nav-pill-button" style="display:none;">Brick-Quiz starten</button>
             </div>
             <div class="top-info-right">
-                <a id="qualityLink" href="quality.html">Qualit&auml;tskontrolle</a>
                 <div class="version-line">
                     <span id="versionSpan">V?</span>
                     <span>&middot;</span>
@@ -1932,7 +2028,6 @@
 
         <div class="action-buttons">
             <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
-            <button id="exportPdfButton" type="button" class="secondary-button" onclick="exportPageAsPdf()">Als PDF speichern</button>
         </div>
         <div id="spinner"><span id="spinnerText">Wird geladen...</span></div>
         <div id="output">Daten geladen. Bereit zur Prüfung.</div>
@@ -1988,6 +2083,7 @@
                 if (span && d.version) { span.textContent = 'V' + d.version; }
                 const tarifSpan = document.getElementById('tarifVersionSpan');
                 if (tarifSpan && d.tarif_version) { tarifSpan.textContent = d.tarif_version; }
+                updateBrickQuizButton(d.brick_quiz_enabled);
             });
         let examplesData = [];
         fetch("data/beispiele.json")
@@ -2276,10 +2372,18 @@
             }
             document.getElementById('analyzeButton').textContent = t('analyzeButton', lang);
             document.getElementById('spinner').textContent = t('loading', lang);
-            const qLink = document.getElementById('qualityLink');
-            if(qLink) qLink.textContent = t('qualityLink', lang);
-            const fbBtn = document.getElementById('feedbackButton');
-            if(fbBtn) fbBtn.textContent = t('feedbackButton', lang);
+            const menuFb = document.getElementById('menuFeedback');
+            if(menuFb) menuFb.textContent = t('feedbackButton', lang);
+            const menuPdf = document.getElementById('menuExportPdf');
+            if(menuPdf) {
+                const translated = t('exportPdfMenu', lang);
+                menuPdf.textContent = translated !== 'exportPdfMenu' ? translated : (menuPdf.dataset.defaultLabel || menuPdf.textContent);
+            }
+            const menuQuality = document.getElementById('menuQuality');
+            if(menuQuality) menuQuality.textContent = t('qualityLink', lang);
+            if(typeof updateBrickQuizButton === 'function'){
+                updateBrickQuizButton(window.__brickQuizEnabled);
+            }
             const fbCat = document.getElementById('fbCategoryLabel');
             if(fbCat) fbCat.textContent = t('fbCategory', lang);
             const fbCode = document.getElementById('fbCodeLabel');
@@ -2339,9 +2443,91 @@
             // Output nicht mehr leeren, damit Ergebnisse bei Reload nicht verschwinden
             const selB=document.getElementById('beispielSelect');
             if(selB) selB.selectedIndex=0;
+            updateBrickQuizButton(window.__brickQuizEnabled);
         }
         document.getElementById('languageSelect').addEventListener('change',e=>applyLanguage(e.target.value));
-        document.getElementById('feedbackButton').addEventListener('click',toggleFeedback);
+
+        const appMenuToggle = document.getElementById('appMenuToggle');
+        const appMenuDropdown = document.getElementById('appMenuDropdown');
+        const menuFeedback = document.getElementById('menuFeedback');
+        const menuExportPdf = document.getElementById('menuExportPdf');
+        const brickQuizButton = document.getElementById('openBrickQuizButton');
+
+        function setAppMenuOpen(open, focusToggle=false){
+            if(!appMenuToggle || !appMenuDropdown) return;
+            appMenuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if(open){
+                appMenuDropdown.classList.add('open');
+                if(menuFeedback){
+                    requestAnimationFrame(()=>menuFeedback.focus());
+                }
+            }else{
+                appMenuDropdown.classList.remove('open');
+                if(focusToggle){
+                    appMenuToggle.focus();
+                }
+            }
+        }
+
+        if(appMenuToggle){
+            appMenuToggle.addEventListener('click',event=>{
+                event.stopPropagation();
+                const isOpen = appMenuToggle.getAttribute('aria-expanded') === 'true';
+                const nextState = !isOpen;
+                setAppMenuOpen(nextState, isOpen);
+            });
+        }
+
+        if(menuFeedback){
+            menuFeedback.addEventListener('click',()=>{
+                setAppMenuOpen(false);
+                toggleFeedback();
+            });
+        }
+
+        if(menuExportPdf){
+            menuExportPdf.addEventListener('click',()=>{
+                setAppMenuOpen(false);
+                exportPageAsPdf();
+            });
+        }
+
+        window.__brickQuizEnabled = true;
+        function updateBrickQuizButton(enabled){
+            if(!brickQuizButton) return;
+            const isEnabled = (enabled === undefined) ? true : Boolean(enabled);
+            window.__brickQuizEnabled = isEnabled;
+            brickQuizButton.style.display = isEnabled ? 'inline-flex' : 'none';
+            const langLabel = t('brickQuizButton', currentLang);
+            brickQuizButton.textContent = (langLabel && langLabel !== 'brickQuizButton') ? langLabel : 'Brick-Quiz starten';
+            if(isEnabled && !brickQuizButton.dataset.boundClick){
+                brickQuizButton.addEventListener('click',()=>{
+                    const win = window.open('/brick-quiz', '_blank');
+                    if (win && typeof win === 'object') {
+                        try { win.opener = null; } catch (_) {}
+                    } else {
+                        window.location.href = '/brick-quiz';
+                    }
+                });
+                brickQuizButton.dataset.boundClick = '1';
+            }
+        }
+
+        document.addEventListener('click',event=>{
+            if(!appMenuDropdown || !appMenuToggle) return;
+            if(!appMenuDropdown.classList.contains('open')) return;
+            if(appMenuDropdown.contains(event.target) || appMenuToggle.contains(event.target)){
+                return;
+            }
+            setAppMenuOpen(false);
+        });
+
+        document.addEventListener('keydown',event=>{
+            if(event.key === 'Escape'){
+                setAppMenuOpen(false, true);
+            }
+        });
+
         document.getElementById('fbSubmitButton').addEventListener('click',sendFeedback);
         document.getElementById('fbCancelButton').addEventListener('click',toggleFeedback);
         document.getElementById('feedbackModalClose').addEventListener('click',toggleFeedback);

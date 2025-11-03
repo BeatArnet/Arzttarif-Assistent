@@ -1357,8 +1357,10 @@ def render_pauschale_explanation_html(selected: dict[str, Any] | None,
 USE_RAG = config.getint('RAG', 'enabled', fallback=0) == 1
 APP_VERSION = config.get('APP', 'version', fallback='unknown')
 TARIF_VERSION = config.get('APP', 'tarif_version', fallback='')
+BRICK_QUIZ_ENABLED = config.getint('FEATURES', 'brick_quiz_enabled', fallback=1) == 1
 # Base data directory
 DATA_DIR = Path("data")
+BRICK_QUIZ_STATIC_DIR = Path(__file__).with_name("brick_quiz")
 # Rendering feature flag: prefer server-side rendering for conditions HTML from structured data
 try:
     RENDER_SERVER_SIDE_CONDITIONS = config.getint('RENDER', 'server_side_conditions', fallback=0) == 1
@@ -5756,7 +5758,11 @@ def approved_feedback() -> Any:
 @app.route('/api/version')
 def api_version() -> Any:
     """Return the configured application version."""
-    return jsonify({"version": APP_VERSION, "tarif_version": TARIF_VERSION})
+    return jsonify({
+        "version": APP_VERSION,
+        "tarif_version": TARIF_VERSION,
+        "brick_quiz_enabled": BRICK_QUIZ_ENABLED,
+    })
 
 # --- Static‑Routes & Start ---
 _CUSTOM_MIME_TYPES: Dict[str, str] = {
@@ -5795,12 +5801,65 @@ def _send_static(filename: str, mimetype: str | None = None) -> Any:
     resp = send_from_directory(".", filename, **options)
     return _apply_no_cache_headers(resp)
 
+def _send_brick_static(filename: str, mimetype: str | None = None) -> Any:
+    """Serve Brick-Quiz assets with the same no-cache policy as core static files."""
+    if not BRICK_QUIZ_STATIC_DIR.exists():
+        abort(404)
+    options: Dict[str, Any] = {"mimetype": mimetype} if mimetype else {}
+    resp = send_from_directory(str(BRICK_QUIZ_STATIC_DIR), filename, **options)
+    return _apply_no_cache_headers(resp)
+
 
 @app.route("/")
 def index_route(): # Umbenannt, um Konflikt mit Modul 'index' zu vermeiden, falls es existiert
     """Liefert die im Repository enthaltene Single-Page-Anwendung aus."""
     mimetype = _CUSTOM_MIME_TYPES.get("index.html")
     return _send_static("index.html", mimetype=mimetype)
+
+@app.route("/brick-quiz")
+def brick_quiz_route() -> Any:
+    """Expose das Brick-Quiz als eigenständige Teiloberfläche."""
+    if not BRICK_QUIZ_ENABLED:
+        abort(404)
+    return _send_brick_static("index.html", mimetype='text/html; charset=utf-8')
+
+@app.route("/brick_quiz/<path:filename>")
+def brick_quiz_static(filename: str) -> Any:
+    """Stellt statische Assets des Brick-Quiz bereit, sofern aktiviert."""
+    if not BRICK_QUIZ_ENABLED:
+        abort(404)
+    return _serve_brick_asset(filename)
+
+@app.route("/brick-quiz/<path:filename>")
+def brick_quiz_static_hyphen(filename: str) -> Any:
+    """Alias-Routing für Browser, die relative Pfade mit Bindestrich anfordern."""
+    if not BRICK_QUIZ_ENABLED:
+        abort(404)
+    return _serve_brick_asset(filename)
+
+def _serve_brick_asset(filename: str) -> Any:
+    """Zentrale Prüfung und Auslieferung für Brick-Quiz-Assets."""
+    safe_path = Path(filename)
+    if any(part.startswith(".") or part.startswith("..") for part in safe_path.parts):
+        abort(404)
+    allowed_suffixes = {
+        ".css",
+        ".js",
+        ".json",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".svg",
+        ".gif",
+        ".webp",
+        ".wav",
+        ".mp3",
+        ".ogg",
+        ".txt",
+    }
+    if safe_path.suffix and safe_path.suffix.lower() not in allowed_suffixes:
+        abort(404)
+    return _send_brick_static(filename)
 
 @app.route("/favicon.ico")
 def favicon_ico():
