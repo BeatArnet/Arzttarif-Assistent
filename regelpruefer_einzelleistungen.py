@@ -10,7 +10,6 @@ optionale Zuschläge, Patientendaten, ICD-Vorgaben u.v.m. Der öffentliche Einst
 aufgerufen und liefert strukturierte Fehler zurück, damit die Oberfläche
 verletzte Regeln hervorheben kann.
 """
-import json
 import logging
 import re  # Importiere Regex für Mengenanpassung
 import configparser
@@ -29,10 +28,6 @@ REGEL_MENGE = "Mengenbeschränkung"
 REGEL_ZUSCHLAG_ZU = "Nur als Zuschlag zu"
 REGEL_NICHT_KUMULIERBAR = "Nicht kumulierbar mit"
 REGEL_MOEG_ZUSATZPOSITIONEN = "Mögliche Zusatzpositionen"
-REGEL_PAT_GESCHLECHT = (
-    "Patientenbedingung: Geschlecht"  # Veraltet, nutze Patientenbedingung
-)
-REGEL_PAT_ALTER = "Patientenbedingung: Alter"  # Veraltet, nutze Patientenbedingung
 REGEL_PAT_BEDINGUNG = "Patientenbedingung"  # Neuer, generischer Typ
 REGEL_DIAGNOSE = "Diagnosepflicht"
 REGEL_PAUSCHAL_AUSSCHLUSS = "Pauschalenausschluss"
@@ -40,54 +35,7 @@ REGEL_PAUSCHAL_AUSSCHLUSS = "Pauschalenausschluss"
 REGEX_NICHT_KUMULIERBAR_VARIANT = re.compile(
     r"^Nicht kumulierbar(?:\s*\(([^)]*)\))?\s*mit$"
 )
-REGEX_NUR_KUMULIERBAR_VARIANT = re.compile(
-    r"^Nur kumulierbar(?:\s*\(([^)]*)\))?\s*mit$"
-)
-REGEX_KUMULIERBAR_VARIANT = re.compile(r"^Kumulierbar(?:\s*\(([^)]*)\))?\s*mit$")
 # Fügen Sie hier weitere Typen hinzu, falls Ihr Regelmodell sie enthält
-
-
-# --- Ladefunktion für das Regelwerk ---
-def lade_regelwerk(path: str) -> dict:
-    """
-    Lädt das Regelwerk aus einer JSON-Datei und gibt ein Mapping von LKN zu Regeln zurück.
-
-    Args:
-        path: Pfad zur JSON-Datei mit strukturierten Regeln.
-    Returns:
-        Dict[str, list]: Schlüssel sind LKN-Codes, Werte sind Listen von Regel-Definitionsdicts.
-    """
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        mapping: dict = {}
-        # Annahme: data ist eine Liste von Objekten, jedes mit "LKN" und "Regeln"
-        for entry in data:
-            lkn = entry.get("LKN")
-            if not lkn:
-                logger.warning("WARNUNG: Regelobjekt ohne LKN gefunden: %s", entry)
-                continue
-            lkn = str(lkn).upper()
-            rules = entry.get("Regeln") or []
-            mapping[lkn] = rules
-        return mapping
-    except FileNotFoundError:
-        logger.error("FEHLER: Regelwerk-Datei nicht gefunden: %s", path)
-        return {}
-    except json.JSONDecodeError as e:
-        logger.error(
-            "FEHLER: Fehler beim Parsen der Regelwerk-JSON-Datei '%s': %s",
-            path,
-            e,
-        )
-        return {}
-    except Exception as e:
-        logger.error(
-            "FEHLER: Unerwarteter Fehler beim Laden des Regelwerks '%s': %s",
-            path,
-            e,
-        )
-        return {}
 
 
 # --- Hauptfunktion zur Regelprüfung für LKNs ---
@@ -127,7 +75,6 @@ def pruefe_abrechnungsfaehigkeit(
     }
     # Kontextdaten
     alter = fall.get("Alter")
-    geschlecht = fall.get("Geschlecht")
     medications = fall.get("Medikamente")
     if medications is None:
         medications = fall.get("GTIN")

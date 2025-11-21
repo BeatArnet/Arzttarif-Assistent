@@ -46,7 +46,7 @@ def test_analyze_billing_with_mocked_llm():
     """
     Tests the /api/analyze-billing endpoint with a mocked LLM response.
     """
-    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE)) as mock_call_gemini:
+    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE)):
         with server.app.test_client() as client:
             response = client.post('/api/analyze-billing', json={'inputText': 'Konsultation HAz, 17 Minuten'})
             assert response.status_code == 200

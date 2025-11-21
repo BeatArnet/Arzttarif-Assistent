@@ -1,0 +1,118 @@
+         2644190 function calls (2644055 primitive calls) in 0.501 seconds
+
+   Ordered by: cumulative time
+   List reduced from 329 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002    0.502    0.502 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\reproduce_slow_pauschale.py:68(run_benchmark)
+     72/1    0.001    0.000    0.473    0.473 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:72(wrapper)
+        1    0.106    0.106    0.471    0.471 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:2647(determine_applicable_pauschale)
+       71    0.000    0.000    0.200    0.003 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:2044(evaluate_pauschale_logic_orchestrator)
+       71    0.000    0.000    0.199    0.003 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:724(_evaluate_prueflogik_expression)
+      355    0.002    0.000    0.194    0.001 {method 'sub' of 're.Pattern' objects}
+      592    0.005    0.000    0.193    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:733(_replace)
+  580/574    0.004    0.000    0.187    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:670(_evaluate_condition_text)
+      579    0.007    0.000    0.180    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1206(check_single_condition)
+  1807980    0.098    0.000    0.098    0.000 {method 'get' of 'dict' objects}
+      889    0.016    0.000    0.070    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:93(get_table_content)
+       71    0.013    0.000    0.066    0.001 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:474(count_matching_lkn_codes)
+      113    0.037    0.000    0.056    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1259(<setcomp>)
+      398    0.034    0.000    0.049    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1356(<setcomp>)
+        2    0.001    0.001    0.049    0.025 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:289(build_pauschale_condition_structure_index)
+    94542    0.034    0.000    0.049    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:505(<genexpr>)
+        2    0.000    0.000    0.047    0.024 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:301(<dictcomp>)
+      628    0.024    0.000    0.047    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:307(_prepare_single_pauschale_structure)
+    17269    0.018    0.000    0.024    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:98(_normalize_table_type_value)
+   387581    0.022    0.000    0.022    0.000 {method 'upper' of 'str' objects}
+      756    0.012    0.000    0.018    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:2734(_get_tables_for_context_lkn)
+    16450    0.011    0.000    0.016    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:152(get_lang_field)
+      847    0.004    0.000    0.011    0.000 {built-in method builtins.sorted}
+    82167    0.005    0.000    0.005    0.000 {method 'lower' of 'str' objects}
+     8668    0.003    0.000    0.004    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:258(_normalize_operator_label)
+     5076    0.003    0.000    0.004    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:271(_condition_sort_key)
+        1    0.000    0.000    0.004    0.004 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:88(get_excluded_lkn_tables)
+        1    0.000    0.000    0.004    0.004 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\runtime_config.py:19(load_base_config)
+       71    0.000    0.000    0.003    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:775(_evaluate_boolean_expression_safe)
+        1    0.000    0.000    0.003    0.003 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\configparser.py:694(read)
+    39094    0.003    0.000    0.003    0.000 {method 'append' of 'list' objects}
+    35325    0.003    0.000    0.003    0.000 {method 'replace' of 'str' objects}
+    10152    0.002    0.000    0.003    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:241(_normalize_group_identifier)
+    16365    0.002    0.000    0.003    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:147(<lambda>)
+    35086    0.002    0.000    0.002    0.000 {method 'strip' of 'str' objects}
+        9    0.000    0.000    0.002    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\logging\__init__.py:1479(info)
+        9    0.000    0.000    0.002    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\logging\__init__.py:1610(_log)
+        1    0.000    0.000    0.002    0.002 {built-in method io.open}
+      580    0.000    0.000    0.002    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:173(search)
+    28503    0.002    0.000    0.002    0.000 {built-in method builtins.isinstance}
+       72    0.000    0.000    0.002    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:49(deactivate_table_content_cache)
+        1    0.000    0.000    0.002    0.002 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\encodings\__init__.py:71(search_function)
+        1    0.002    0.002    0.002    0.002 {method 'reset' of '_contextvars.ContextVar' objects}
+      864    0.001    0.000    0.002    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:272(_compile)
+        1    0.000    0.000    0.002    0.002 {built-in method builtins.__import__}
+        1    0.000    0.000    0.002    0.002 <frozen importlib._bootstrap>:1165(_find_and_load)
+        1    0.000    0.000    0.002    0.002 <frozen importlib._bootstrap>:1120(_find_and_load_unlocked)
+       71    0.000    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:557(_normalize_logical_operators)
+      284    0.000    0.000    0.001    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:178(sub)
+        9    0.000    0.000    0.001    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\logging\__init__.py:1636(handle)
+
+
+
+Top 50 by internal time (self time):
+         2644190 function calls (2644055 primitive calls) in 0.501 seconds
+
+   Ordered by: internal time
+   List reduced from 329 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.106    0.106    0.471    0.471 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:2647(determine_applicable_pauschale)
+  1807980    0.098    0.000    0.098    0.000 {method 'get' of 'dict' objects}
+      113    0.037    0.000    0.056    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1259(<setcomp>)
+      398    0.034    0.000    0.049    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1356(<setcomp>)
+    94542    0.034    0.000    0.049    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:505(<genexpr>)
+      628    0.024    0.000    0.047    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:307(_prepare_single_pauschale_structure)
+   387581    0.022    0.000    0.022    0.000 {method 'upper' of 'str' objects}
+    17269    0.018    0.000    0.024    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:98(_normalize_table_type_value)
+      889    0.016    0.000    0.070    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:93(get_table_content)
+       71    0.013    0.000    0.066    0.001 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:474(count_matching_lkn_codes)
+      756    0.012    0.000    0.018    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:2734(_get_tables_for_context_lkn)
+    16450    0.011    0.000    0.016    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:152(get_lang_field)
+      579    0.007    0.000    0.180    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:1206(check_single_condition)
+    82167    0.005    0.000    0.005    0.000 {method 'lower' of 'str' objects}
+      592    0.005    0.000    0.193    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:733(_replace)
+  580/574    0.004    0.000    0.187    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:670(_evaluate_condition_text)
+      847    0.004    0.000    0.011    0.000 {built-in method builtins.sorted}
+     8668    0.003    0.000    0.004    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:258(_normalize_operator_label)
+    39094    0.003    0.000    0.003    0.000 {method 'append' of 'list' objects}
+    35325    0.003    0.000    0.003    0.000 {method 'replace' of 'str' objects}
+     5076    0.003    0.000    0.004    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:271(_condition_sort_key)
+    35086    0.002    0.000    0.002    0.000 {method 'strip' of 'str' objects}
+    10152    0.002    0.000    0.003    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:241(_normalize_group_identifier)
+    16365    0.002    0.000    0.003    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:147(<lambda>)
+      355    0.002    0.000    0.194    0.001 {method 'sub' of 're.Pattern' objects}
+        1    0.002    0.002    0.502    0.502 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\reproduce_slow_pauschale.py:68(run_benchmark)
+        1    0.002    0.002    0.002    0.002 {method 'reset' of '_contextvars.ContextVar' objects}
+    28503    0.002    0.000    0.002    0.000 {built-in method builtins.isinstance}
+        2    0.001    0.001    0.049    0.025 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:289(build_pauschale_condition_structure_index)
+      146    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:146(<dictcomp>)
+        9    0.001    0.000    0.001    0.000 {method 'write' of '_io.TextIOWrapper' objects}
+      889    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:118(<listcomp>)
+       71    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:800(_shunting_yard)
+     4019    0.001    0.000    0.001    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\typing.py:373(inner)
+     6294    0.001    0.000    0.001    0.000 {method 'setdefault' of 'dict' objects}
+      889    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:56(_get_cache_bucket)
+      864    0.001    0.000    0.002    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:272(_compile)
+       71    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:829(_evaluate_rpn)
+     1658    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:314(<genexpr>)
+        3    0.001    0.000    0.001    0.000 {built-in method nt.stat}
+       71    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:797(<listcomp>)
+     2184    0.001    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\utils.py:119(<genexpr>)
+     2095    0.001    0.000    0.001    0.000 {method 'split' of 'str' objects}
+     72/1    0.001    0.000    0.473    0.473 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:72(wrapper)
+        1    0.000    0.000    0.001    0.001 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\configparser.py:1012(_read)
+      657    0.000    0.000    0.000    0.000 {method 'search' of 're.Pattern' objects}
+       71    0.000    0.000    0.001    0.000 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:178(build_normalized_context)
+      230    0.000    0.000    0.000    0.000 {method 'match' of 're.Pattern' objects}
+        2    0.000    0.000    0.047    0.024 C:\Users\beata\OneDrive\Dokumente\Organisation\OAAT\Neuer_Arzttarif\GPT-Assistent\Arzttarif_Assistent_dev\regelpruefer_pauschale.py:301(<dictcomp>)
+     3225    0.000    0.000    0.000    0.000 {method 'startswith' of 'str' objects}
+
+
