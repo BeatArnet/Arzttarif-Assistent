@@ -10,9 +10,8 @@ werden.
 # utils.py
 import html
 import logging
-from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict, Optional, Iterator
+from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict, Optional
 import re
 import unicodedata
 
@@ -72,15 +71,6 @@ def _get_cache_bucket(
 
     return entry["data"]
 
-
-@contextmanager
-def table_content_cache_scope() -> Iterator[None]:
-    """Context manager that establishes a request-scoped table content cache."""
-    token = activate_table_content_cache()
-    try:
-        yield
-    finally:
-        deactivate_table_content_cache(token)
 
 if TYPE_CHECKING:
     import faiss

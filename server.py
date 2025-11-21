@@ -22,7 +22,11 @@ from pathlib import Path
 import datetime as dt
 from functools import lru_cache
 from types import SimpleNamespace
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple, Mapping, Protocol
+
+# Always initialize optional third-party helpers to a known value so static analyzers
+# see a bound name even if the optional dependency is missing.
+Compress: Optional[Any] = None
 
 if TYPE_CHECKING:
     from flask import (
@@ -45,37 +49,65 @@ else:
             request,
             send_from_directory,
         )
-    except ModuleNotFoundError:  # Minimal stubs for test environment
+    except ModuleNotFoundError:
+        FlaskType = None
+
+    try:
+        from flask_compress import Compress
+    except ModuleNotFoundError:
+        Compress = None
+
+    if FlaskType is None:  # Minimal stubs for test environment
         class FlaskType:
             def __init__(self, *a, **kw):
+                """Leichte Flask-Attrappenklasse für Tests ohne echte Abhängigkeiten."""
                 self.routes = {}
                 self.config = {}
                 self._after_request_funcs = []
+                self._before_request_funcs = []
+                self._teardown_request_funcs = []
 
             def route(self, path, methods=None):
+                """Registriert eine Dummy-Route mit zugehöriger Handlerfunktion."""
                 methods = tuple((methods or ["GET"]))
 
                 def decorator(func):
+                    """Dekorator, der die Route-Hinweise im Stub speichert."""
                     self.routes[(path, methods)] = func
                     return func
 
                 return decorator
 
             def after_request(self, func):
+                """Merkt sich eine After-Request-Funktion im Stub."""
                 self._after_request_funcs.append(func)
                 return func
 
+            def before_request(self, func):
+                """Merkt sich eine Before-Request-Funktion im Stub."""
+                self._before_request_funcs.append(func)
+                return func
+
+            def teardown_request(self, func):
+                """Merkt sich eine Teardown-Funktion im Stub."""
+                self._teardown_request_funcs.append(func)
+                return func
+
             def test_client(self):
+                """Stellt einen minimalen Test-Client bereit, der die Routen-Map nutzt."""
                 app = self
 
                 class Client:
                     def __enter__(self):
+                        """Aktiviert Kontextmanager für with-Block im Stub-Client."""
                         return self
 
                     def __exit__(self, exc_type, exc, tb):
+                        """Beendet Kontextmanager ohne spezielle Aufräumarbeiten."""
                         return False
 
                     def post(self, path, json=None):
+                        """Simuliert einen POST-Request gegen die registrierte Route."""
                         func = app.routes.get((path, ("POST",)))
                         if not func:
                             raise AssertionError("Route not found")
@@ -85,6 +117,7 @@ else:
                             is_json = True
 
                             def get_json(self, silent: bool = False):
+                                """Gibt den stub-JSON-Body aus dem Testaufruf zurück."""
                                 return json
 
                         request = Req()
@@ -96,18 +129,22 @@ else:
 
                         class R:
                             def __init__(self, d, s):
+                                """Speichert Dummy-Antwortdaten und Statuscode."""
                                 self.status_code = s
                                 self._d = d
 
                             def get_json(self):
+                                """Liefert den Dummy-JSON-Inhalt zurück."""
                                 return self._d
 
                             def get_data(self, as_text: bool = False):
+                                """Liefer Dummy-Daten wahlweise als Text oder Bytes zurück."""
                                 return self._d if not as_text else str(self._d)
 
                         return R(data, status)
 
                     def get(self, path, query_string=None):
+                        """Simuliert einen GET-Request gegen die registrierte Route."""
                         func = app.routes.get((path, ("GET",)))
                         if not func:
                             raise AssertionError("Route not found")
@@ -118,6 +155,7 @@ else:
                             args = query_string or {}
 
                             def get_json(self, silent: bool = False):
+                                """Liefert ein leeres JSON-Objekt für GET-Stubs."""
                                 return {}
 
                         request = Req()
@@ -129,13 +167,16 @@ else:
 
                         class R:
                             def __init__(self, d, s):
+                                """Speichert Dummy-Antwortdaten und Statuscode."""
                                 self.status_code = s
                                 self._d = d
 
                             def get_json(self):
+                                """Liefert den Dummy-JSON-Inhalt zurück."""
                                 return self._d
 
                             def get_data(self, as_text: bool = False):
+                                """Liefer Dummy-Daten wahlweise als Text oder Bytes zurück."""
                                 return self._d if not as_text else str(self._d)
 
                         return R(data, status)
@@ -143,26 +184,32 @@ else:
                 return Client()
 
             def run(self, *a, **k):
+                """Platzhalter für flask.Flask.run in Umgebungen ohne Serverstart."""
                 pass
 
         Flask = FlaskType
 
         class FlaskBlueprint:
             def __init__(self, *a: Any, **kw: Any) -> None:
+                """Stub-Blueprint ohne Funktionalität für Testumgebungen."""
                 pass
 
         def jsonify(obj: Any = None) -> Any:
+            """Stub für flask.jsonify, der das Objekt unverändert zurückgibt."""
             return obj
 
         def send_from_directory(directory: os.PathLike[str] | str, path: os.PathLike[str] | str, **kwargs: Any) -> Any:
+            """Stub für flask.send_from_directory, gibt den Dateinamen zurück."""
             return str(path)
 
         class Request:
             def __init__(self) -> None:
+                """Minimale Request-Attrappe für Tests ohne Flask."""
                 self.is_json = False
                 self.environ: Dict[str, Any] = {}
 
             def get_json(self, silent: bool = False) -> Any:
+                """Stub für request.get_json, liefert leeres Dict."""
                 return {}
 
         request = Request()
@@ -170,6 +217,7 @@ else:
         FlaskRequest = Request
 
         def abort(code: int) -> None:
+            """Stub für flask.abort, wirft immer eine Exception."""
             raise Exception(f"abort {code}")
 
 Request = FlaskRequest
@@ -215,6 +263,7 @@ except ModuleNotFoundError:
         """Fallback HTTPError capturing an optional response."""
 
         def __init__(self, response: Any | None = None) -> None:
+            """Initialisiert die Fehlerinstanz mit optionalem Response-Objekt."""
             super().__init__("HTTP error")
             self.response = response
 
@@ -225,6 +274,7 @@ except ModuleNotFoundError:
 
         @staticmethod
         def post(*a: Any, **k: Any) -> None:
+            """Stub für HTTP-POST, der fehlende requests-Installation meldet."""
             raise RuntimeError("requests module not available")
 
     requests: Any = _DummyRequests()
@@ -235,9 +285,9 @@ try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
     def load_dotenv(*a, **k) -> bool:
+        """Fallback für python-dotenv: tut nichts und liefert False."""
         return False
-import regelpruefer_einzelleistungen as regelpruefer  # Dein Modul
-from typing import Dict, List, Any, Set, Tuple, Callable, Optional, cast  # Tuple und Callable hinzugefügt
+from typing import Dict, List, Any, Set, Tuple, Callable, Optional, cast
 from utils import (
     get_table_content,
     translate_rule_error_message,
@@ -281,9 +331,11 @@ from logging.handlers import RotatingFileHandler
 import sys
 
 # Configure logging
+lkn_to_tables_index: Dict[str, List[str]] = {}
 # Custom StreamHandler to handle encoding errors
 class SafeEncodingStreamHandler(logging.StreamHandler):
     def emit(self, record):
+        """Schreibt Logzeilen robust unter Erhalt nicht-ASCII-Zeichen."""
         try:
             msg = self.format(record)
             stream = self.stream
@@ -350,6 +402,7 @@ def _env_name(provider: str) -> str:
 
 # Helper to fetch API credentials generically (e.g. GEMINI_API_KEY)
 def _get_api_key(provider: str) -> Optional[str]:
+    """Liest einen API-Key aus Umgebungsvariablen oder config.ini für den Provider."""
     provider_env_key = _env_name(provider)
     env_candidates = [f"{provider_env_key}_API_KEY"]
     env_candidates.extend(API_KEY_ENV_FALLBACKS.get(provider.lower(), ()))
@@ -371,6 +424,7 @@ def _get_api_key(provider: str) -> Optional[str]:
 
 
 def _get_base_url(provider: str) -> Optional[str]:
+    """Liest eine optionale Basis-URL für OpenAI-kompatible Provider."""
     return os.getenv(f"{_env_name(provider)}_BASE_URL")
 
 
@@ -385,6 +439,7 @@ except Exception:
 
 
 def _get_stage_settings(stage: str) -> tuple[str, str]:
+    """Ermittelt Provider- und Modellnamen für Stage 1 oder 2 aus der Konfiguration."""
     provider_raw = config.get("LLM1UND2", f"{stage}_provider", fallback="gemini")
     provider = (provider_raw or "gemini").strip().lower() or "gemini"
 
@@ -400,6 +455,7 @@ STAGE2_PROVIDER, STAGE2_MODEL = _get_stage_settings("stage2")
 MODEL_TEMPERATURE_SECTION = "MODEL_TEMPERATURES"
 
 def _get_float_option(section: str, option: str) -> Optional[float]:
+    """Liest einen Float aus der Konfiguration und liefert None bei ungültigem Wert."""
     if config.has_option(section, option):
         try:
             return config.getfloat(section, option)
@@ -414,6 +470,7 @@ def _get_float_option(section: str, option: str) -> Optional[float]:
     return None
 
 def _default_temperature(stage_key: str, provider: str) -> Optional[float]:
+    """Fallback-Temperatur pro Stage/Provider, falls keine Konfiguration vorhanden ist."""
     if provider == "openai":
         return None
     if provider == "apertus" and stage_key == "stage1":
@@ -423,6 +480,7 @@ def _default_temperature(stage_key: str, provider: str) -> Optional[float]:
     return 0.05
 
 def _resolve_temperature(stage_key: str, provider: str, model: str) -> Optional[float]:
+    """Leitet die Temperatur aus Konfiguration oder Default-Regeln ab."""
     option = f"{stage_key}_temperature"
     explicit = _get_float_option("LLM1UND2", option)
     if explicit is not None:
@@ -440,6 +498,7 @@ def _resolve_temperature(stage_key: str, provider: str, model: str) -> Optional[
     return _default_temperature(stage_key, provider)
 
 def _temperature_kwargs(temperature: Optional[float]) -> Dict[str, float]:
+    """Konvertiert Temperaturwert in Keyword-Args für den Modellaufruf."""
     if temperature is None:
         return {}
     return {"temperature": float(temperature)}
@@ -687,6 +746,7 @@ def _merge_patient_demographics(
         heuristic_demo = cast(PatientDemographics, {})
 
     def _clean_operator(value: Any) -> Optional[str]:
+        """Validiert Alters-Vergleichsoperatoren und gibt nur erlaubte zurück."""
         if isinstance(value, str):
             stripped = value.strip()
             if stripped in {"<", "<=", "=", ">=", ">"}:
@@ -752,24 +812,6 @@ def _merge_patient_demographics(
             "gender_source": gender_source,
         },
     )
-
-
-def _demographics_imply_child(demo: PatientDemographics | CombinedDemographics | None, upper_bound: int = 12) -> bool:
-    """Return True if demographics indicate a child up to ``upper_bound`` years."""
-
-    if not isinstance(demo, dict):
-        return False
-    value = demo.get("age_value")
-    if not isinstance(value, int):
-        return False
-    operator = demo.get("age_operator")
-    if operator in (None, "", "="):
-        return value <= upper_bound
-    if operator == "<":
-        return value <= upper_bound
-    if operator == "<=":
-        return value <= upper_bound
-    return False
 
 
 def _coerce_age_value(value: Any) -> Optional[float]:
@@ -865,6 +907,7 @@ def _format_tardoc_demographics(code: str, lang: str) -> Optional[str]:
     unit_text = unit_texts.get(lang) or unit_texts.get("de") or _AGE_UNIT_FALLBACK["de"]
 
     def _fmt(value: float | None) -> Optional[str]:
+        """Formatiert Alterswerte kompakt ohne Nachkommastellen, falls Integer."""
         if value is None:
             return None
         if float(value).is_integer():
@@ -890,6 +933,7 @@ def _format_tardoc_demographics(code: str, lang: str) -> Optional[str]:
 
 
 def _format_age_value_for_tokens(value: float) -> str:
+    """Formatiert Alterswerte für Token-Listen (Integer ohne Dezimalpunkt)."""
     if float(value).is_integer():
         return str(int(value))
     return f"{value:g}"
@@ -1027,6 +1071,7 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
         inter_ops = structured.get('inter_group_ops') or []
 
         def _normalize_identifier(value: Any) -> Any:
+            """Normalisiert Gruppen-IDs auf int oder bereinigte Strings."""
             if value is None:
                 return None
             try:
@@ -1063,6 +1108,7 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
 
         @lru_cache(maxsize=None)
         def _cluster_end_for(group_id: Any) -> int:
+            """Berechnet das Ende eines UND-Clusters, um Klammerung korrekt zu rendern."""
             idx = group_index_map.get(group_id)
             if idx is None:
                 return -1
@@ -1268,20 +1314,32 @@ def _render_condition_value_html(cond: dict[str, Any], lang: str = 'de') -> str:
             return translate('condition_text_lkn_list', lang, linked_codes=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_lkns_spec', lang))}</i>"
 
         if ctype in ("LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"):
-            table_names = [v.strip() for v in raw_values.split(',') if v.strip()]
+            tokens = [v.strip() for v in raw_values.split(',') if v.strip()]
+            if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
+                table_names = tokens  # Treat as literal table name (e.g., "OR")
+            else:
+                table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
             parts: list[str] = []
             for tn in table_names:
                 entries = get_table_content(tn, 'service_catalog', tabellen_dict_by_table, lang)
                 parts.append(create_html_info_link(tn, 'lkn_table', html_escape(tn), data_content=json.dumps(entries)))
-            return translate('condition_text_lkn_table', lang, table_names=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_table_name', lang))}</i>"
+            if parts:
+                return translate('condition_text_lkn_table', lang, table_names=", ".join(parts))
+            return ""
 
         if ctype in ("HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"):
-            table_names = [v.strip() for v in raw_values.split(',') if v.strip()]
+            tokens = [v.strip() for v in raw_values.split(',') if v.strip()]
+            if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
+                table_names = tokens
+            else:
+                table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
             parts: list[str] = []
             for tn in table_names:
                 entries = get_table_content(tn, 'icd', tabellen_dict_by_table, lang)
                 parts.append(create_html_info_link(tn, 'icd_table', html_escape(tn), data_content=json.dumps(entries)))
-            return translate('condition_text_icd_table', lang, table_names=", ".join(parts)) if parts else f"<i>{html_escape(translate('no_table_name', lang))}</i>"
+            if parts:
+                return translate('condition_text_icd_table', lang, table_names=", ".join(parts))
+            return ""
 
         if ctype in ("ICD", "HAUPTDIAGNOSE IN LISTE", "ICD IN LISTE"):
             codes = [v.strip().upper() for v in raw_values.split(',') if v.strip()]
@@ -1336,7 +1394,8 @@ def render_pauschale_explanation_html(selected: dict[str, Any] | None,
                 text = get_lang_field(details, 'Pauschale_Text', lang) or ''
                 valid = bool(cand.get('is_valid_structured'))
                 status = translate('conditions_met' if valid else 'conditions_not_met', lang)
-                status_html = f"<span style=\"color:{'green' if valid else 'red'};\">{html_escape(status)}</span>"
+                status_class = "condition-status condition-status-positive" if valid else "condition-status condition-status-negative"
+                status_html = f"<span class=\"{status_class}\">{html_escape(status)}</span>"
                 code_disp = html_escape(code)
                 link = (
                     f"<a href='#' class='pauschale-exp-link info-link tag-code' "
@@ -1443,26 +1502,6 @@ try:
     OPENAI_MAX_OUTPUT_TOKENS_APERTUS = config.getint('OPENAI', 'max_output_tokens_apertus', fallback=OPENAI_MAX_OUTPUT_TOKENS)
 except Exception:
     OPENAI_MAX_OUTPUT_TOKENS_APERTUS = OPENAI_MAX_OUTPUT_TOKENS
-try:
-    OPENAI_TOKEN_BUDGET_DEFAULT = config.getint('OPENAI', 'token_budget_default', fallback=6000)
-except Exception:
-    OPENAI_TOKEN_BUDGET_DEFAULT = 6000
-try:
-    OPENAI_TOKEN_BUDGET_APERTUS = config.getint('OPENAI', 'token_budget_apertus', fallback=4000)
-except Exception:
-    OPENAI_TOKEN_BUDGET_APERTUS = 4000
-try:
-    OPENAI_TRIM_APERTUS_ENABLED = config.getint('OPENAI', 'trim_apertus_enabled', fallback=1) == 1
-except Exception:
-    OPENAI_TRIM_APERTUS_ENABLED = True
-try:
-    OPENAI_TRIM_MAX_PASSES = config.getint('OPENAI', 'trim_max_passes', fallback=3)
-except Exception:
-    OPENAI_TRIM_MAX_PASSES = 3
-try:
-    OPENAI_TRIM_MIN_CONTEXT_CHARS = config.getint('OPENAI', 'trim_min_context_chars', fallback=2000)
-except Exception:
-    OPENAI_TRIM_MIN_CONTEXT_CHARS = 2000
 
 # Anzahl Wiederholungsversuche bei Serverfehlern (HTTP 5xx) für OpenAI-kompatible Aufrufe
 try:
@@ -1554,6 +1593,7 @@ CheckPauschaleConditionsType = Callable[
         Dict[str, Dict[str, Any]],
         str,
         Optional[Dict[str, Dict[str, Any]]],
+        Optional[Dict[str, Any]],
     ],
     Dict[str, Any]
 ]
@@ -1562,10 +1602,23 @@ GenerateConditionDetailHtmlType = Callable[
     [Tuple[Any, ...], Dict[Any, Any], Dict[Any, Any], str],
     str,
 ]
-DetermineApplicablePauschaleType = Callable[
-    [str, List[Dict[str, Any]], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[str, List[Dict[str, Any]]], Set[str], str],
-    Dict[str, Any]
-]
+class DetermineApplicablePauschaleType(Protocol):
+    def __call__(
+        self,
+        user_input: str,
+        rule_checked_leistungen: List[Dict[str, Any]],
+        context: Mapping[str, Any],
+        pauschale_lp_data: List[Dict[str, Any]],
+        pauschale_bedingungen_data: List[Dict[str, Any]],
+        pauschalen_dict: Dict[str, Dict[str, Any]],
+        leistungskatalog_dict: Dict[str, Dict[str, Any]],
+        tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]],
+        potential_pauschale_codes_set: Optional[Set[str]] = ...,
+        lang: str = ...,
+        prepared_structures: Optional[Dict[str, Any]] = ...,
+    ) -> Dict[str, Any]:
+        """Signatur für Pauschalen-Auswahlfunktionen."""
+        ...
 PrepareTardocAbrechnungType = Callable[[List[Dict[Any,Any]], Dict[str, Dict[Any,Any]], str], Dict[str,Any]]
 
 # --- Standard-Fallbacks für Funktionen aus regelpruefer_pauschale ---
@@ -1575,6 +1628,7 @@ def default_evaluate_fallback( # Matches: evaluate_structured_conditions(pauscha
     pauschale_bedingungen_data: List[Dict[Any, Any]],
     tabellen_dict_by_table: Dict[str, List[Dict[Any, Any]]]
 ) -> bool:
+    """Fallback, falls der Pauschalen-Regelprüfer nicht geladen werden konnte."""
     logger.warning("Fallback für 'evaluate_structured_conditions' aktiv.")
     return False
 
@@ -1586,7 +1640,9 @@ def default_check_html_fallback(
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
     lang: str = "de",
     pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+    prepared_structures: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Fallback für HTML-Detailprüfung, falls Modulimport fehlschlägt."""
     logger.warning("Fallback für 'check_pauschale_conditions' aktiv.")
     message = translate('detail_html_not_generated', lang)
     return {
@@ -1601,6 +1657,7 @@ def default_get_simplified_conditions_fallback( # Matches: get_simplified_condit
     pauschale_code: str,
     bedingungen_data: List[Dict[Any, Any]]
 ) -> Set[Any]:
+    """Fallback für vereinfachte Bedingungsliste, wenn Regelprüfer fehlt."""
     logger.warning("Fallback für 'get_simplified_conditions' aktiv.")
     return set()
 
@@ -1610,20 +1667,24 @@ def default_generate_condition_detail_html_fallback(
     tabellen_dict_by_table: Dict[Any, Any],
     lang: str = 'de',
 ) -> str:
+    """Fallback für Detail-HTML einer Bedingung, wenn Generator fehlt."""
     logger.warning("Fallback für 'generate_condition_detail_html' aktiv.")
     return "<li>Detail-Generierung fehlgeschlagen (Fallback)</li>"
 
 def default_determine_applicable_pauschale_fallback(
-    user_input_param: str, rule_checked_leistungen_list_param: List[Dict[str, Any]],
-    pauschale_haupt_pruef_kontext_param: Dict[str, Any],
-    pauschale_lp_data_param: List[Dict[str, Any]],
-    pauschale_bedingungen_data_param: List[Dict[str, Any]],
-    pauschalen_dict_param: Dict[str, Any],
-    leistungskatalog_dict_param: Dict[str, Any],
-    tabellen_dict_by_table_param: Dict[str, List[Dict[str, Any]]],
-    potential_pauschale_codes_set_param: Set[str],
-    lang_param: str = 'de'
+    user_input: str,
+    rule_checked_leistungen: List[Dict[str, Any]],
+    context: Mapping[str, Any],
+    pauschale_lp_data: List[Dict[str, Any]],
+    pauschale_bedingungen_data: List[Dict[str, Any]],
+    pauschalen_dict: Dict[str, Dict[str, Any]],
+    leistungskatalog_dict: Dict[str, Dict[str, Any]],
+    tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]],
+    potential_pauschale_codes_set: Optional[Set[str]] = None,
+    lang: str = 'de',
+    prepared_structures: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Fallback für Hauptprüfung der Pauschalen-Logik."""
     logger.warning("Fallback für 'determine_applicable_pauschale' aktiv.")
     return {"type": "Error", "message": "Pauschalen-Hauptprüfung nicht verfügbar (Fallback)"}
 
@@ -1647,11 +1708,13 @@ try:
     else:
         logger.error("FEHLER: 'prepare_tardoc_abrechnung' NICHT in regelpruefer_einzelleistungen.py gefunden! Verwende Fallback.")
         def prepare_tardoc_lkn_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
+            """Fallback für prepare_tardoc_abrechnung, falls Funktion fehlt."""
             return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Funktion fehlt)"}
         prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_fb
 except ImportError:
     logger.error("FEHLER: regelpruefer_einzelleistungen.py nicht gefunden! Verwende Fallbacks für LKN-Regelprüfung.")
     def prepare_tardoc_lkn_import_fb(r: List[Dict[Any,Any]], l: Dict[str, Dict[Any,Any]], lang_param: str = 'de') -> Dict[str,Any]:
+        """Fallback für prepare_tardoc_abrechnung bei Importfehlern."""
         return {"type":"Error", "message":"TARDOC Prep Fallback (LKN Modulimportfehler)"}
     prepare_tardoc_abrechnung_func = prepare_tardoc_lkn_import_fb
 
@@ -1718,9 +1781,12 @@ tardoc_tarif_dict: dict[str, dict] = {}
 tardoc_interp_dict: dict[str, dict] = {}
 tardoc_demographic_cache: dict[str, Dict[str, Any]] = {}
 pauschale_lp_data: list[dict] = []
+pauschale_lp_index: Dict[str, Set[str]] = defaultdict(set)
 pauschalen_data: list[dict] = []
 pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
+pauschale_cond_lkn_index: Dict[str, Set[str]] = defaultdict(set)
+pauschale_cond_table_index: Dict[str, Set[str]] = defaultdict(set)
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
 medication_entries: list[dict[str, Any]] = []
@@ -1733,6 +1799,7 @@ token_doc_freq: dict[str, int] = {}
 chop_data: list[dict] = []
 full_catalog_token_count: int = 0
 catalog_description_lookup: Set[str] = set()
+prepared_structures: Dict[str, Any] = {}
 
 def create_app() -> FlaskType:
     """
@@ -1751,6 +1818,7 @@ def create_app() -> FlaskType:
 
     @app.before_request
     def _activate_table_cache_per_request() -> None:
+        """Aktiviert den Tabellencache pro Request und merkt sich das Token im Environ."""
         token = activate_table_content_cache()
         if token is not None:
             environ = getattr(request, "environ", None)
@@ -1761,6 +1829,7 @@ def create_app() -> FlaskType:
 
     @app.teardown_request
     def _cleanup_table_cache_per_request(_exc: Optional[BaseException]) -> None:
+        """Deaktiviert den Tabellencache nach jedem Request, falls Token gesetzt."""
         environ = getattr(request, "environ", None)
         token = None
         if isinstance(environ, dict):
@@ -1797,6 +1866,15 @@ def create_app() -> FlaskType:
         return response
 
     # Ab hier bleiben alle @app.route-Dekorationen unverändert
+    # Initialize Flask-Compress
+    if Compress:
+        try:
+            Compress(app)
+        except Exception as e:
+            logger.warning(f"Could not initialize Flask-Compress: {e}")
+    else:
+        logger.info("Flask-Compress module not found; compression disabled.")
+
     return app
 
 MEDICATION_KEY_CLEAN_RE = re.compile(r'[^0-9A-Z]+')
@@ -1887,7 +1965,7 @@ def load_data() -> bool:
 
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, pauschale_bedingungen_indexed, tabellen_data
-    global tabellen_dict_by_table, daten_geladen, chop_data
+    global tabellen_dict_by_table, daten_geladen, chop_data, lkn_to_tables_index
 
     all_loaded_successfully = True
     logger.info("--- Lade Daten ---")
@@ -1895,6 +1973,7 @@ def load_data() -> bool:
     leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_tarif_dict.clear(); tardoc_interp_dict.clear()
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
+    lkn_to_tables_index.clear()
     token_doc_freq.clear()
     chop_data.clear()
 
@@ -1926,25 +2005,19 @@ def load_data() -> bool:
                     data_from_file = combined_list
                     logger.info("  Kombinierte Liste für TARDOC_INTERP enthält %d Einträge.", len(data_from_file))
 
-                if not isinstance(data_from_file, list):
-                     logger.warning("  WARNUNG: %s-Daten in '%s' sind keine Liste, überspringe.", name, path)
-                     continue
-
-                if target_dict_ref is not None and key_field is not None:
-                     target_dict_ref.clear()
-                     items_in_dict = 0
-                     for item in data_from_file:
-                          if isinstance(item, dict):
-                               key_value = item.get(key_field)
-                               if key_value: # Stelle sicher, dass key_value nicht None ist
-                                   target_dict_ref[str(key_value)] = item # Konvertiere zu str für Konsistenz
-                                   items_in_dict += 1
-                     logger.info("  ✓ %s-Daten '%s' geladen (%s Einträge im Dict).", name, path, items_in_dict)
-
-                if target_list_ref is not None:
+                if isinstance(data_from_file, list):
                      target_list_ref.clear() # target_list_ref ist die globale Liste
                      target_list_ref.extend(data_from_file)
-                     if target_dict_ref is None: # Nur loggen, wenn nicht schon fürs Dict geloggt
+                     
+                     if key_field and target_dict_ref is not None:
+                         target_dict_ref.clear()
+                         for item in data_from_file:
+                             if isinstance(item, dict):
+                                 key_val = item.get(key_field)
+                                 if key_val:
+                                     target_dict_ref[str(key_val)] = item
+                         logger.info("  ✓ %s-Daten '%s' geladen (%s Einträge in Liste, %s in Dict).", name, path, len(target_list_ref), len(target_dict_ref))
+                     elif target_dict_ref is None: # Nur loggen, wenn nicht schon fürs Dict geloggt
                           logger.info("  ✓ %s-Daten '%s' geladen (%s Einträge in Liste).", name, path, len(target_list_ref))
 
                 if name == "Tabellen": # Spezifische Behandlung für 'Tabellen'
@@ -1958,6 +2031,15 @@ def load_data() -> bool:
                                 if normalized_key not in tabellen_dict_by_table:
                                     tabellen_dict_by_table[normalized_key] = []
                                 tabellen_dict_by_table[normalized_key].append(item)
+                            
+                            # Populate lkn_to_tables_index
+                            code_val = item.get("Code")
+                            if code_val and table_name:
+                                if code_val not in lkn_to_tables_index:
+                                    lkn_to_tables_index[code_val] = []
+                                if table_name not in lkn_to_tables_index[code_val]:
+                                    lkn_to_tables_index[code_val].append(table_name)
+
                     logger.info("  Tabellen-Daten gruppiert nach Tabelle (%s Tabellen).", len(tabellen_dict_by_table))
                     _build_medication_lookup(data_from_file)
                     logger.info("  Medikamenten-Lookup aufgebaut (%s Eintraege).", len(medication_entries))
@@ -2095,9 +2177,18 @@ def load_data() -> bool:
             pauschale_bedingungen_indexed[pauschale_code_key] = conditions_list
 
         logger.info("  Pauschalbedingungen indiziert und sortiert (%s Pauschalen mit Bedingungen).", len(pauschale_bedingungen_indexed))
-        # Optional: Logge ein Beispiel, um die Sortierung zu prüfen
-        # if "C01.05B" in pauschale_bedingungen_indexed and logger.isEnabledFor(logging.DEBUG):
-        #     logger.debug("DEBUG: Sortierte Bedingungen für C01.05B (erste 5): %s", pauschale_bedingungen_indexed["C01.05B"][:5])
+        
+        # Pre-compute structured conditions for all pauschalen
+        try:
+            # Import here to avoid circular imports if not already imported
+            from regelpruefer_pauschale import build_pauschale_condition_structure_index
+            global prepared_structures
+            prepared_structures = build_pauschale_condition_structure_index(pauschale_bedingungen_data)
+            logger.info("  Pauschalbedingungen-Strukturen vorberechnet (%s Einträge).", len(prepared_structures))
+        except Exception as e_prep:
+             logger.error("  FEHLER bei der Vorberechnung der Pauschalbedingungen-Strukturen: %s", e_prep)
+             traceback.print_exc()
+
     elif not pauschale_bedingungen_data and all_loaded_successfully:
         logger.warning("  WARNUNG: Keine Pauschalbedingungen zum Indizieren vorhanden (pauschale_bedingungen_data ist leer).")
     elif not all_loaded_successfully:
@@ -2143,6 +2234,7 @@ def call_gemini_stage1(
     lang: str = "de",
     query_variants: Optional[List[str]] = None,
 ) -> tuple[dict[str, Any], dict[str, int]]:
+    """Ruft Gemini für Stage 1 auf und liefert extrahierte Leistungen plus Tokenzahlen."""
     api_key = _get_api_key("gemini")
     logger.debug(
         "LLM_S1_INIT: Aufruf von call_gemini_stage1. GEMINI_API_KEY vorhanden: %s",
@@ -2531,6 +2623,7 @@ def call_openai_stage1(
     lang: str = "de",
     query_variants: Optional[List[str]] = None,
 ) -> tuple[dict[str, Any], dict[str, int]]:
+    """Ruft ein OpenAI-kompatibles Modell für Stage 1 und liefert Ergebnis + Tokenzähler."""
     if not api_key:
         logger.error(
             "LLM_S1_ERROR: %s_API_KEY fehlt oder ist leer. Funktion wird vorzeitig beendet.",
@@ -2728,6 +2821,7 @@ def call_openai_stage1(
         data = json.loads(content or "{}")
     except Exception:
         def _extract_json_payload(txt: str) -> Any | None:
+            """Extrahiert den JSON-Teil aus einem LLM-Text und entfernt Markdown-Umschläge."""
             s = (txt or "").strip()
             # Entferne Markdown-Codeblöcke ```json ... ``` falls vorhanden
             if "```" in s:
@@ -2747,6 +2841,7 @@ def call_openai_stage1(
                 s = s[: last_brace + 1]
             # Finde erstes JSON-Objekt oder -Array mithilfe einfacher Klammerbalance
             def _scan_balanced(src: str, open_ch: str, close_ch: str) -> str | None:
+                """Liefert den ersten balancierten JSON-Block im Text zurück."""
                 i = src.find(open_ch)
                 if i == -1:
                     return None
@@ -2783,6 +2878,7 @@ def call_openai_stage1(
                     except Exception:
                         # Entferne //- und /**/-Kommentare außerhalb von Strings
                         def _strip_json_comments(src: str) -> str:
+                            """Entfernt einfache Kommentarformen aus JSON-ähnlichen Strings."""
                             out = []
                             i, n = 0, len(src)
                             in_str = False
@@ -2830,6 +2926,7 @@ def call_openai_stage1(
                     fragment = s[start_idx:]
                     # Entferne Kommentare
                     def _strip_json_comments2(src: str) -> str:
+                        """Entfernt Kommentare als Reparaturpfad für stark fehlerhafte JSON-Fragmente."""
                         out = []
                         i, n = 0, len(src)
                         in_str = False
@@ -2925,6 +3022,7 @@ def call_gemini_stage2_mapping(
     model: str,
     lang: str = "de",
 ) -> tuple[str | None, dict[str, int]]:
+    """Lässt Gemini ein Mapping von TARDOC-LKN zu Pauschalen-Kandidaten vornehmen."""
     api_key = _get_api_key("gemini")
     if not api_key:
         raise ValueError("GEMINI_API_KEY nicht konfiguriert.")
@@ -3143,6 +3241,7 @@ def call_openai_stage2_mapping(
     provider: str,
     lang: str = "de",
 ) -> tuple[str | None, dict[str, int]]:
+    """Verwendet ein OpenAI-kompatibles Modell für das Stage-2-Mapping auf Pauschalen."""
     if not api_key:
         raise ValueError(f"{provider.upper()}_API_KEY nicht konfiguriert.")
     if not candidate_pauschal_lkns:
@@ -3275,6 +3374,7 @@ def call_gemini_stage2_ranking(
     model: str,
     lang: str = "de",
 ) -> tuple[list[str], dict[str, int]]:
+    """Bewertet Pauschalen-Kandidaten mit Gemini und liefert Top-Liste plus Tokenzahlen."""
     api_key = _get_api_key("gemini")
     if not api_key:
         return ([line.split(":", 1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5], {"input_tokens": 0, "output_tokens": 0})
@@ -3459,6 +3559,7 @@ def call_openai_stage2_ranking(
     provider: str,
     lang: str = "de",
 ) -> tuple[list[str], dict[str, int]]:
+    """Bewertet Pauschalen-Kandidaten mit OpenAI-kompatiblen Modellen und zählt Tokens."""
     if not api_key:
         return ([line.split(":", 1)[0].strip() for line in potential_pauschalen_text.splitlines() if ":" in line][:5], {"input_tokens": 0, "output_tokens": 0})
     prompt = get_stage2_ranking_prompt(user_input, potential_pauschalen_text, lang)
@@ -3616,6 +3717,7 @@ def call_llm_stage1(
     lang: str = "de",
     query_variants: Optional[List[str]] = None,
 ) -> tuple[dict[str, Any], dict[str, int]]:
+    """Ruft Stage 1 beim konfigurierten Provider auf und normalisiert das Ergebnis."""
     if STAGE1_PROVIDER == "gemini":
         result = call_gemini_stage1(
             user_input, katalog_context, STAGE1_MODEL, lang, query_variants=query_variants
@@ -3653,6 +3755,7 @@ def call_llm_stage2_mapping(
     candidate_pauschal_lkns: Dict[str, str],
     lang: str = "de",
 ) -> tuple[str | None, dict[str, int]]:
+    """Steuert Stage 2 (Mapping) abhängig vom konfigurierten Provider."""
     if STAGE2_PROVIDER == "gemini":
         result = call_gemini_stage2_mapping(
             tardoc_lkn, tardoc_desc, candidate_pauschal_lkns, STAGE2_MODEL, lang
@@ -3687,6 +3790,7 @@ def call_llm_stage2_ranking(
     potential_pauschalen_text: str,
     lang: str = "de",
 ) -> tuple[list[str], dict[str, int]]:
+    """Steuert Stage 2 (Ranking) und bündelt das Ergebnis je nach Provider."""
     if STAGE2_PROVIDER == "gemini":
         result = call_gemini_stage2_ranking(
             user_input, potential_pauschalen_text, STAGE2_MODEL, lang
@@ -3722,48 +3826,13 @@ def call_llm_stage2_ranking(
 # prepare_tardoc_abrechnung wird jetzt über prepare_tardoc_abrechnung_func aufgerufen,
 # die entweder die echte Funktion aus regelpruefer_einzelleistungen.py oder einen Fallback enthält.
 
-def get_relevant_p_pz_condition_lkns( # Beibehalten, falls spezifisch nur P/PZ benötigt wird
-    potential_pauschale_codes: Set[str],
-    pauschale_bedingungen_data_list: List[Dict[str, Any]], # Umbenannt zur Klarheit
-    tabellen_dict: Dict[str, List[Dict[str, Any]]], # Umbenannt zur Klarheit
-    leistungskatalog: Dict[str, Dict[str, Any]] # Umbenannt zur Klarheit
-) -> Dict[str, str]:
-    relevant_lkn_codes: Set[str] = set()
-    BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
-
-    relevant_conditions = [
-        cond for cond in pauschale_bedingungen_data_list # Verwende umbenannten Parameter
-        if cond.get(BED_PAUSCHALE_KEY) in potential_pauschale_codes
-    ]
-    for cond in relevant_conditions:
-        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, "")
-        if not wert: continue
-        if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-            lkns = [lkn.strip().upper() for lkn in str(wert).split(',') if lkn.strip()] # str(wert) für Sicherheit
-            relevant_lkn_codes.update(lkns)
-        elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-            table_names = [t.strip() for t in str(wert).split(',') if t.strip()] # str(wert) für Sicherheit
-            for table_name in table_names:
-                # Nutze die globale Variable tabellen_dict_by_table oder den übergebenen Parameter
-                content = get_table_content(table_name, "service_catalog", tabellen_dict) # Verwende umbenannten Parameter
-                for item in content:
-                    code_val = item.get('Code')
-                    if code_val: relevant_lkn_codes.add(str(code_val).upper()) # str(code_val)
-
-    valid_p_pz_candidates: Dict[str, str] = {}
-    for lkn in relevant_lkn_codes:
-        lkn_details = leistungskatalog.get(lkn) # Verwende umbenannten Parameter
-        if lkn_details and lkn_details.get('Typ') in ['P', 'PZ']:
-            valid_p_pz_candidates[lkn] = lkn_details.get('Beschreibung', 'N/A')
-    # print(f"DEBUG (get_relevant_p_pz): {len(valid_p_pz_candidates)} P/PZ Bedingungs-LKNs gefunden.")
-    return valid_p_pz_candidates
-
 def get_LKNs_from_pauschalen_conditions(
     potential_pauschale_codes: Set[str],
     pauschale_bedingungen_data_list: List[Dict[str, Any]], # Umbenannt
     tabellen_dict: Dict[str, List[Dict[str, Any]]], # Umbenannt
     leistungskatalog: Dict[str, Dict[str, Any]] # Umbenannt
 ) -> Dict[str, str]:
+    """Aggregiert alle LKN-Codes, die in den Bedingungen der übergebenen Pauschalen referenziert werden."""
     # print(f"--- DEBUG: Start get_LKNs_from_pauschalen_conditions für {potential_pauschale_codes} ---")
     condition_lkns_with_desc: Dict[str, str] = {}
     processed_lkn_codes: Set[str] = set()
@@ -3824,6 +3893,7 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
         return []
 
     def _tokenize(text: str) -> Set[str]:
+        """Zerlegt Text in Kleinschreib-Tokens ohne Sonderzeichen."""
         return {t for t in re.findall(r"\w+", text.lower()) if t}
 
     normalized_query = " ".join(str(keyword).split())
@@ -4120,6 +4190,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         primary_lower = primary_variant.lower() if isinstance(primary_variant, str) else ""
 
         def _try_add(value: str) -> None:
+            """Übernimmt Varianten, wenn sie neu sind und die Längenbegrenzung einhalten."""
             if not isinstance(value, str):
                 return
             stripped = value.strip()
@@ -4143,6 +4214,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         return normalized[:MAX_QUERY_VARIANTS]
 
     def _ordered_keyword_tokens(text: str) -> List[str]:
+        """Extrahiert eindeutige Keyword-Tokens in Reihenfolge ihres Auftretens."""
         ordered_tokens: List[str] = []
         seen_tokens: Set[str] = set()
         if not isinstance(text, str):
@@ -4163,6 +4235,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     catalog_description_variant_keys: Set[str] = set(catalog_description_lookup)
 
     def _register_prompt_synonym(candidate: str) -> None:
+        """Speichert Synonymvarianten für die spätere Aufnahme in den Prompt."""
         if not isinstance(candidate, str):
             return
         normalized_candidate = " ".join(candidate.split())
@@ -4295,6 +4368,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         token_candidate_order: List[str] = []
 
         def _extend_token_candidates(source: str) -> None:
+            """Fügt Keyword-Tokens aus einer Quelle für spätere Synonymerkennung hinzu."""
             try:
                 for token in _ordered_keyword_tokens(source):
                     if token not in token_candidate_order:
@@ -4526,6 +4600,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     seen_rank_codes: Set[str] = set()
 
     def _add_direct_codes(codes: List[str]) -> None:
+        """Fügt direkt erkannte Codes mit Höchstscore zur Rankingliste hinzu."""
         for direct_code in codes:
             normalized = direct_code.strip().upper()
             if not normalized or normalized in seen_rank_codes:
@@ -4534,6 +4609,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             seen_rank_codes.add(normalized)
 
     def _add_scored_entries(entries: List[Tuple[float, str]]) -> None:
+        """Fügt Code/Score-Paare hinzu, wenn sie noch nicht gerankt wurden."""
         for score, code in entries:
             normalized = code.strip().upper()
             if not normalized or normalized in seen_rank_codes:
@@ -4575,6 +4651,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             seen_rank_codes.add(normalized)
 
     def _collect_code_text(code: str) -> str:
+        """Fasst alle Textfelder einer LKN zu einem Suchstring zusammen."""
         details = leistungskatalog_dict.get(code)
         if not isinstance(details, dict):
             return ""
@@ -4620,12 +4697,14 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
     med_info_candidates: List[str] = []
 
     def _shorten_text(value: str, max_length: int = 220) -> str:
+        """Kürzt Beschreibungen auf eine kompakte Ein-Zeilen-Darstellung."""
         collapsed = " ".join(str(value).split())
         if len(collapsed) <= max_length:
             return collapsed
         return collapsed[: max_length - 1].rstrip() + "…"
 
     def _add_line_for(code: str) -> None:
+        """Fügt Kontextzeilen für einen Code hinzu und trackt eingebundene Einträge."""
         details = leistungskatalog_dict.get(code, {})
         desc_text = get_localized_text(details, "Beschreibung", lang)
         mi_text = get_localized_text(details, "MedizinischeInterpretation", lang)
@@ -4868,6 +4947,12 @@ def _validate_and_apply_rules(
     return rule_checked_leistungen_list, regel_ergebnisse_details_list
 
 
+
+def _get_tables_for_context_lkn(lkn: str) -> List[str]:
+    """Return list of table names that contain the given LKN."""
+    return lkn_to_tables_index.get(lkn, [])
+
+
 def _determine_final_billing(
     rule_checked_leistungen_list: List[Dict[str, Any]],
     regel_ergebnisse_details_list: List[Dict[str, Any]],
@@ -5070,43 +5155,45 @@ def _determine_final_billing(
         final_lkn_context_list_for_pauschale,
     )
 
+    # --- OPTIMIERUNG: Index-basierte Suche statt linearer Scan ---
     erweiterte_lkn_suchmenge = {str(l).upper() for l in final_lkn_context_for_pauschale_set}
     neu_gefundene_codes: Set[str] = set()
 
-    for item_lp in pauschale_lp_data:
-        lkn_in_lp_db_val = item_lp.get('Leistungsposition')
-        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val.upper() in erweiterte_lkn_suchmenge:
-            pc_code = item_lp.get('Pauschale')
-            if pc_code and str(pc_code) in pauschalen_dict:
-                neu_gefundene_codes.add(str(pc_code))
 
-    erweiterte_lkns_in_tables_cache: Dict[str, Set[str]] = {}
-    for cond_data in pauschale_bedingungen_data:
-        pc_code_cond_val = cond_data.get('Pauschale')
-        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict): continue
-        pc_code_cond = str(pc_code_cond_val)
-        bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
-        werte_cond_str = cond_data.get('Werte', "")
-        if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-            werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
-            if not erweiterte_lkn_suchmenge.isdisjoint(werte_liste_cond_set):
-                neu_gefundene_codes.add(pc_code_cond)
-        elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-            table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
-            for lkn_raw in erweiterte_lkn_suchmenge:
-                if isinstance(lkn_raw, str):
-                    lkn_str = lkn_raw.upper()
-                    if lkn_str not in erweiterte_lkns_in_tables_cache:
-                        tables_for_lkn_set = set()
-                        for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items():
-                            for entry_item in table_entries_list:
-                                if entry_item.get('Code', '').upper() == lkn_str and \
-                                   entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
-                                    tables_for_lkn_set.add(table_name_key_norm)
-                        erweiterte_lkns_in_tables_cache[lkn_str] = tables_for_lkn_set
-                    if not table_refs_cond_set.isdisjoint(erweiterte_lkns_in_tables_cache[lkn_str]):
-                        neu_gefundene_codes.add(pc_code_cond)
-                        break
+
+    # 1. Suche über Pauschale_Leistungsposition (LKN -> Pauschale)
+    for lkn_in_context in erweiterte_lkn_suchmenge:
+        if lkn_in_context in pauschale_lp_index:
+            neu_gefundene_codes.update(pauschale_lp_index[lkn_in_context])
+
+    # 2. Suche über Pauschale_Bedingungen (LKN -> Pauschale)
+    for lkn_in_context in erweiterte_lkn_suchmenge:
+        if lkn_in_context in pauschale_cond_lkn_index:
+            neu_gefundene_codes.update(pauschale_cond_lkn_index[lkn_in_context])
+
+    # 3. Suche über Pauschale_Bedingungen (Tabelle -> Pauschale)
+    # Wir müssen wissen, welche Tabellen für die LKNs im Kontext relevant sind.
+    # Das ist etwas komplexer, da wir von LKN -> Tabelle -> Pauschale müssen.
+    # Wir nutzen den Cache `context_lkns_in_tables_cache` (via _get_tables_for_context_lkn)
+    # oder iterieren über die Tabellen, die wir kennen.
+    
+    # Optimierung: Wir prüfen nur Tabellen, die in `pauschale_cond_table_index` vorkommen.
+    # Aber wir wissen nicht direkt, welche LKN in welcher Tabelle ist, ohne in tabellen_dict_by_table zu schauen.
+    # Da tabellen_dict_by_table aber nach Tabellenname indiziert ist, können wir für jede relevante Tabelle
+    # prüfen, ob sie LKNs aus unserem Kontext enthält.
+    
+    # Umgekehrt: Für jede LKN im Kontext, finde ihre Tabellen.
+    # _get_tables_for_context_lkn macht genau das (und cached es).
+    
+    for lkn_in_context in erweiterte_lkn_suchmenge:
+        tables_for_lkn = _get_tables_for_context_lkn(lkn_in_context)
+        for table_name in tables_for_lkn:
+            if table_name in pauschale_cond_table_index:
+                neu_gefundene_codes.update(pauschale_cond_table_index[table_name])
+
+    # Filter: Nur existierende Pauschalen
+    neu_gefundene_codes = {pc for pc in neu_gefundene_codes if pc in pauschalen_dict}
+
 
     if neu_gefundene_codes:
         potential_pauschale_codes_set.update(neu_gefundene_codes)
@@ -5131,13 +5218,15 @@ def _determine_final_billing(
         "Seitigkeit": context.get("seitigkeit_context_val"),
         "Anzahl": context.get("anzahl_fuer_pauschale_context"),
     }
+    context["pauschale_haupt_pruef_kontext"] = pauschale_haupt_pruef_kontext
     try:
         logger.info(f"Starte Pauschalen-Hauptprüfung (useIcd=%s)...", context.get("use_icd_flag"))
         pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
             user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
             pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
             leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set,
-            lang
+            lang,
+            prepared_structures=prepared_structures # Pass pre-computed structures
         )
         finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
         if finale_abrechnung_obj.get("type") == "Pauschale":
@@ -5302,6 +5391,7 @@ def analyze_billing():
             anzahl_fuer_pauschale_context = 2
 
     fallback_pauschale_search = not final_validated_llm_leistungen
+    pauschale_context_used: Optional[Dict[str, Any]] = None
     if fallback_pauschale_search:
         try:
             kandidaten_liste = search_pauschalen(user_input)
@@ -5331,8 +5421,21 @@ def analyze_billing():
                 "Seitigkeit": seitigkeit_context_val,
                 "Anzahl": anzahl_fuer_pauschale_context,
             }
+            pauschale_context_used = pruef_kontext
             try:
-                finale_abrechnung_obj = determine_applicable_pauschale_func(user_input, [], pruef_kontext, pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict, leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set, lang)
+                finale_abrechnung_obj = determine_applicable_pauschale_func(
+                    user_input,
+                    [],
+                    pruef_kontext,
+                    pauschale_lp_data,
+                    pauschale_bedingungen_data,
+                    pauschalen_dict,
+                    leistungskatalog_dict,
+                    tabellen_dict_by_table,
+                    potential_pauschale_codes_set,
+                    lang,
+                    prepared_structures=None,
+                )
             except Exception as e:
                 logger.error(f"Fehler bei Pauschalen-Fallback-Prüfung [{request_id}]: {e}", exc_info=True)
                 finale_abrechnung_obj = None
@@ -5356,6 +5459,7 @@ def analyze_billing():
             "demographics_heuristic": heuristic_demo,
         }
         finale_abrechnung_obj, llm_stage2_mapping_results = _determine_final_billing(rule_checked_leistungen_list, regel_ergebnisse_details_list, user_input, lang, billing_context, token_usage)
+        pauschale_context_used = billing_context.get("pauschale_haupt_pruef_kontext")
 
     rule_time = time.time()
     logger.info(f"[{request_id}] Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
@@ -5417,6 +5521,7 @@ def analyze_billing():
         "evaluated_pauschalen": sanitized_evaluated_list,
         "token_usage": token_usage,
         "fallback_pauschale_search": fallback_pauschale_search,
+        "pauschale_context": pauschale_context_used,
     }
 
     total_time = time.time() - start_time
@@ -5426,6 +5531,48 @@ def analyze_billing():
         detail_logger.info(f"[{request_id}] Final response payload (contains HTML): {json.dumps(final_response_payload, ensure_ascii=False, indent=2)}")
 
     return jsonify(final_response_payload)
+
+
+@app.route('/api/pauschale-conditions-html', methods=['POST'])
+def pauschale_conditions_html() -> Any:
+    """Erzeuge Bedingungs-HTML on demand, z.B. wenn die UI Details nachlädt."""
+    if not daten_geladen:
+        return jsonify({"error": "Server data not loaded."}), 503
+
+    payload = request.get_json(silent=True) or {}
+    code_raw = payload.get("code") or ""
+    lang = (payload.get("lang") or "de").lower()
+    if not code_raw:
+        return jsonify({"error": "code missing"}), 400
+    pauschale_code = str(code_raw).strip()
+    context = payload.get("context") or {}
+    if not isinstance(context, dict):
+        context = {}
+
+    try:
+        result = check_pauschale_conditions(
+            pauschale_code,
+            context,
+            pauschale_bedingungen_data,
+            tabellen_dict_by_table,
+            leistungskatalog_dict,
+            lang,
+            pauschalen_dict,
+            prepared_structures,
+        )
+        html_fragment = sanitize_html_fragment(result.get("html") or "")
+        response_payload = {
+            "code": pauschale_code,
+            "html": html_fragment,
+            "errors": result.get("errors", []),
+            "prueflogik_expr": result.get("prueflogik_expr"),
+            "prueflogik_pretty": result.get("prueflogik_pretty"),
+            "group_logic_terms": result.get("group_logic_terms"),
+        }
+        return jsonify(response_payload)
+    except Exception as exc:
+        logger.error("Failed to render pauschale conditions on demand for %s: %s", pauschale_code, exc, exc_info=True)
+        return jsonify({"error": "could not render conditions"}), 500
 
 
 def perform_analysis(text: str,
@@ -5582,6 +5729,7 @@ def test_example():
     baseline_entry.setdefault('current', {})[lang] = result
 
     def diff_results(expected: dict, actual: dict) -> str:
+        """Gibt kompakte Beschreibung der Differenzen zwischen erwarteten und aktuellen Ergebnissen zurück."""
         parts = []
         if expected.get('pauschale') != actual.get('pauschale'):
             parts.append(f"pauschale {expected.get('pauschale')} != {actual.get('pauschale')}")
@@ -5816,23 +5964,16 @@ def index_route(): # Umbenannt, um Konflikt mit Modul 'index' zu vermeiden, fall
     mimetype = _CUSTOM_MIME_TYPES.get("index.html")
     return _send_static("index.html", mimetype=mimetype)
 
-@app.route("/brick-quiz")
+@app.route("/brick_quiz/")
 def brick_quiz_route() -> Any:
     """Expose das Brick-Quiz als eigenständige Teiloberfläche."""
     if not BRICK_QUIZ_ENABLED:
         abort(404)
-    return _send_brick_static("index.html", mimetype='text/html; charset=utf-8')
+    return _send_brick_static("Brick.html", mimetype='text/html; charset=utf-8')
 
 @app.route("/brick_quiz/<path:filename>")
 def brick_quiz_static(filename: str) -> Any:
     """Stellt statische Assets des Brick-Quiz bereit, sofern aktiviert."""
-    if not BRICK_QUIZ_ENABLED:
-        abort(404)
-    return _serve_brick_asset(filename)
-
-@app.route("/brick-quiz/<path:filename>")
-def brick_quiz_static_hyphen(filename: str) -> Any:
-    """Alias-Routing für Browser, die relative Pfade mit Bindestrich anfordern."""
     if not BRICK_QUIZ_ENABLED:
         abort(404)
     return _serve_brick_asset(filename)
@@ -5856,6 +5997,7 @@ def _serve_brick_asset(filename: str) -> Any:
         ".mp3",
         ".ogg",
         ".txt",
+        ".html",
     }
     if safe_path.suffix and safe_path.suffix.lower() not in allowed_suffixes:
         abort(404)
@@ -5872,7 +6014,7 @@ def favicon_png():
     return _send_static("favicon-32.png", mimetype='image/png')
 
 @app.route("/<path:filename>")
-def serve_static(filename: str): # Typ hinzugefügt
+def serve_static(filename: str):
     """Erlaubt den direkten Abruf definierter statischer Dateien per HTTP."""
     allowed_files = {
         'calculator.js',
@@ -5904,6 +6046,7 @@ def serve_static(filename: str): # Typ hinzugefügt
             elif suffix in {'.js', '.mjs'}:
                 mimetype = 'application/javascript; charset=utf-8'
             elif suffix == '.json':
+                
                 mimetype = 'application/json; charset=utf-8'
         return _send_static(filename, mimetype=mimetype)
     else:

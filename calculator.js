@@ -54,6 +54,7 @@ let selectedPauschaleConditionHtml = '';
 let evaluatedPauschalenList = [];
 let lastBackendResponse = null; // Speichert die letzte Serverantwort für Feedback
 let lastUserInput = "";
+let pauschaleConditionsContext = null; // Kontext, um Pauschalen-Bedingungen on demand neu zu rendern
 let progressTimes = {};
 let elapsedTimer = null;
 let llm1BarInterval = null;
@@ -1928,6 +1929,31 @@ function getChapterInfo(kapitelCode) {
     return info;
 }
 
+async function fetchPauschaleConditionsHtml(code) {
+    const normCode = String(code || '').trim();
+    if (!normCode || !pauschaleConditionsContext) return null;
+    try {
+        const res = await fetch('/api/pauschale-conditions-html', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                code: normCode,
+                lang: currentLang,
+                context: pauschaleConditionsContext
+            })
+        });
+        if (!res.ok) {
+            console.warn('fetchPauschaleConditionsHtml response not ok', res.status);
+            return null;
+        }
+        const data = await res.json();
+        return data;
+    } catch (err) {
+        console.error('fetchPauschaleConditionsHtml failed', err);
+        return null;
+    }
+}
+
 function buildPauschaleInfoHtml(idx) {
     const entry = evaluatedPauschalenList[idx];
     if (!entry) return '';
@@ -1963,13 +1989,27 @@ function buildPauschaleInfoHtml(idx) {
     return renderPauschaleInfoContentFromDetails(baseDetails, { extraMetaItems: extraMeta, extraSections, hasStructuredLogic });
 }
 
-function showPauschaleInfoByCode(code) {
+async function showPauschaleInfoByCode(code) {
     const norm = String(code || '').toUpperCase();
     let html = '';
     let titleKey = 'condDetails';
 
     const idx = evaluatedPauschalenList.findIndex(p => String(p.details?.Pauschale || '').toUpperCase() === norm);
     if (idx !== -1) {
+        const entry = evaluatedPauschalenList[idx];
+        const needsOnDemand = pauschaleConditionsContext && (!entry.bedingungs_pruef_html || !String(entry.bedingungs_pruef_html).trim());
+        if (needsOnDemand) {
+            try {
+                showModal('infoModalDetailOverlay', `<p>${escapeHtml(tDyn('loadingData'))}</p>`);
+            } catch (_) {}
+            const fetched = await fetchPauschaleConditionsHtml(norm);
+            if (fetched && typeof fetched.html === 'string') {
+                entry.bedingungs_pruef_html = fetched.html;
+                entry.conditions_structured = fetched.conditions_structured || entry.conditions_structured;
+                entry.bedingungs_fehler = fetched.errors || entry.bedingungs_fehler;
+                evaluatedPauschalenList[idx] = entry;
+            }
+        }
         html = buildPauschaleInfoHtml(idx);
     } else if (selectedPauschaleDetails && String(selectedPauschaleDetails.Pauschale || '').toUpperCase() === norm) {
         const extraSections = [];
@@ -2123,11 +2163,31 @@ function hideSpinner() {
     setBusyState(false);
 }
 
+function setFlyingDoctorsActive(active){
+    const layer = $('flyingDoctorLayer');
+    const doctors = document.querySelectorAll('.flying-doctor');
+    if (layer) {
+        layer.classList.toggle('is-active', !!active);
+    }
+    doctors.forEach(el => {
+        el.classList.toggle('is-active', !!active);
+    });
+}
+
+function startFlyingDoctors(){
+    setFlyingDoctorsActive(true);
+}
+
+function stopFlyingDoctors(){
+    setFlyingDoctorsActive(false);
+}
+
 // --- Fortschrittsbalken Funktionen ---
 function startProgress() {
     const c = $('progressContainer');
     const bar = $('progressBar');
     const timer = $('progressTimer');
+    startFlyingDoctors();
     if (c) c.style.display = 'block';
     if (bar) bar.style.width = '0%';
     currentProgressPercent = 0;
@@ -2272,6 +2332,7 @@ function finishProgress() {
     const timer = $('progressTimer');
     if (c) c.style.display = 'none';
     if (timer) timer.style.display = 'none';
+    stopFlyingDoctors();
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
     if (llm1BarInterval) { clearInterval(llm1BarInterval); llm1BarInterval = null; }
     clearProgressHintTimeouts();
@@ -2511,7 +2572,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // --- General Click Handler for Info Links ---
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', async (e) => {
         const pauschaleLink = e.target.closest('a.pauschale-exp-link');
         if (pauschaleLink) {
             e.preventDefault();
@@ -2521,7 +2582,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 logFrontendInteraction('pauschale-expansion-click', { code });
-                const success = showPauschaleInfoByCode(code);
+                const success = await showPauschaleInfoByCode(code);
                 if (!success) {
                     const fallback = `<p>${escapeHtml(tDyn('noData'))}</p>`;
                     const detailTitle = $('infoModalDetailTitle');
@@ -2689,6 +2750,7 @@ async function getBillingAnalysis() {
         backendResponse = JSON.parse(rawResponseText);
         lastBackendResponse = backendResponse; // Für spätere Feedback-Übermittlung
         lastUserInput = userInput;
+        pauschaleConditionsContext = backendResponse?.pauschale_context || null;
         console.log("[getBillingAnalysis] Backend-Antwort geparst.");
         console.log("[getBillingAnalysis] Empfangene Backend-Daten (Ausschnitt):", {
             begruendung_llm_stufe1: backendResponse?.llm_ergebnis_stufe1?.begruendung_llm}); // Logge spezifisch die Begründung       

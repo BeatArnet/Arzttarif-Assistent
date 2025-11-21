@@ -231,22 +231,22 @@
         .info-modal .condition-separator { /* Das "ODER" zwischen Gruppen */
             display: inline-flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             font-weight: 600;
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: #27407a;
-            background: linear-gradient(180deg, #e5ecff 0%, #d2def9 100%);
-            border-radius: 999px;
-            padding: 4px 14px;
-            margin: 12px 0 12px 5px;
+            background: transparent;
+            border-radius: 0;
+            padding: 0;
+            margin: 8px 0 8px 0;
             align-self: flex-start;
-            font-size: 0.82em;
-            box-shadow: inset 0 0 0 1px rgba(39, 64, 122, 0.08);
+            font-size: 0.85em;
+            box-shadow: none;
         }
         #output .condition-separator.cluster-operator,
         .info-modal .condition-separator.cluster-operator {
-            margin: 12px 0 12px 5px;
+            margin: 8px 0 8px 0;
         }
         /* Styling für eine einzelne Bedingungszeile */
         #output .condition-item,
@@ -781,6 +781,18 @@
             color: #27407a;
         }
         .status-pill.status-negative {
+            color: #7a0014;
+        }
+        .condition-status {
+            font-weight: 600;
+        }
+        .condition-status.condition-status-positive {
+            color: #0f5132;
+        }
+        .condition-status.condition-status-neutral {
+            color: #27407a;
+        }
+        .condition-status.condition-status-negative {
             color: #7a0014;
         }
         .logic-tree {
@@ -1597,6 +1609,84 @@
             height: calc(100% + 8px);
             line-height: calc(100% + 8px);
         }
+        /* Flying doctors overlay during progress */
+        #flyingDoctorLayer {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 12000;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        #flyingDoctorLayer.is-active {
+            display: block;
+        }
+        .flying-doctor {
+            position: absolute;
+            width: 200px;
+            height: 150px;
+            pointer-events: none;
+            left: -240px;
+            top: 40%;
+            animation: doctorFlight 20s linear infinite;
+            display: none;
+        }
+        #flyingDoctorLayer.is-active .flying-doctor.is-active {
+            display: block;
+        }
+        #flyingDoctorMale { animation-delay: 0s; }
+        #flyingDoctorFemale { animation-delay: 10s; }
+        .flying-doctor svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(4px 8px 4px rgba(0,0,0,0.2));
+            overflow: visible;
+        }
+        .flying-doctor .body-group {
+            animation: doctorHover 2s ease-in-out infinite alternate;
+            transform-origin: center;
+        }
+        .flying-doctor .coat-fabric {
+            transform-origin: top center;
+            animation: doctorCoat 0.6s ease-in-out infinite alternate;
+        }
+        .flying-doctor .steth-swing {
+            transform-origin: 120px 50px;
+            animation: doctorSteth 1.2s ease-in-out infinite alternate;
+        }
+        .flying-doctor .ponytail {
+            transform-origin: 105px 25px;
+            animation: doctorHair 0.3s ease-in-out infinite alternate;
+        }
+        @keyframes doctorFlight {
+            0%   { left: -20%; top: 22vh; transform: rotate(5deg); opacity: 1; }
+            40%  { left: 42vw; top: 70vh; transform: rotate(-3deg); }
+            60%  { left: 72vw; top: 18vh; transform: rotate(6deg); }
+            90%  { left: 112%; top: 40vh; transform: rotate(0deg); opacity: 1; }
+            100% { left: 112%; top: 40vh; opacity: 0; }
+        }
+        @keyframes doctorHover {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-8px); }
+        }
+        @keyframes doctorCoat {
+            0%   { transform: skewX(0deg) scaleY(1); }
+            100% { transform: skewX(5deg) scaleY(0.95) translateY(-2px); }
+        }
+        @keyframes doctorSteth {
+            0%   { transform: rotate(15deg); }
+            100% { transform: rotate(45deg); }
+        }
+        @keyframes doctorHair {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(10deg) translateY(-2px); }
+        }
+        @media (max-width: 640px) {
+            .flying-doctor {
+                width: 150px;
+                height: 115px;
+            }
+        }
         .info-modal-overlay {
             background: rgba(10, 24, 64, 0.45);
             backdrop-filter: blur(6px);
@@ -1753,7 +1843,66 @@
             .version-info {
                 text-align: left;
             }
-        }\r\n        /* TARDOC-Tabelle: horizontale Erweiterung bei langen Regeln erlauben */
+        }
+        @media (max-height: 900px) {
+            body {
+                padding: 16px 16px 14px;
+                line-height: 1.5;
+            }
+            .app-shell {
+                padding: 0 14px 16px;
+            }
+            .top-info {
+                padding: 6px 12px;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+            h1 {
+                margin: 4px 0;
+            }
+            #intro {
+                margin-bottom: 4px;
+            }
+            .input-frame {
+                padding: 10px 12px;
+                margin-top: 6px;
+            }
+            .input-frame > label {
+                margin-top: 6px;
+            }
+            textarea, input[type="text"], select {
+                padding: 8px 12px;
+                margin-bottom: 6px;
+            }
+            textarea {
+                min-height: 90px;
+            }
+            #userInput {
+                min-height: 100px;
+            }
+            .form-option-row {
+                margin: 2px 0 0;
+                gap: 8px;
+            }
+            #icdHeaderRow {
+                margin-top: 4px;
+                margin-bottom: 0;
+            }
+            button {
+                padding: 9px 16px;
+            }
+            .action-buttons {
+                margin-top: 6px;
+            }
+            #output {
+                margin-top: 8px;
+            }
+            .disclaimer-card {
+                margin-top: 12px;
+                padding: 10px 14px;
+            }
+        }
+        /* TARDOC-Tabelle: horizontale Erweiterung bei langen Regeln erlauben */
         #output .tardoc-table-wrapper {
             overflow-x: auto;
             margin-bottom: 10px;
@@ -1871,7 +2020,9 @@
             #spinner,
             .info-modal-overlay,
             .modal-close,
-            #progressContainer {
+            #progressContainer,
+            #flyingDoctorLayer,
+            .flying-doctor {
                 display: none !important;
             }
             #output,
@@ -1909,6 +2060,58 @@
         </symbol>
     </svg>
     <!-- === Ende SVG Sprite Definition === -->
+
+    <!-- Flying doctors during progress -->
+    <div id="flyingDoctorLayer" aria-hidden="true">
+        <div id="flyingDoctorMale" class="flying-doctor">
+            <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                <g class="body-group">
+                    <path class="coat-fabric" d="M 90 50 L 130 50 L 80 100 L 20 90 L 90 50" fill="#E0E0E0" stroke="none"/>
+                    <path d="M 100 80 L 80 110 L 120 100 L 120 80" fill="#333" />
+                    <path d="M 110 80 L 130 115 L 150 100 L 130 80" fill="#333" />
+                    <circle cx="80" cy="110" r="5" fill="#111" />
+                    <circle cx="130" cy="115" r="5" fill="#111" />
+                    <path d="M 90 40 L 140 40 L 150 80 L 90 85 Z" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+                    <path d="M 130 45 L 170 35" stroke="#FFF" stroke-width="14" stroke-linecap="round" />
+                    <circle cx="172" cy="35" r="7" fill="#F5D0A9" />
+                    <path d="M 130 40 L 130 30 L 140 30 L 140 45" fill="#F5D0A9" />
+                    <circle cx="135" cy="25" r="15" fill="#F5D0A9" />
+                    <path d="M 120 20 Q 135 5, 150 20 L 148 25 L 135 15 L 122 25 Z" fill="#5D4037" />
+                    <circle cx="140" cy="22" r="1.5" fill="#222" />
+                    <path d="M 128 42 C 115 45, 145 45, 142 42" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>
+                    <g class="steth-swing">
+                        <path d="M 120 45 Q 100 55, 60 65" fill="none" stroke="#222" stroke-width="5" stroke-linecap="round"/>
+                        <circle cx="60" cy="65" r="8" fill="#BBB" stroke="#444" stroke-width="1"/>
+                    </g>
+                </g>
+            </svg>
+        </div>
+        <div id="flyingDoctorFemale" class="flying-doctor">
+            <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                <g class="body-group">
+                    <path class="coat-fabric" d="M 90 55 L 130 55 L 85 105 L 25 95 L 90 55" fill="#E0E0E0" stroke="none"/>
+                    <path d="M 100 85 L 80 115 L 120 105 L 120 85" fill="#333" />
+                    <path d="M 110 85 L 130 120 L 150 105 L 130 85" fill="#333" />
+                    <circle cx="80" cy="115" r="5" fill="#111" />
+                    <circle cx="130" cy="120" r="5" fill="#111" />
+                    <path d="M 95 45 L 140 45 L 148 85 L 95 90 Z" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+                    <path d="M 130 50 L 170 40" stroke="#FFF" stroke-width="13" stroke-linecap="round" />
+                    <circle cx="172" cy="40" r="6" fill="#F5D0A9" />
+                    <path d="M 130 45 L 130 35 L 140 35 L 140 50" fill="#F5D0A9" />
+                    <circle cx="135" cy="30" r="14" fill="#F5D0A9" />
+                    <path d="M 122 20 Q 135 10, 148 20 L 148 35 L 135 15 L 120 30 Z" fill="#3E2723" />
+                    <path class="ponytail" d="M 120 25 Q 100 20, 80 35 L 90 40 Q 110 30, 122 30 Z" fill="#3E2723" />
+                    <circle cx="140" cy="28" r="1.5" fill="#222" />
+                    <path d="M 142 32 L 144 32" stroke="#D32F2F" stroke-width="1.5" />
+                    <path d="M 128 47 C 115 50, 145 50, 142 47" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>
+                    <g class="steth-swing">
+                        <path d="M 120 50 Q 100 60, 60 70" fill="none" stroke="#222" stroke-width="5" stroke-linecap="round"/>
+                        <circle cx="60" cy="70" r="8" fill="#BBB" stroke="#444" stroke-width="1"/>
+                    </g>
+                </g>
+            </svg>
+        </div>
+    </div>
 
 
     <!-- Main Info Modal (for initial explanation and general info) -->
@@ -2502,11 +2705,11 @@
             brickQuizButton.textContent = (langLabel && langLabel !== 'brickQuizButton') ? langLabel : 'Brick-Quiz starten';
             if(isEnabled && !brickQuizButton.dataset.boundClick){
                 brickQuizButton.addEventListener('click',()=>{
-                    const win = window.open('/brick-quiz', '_blank');
+                    const win = window.open('/brick_quiz', '_blank');
                     if (win && typeof win === 'object') {
                         try { win.opener = null; } catch (_) {}
                     } else {
-                        window.location.href = '/brick-quiz';
+                        window.location.href = '/brick_quiz';
                     }
                 });
                 brickQuizButton.dataset.boundClick = '1';

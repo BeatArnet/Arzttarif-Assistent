@@ -11,7 +11,7 @@ import copy
 import re
 import unicodedata
 import tkinter as tk
-from tkinter import ttk, simpledialog
+from tkinter import ttk
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, cast
 
@@ -49,7 +49,6 @@ leistungskatalog_dict: Any | None = None
 @dataclass
 class Section:
     lang: str
-    title_label: tk.Misc
     count_current_var: tk.StringVar
     count_suggest_var: tk.StringVar
     current_listbox: tk.Listbox
@@ -526,7 +525,6 @@ def _build_section(parent: tk.Widget, lang: str, title_text: str, row_offset: in
     # Save section refs
     section = Section(
         lang=lang,
-        title_label=title,
         count_current_var=count_current_var,
         count_suggest_var=count_suggest_var,
         current_listbox=current_listbox,

@@ -1,5 +1,5 @@
 """
-Kompakter Konnektivitätstest für OpenAI‑kompatible Provider (Fokus: Apertus).
+Kompakter Konnektivitätstest für OpenAI‑kompatible Provider.
 
 - Lädt Provider/Modell/Base‑URL aus config.ini/Umgebung
 - GET <base_url>/models → listet verfügbare Modell‑IDs
@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import configparser
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List
+from typing import Iterable, Optional, Tuple, Dict, Any, List
 
 import requests
 import pytest
@@ -83,6 +84,50 @@ def _get_stage(cfg: configparser.ConfigParser, stage: str) -> Tuple[str, str]:
         or DEFAULT_MODELS.get(p, "")
     )
     return p, m
+
+
+def _canonical_model_name(model_id: str) -> str:
+    """Normalisiert eine Modell-ID (z. B. entfernt "models/"-Prefix)."""
+    mid = (model_id or "").strip()
+    if mid.startswith("models/"):
+        mid = mid[len("models/"):]
+    return mid
+
+
+_FAMILY_SUFFIXES = (
+    "-latest",
+    "-beta",
+    "-preview",
+)
+
+
+def _model_family(model_id: str) -> str:
+    """Leitet aus einer Modell-ID die zugehörige Modellfamilie ab."""
+    base = _canonical_model_name(model_id)
+    if not base:
+        return ""
+    lowered = base.lower()
+    for suffix in _FAMILY_SUFFIXES:
+        if lowered.endswith(suffix):
+            return base[: -len(suffix)]
+    numeric_match = re.search(r"-(\d{2,3})$", lowered)
+    if numeric_match:
+        return base[: -len(numeric_match.group(0))]
+    return base
+
+
+def _family_matches(model_id: str, candidates: Iterable[str]) -> Tuple[str, List[str]]:
+    """Filtert Kandidaten, die zur Modellfamilie der Referenz-ID gehören."""
+    family = _model_family(model_id)
+    if not family:
+        return "", []
+    family_lower = family.lower()
+    matches: List[str] = []
+    for candidate in candidates:
+        canonical_candidate = _canonical_model_name(candidate)
+        if canonical_candidate.lower().startswith(family_lower):
+            matches.append(candidate)
+    return family, matches
 
 
 
@@ -216,6 +261,14 @@ def test_openai_compatible(provider: str, model: str, base_url: Optional[str], a
                 print("  Model-IDs:")
                 for mid in available_models:
                     print(f"   - {mid}")
+                family, fam_matches = _family_matches(model, available_models)
+                if family:
+                    if fam_matches:
+                        print(f"  Modellfamilie '{family}*' ({len(fam_matches)} Treffer):")
+                        for fam in fam_matches:
+                            print(f"    - {fam}")
+                    else:
+                        print(f"  Hinweis: Kein Modell mit Präfix '{family}' gefunden.")
             else:
                 print(f"  JSON: {list(data)[:5] if isinstance(data, dict) else type(data)}")
         else:
@@ -347,10 +400,71 @@ def test_openai_compatible(provider: str, model: str, base_url: Optional[str], a
         print("Bitte in config.ini unter [LLM1UND2] anpassen.")
 
 
-def test_gemini(model: str, provider: str) -> None:
+def _list_gemini_models(model: str, api_key: Optional[str]) -> None:
+    if not api_key:
+        print("Gemini: GEMINI_API_KEY fehlt oder ist leer. Kann /models nicht abrufen.")
+        return
+
+    models_url = "https://generativelanguage.googleapis.com/v1beta/models"
+    all_models: List[Dict[str, Any]] = []
+    page_token: Optional[str] = None
+    try:
+        while True:
+            params: Dict[str, Any] = {"key": api_key, "pageSize": 100}
+            if page_token:
+                params["pageToken"] = page_token
+            resp = requests.get(models_url, params=params, timeout=20)
+            print(f"GET /v1beta/models (pageToken={page_token or '∅'}) -> {resp.status_code}")
+            if resp.status_code != 200:
+                print(f"  Fehler: {resp.text[:400]!r}")
+                return
+            payload = resp.json()
+            page_models = payload.get("models") or []
+            all_models.extend(page_models)
+            page_token = payload.get("nextPageToken")
+            if not page_token:
+                break
+    except Exception as exc:
+        print(f"Gemini /models Fehler: {exc}")
+        return
+
+    if not all_models:
+        print("Gemini: API lieferte keine Modelle zurück.")
+        return
+
+    canonical_map: Dict[str, Dict[str, Any]] = {}
+    for item in all_models:
+        if not isinstance(item, dict):
+            continue
+        raw_name = item.get("name", "")
+        canonical_name = _canonical_model_name(raw_name)
+        if canonical_name:
+            canonical_map[canonical_name] = item
+
+    print(f"Gemini: {len(canonical_map)} Modelle erkannt.")
+    family, family_models = _family_matches(model, canonical_map.keys())
+    if family:
+        if family_models:
+            print(f"  Modellfamilie '{family}*' ({len(family_models)} Treffer):")
+            for fam in sorted(family_models):
+                meta = canonical_map.get(_canonical_model_name(fam), {})
+                display = meta.get("displayName") or fam
+                methods = ", ".join(meta.get("supportedGenerationMethods") or []) or "-"
+                prompt_limit = meta.get("inputTokenLimit") or meta.get("promptTokenLimit")
+                prompt_info = f", Prompt-Limit: {prompt_limit}" if prompt_limit else ""
+                print(f"    - {fam} ({display}; Methoden: {methods}{prompt_info})")
+        else:
+            print(f"  Hinweis: Kein Gemini-Modell mit Präfix '{family}' gefunden.")
+    else:
+        print("  Hinweis: Modellfamilie konnte nicht bestimmt werden (Stage1-Modell fehlt?).")
+
+
+def test_gemini(model: str, provider: str, api_key: Optional[str]) -> None:
     if provider != 'gemini':
         pytest.skip('Stage1 provider is not Gemini.')
-    print('Gemini-Test übersprungen (Fokus: OpenAI-kompatibel/Apertus)')
+    if not api_key:
+        pytest.skip('Gemini API key is not configured.')
+    _list_gemini_models(model, api_key)
 
 
 
@@ -370,7 +484,7 @@ def main() -> int:
     if is_openai_compatible(p1) and b1:
         test_openai_compatible(p1, m1, b1, k1, app_version)
     elif p1 == "gemini":
-        test_gemini(m1, p1)
+        _list_gemini_models(m1, k1)
     else:
         print(f"Unbekannter Provider: {p1}")
 

@@ -4,8 +4,14 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.1 (2025-11-03, aktuell)
-- Brick-Quiz als optionales Trainingsmodul integriert: neue Seite `/brick-quiz`, Feature-Flag `FEATURES.brick_quiz_enabled` in `config.ini`, statische Auslieferung über `server.py`; Button samt Übersetzungen direkt aus `/api/version` gesteuert.
+### V4.2 (2025-11-22, aktuell)
+- Pauschalen-Engine überarbeitet: strukturierte UND/ODER-Prüfung nutzt vorberechnete Indizes, zählt LKN-Treffer und priorisiert spezifische Codes vor C9x-Fallbacks; irrelevante Tabellen (z. B. OR/ANAST) werden für Erklärungen gefiltert, Gruppen-Vergleiche heben Unterschiede pro Suffix hervor, potenzielle ICDs werden mitgeliefert; neue Konfiguration `REGELPRUEFUNG.pauschale_explanation_excluded_lkn_tables`.
+- Frontend & API: Pauschalen-Bedingungen lassen sich aus der Ergebnisliste heraus anklicken; Details werden bei Bedarf über `/api/pauschale-conditions-html` mit dem gespeicherten Kontext nachgerendert und serverseitig via `bleach` bereinigt; Status-Pills und Taxpunkt-Differenzen erleichtern den Vergleich alternativer Pauschalen.
+- UX: Fortschrittsanzeige mit animiertem „Flying Doctor“-Overlay für laufende Analysen, stabilere Busy/Spinner-States und sanftere Modal-Navigation; Pauschalen-Details und Erklärungen bleiben nachladbar, ohne den Hauptlauf neu zu starten.
+- Daten & Tests: Tarif- und Synonymdaten (LKAAT, TARDOC, Pauschalen*, CHOP, DIGNITAETEN, synonyms.json, baseline/beispiele/vektor_index_codes) aktualisiert; neue Tests decken Pauschalen-Selektion/Erklärungen, ICD/CHOP-Endpunkte, Synonym-Pipeline und Stage-1-Kontext ab; `requirements.txt` um `bleach` ergänzt.
+
+### V4.1 (2025-11-03)
+- Brick-Quiz als optionales Trainingsmodul integriert: neue Seite `/brick_quiz`, Feature-Flag `FEATURES.brick_quiz_enabled` in `config.ini`, statische Auslieferung über `server.py`; Button samt Übersetzungen direkt aus `/api/version` gesteuert.
 - Navigationsleiste überarbeitet: Feedback, PDF-Export und Qualitätskontrolle liegen nun im Hamburger-Menü; Brick-Quiz-Schalter sitzt neben der Sprachauswahl und lokalisiert sich unmittelbar beim Sprachwechsel.
 - Frontend-Polish: Styles des Brick-Quiz an das bestehende UI angepasst (Pill-Buttons, Overlays, Blur-Dropdowns) und kleinere Layout-Korrekturen (Menü-Schattierung, Sicherheit beim Öffnen neuer Tabs).
 - Dokumentation und Konfiguration auf Version 4.1 / 03.11.2025 aktualisiert.

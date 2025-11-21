@@ -5,8 +5,8 @@ def convert_excel_to_json():
     """
     Reads quiz data from an Excel file, transforms it, and saves it as a JSON file.
     """
-    excel_file_path = 'Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx'
-    json_file_path = 'questions.json'
+    excel_file_path = 'brick_quiz/Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx'
+    json_file_path = 'brick_quiz/questions.json'
 
     try:
         # Read the Excel file

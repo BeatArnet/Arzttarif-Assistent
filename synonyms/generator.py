@@ -17,7 +17,7 @@ import json
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, TypedDict, cast
+from typing import Dict, Iterable, List, Optional
 import unicodedata
 import re
 import configparser
@@ -120,13 +120,6 @@ def _get_api_key(provider: str) -> str | None:
 
 def _get_base_url(provider: str) -> str | None:
     return os.getenv("SYNONYM_LLM_BASE_URL") or os.getenv(f"{_env_name(provider)}_BASE_URL")
-
-
-class MultilingualResponse(TypedDict):
-    """Typed response for multilingual LLM requests."""
-
-    canonical: Dict[str, str]
-    synonyms: Dict[str, List[str]]
 
 
 def extract_base_terms_from_tariff() -> List[Dict[str, str]]:
