@@ -36,19 +36,10 @@ Halte den Ball mit dem Paddle im Spiel, zerstöre Bricks und beantworte Quizfrag
 
 ```
 .
-├─ assets/
-│  ├─ images/background.png
-│  └─ sounds/
-│     ├─ brick_hit.wav
-│     ├─ paddle_hit.wav
-│     ├─ wall_hit.wav
-│     └─ game_over.wav
-├─ excel_to_json.py              # Excel → JSON‑Konverter
-├─ Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx  # Quell‑Excel
-├─ questions.json                # Generierte Fragen (wird überschrieben)
-├─ index.html                    # Einstiegspunkt
-├─ game.js                       # Spiellogik (JavaScript)
-└─ style.css                     # Layout & Styling
+├─ Brick.html                    # Einstiegspunkt (enthält Spiel + Styles + JS)
+├─ questions.js                  # Fragenkatalog (wird aus der Excel erzeugt)
+├─ excel_to_json.py              # Excel → JSON‑Konverter (optional)
+└─ Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx  # Quell‑Excel für neue Fragen (optional)
 ```
 
 ---
@@ -86,14 +77,13 @@ python -m pip install pandas openpyxl
 
 ## 🚀 Spiel starten
 
-Da der Browser aus Sicherheitsgründen keine lokalen Dateien per `fetch()` lädt, solltest du einen kleinen Webserver nutzen:
+Einfach `Brick.html` im Browser öffnen. Alternativ kannst du lokal einen kleinen Webserver starten:
 
 ```bash
-# Im Projektordner
 python -m http.server 8000
 ```
 
-Danach im Browser `http://localhost:8000` aufrufen und auf **„Spiel und Quiz beginnen“** klicken oder direkt **`index.html`** im Browser öffnen, falls du alle Dateien auf einem Webserver hostest.
+Dann im Browser `http://localhost:8000/brick_quiz/Brick.html` aufrufen.
 
 ---
 

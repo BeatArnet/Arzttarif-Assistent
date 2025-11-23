@@ -883,6 +883,10 @@ function applySavedModalState(modalElement) {
     const x = Number.isFinite(parsedX) ? parsedX : 0;
     const y = Number.isFinite(parsedY) ? parsedY : 0;
     modalElement.style.transform = `translate(${x}px, ${y}px)`;
+    const clamped = clampModalToViewport(modalElement);
+    if (clamped && modalElement.id) {
+        persistModalPosition(modalElement, clamped.x, clamped.y);
+    }
 }
 
 function persistModalPosition(modalElement, x, y) {
@@ -895,6 +899,36 @@ function persistModalPosition(modalElement, x, y) {
         y: Number.isFinite(parsedY) ? parsedY : 0
     };
     writeModalPreferences(modalElement.id, prefs);
+}
+
+function clampModalToViewport(modalElement, margin = 16) {
+    if (!modalElement || typeof window === 'undefined') return null;
+    const viewportWidth = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+    const viewportHeight = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0;
+    if (!viewportWidth || !viewportHeight) return null;
+    const rect = modalElement.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) return null;
+
+    let deltaX = 0;
+    let deltaY = 0;
+    if (rect.left < margin) {
+        deltaX = margin - rect.left;
+    } else if (rect.right > viewportWidth - margin) {
+        deltaX = -(rect.right - (viewportWidth - margin));
+    }
+    if (rect.top < margin) {
+        deltaY = margin - rect.top;
+    } else if (rect.bottom > viewportHeight - margin) {
+        deltaY = -(rect.bottom - (viewportHeight - margin));
+    }
+    if (!deltaX && !deltaY) return null;
+
+    const style = window.getComputedStyle(modalElement);
+    const matrix = new DOMMatrix(style.transform && style.transform !== 'none' ? style.transform : undefined);
+    const newX = matrix.m41 + deltaX;
+    const newY = matrix.m42 + deltaY;
+    modalElement.style.transform = `translate(${newX}px, ${newY}px)`;
+    return { x: newX, y: newY };
 }
 
 const NESTED_MODAL_OVERLAY_ID = 'infoModalNestedOverlay';
@@ -1016,13 +1050,60 @@ function hideModal(modalOverlayId) {
 
 // Globale Variable zur Verfolgung des Resize-Zustands
 let isResizing = false;
+const MODAL_RESIZE_HANDLE_CONFIG = [
+    { name: 'top', classNames: ['modal-resize-top'] },
+    { name: 'right', classNames: ['modal-resize-right'] },
+    { name: 'bottom', classNames: ['modal-resize-bottom'] },
+    { name: 'left', classNames: ['modal-resize-left'] },
+    { name: 'top-left', classNames: ['modal-resize-corner', 'modal-resize-top-left'] },
+    { name: 'top-right', classNames: ['modal-resize-corner', 'modal-resize-top-right'] },
+    { name: 'bottom-left', classNames: ['modal-resize-corner', 'modal-resize-bottom-left'] },
+    { name: 'bottom-right', classNames: ['modal-resize-corner', 'modal-resize-bottom-right'] }
+];
+const MODAL_RESIZE_CURSOR_MAP = {
+    top: 'ns-resize',
+    right: 'ew-resize',
+    bottom: 'ns-resize',
+    left: 'ew-resize',
+    'top-left': 'nwse-resize',
+    'top-right': 'nesw-resize',
+    'bottom-left': 'nesw-resize',
+    'bottom-right': 'nwse-resize'
+};
+
+function ensureModalResizeHandles(modalElement) {
+    if (!modalElement || modalElement.classList.contains('modal-resize-ready')) return;
+    MODAL_RESIZE_HANDLE_CONFIG.forEach(cfg => {
+        const handle = document.createElement('div');
+        handle.classList.add('modal-resize-handle', ...cfg.classNames);
+        handle.dataset.handle = cfg.name;
+        handle.setAttribute('role', 'presentation');
+        modalElement.appendChild(handle);
+    });
+    modalElement.classList.add('modal-resize-ready');
+}
+
+function isModalInteractiveElement(node) {
+    if (!node) return false;
+    return Boolean(node.closest('button, a, input, select, textarea, summary, [contenteditable=\"true\"], [data-modal-no-drag=\"true\"]'));
+}
 
 function makeModalDraggable(modalElement) {
+    if (!modalElement) return;
+    ensureModalResizeHandles(modalElement);
     const handle = modalElement.querySelector('.modal-header') || modalElement;
+    const MIN_WIDTH = 320;
+    const MIN_HEIGHT = 240;
     let isDragging = false;
-    let startX, startY;
-    let x = 0, y = 0; // To store the current translation
-    let lastKnownX = 0, lastKnownY = 0;
+    let startX = 0;
+    let startY = 0;
+    let x = 0;
+    let y = 0;
+    let lastKnownX = 0;
+    let lastKnownY = 0;
+    let activePointerId = null;
+    let resizeState = null;
+    let bodyCursorBackup = null;
 
     function getCurrentTransform() {
         const style = window.getComputedStyle(modalElement);
@@ -1033,63 +1114,181 @@ function makeModalDraggable(modalElement) {
         lastKnownY = y;
     }
 
-    handle.addEventListener('mousedown', (e) => {
+    function ensurePixelDimensions() {
         const rect = modalElement.getBoundingClientRect();
-        const resizeHandleSize = 20;
+        modalElement.style.width = `${rect.width}px`;
+        modalElement.style.height = `${rect.height}px`;
+    }
 
-        // Prüfen, ob der Klick im Resize-Bereich (unten rechts) ist
-        if (e.clientX > rect.right - resizeHandleSize && e.clientY > rect.bottom - resizeHandleSize) {
-            isResizing = true;
-            return;
-        }
+    function setModalTransform(newX, newY) {
+        lastKnownX = newX;
+        lastKnownY = newY;
+        modalElement.style.transform = `translate(${newX}px, ${newY}px)`;
+    }
 
-        if (e.target && e.target.closest('button, a, input, select, textarea')) {
-            return;
-        }
-
+    function startDragging(e) {
+        if (isModalInteractiveElement(e.target)) return;
         isDragging = true;
+        activePointerId = e.pointerId;
         getCurrentTransform();
         startX = e.clientX;
         startY = e.clientY;
         handle.style.cursor = 'grabbing';
-    });
+        modalElement.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    }
 
-    modalElement.addEventListener('mousedown', (e) => {
+    function startResizing(handleName, e) {
+        isResizing = true;
+        getCurrentTransform();
         const rect = modalElement.getBoundingClientRect();
-        const resizeHandleSize = 24;
-        if (e.clientX >= rect.right - resizeHandleSize && e.clientY >= rect.bottom - resizeHandleSize) {
-            isResizing = true;
-        }
-    });
+        resizeState = {
+            handle: handleName,
+            startX: e.clientX,
+            startY: e.clientY,
+            startWidth: rect.width,
+            startHeight: rect.height,
+            startXOffset: lastKnownX,
+            startYOffset: lastKnownY
+        };
+        activePointerId = e.pointerId;
+        ensurePixelDimensions();
+        modalElement.setPointerCapture(e.pointerId);
+        applyResizeCursor(handleName);
+        e.preventDefault();
+    }
 
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-            e.preventDefault();
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            lastKnownX = x + dx;
-            lastKnownY = y + dy;
-            modalElement.style.transform = `translate(${lastKnownX}px, ${lastKnownY}px)`;
+    function applyResizeCursor(handleName) {
+        const cursor = MODAL_RESIZE_CURSOR_MAP[handleName];
+        if (!cursor) return;
+        if (document && document.body) {
+            if (bodyCursorBackup === null) {
+                bodyCursorBackup = document.body.style.cursor || '';
+            }
+            document.body.style.cursor = cursor;
         }
-    });
+        modalElement.style.cursor = cursor;
+    }
 
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            handle.style.cursor = 'grab';
-            x = lastKnownX;
-            y = lastKnownY;
+    function clearResizeCursor() {
+        if (document && document.body && bodyCursorBackup !== null) {
+            document.body.style.cursor = bodyCursorBackup;
+        }
+        modalElement.style.cursor = '';
+        bodyCursorBackup = null;
+    }
+
+    function handlePointerDown(e) {
+        if (e.button !== undefined && e.button !== 0) return;
+        const resizeHandle = e.target.closest('.modal-resize-handle');
+        if (resizeHandle) {
+            if (!resizeHandle.dataset.handle || activePointerId !== null) return;
+            startResizing(resizeHandle.dataset.handle, e);
+            return;
+        }
+        if (!handle.contains(e.target)) return;
+        if (activePointerId !== null) return;
+        startDragging(e);
+    }
+
+    function updateDrag(e) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        setModalTransform(x + dx, y + dy);
+    }
+
+    function updateResize(e) {
+        if (!resizeState) return;
+        const handlesHorizontal = resizeState.handle.includes('left') || resizeState.handle.includes('right');
+        const handlesVertical = resizeState.handle.includes('top') || resizeState.handle.includes('bottom');
+        const dx = handlesHorizontal ? (e.clientX - resizeState.startX) : 0;
+        const dy = handlesVertical ? (e.clientY - resizeState.startY) : 0;
+        let newWidth = resizeState.startWidth;
+        let newHeight = resizeState.startHeight;
+        let newX = resizeState.startXOffset;
+        let newY = resizeState.startYOffset;
+
+        if (resizeState.handle.includes('right')) {
+            newWidth = Math.max(MIN_WIDTH, resizeState.startWidth + dx);
+        }
+        if (resizeState.handle.includes('left')) {
+            const rawWidth = resizeState.startWidth - dx;
+            const clampedWidth = Math.max(MIN_WIDTH, rawWidth);
+            const appliedDelta = resizeState.startWidth - clampedWidth;
+            newWidth = clampedWidth;
+            newX = resizeState.startXOffset + appliedDelta;
+        }
+        if (resizeState.handle.includes('bottom')) {
+            newHeight = Math.max(MIN_HEIGHT, resizeState.startHeight + dy);
+        }
+        if (resizeState.handle.includes('top')) {
+            const rawHeight = resizeState.startHeight - dy;
+            const clampedHeight = Math.max(MIN_HEIGHT, rawHeight);
+            const appliedDelta = resizeState.startHeight - clampedHeight;
+            newHeight = clampedHeight;
+            newY = resizeState.startYOffset + appliedDelta;
+        }
+
+        modalElement.style.width = `${Math.round(newWidth)}px`;
+        modalElement.style.height = `${Math.round(newHeight)}px`;
+        setModalTransform(newX, newY);
+    }
+
+    function stopInteractions() {
+        if (activePointerId !== null && typeof modalElement.releasePointerCapture === 'function') {
+            try {
+                modalElement.releasePointerCapture(activePointerId);
+            } catch (err) {
+                // ignore release errors
+            }
+        }
+        activePointerId = null;
+        const clamped = clampModalToViewport(modalElement);
+        if (clamped) {
+            x = clamped.x;
+            y = clamped.y;
+            lastKnownX = clamped.x;
+            lastKnownY = clamped.y;
+        }
+        if (isDragging || resizeState) {
             persistModalPosition(modalElement, lastKnownX, lastKnownY);
         }
-        // WICHTIG: Setze isResizing nach einer kurzen Verzögerung zurück,
-        // damit der Click-Handler des Overlays es zuerst prüfen kann.
+        isDragging = false;
+        resizeState = null;
+        handle.style.cursor = 'grab';
         if (isResizing) {
-            setTimeout(() => {
-                isResizing = false;
-            }, 120);
+            isResizing = false;
+        }
+        clearResizeCursor();
+    }
+
+    function onPointerMove(e) {
+        if (activePointerId === null || e.pointerId !== activePointerId) return;
+        if (resizeState) {
+            updateResize(e);
+            return;
+        }
+        if (isDragging) {
+            updateDrag(e);
+        }
+    }
+
+    function onPointerUp(e) {
+        if (activePointerId === null || e.pointerId !== activePointerId) return;
+        stopInteractions();
+    }
+
+    handle.addEventListener('pointerdown', handlePointerDown);
+    modalElement.addEventListener('pointerdown', (e) => {
+        if (activePointerId !== null) return;
+        const resizeHandle = e.target.closest('.modal-resize-handle');
+        if (resizeHandle && resizeHandle.dataset.handle) {
+            startResizing(resizeHandle.dataset.handle, e);
         }
     });
-
+    modalElement.addEventListener('pointermove', onPointerMove);
+    modalElement.addEventListener('pointerup', onPointerUp);
+    modalElement.addEventListener('pointercancel', onPointerUp);
     handle.style.cursor = 'grab';
 }
 
