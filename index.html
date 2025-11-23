@@ -519,18 +519,19 @@
         .info-modal {
             background: #ffffff;
             padding: 28px 32px;
-            width: 70vw;
-            max-width: 1000px;
+            width: min(70vw, calc(100vw - 48px));
+            max-width: none;
             min-width: 300px;
-            height: 85vh; /* Höhe statt max-height für bessere Grössenänderung */
+            height: min(92vh, calc(100vh - 20px));
+            max-height: none;
             overflow: auto;
-            resize: both;
+            box-sizing: border-box;
             border-radius: 18px;
             box-shadow: 0 24px 60px rgba(15,23,42,0.18);
             border: 1px solid rgba(0,94,184,0.18);
             position: absolute; /* Geändert von relative auf absolute */
-            top: 5vh; /* Startposition */
-            left: 5vw; /* Startposition */
+            top: 2vh; /* Startposition */
+            left: 4vw; /* Startposition */
             backdrop-filter: saturate(140%);
         }
         .info-modal-nested {
@@ -542,21 +543,87 @@
         }
         .modal-header {
             cursor: grab;
-            background: #f2f6fb;
-            padding: 12px 18px;
+            background: linear-gradient(135deg, rgba(0, 94, 184, 0.96), rgba(0, 133, 111, 0.78));
+            padding: 18px 32px;
             margin: -28px -32px 20px -32px;
             border-bottom: 1px solid rgba(0,74,149,0.18);
             border-top-left-radius: 18px;
             border-top-right-radius: 18px;
             user-select: none;
-            color: #004a95;
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 0 4px rgba(0,0,0,0.25);
             font-weight: bold;
+            touch-action: none;
         }
-        .info-modal h2, .info-modal h3 {
-            color: #004a95;
-            margin: 0 0 12px;
-            font-weight: 600;
+        .modal-resize-handle {
+            position: absolute;
+            z-index: 5;
+            touch-action: none;
+            user-select: none;
         }
+        .modal-resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 999px;
+            background: transparent;
+        }
+        .modal-resize-top,
+        .modal-resize-bottom {
+            left: 18px;
+            right: 18px;
+            height: 14px;
+        }
+        .modal-resize-top {
+            top: -7px;
+            cursor: ns-resize;
+        }
+        .modal-resize-bottom {
+            bottom: -7px;
+            cursor: ns-resize;
+        }
+        .modal-resize-left,
+        .modal-resize-right {
+            top: 18px;
+            bottom: 18px;
+            width: 14px;
+        }
+        .modal-resize-left {
+            left: -7px;
+            cursor: ew-resize;
+        }
+        .modal-resize-right {
+            right: -7px;
+            cursor: ew-resize;
+        }
+        .modal-resize-corner {
+            width: 22px;
+            height: 22px;
+        }
+        .modal-resize-top-left {
+            top: -11px;
+            left: -11px;
+            cursor: nwse-resize;
+        }
+        .modal-resize-top-right {
+            top: -11px;
+            right: -11px;
+            cursor: nesw-resize;
+        }
+        .modal-resize-bottom-left {
+            bottom: -11px;
+            left: -11px;
+            cursor: nesw-resize;
+        }
+        .modal-resize-bottom-right {
+            bottom: -11px;
+            right: -11px;
+            cursor: nwse-resize;
+        }
+        /* Überschriften im Modal-Body werden weiter unten konsolidiert gestylt */
         .info-modal p, .info-modal li, .info-modal td, .info-modal th {
             font-size: 0.95em;
             color: #000;
@@ -1692,13 +1759,6 @@
             backdrop-filter: blur(6px);
         }
         .info-modal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: min(960px, 80vw);
-            max-height: 85vh;
-            min-width: 320px;
             display: flex;
             flex-direction: column;
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 249, 255, 0.96) 100%);
@@ -1706,7 +1766,6 @@
             border: 1px solid rgba(8, 44, 92, 0.18);
             box-shadow: 0 42px 80px rgba(10, 31, 68, 0.28);
             overflow: hidden;
-            resize: both;
         }
         .modal-header {
             cursor: grab;
@@ -1720,15 +1779,21 @@
             letter-spacing: 0.01em;
             box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.25);
             user-select: none;
+            /* sorgt dafür, dass Titel/Buttons auf hellem BG immer weiss bleiben */
+            --modal-header-title-color: #fff;
+            --modal-header-icon-color: #fff;
+        }
+        .modal-header h2,
+        .modal-header h1,
+        .modal-header h3 {
+            color: var(--modal-header-title-color, #fff) !important;
+            margin: 0;
+            flex: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.35);
+            font-weight: 700;
         }
         .modal-header::before {
-            content: "";
-            display: inline-flex;
-            width: 46px;
-            height: 8px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.4);
-            pointer-events: none;
+            display: none;
         }
         .modal-header--nested {
             padding-left: 24px;
