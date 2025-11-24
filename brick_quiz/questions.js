@@ -301,7 +301,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA",
-        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -311,7 +311,7 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA",
-        "question": "Können „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010) und „Besuch, erste 5 Min.“ (AA.00.0030) zusammen abgerechnet werden?",
+        "question": "Können „Ärztliche Konsultation, erste 5 Min.“ (AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)) und „Besuch, erste 5 Min.“ (AA.00.0030 (Besuch, erste 5 Min.)) zusammen abgerechnet werden?",
         "answers": [
             "Ja, immer",
             "Nein, sie sind nicht kumulierbar",
@@ -321,9 +321,9 @@ window.questionsData = [
     },
     {
         "title": "Zuschlagregel AA.00.0020",
-        "question": "Unter welcher Voraussetzung darf „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020 – + Ärztliche Konsultation, jede weitere 1 Min.) abgerechnet werden?",
+        "question": "Unter welcher Voraussetzung darf „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.) – + Ärztliche Konsultation, jede weitere 1 Min.) abgerechnet werden?",
         "answers": [
-            "Nur als Zuschlag zu AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "Nur als Zuschlag zu AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) (Ärztliche Konsultation, erste 5 Min.)",
             "Als eigenständige Leistung",
             "Als Pauschale abrechenbar"
         ],
@@ -331,7 +331,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0020",
-        "question": "Wie viele „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020) dürfen pro Sitzung abgerechnet werden?",
+        "question": "Wie viele „+ Ärztliche Konsultation, jede weitere 1 Min.“ (AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)) dürfen pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 15 pro Sitzung",
             "Maximal 20 pro Sitzung",
@@ -341,7 +341,7 @@ window.questionsData = [
     },
     {
         "title": "Kumulation Besuch und Telemedizin",
-        "question": "Ist „Besuch, erste 5 Min.“ (AA.00.0030) kumulierbar mit „Notfallkonsultation am Telefon, erste 5 Min.“ (CA.15.0030)?",
+        "question": "Ist „Besuch, erste 5 Min.“ (AA.00.0030 (Besuch, erste 5 Min.)) kumulierbar mit „Notfallkonsultation am Telefon, erste 5 Min.“ (CA.15.0030 (Hausärztliche Palliative Care: Besuch, erste 5 Min.))?",
         "answers": [
             "Ja",
             "Nein",
@@ -361,7 +361,7 @@ window.questionsData = [
     },
     {
         "title": "Kumulation Konsultation und Telemedizin",
-        "question": "Können AA.00.0010 – Ärztliche Konsultation, erste 5 Min. und AA.10.0010 – telemedizinische zeitgleiche Konsultation,  erste 5 Min. gemeinsam abgerechnet werden?",
+        "question": "Können AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) – Ärztliche Konsultation, erste 5 Min. und AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) – telemedizinische zeitgleiche Konsultation,  erste 5 Min. gemeinsam abgerechnet werden?",
         "answers": [
             "Ja, wenn verschiedene Ärzte beteiligt sind",
             "Nein, sie sind nicht kumulierbar",
@@ -371,7 +371,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0030",
-        "question": "Wie oft darf „Besuch, erste 5 Min.“ (AA.00.0030) pro Sitzung verrechnet werden?",
+        "question": "Wie oft darf „Besuch, erste 5 Min.“ (AA.00.0030 (Besuch, erste 5 Min.)) pro Sitzung verrechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -381,7 +381,7 @@ window.questionsData = [
     },
     {
         "title": "Abrechnungsregel Wegzeit",
-        "question": "Wann ist die Wegzeit (AA.00.0050) für einen erfolglosen Hausbesuch abrechenbar?",
+        "question": "Wann ist die Wegzeit (AA.00.0050 (Wegzeit, pro 1 Min.)) für einen erfolglosen Hausbesuch abrechenbar?",
         "answers": [
             "Immer, wenn der Patient nicht angetroffen wurde",
             "Nur wenn die Abwesenheit medizinisch begründbar war",
@@ -391,7 +391,7 @@ window.questionsData = [
     },
     {
         "title": "Abrechnungsregel Wegzeit",
-        "question": "Wie wird die Wegzeit (AA.00.0050) bei mehreren Patienten in einer Besuchstour abgerechnet?",
+        "question": "Wie wird die Wegzeit (AA.00.0050 (Wegzeit, pro 1 Min.)) bei mehreren Patienten in einer Besuchstour abgerechnet?",
         "answers": [
             "Die gesamte Tour kann abgerechnet werden",
             "Nur die Zeit zwischen zwei Patienten darf abgerechnet werden",
@@ -401,7 +401,7 @@ window.questionsData = [
     },
     {
         "title": "Konsilium",
-        "question": "Welche Leistungen sind in einem Konsilium (AA.00.0080) inkludiert?",
+        "question": "Welche Leistungen sind in einem Konsilium (AA.00.0080 (Ärztliches Konsilium, pro 1 Min.)) inkludiert?",
         "answers": [
             "Nur die Beratung des Patienten",
             "Beratung, Befragung, Studium der Akten, Dokumentation und schriftlicher Bericht",
@@ -411,7 +411,7 @@ window.questionsData = [
     },
     {
         "title": "Konsilium",
-        "question": "Wer darf ein Konsilium (AA.00.0080) abrechnen?",
+        "question": "Wer darf ein Konsilium (AA.00.0080 (Ärztliches Konsilium, pro 1 Min.)) abrechnen?",
         "answers": [
             "Jeder Arzt",
             "Nur Fachärzte mit spezieller Qualifikation",
@@ -421,10 +421,10 @@ window.questionsData = [
     },
     {
         "title": "Versicherungsauftrag",
-        "question": "Dürfen Leistungen im Auftrag des Versicherers über AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) abgerechnet werden?",
+        "question": "Dürfen Leistungen im Auftrag des Versicherers über AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) (Ärztliche Konsultation, erste 5 Min.) abgerechnet werden?",
         "answers": [
             "Ja, immer",
-            "Nein, hierfür ist AA.15.0090 (Leistung im Auftrag des Versicherers) zu verwenden",
+            "Nein, hierfür ist AA.15.0090 (Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min.) (Leistung im Auftrag des Versicherers) zu verwenden",
             "Nur bei stationären Aufenthalten"
         ],
         "correct_answer_index": 1
@@ -433,15 +433,15 @@ window.questionsData = [
         "title": "Telemedizin",
         "question": "Welche Tarifpositionen sind für telemedizinische Grundleistungen im Kapitel AA – Ärztliche allgemeine Grundleistungen vorgesehen?",
         "answers": [
-            "AA.10.0010 bis AA.10.0030 (Telemedizinische Grundleistungen)",
-            "AA.00.0010 bis AA.00.0040 (Konsultationen und Besuche)",
-            "Nur AA.00.0010 (Konsultation, erste 5 Min.)"
+            "AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) bis AA.10.0030 (Ärztliche, telemedizinische zeitversetzte Konsultation) (Telemedizinische Grundleistungen)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) bis AA.00.0040 (+ Besuch, jede weitere 1 Min.) (Konsultationen und Besuche)",
+            "Nur AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) (Konsultation, erste 5 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Vor-/Nachbesprechung",
-        "question": "Wie wird die Vor- und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten (AA.00.0060) abgerechnet?",
+        "question": "Wie wird die Vor- und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten (AA.00.0060 (Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.)) abgerechnet?",
         "answers": [
             "Pro begonnene 10 Minuten",
             "Pro Minute, max. 20 Minuten pro Sitzung",
@@ -501,7 +501,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbegrenzung",
-        "question": "Wie oft darf AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -511,9 +511,9 @@ window.questionsData = [
     },
     {
         "title": "Telemedizin",
-        "question": "Was unterscheidet AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) von der Präsenz-Konsultation?",
+        "question": "Was unterscheidet AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) von der Präsenz-Konsultation?",
         "answers": [
-            "Sie darf nicht zusammen mit AA.00.0010 (Konsultation, erste 5 Min.) abgerechnet werden",
+            "Sie darf nicht zusammen mit AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) (Konsultation, erste 5 Min.) abgerechnet werden",
             "Sie ist immer günstiger",
             "Sie braucht keine Dokumentation"
         ],
@@ -521,7 +521,7 @@ window.questionsData = [
     },
     {
         "title": "Kumulation",
-        "question": "Können AA.00.0030 (Besuch, erste 5 Min.) und AA.00.0010  (Konsultation, erste 5 Min.) in derselben Sitzung abgerechnet werden?",
+        "question": "Können AA.00.0030 (Besuch, erste 5 Min.) (Besuch, erste 5 Min.) und AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)  (Konsultation, erste 5 Min.) in derselben Sitzung abgerechnet werden?",
         "answers": [
             "Nein, ein Kumulationsverbot besteht",
             "Ja, wenn sie am gleichen Tag stattfinden",
@@ -531,7 +531,7 @@ window.questionsData = [
     },
     {
         "title": "Wegzeit",
-        "question": "Wann darf AA.00.0050 (Wegzeit, pro 1 Min.) abgerechnet werden?",
+        "question": "Wann darf AA.00.0050 (Wegzeit, pro 1 Min.) (Wegzeit, pro 1 Min.) abgerechnet werden?",
         "answers": [
             "Nur bei ärztlichen Hausbesuchen außerhalb der Praxis",
             "Bei jedem Praxisbesuch",
@@ -561,7 +561,7 @@ window.questionsData = [
     },
     {
         "title": "Hausarzt-Notfall",
-        "question": "Welche Voraussetzung braucht es für CA.15.0030 – Hausärztliche Palliative Care: Besuch, erste 5 Min.?",
+        "question": "Welche Voraussetzung braucht es für CA.15.0030 (Hausärztliche Palliative Care: Besuch, erste 5 Min.) – Hausärztliche Palliative Care: Besuch, erste 5 Min.?",
         "answers": [
             "Akute, nicht planbare gesundheitliche Situation",
             "Jedes Symptom",
@@ -581,9 +581,9 @@ window.questionsData = [
     },
     {
         "title": "Zuschläge",
-        "question": "Wann darf der Zuschlag AA.00.0040 (+ Besuch, jede weitere 1 Min.) abgerechnet werden?",
+        "question": "Wann darf der Zuschlag AA.00.0040 (+ Besuch, jede weitere 1 Min.) (+ Besuch, jede weitere 1 Min.) abgerechnet werden?",
         "answers": [
-            "Nur als Zuschlag zu AA.00.0030 (Besuch, erste 5 Min.)",
+            "Nur als Zuschlag zu AA.00.0030 (Besuch, erste 5 Min.) (Besuch, erste 5 Min.)",
             "Als eigenständige Leistung",
             "Als Pauschale abrechenbar"
         ],
@@ -651,7 +651,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0010",
-        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.\" (AA.00.0010) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliche Konsultation, erste 5 Min.\" (AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -661,17 +661,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.00.0010",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0010 – Ärztliche Konsultation, erste 5 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0010 (Ärztliche Konsultation, erste 5 Min.) – Ärztliche Konsultation, erste 5 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.20.0040",
-            "AA.30.0090",
-            "AA.00.0030"
+            "AA.20.0040 (Stomapflege ohne Irrigation)",
+            "AA.30.0090 ((+) 25%-Zuschlag für telemedizinische Notfallkonsultation F, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr)",
+            "AA.00.0030 (Besuch, erste 5 Min.)"
         ],
         "correct_answer_index": 2
     },
     {
         "title": "Mengenbeschränkung AA.00.0020",
-        "question": "Wie oft darf die Leistung „+ Ärztliche Konsultation, jede weitere 1 Min.\" (AA.00.0020) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „+ Ärztliche Konsultation, jede weitere 1 Min.\" (AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 15 pro Sitzung",
             "Maximal 20 pro Sitzung",
@@ -681,7 +681,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0030",
-        "question": "Wie oft darf die Leistung „Besuch, erste 5 Min.\" (AA.00.0030) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Besuch, erste 5 Min.\" (AA.00.0030 (Besuch, erste 5 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -691,17 +691,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.00.0030",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0030 – Besuch, erste 5 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0030 (Besuch, erste 5 Min.) – Besuch, erste 5 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.10.0010",
-            "AA.00.0010",
-            "AA.00.0020"
+            "AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.00.0040",
-        "question": "Wie oft darf die Leistung „+ Besuch, jede weitere 1 Min.\" (AA.00.0040) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „+ Besuch, jede weitere 1 Min.\" (AA.00.0040 (+ Besuch, jede weitere 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 15 pro Sitzung",
             "Maximal 20 pro Sitzung",
@@ -711,7 +711,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0050",
-        "question": "Wie oft darf die Leistung „Wegzeit, pro 1 Min.\" (AA.00.0050) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Wegzeit, pro 1 Min.\" (AA.00.0050 (Wegzeit, pro 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 60 pro Sitzung",
             "Maximal 65 pro Sitzung",
@@ -721,7 +721,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0060",
-        "question": "Wie oft darf die Leistung „Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.\" (AA.00.0060) pro 90 Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.\" (AA.00.0060 (Vor-und Nachbesprechung diagnostischer/therapeutischer Eingriffe mit Patienten, pro 1 Min.)) pro 90 Tage abgerechnet werden?",
         "answers": [
             "Maximal 60 pro 90 Tage",
             "Maximal 90 pro 90 Tage",
@@ -731,7 +731,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0070",
-        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070 (Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 15 pro Sitzung",
             "Maximal 20 pro Sitzung",
@@ -741,7 +741,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0070",
-        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070) pro 90 Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.\" (AA.00.0070 (Instruktion von Selbstmessungen und/oder Selbstbehandlungen durch den Arzt, pro 1 Min.)) pro 90 Tage abgerechnet werden?",
         "answers": [
             "Maximal 15 pro 90 Tage",
             "Maximal 20 pro 90 Tage",
@@ -751,7 +751,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.00.0080",
-        "question": "Wie oft darf die Leistung „Ärztliches Konsilium, pro 1 Min.\" (AA.00.0080) pro 180 Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliches Konsilium, pro 1 Min.\" (AA.00.0080 (Ärztliches Konsilium, pro 1 Min.)) pro 180 Tage abgerechnet werden?",
         "answers": [
             "Maximal 120 pro 180 Tage",
             "Maximal 130 pro 180 Tage",
@@ -761,17 +761,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.00.0080",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0080 – Ärztliches Konsilium, pro 1 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0080 (Ärztliches Konsilium, pro 1 Min.) – Ärztliches Konsilium, pro 1 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.00.0010",
-            "AA.00.0020",
-            "AA.00.0040"
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)",
+            "AA.00.0040 (+ Besuch, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.00.0090",
-        "question": "Wie oft darf die Leistung „Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min.\" (AA.00.0090) pro 90 Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min.\" (AA.00.0090 (Spezifische Impfberatung bei franchisebefreiten Impfungen, pro 1 Min.)) pro 90 Tage abgerechnet werden?",
         "answers": [
             "Maximal 20 pro 90 Tage",
             "Maximal 25 pro 90 Tage",
@@ -781,17 +781,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.00.0090",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0090 – Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.00.0090 (Spezifische Impfberatung bei franchisebefreiten Impfungen, pro 1 Min.) – Spezifische lmpfberatung bei franchisebefreiten lmpfungen, pro 1 Min. nicht kumuliert werden?",
         "answers": [
-            "CG.00.0020",
-            "AA.00.0010",
-            "AA.00.0020"
+            "CG.00.0020 (Vorsorgeuntersuchung im 1. Monat)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.05.0010",
-        "question": "Wie oft darf die Leistung „Untersuchung: Kreislauf\" (AA.05.0010) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Kreislauf\" (AA.05.0010 (Untersuchung: Kreislauf)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -801,7 +801,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0020",
-        "question": "Wie oft darf die Leistung „Untersuchung: Augen\" (AA.05.0020) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Augen\" (AA.05.0020 (Untersuchung: Augen)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -811,7 +811,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0030",
-        "question": "Wie oft darf die Leistung „Untersuchung: Ohren\" (AA.05.0030) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Ohren\" (AA.05.0030 (Untersuchung: Ohren)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -821,7 +821,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0040",
-        "question": "Wie oft darf die Leistung „Untersuchung: Luftwege\" (AA.05.0040) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Luftwege\" (AA.05.0040 (Untersuchung: Luftwege)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -831,7 +831,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0050",
-        "question": "Wie oft darf die Leistung „Untersuchung: Wirbelsäule\" (AA.05.0050) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Wirbelsäule\" (AA.05.0050 (Untersuchung: Wirbelsäule)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -841,7 +841,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0060",
-        "question": "Wie oft darf die Leistung „Untersuchung: Abdomen\" (AA.05.0060) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Abdomen\" (AA.05.0060 (Untersuchung: Abdomen)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -851,7 +851,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0070",
-        "question": "Wie oft darf die Leistung „Untersuchung: Uro-Genital\" (AA.05.0070) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Uro-Genital\" (AA.05.0070 (Untersuchung: Uro-Genital)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -861,7 +861,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0080",
-        "question": "Wie oft darf die Leistung „Untersuchung: Haut\" (AA.05.0080) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Haut\" (AA.05.0080 (Untersuchung: Haut)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -871,7 +871,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0090",
-        "question": "Wie oft darf die Leistung „Untersuchung: Muskulatur\" (AA.05.0090 – Untersuchung: Muskulatur) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Muskulatur\" (AA.05.0090 (Untersuchung: Muskulatur) – Untersuchung: Muskulatur) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -881,7 +881,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0100",
-        "question": "Wie oft darf die Leistung „Untersuchung: Gelenke\" (AA.05.0100) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Gelenke\" (AA.05.0100 (Untersuchung: Gelenke)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -891,7 +891,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0110",
-        "question": "Wie oft darf die Leistung „Untersuchung: Gefässe\" (AA.05.0110) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Gefässe\" (AA.05.0110 (Untersuchung: Gefässe)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -901,7 +901,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0120",
-        "question": "Wie oft darf die Leistung „Untersuchung: Lymphatische Organe\" (AA.05.0120) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Lymphatische Organe\" (AA.05.0120 (Untersuchung: Lymphatische Organe)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -911,7 +911,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0130",
-        "question": "Wie oft darf die Leistung „Untersuchung: Neurologie\" (AA.05.0130) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Neurologie\" (AA.05.0130 (Untersuchung: Neurologie)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -921,7 +921,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.05.0140",
-        "question": "Wie oft darf die Leistung „Untersuchung: Pubertätsentwicklung\" (AA.05.0140) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Untersuchung: Pubertätsentwicklung\" (AA.05.0140 (Untersuchung: Pubertätsentwicklung)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -931,7 +931,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.10.0010",
-        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.\" (AA.10.0010) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.\" (AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -941,17 +941,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.10.0010",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0010 – Ärztliche, telemedizinische zeitgleiche Konsultation,  erste 5 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0010 (Ärztliche, telemedizinische zeitgleiche Konsultation, erste 5 Min.) – Ärztliche, telemedizinische zeitgleiche Konsultation,  erste 5 Min. nicht kumuliert werden?",
         "answers": [
             "AA.05",
-            "AA.00.0010",
-            "AA.00.0020"
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.10.0020",
-        "question": "Wie oft darf die Leistung „+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.\" (AA.10.0020) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.\" (AA.10.0020 (+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 15 pro Sitzung",
             "Maximal 20 pro Sitzung",
@@ -961,7 +961,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.10.0030",
-        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030) pro tag abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030 (Ärztliche, telemedizinische zeitversetzte Konsultation)) pro tag abgerechnet werden?",
         "answers": [
             "Maximal 4 pro Sitzung",
             "Maximal 9 pro Sitzung",
@@ -971,7 +971,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.10.0030",
-        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030) pro Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliche, telemedizinische zeitversetzte Konsultation\" (AA.10.0030 (Ärztliche, telemedizinische zeitversetzte Konsultation)) pro Tage abgerechnet werden?",
         "answers": [
             "Maximal 4 pro Sitzung",
             "Maximal 9 pro Sitzung",
@@ -981,17 +981,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.10.0030",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0030 – Ärztliche, telemedizinische zeitversetzte Konsultation nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.10.0030 (Ärztliche, telemedizinische zeitversetzte Konsultation) – Ärztliche, telemedizinische zeitversetzte Konsultation nicht kumuliert werden?",
         "answers": [
             "EA",
-            "AA.05.0070",
-            "AA.05.0060"
+            "AA.05.0070 (Untersuchung: Uro-Genital)",
+            "AA.05.0060 (Untersuchung: Abdomen)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.15.0050",
-        "question": "Wie oft darf die Leistung „Ärztliches Expertenboard in An- oder Abwesenheit des Patienten, pro 1 Min.\" (AA.15.0050) pro Tage abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Ärztliches Expertenboard in An- oder Abwesenheit des Patienten, pro 1 Min.\" (AA.15.0050 (Ärztliches Expertenboard in An- oder Abwesenheit des Patienten, pro 1 Min.)) pro Tage abgerechnet werden?",
         "answers": [
             "Maximal 30 pro Sitzung",
             "Maximal 35 pro Sitzung",
@@ -1001,17 +1001,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.15.0090",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.15.0090 – Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.15.0090 (Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min.) – Ärztliche Leistungen im Auftrag des Versicherers in Abwesenheit des Patienten, pro 1 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.25.0030",
-            "AA.00.0010",
-            "AA.00.0020"
+            "AA.25.0030 (Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.20.0040",
-        "question": "Wie oft darf die Leistung „Stomapflege ohne Irrigation\" (AA.20.0040) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Stomapflege ohne Irrigation\" (AA.20.0040 (Stomapflege ohne Irrigation)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -1021,7 +1021,7 @@ window.questionsData = [
     },
     {
         "title": "Mengenbeschränkung AA.20.0050",
-        "question": "Wie oft darf die Leistung „Stomapflege mit Irrigation\" (AA.20.0050) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Stomapflege mit Irrigation\" (AA.20.0050 (Stomapflege mit Irrigation)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",
@@ -1031,17 +1031,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.20.0070",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.20.0070 – Legalinspektion durch den Arzt, pro 1 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.20.0070 (Legalinspektion durch den Arzt, pro 1 Min.) – Legalinspektion durch den Arzt, pro 1 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.25.0010",
-            "AA.00.0010",
-            "AA.00.0020"
+            "AA.25.0010 (Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.25.0010",
-        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.\" (AA.25.0010) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.\" (AA.25.0010 (Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 20 pro Sitzung",
             "Maximal 25 pro Sitzung",
@@ -1051,17 +1051,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.25.0010",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0010 – Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min. nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0010 (Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min.) – Erstellung eines ärztlichen Berichts zuhanden eines anderen Arztes, eines Therapeuten oder der Pflege, pro 1 Min. nicht kumuliert werden?",
         "answers": [
-            "AA.30.0090",
-            "AA.05.0130",
-            "AA.25.0020"
+            "AA.30.0090 ((+) 25%-Zuschlag für telemedizinische Notfallkonsultation F, Mo-Fr 19-22 Uhr, Sa 12-19 Uhr, So 7-19 Uhr)",
+            "AA.05.0130 (Untersuchung: Neurologie)",
+            "AA.25.0020 (Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.)"
         ],
         "correct_answer_index": 2
     },
     {
         "title": "Mengenbeschränkung AA.25.0020",
-        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.\" (AA.25.0020) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.\" (AA.25.0020 (Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 20 pro Sitzung",
             "Maximal 25 pro Sitzung",
@@ -1071,17 +1071,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.25.0020",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0020 – Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.  nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0020 (Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.) – Erstellung eines ärztlichen Berichts zuhanden des Patienten oder eines Angehörigen, pro 1 Min.  nicht kumuliert werden?",
         "answers": [
-            "AA.25.0030",
-            "AA.00.0010",
-            "AA.00.0020"
+            "AA.25.0030 (Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.)",
+            "AA.00.0010 (Ärztliche Konsultation, erste 5 Min.)",
+            "AA.00.0020 (+ Ärztliche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 0
     },
     {
         "title": "Mengenbeschränkung AA.25.0030",
-        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.\" (AA.25.0030) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.\" (AA.25.0030 (Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 20 pro Sitzung",
             "Maximal 25 pro Sitzung",
@@ -1091,17 +1091,17 @@ window.questionsData = [
     },
     {
         "title": "Kumulation AA.25.0030",
-        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0030 – Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.  nicht kumuliert werden?",
+        "question": "Mit welcher Tarifposition darf die Leistung AA.25.0030 (Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.) – Erstellung eines ärztlichen Berichts zuhanden des Versicherers, pro 1 Min.  nicht kumuliert werden?",
         "answers": [
-            "AA.20.0070",
-            "AA.25.0050",
-            "AA.10.0020"
+            "AA.20.0070 (Legalinspektion durch den Arzt, pro 1 Min.)",
+            "AA.25.0050 (Ärztliches Gutachten, pro 1 Min.)",
+            "AA.10.0020 (+ Ärztliche, telemedizinische zeitgleiche Konsultation, jede weitere 1 Min.)"
         ],
         "correct_answer_index": 1
     },
     {
         "title": "Mengenbeschränkung AA.25.0040",
-        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Zeugnisses in Abwesenheit des Patienten\" (AA.25.0040) pro Sitzung abgerechnet werden?",
+        "question": "Wie oft darf die Leistung „Erstellung eines ärztlichen Zeugnisses in Abwesenheit des Patienten\" (AA.25.0040 (Erstellung eines ärztlichen Zeugnisses in Abwesenheit des Patienten)) pro Sitzung abgerechnet werden?",
         "answers": [
             "Maximal 1 pro Sitzung",
             "Maximal 6 pro Sitzung",

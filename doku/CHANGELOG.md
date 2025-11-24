@@ -4,7 +4,11 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.2 (2025-11-22, aktuell)
+### V4.3 (2025-11-24, aktuell)
+- Design neu zweispaltig und damit für breitere Bildschirme
+geeignet.
+
+### V4.2 (2025-11-22)
 - Pauschalen-Engine überarbeitet: strukturierte UND/ODER-Prüfung nutzt vorberechnete Indizes, zählt LKN-Treffer und priorisiert spezifische Codes vor C9x-Fallbacks; irrelevante Tabellen (z. B. OR/ANAST) werden für Erklärungen gefiltert, Gruppen-Vergleiche heben Unterschiede pro Suffix hervor, potenzielle ICDs werden mitgeliefert; neue Konfiguration `REGELPRUEFUNG.pauschale_explanation_excluded_lkn_tables`.
 - Frontend & API: Pauschalen-Bedingungen lassen sich aus der Ergebnisliste heraus anklicken; Details werden bei Bedarf über `/api/pauschale-conditions-html` mit dem gespeicherten Kontext nachgerendert und serverseitig via `bleach` bereinigt; Status-Pills und Taxpunkt-Differenzen erleichtern den Vergleich alternativer Pauschalen.
 - UX: Fortschrittsanzeige mit animiertem „Flying Doctor“-Overlay für laufende Analysen, stabilere Busy/Spinner-States und sanftere Modal-Navigation; Pauschalen-Details und Erklärungen bleiben nachladbar, ohne den Hauptlauf neu zu starten.
