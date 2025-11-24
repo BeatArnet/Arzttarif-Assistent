@@ -1,6 +1,6 @@
 # Breakout Arzttarif – Spiel & Quiz
 
-Ein browserbasiertes Breakout‑Spiel, das medizinische Tarif‑Quizfragen integriert. **Das Spiel ist vollständig in HTML/CSS/JavaScript umgesetzt – Python wird ausschließlich dazu verwendet, per `excel_to_json.py` den Fragenkatalog aus der Excel‑Datei zu erzeugen.** Die Fragen stammen aus einer Excel‑Datei und werden vor Spielstart in eine JSON‑Datei umgewandelt, die das Spiel dann dynamisch lädt.
+Ein browserbasiertes Breakout‑Spiel, das medizinische Tarif‑Quizfragen integriert. **Das Spiel ist vollständig in HTML/CSS/JavaScript umgesetzt – Python wird ausschließlich dazu verwendet, per `excel_to_json.py` den Fragenkatalog aus der Excel‑Datei zu erzeugen.** Die Fragen stammen aus einer Excel‑Datei und werden vor Spielstart in eine JS‑Datei umgewandelt, die das Spiel dann dynamisch lädt.
 
 ---
 
@@ -26,7 +26,7 @@ Halte den Ball mit dem Paddle im Spiel, zerstöre Bricks und beantworte Quizfrag
 
 * Farbige Bricks, dynamische Ballphysik, wechselnde Paddle‑Farben
 * Soundeffekte für alle Kollisionen und Spielende
-* Zufällig eingestreute Quiz‑Bricks (Fragen aus **`questions.json`**)
+* Zufällig eingestreute Quiz‑Bricks (Fragen aus **`questions.js`**)
 * Punktesystem & Ergebnis‑Popup
 * Vollständig tastatur‑ und mausbedienbar
 
@@ -38,7 +38,7 @@ Halte den Ball mit dem Paddle im Spiel, zerstöre Bricks und beantworte Quizfrag
 .
 ├─ Brick.html                    # Einstiegspunkt (enthält Spiel + Styles + JS)
 ├─ questions.js                  # Fragenkatalog (wird aus der Excel erzeugt)
-├─ excel_to_json.py              # Excel → JSON‑Konverter (optional)
+├─ excel_to_json.py              # Excel → JS‑Konverter (optional)
 └─ Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx  # Quell‑Excel für neue Fragen (optional)
 ```
 
@@ -59,7 +59,7 @@ python -m pip install pandas openpyxl
 
 ---
 
-## 🛠️ Excel → JSON konvertieren
+## 🛠️ Excel → JS konvertieren
 
 1. Lege die Datei **`Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx`** im Projektstamm ab.
 2. Führe das Skript aus:
@@ -68,8 +68,8 @@ python -m pip install pandas openpyxl
    python excel_to_json.py
    ```
 
-   Das Skript liest die Spalten *Stichwort*, *Frage*, *Antwort\_1 … 3*, *Korrekte\_Antwort* und legt/aktualisiert **`questions.json`**.
-3. Starte anschließend das Spiel – das JSON wird vom Browser geladen.
+   Das Skript liest die Spalten *Stichwort*, *Frage*, *Antwort\_1 … 3*, *Korrekte\_Antwort* und legt/aktualisiert **`questions.js`**.
+3. Starte anschließend das Spiel – das JS wird vom Browser geladen.
 
 > **Hinweis:** Wenn Spalten fehlen oder der Dateiname abweicht, bricht das Skript mit einer Fehlermeldung ab.
 

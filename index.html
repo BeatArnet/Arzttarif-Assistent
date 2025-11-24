@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TARDOC / Pauschalen Rechner Prototyp</title>
-    <!-- Favicon Links -->
-    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
-    <link rel="alternate icon" href="/favicon.ico" type="image/x-icon">
-    <style>
-        /* --- Grund-Styling & Farben --- */
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   TARDOC / Pauschalen Rechner Prototyp
+  </title>
+  <!-- Favicon Links -->
+  <link href="/favicon-32.png" rel="icon" sizes="32x32" type="image/png"/>
+  <link href="/favicon.ico" rel="alternate icon" type="image/x-icon"/>
+  <style>
+   /* --- Grund-Styling & Farben --- */
         :root {
             --primary: #005EB8;        /* Blau der FMH */
             --primary-light: #E6F0FA;
@@ -1111,17 +1113,18 @@
         .hidden { display: none; }
         .chop-dropdown, .icd-dropdown {
             position: absolute;
-            top: calc(100% + 4px);
+            top: 100%;
             left: 0;
             width: 100%;
             max-width: var(--form-width);
             background: white;
             border: 1px solid var(--border-color);
-            max-height: 200px;
+            max-height: 240px;
             overflow: auto;
-            z-index: 1000;
+            z-index: 5000;
             box-sizing: border-box;
             resize: vertical;
+            margin-top: 2px;
         }
         .chop-option { padding: 2px 4px; cursor: pointer; }
         .chop-option:hover { background: var(--primary-light); }
@@ -1186,8 +1189,13 @@
             color: var(--primary-strong);
             font-size: clamp(1.9rem, 2.6vw, 2.4rem);
             letter-spacing: 0.01em;
-            margin: 8px 0 6px;
             font-weight: 650;
+            margin: 0;
+            padding: 0 12px;
+            text-align: center;
+            line-height: 1.2;
+            white-space: normal;
+            border-bottom: none;
         }
         #mainHeader { margin-top: 0; }
         #intro {
@@ -1255,7 +1263,12 @@
         #icdContainer {
             position: relative;
             margin-top: 3px;
-            margin-bottom: 7px;
+            margin-bottom: 0;
+            z-index: 1500;
+        }
+        .input-frame {
+            position: relative;
+            z-index: 100;
         }
         .input-frame {
             margin-top: 8px;
@@ -1300,10 +1313,13 @@
             opacity: 0.75;
         }
         .top-info {
-            display: flex;
-            justify-content: flex-start;
+            position: relative;
+            z-index: 8000; /* keep header/menu above form overlays */
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            grid-template-areas: "left title right";
+            align-items: center;
             gap: 12px;
-            flex-wrap: wrap;
             padding: 9px 18px;
             border-radius: 18px;
             background: rgba(255, 255, 255, 0.78);
@@ -1323,8 +1339,14 @@
             gap: 14px;
             flex-wrap: wrap;
         }
-        .top-info-right {
-            margin-left: auto;
+        .top-info-left { grid-area: left; justify-content: flex-start; }
+        .top-info-right { grid-area: right; justify-content: flex-end; }
+        .top-info h1 {
+            grid-area: title;
+            justify-self: center;
+            align-self: center;
+            text-align: center;
+            white-space: normal;
         }
         .language-select {
             display: flex;
@@ -1444,6 +1466,7 @@
             position: relative;
             display: flex;
             align-items: center;
+            z-index: 40;
         }
         .app-menu-toggle {
             width: 44px;
@@ -1487,7 +1510,7 @@
             box-shadow: 0 22px 40px rgba(12, 40, 88, 0.18);
             border: 1px solid rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(12px);
-            z-index: 20;
+            z-index: 9000; /* above CHOP/ICD dropdowns */
         }
         .app-menu-dropdown.open {
             display: flex;
@@ -1611,18 +1634,20 @@
             font-weight: 650;
         }
         #spinner {
-            display: none;
-            margin-top: 14px;
-            padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.82);
-            border: 1px solid rgba(0, 94, 184, 0.18);
+            display: none !important;
+            height: 0;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            border: 0;
             text-align: center;
             font-style: italic;
-            border-radius: 14px;
+            border-radius: 0;
             font-size: 0.9em;
             color: var(--primary-strong);
-            box-shadow: 0 12px 22px rgba(12, 38, 86, 0.12);
+            box-shadow: none;
         }
+        #spinnerText { display: none !important; }
         #progressContainer {
             display: none;
             width: 100%;
@@ -1634,6 +1659,7 @@
             position: relative;
             overflow: visible;
             box-shadow: 0 14px 26px rgba(12, 38, 86, 0.12);
+            z-index: 1100;
         }
         #progressContainer .progress-track {
             position: absolute;
@@ -1900,10 +1926,19 @@
                 padding: 22px 10px 18px;
             }
             .top-info {
-                flex-direction: column;
-                align-items: stretch;
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "title"
+                    "left"
+                    "right";
+                align-items: start;
                 gap: 10px;
                 text-align: left;
+            }
+            .top-info h1 {
+                justify-self: start;
+                text-align: left;
+                line-height: 1.25;
             }
             .version-info {
                 text-align: left;
@@ -2112,239 +2147,443 @@
                 font-size: 0.9em;
             }
         }
-</style>
-</head>
-<body>
-    <!-- === SVG Sprite Definition (versteckt) === -->
-    <svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-        <symbol id="icon-check" viewBox="0 0 24 24">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-        </symbol>
-        <symbol id="icon-cross" viewBox="0 0 24 24">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </symbol>
+   /* --- Optimierungen für Single Screen (index_v2) --- */
+        @media (min-width: 1024px) {
+            body {
+                overflow: hidden; /* Prevent body scroll, handle in panels */
+                padding-bottom: 0;
+            }
+            .app-shell {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                padding-bottom: 0;
+                max-width: 100vw; /* Full width */
+            }
+            .content-wrapper {
+                display: grid;
+                grid-template-columns: 450px 1fr;
+                gap: 20px;
+                align-items: start;
+                flex: 1;
+                overflow: hidden;
+                padding-bottom: 10px;
+            }
+            .left-panel {
+                overflow-y: auto;
+                padding-right: 5px;
+                padding-bottom: 12px;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            #output {
+                height: 100%;
+                overflow-y: auto;
+                margin-top: 0;
+                margin-bottom: 0;
+            }
+
+            /* Header kompakter */
+            .top-info { padding: 2px 12px; margin-bottom: 0; grid-template-columns: auto 1fr auto; grid-template-areas: "left title right"; }
+            h1#mainHeader { font-size: 1.3rem; margin: 0; padding: 0 10px; white-space: normal; line-height: 1.2; justify-self: center; }
+            #intro { display: none; } 
+            
+            /* Inputs kompakter */
+            .input-frame { padding: 8px 12px; margin-top: 0; }
+            .input-frame > label { margin-top: 4px; font-size: 0.9em; }
+            textarea, input[type="text"], select { 
+                padding: 6px 10px; 
+                margin-bottom: 4px; 
+                font-size: 0.95em;
+            }
+            textarea#userInput { min-height: 60px; }
+            
+            /* Action Button */
+            .action-buttons { margin-top: 5px; }
+            button#analyzeButton { padding: 8px 16px; font-size: 1em; }
+
+            /* Disclaimer */
+            .disclaimer-card { margin-top: 10px; font-size: 0.7em; padding: 6px 10px; }
+        }
+  </style>
+ </head>
+ <body>
+  <!-- === SVG Sprite Definition (versteckt) === -->
+  <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" xmlns="http://www.w3.org/2000/svg">
+   <symbol id="icon-check" viewbox="0 0 24 24">
+    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z">
+    </path>
+   </symbol>
+   <symbol id="icon-cross" viewbox="0 0 24 24">
+    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z">
+    </path>
+   </symbol>
+  </svg>
+  <!-- === Ende SVG Sprite Definition === -->
+  <!-- Flying doctors during progress -->
+  <div aria-hidden="true" id="flyingDoctorLayer">
+   <div class="flying-doctor" id="flyingDoctorMale">
+    <svg viewbox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+     <g class="body-group">
+      <path class="coat-fabric" d="M 90 50 L 130 50 L 80 100 L 20 90 L 90 50" fill="#E0E0E0" stroke="none">
+      </path>
+      <path d="M 100 80 L 80 110 L 120 100 L 120 80" fill="#333">
+      </path>
+      <path d="M 110 80 L 130 115 L 150 100 L 130 80" fill="#333">
+      </path>
+      <circle cx="80" cy="110" fill="#111" r="5">
+      </circle>
+      <circle cx="130" cy="115" fill="#111" r="5">
+      </circle>
+      <path d="M 90 40 L 140 40 L 150 80 L 90 85 Z" fill="#FFF" stroke="#DDD" stroke-width="1">
+      </path>
+      <path d="M 130 45 L 170 35" stroke="#FFF" stroke-linecap="round" stroke-width="14">
+      </path>
+      <circle cx="172" cy="35" fill="#F5D0A9" r="7">
+      </circle>
+      <path d="M 130 40 L 130 30 L 140 30 L 140 45" fill="#F5D0A9">
+      </path>
+      <circle cx="135" cy="25" fill="#F5D0A9" r="15">
+      </circle>
+      <path d="M 120 20 Q 135 5, 150 20 L 148 25 L 135 15 L 122 25 Z" fill="#5D4037">
+      </path>
+      <circle cx="140" cy="22" fill="#222" r="1.5">
+      </circle>
+      <path d="M 128 42 C 115 45, 145 45, 142 42" fill="none" stroke="#222" stroke-linecap="round" stroke-width="4">
+      </path>
+      <g class="steth-swing">
+       <path d="M 120 45 Q 100 55, 60 65" fill="none" stroke="#222" stroke-linecap="round" stroke-width="5">
+       </path>
+       <circle cx="60" cy="65" fill="#BBB" r="8" stroke="#444" stroke-width="1">
+       </circle>
+      </g>
+     </g>
     </svg>
-    <!-- === Ende SVG Sprite Definition === -->
-
-    <!-- Flying doctors during progress -->
-    <div id="flyingDoctorLayer" aria-hidden="true">
-        <div id="flyingDoctorMale" class="flying-doctor">
-            <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
-                <g class="body-group">
-                    <path class="coat-fabric" d="M 90 50 L 130 50 L 80 100 L 20 90 L 90 50" fill="#E0E0E0" stroke="none"/>
-                    <path d="M 100 80 L 80 110 L 120 100 L 120 80" fill="#333" />
-                    <path d="M 110 80 L 130 115 L 150 100 L 130 80" fill="#333" />
-                    <circle cx="80" cy="110" r="5" fill="#111" />
-                    <circle cx="130" cy="115" r="5" fill="#111" />
-                    <path d="M 90 40 L 140 40 L 150 80 L 90 85 Z" fill="#FFF" stroke="#DDD" stroke-width="1"/>
-                    <path d="M 130 45 L 170 35" stroke="#FFF" stroke-width="14" stroke-linecap="round" />
-                    <circle cx="172" cy="35" r="7" fill="#F5D0A9" />
-                    <path d="M 130 40 L 130 30 L 140 30 L 140 45" fill="#F5D0A9" />
-                    <circle cx="135" cy="25" r="15" fill="#F5D0A9" />
-                    <path d="M 120 20 Q 135 5, 150 20 L 148 25 L 135 15 L 122 25 Z" fill="#5D4037" />
-                    <circle cx="140" cy="22" r="1.5" fill="#222" />
-                    <path d="M 128 42 C 115 45, 145 45, 142 42" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>
-                    <g class="steth-swing">
-                        <path d="M 120 45 Q 100 55, 60 65" fill="none" stroke="#222" stroke-width="5" stroke-linecap="round"/>
-                        <circle cx="60" cy="65" r="8" fill="#BBB" stroke="#444" stroke-width="1"/>
-                    </g>
-                </g>
-            </svg>
-        </div>
-        <div id="flyingDoctorFemale" class="flying-doctor">
-            <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
-                <g class="body-group">
-                    <path class="coat-fabric" d="M 90 55 L 130 55 L 85 105 L 25 95 L 90 55" fill="#E0E0E0" stroke="none"/>
-                    <path d="M 100 85 L 80 115 L 120 105 L 120 85" fill="#333" />
-                    <path d="M 110 85 L 130 120 L 150 105 L 130 85" fill="#333" />
-                    <circle cx="80" cy="115" r="5" fill="#111" />
-                    <circle cx="130" cy="120" r="5" fill="#111" />
-                    <path d="M 95 45 L 140 45 L 148 85 L 95 90 Z" fill="#FFF" stroke="#DDD" stroke-width="1"/>
-                    <path d="M 130 50 L 170 40" stroke="#FFF" stroke-width="13" stroke-linecap="round" />
-                    <circle cx="172" cy="40" r="6" fill="#F5D0A9" />
-                    <path d="M 130 45 L 130 35 L 140 35 L 140 50" fill="#F5D0A9" />
-                    <circle cx="135" cy="30" r="14" fill="#F5D0A9" />
-                    <path d="M 122 20 Q 135 10, 148 20 L 148 35 L 135 15 L 120 30 Z" fill="#3E2723" />
-                    <path class="ponytail" d="M 120 25 Q 100 20, 80 35 L 90 40 Q 110 30, 122 30 Z" fill="#3E2723" />
-                    <circle cx="140" cy="28" r="1.5" fill="#222" />
-                    <path d="M 142 32 L 144 32" stroke="#D32F2F" stroke-width="1.5" />
-                    <path d="M 128 47 C 115 50, 145 50, 142 47" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>
-                    <g class="steth-swing">
-                        <path d="M 120 50 Q 100 60, 60 70" fill="none" stroke="#222" stroke-width="5" stroke-linecap="round"/>
-                        <circle cx="60" cy="70" r="8" fill="#BBB" stroke="#444" stroke-width="1"/>
-                    </g>
-                </g>
-            </svg>
-        </div>
+   </div>
+   <div class="flying-doctor" id="flyingDoctorFemale">
+    <svg viewbox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+     <g class="body-group">
+      <path class="coat-fabric" d="M 90 55 L 130 55 L 85 105 L 25 95 L 90 55" fill="#E0E0E0" stroke="none">
+      </path>
+      <path d="M 100 85 L 80 115 L 120 105 L 120 85" fill="#333">
+      </path>
+      <path d="M 110 85 L 130 120 L 150 105 L 130 85" fill="#333">
+      </path>
+      <circle cx="80" cy="115" fill="#111" r="5">
+      </circle>
+      <circle cx="130" cy="120" fill="#111" r="5">
+      </circle>
+      <path d="M 95 45 L 140 45 L 148 85 L 95 90 Z" fill="#FFF" stroke="#DDD" stroke-width="1">
+      </path>
+      <path d="M 130 50 L 170 40" stroke="#FFF" stroke-linecap="round" stroke-width="13">
+      </path>
+      <circle cx="172" cy="40" fill="#F5D0A9" r="6">
+      </circle>
+      <path d="M 130 45 L 130 35 L 140 35 L 140 50" fill="#F5D0A9">
+      </path>
+      <circle cx="135" cy="30" fill="#F5D0A9" r="14">
+      </circle>
+      <path d="M 122 20 Q 135 10, 148 20 L 148 35 L 135 15 L 120 30 Z" fill="#3E2723">
+      </path>
+      <path class="ponytail" d="M 120 25 Q 100 20, 80 35 L 90 40 Q 110 30, 122 30 Z" fill="#3E2723">
+      </path>
+      <circle cx="140" cy="28" fill="#222" r="1.5">
+      </circle>
+      <path d="M 142 32 L 144 32" stroke="#D32F2F" stroke-width="1.5">
+      </path>
+      <path d="M 128 47 C 115 50, 145 50, 142 47" fill="none" stroke="#222" stroke-linecap="round" stroke-width="4">
+      </path>
+      <g class="steth-swing">
+       <path d="M 120 50 Q 100 60, 60 70" fill="none" stroke="#222" stroke-linecap="round" stroke-width="5">
+       </path>
+       <circle cx="60" cy="70" fill="#BBB" r="8" stroke="#444" stroke-width="1">
+       </circle>
+      </g>
+     </g>
+    </svg>
+   </div>
+  </div>
+  <!-- Main Info Modal (for initial explanation and general info) -->
+  <div class="info-modal-overlay" id="infoModalMainOverlay" style="display:none;">
+   <div class="info-modal" id="infoModalMain">
+    <div class="modal-header">
+     <h2 id="infoModalMainTitle">
+      Info
+     </h2>
     </div>
-
-
-    <!-- Main Info Modal (for initial explanation and general info) -->
-    <div id="infoModalMainOverlay" class="info-modal-overlay" style="display:none;">
-        <div id="infoModalMain" class="info-modal">
-            <div class="modal-header"><h2 id="infoModalMainTitle">Info</h2></div>
-            <button id="infoModalMainClose" class="modal-close">&times;</button>
-            <div id="infoModalMainContent"></div>
-        </div>
+    <button class="modal-close" id="infoModalMainClose">
+     ×
+    </button>
+    <div id="infoModalMainContent">
     </div>
-
-    <!-- Detail Info Modal (for specific Pauschale condition details) -->
-    <div id="infoModalDetailOverlay" class="info-modal-overlay" style="display:none;">
-        <div id="infoModalDetail" class="info-modal info-modal-detail"> <!-- Added info-modal-detail for potential specific styling -->
-            <div class="modal-header"><h2 id="infoModalDetailTitle">Info</h2></div>
-            <button id="infoModalDetailClose" class="modal-close">&times;</button>
-            <div id="infoModalDetailContent"></div>
-        </div>
+   </div>
+  </div>
+  <!-- Detail Info Modal (for specific Pauschale condition details) -->
+  <div class="info-modal-overlay" id="infoModalDetailOverlay" style="display:none;">
+   <div class="info-modal info-modal-detail" id="infoModalDetail">
+    <!-- Added info-modal-detail for potential specific styling -->
+    <div class="modal-header">
+     <h2 id="infoModalDetailTitle">
+      Info
+     </h2>
     </div>
-
-    <!-- Nested (second level) Detail Info Modal -->
-    <div id="infoModalNestedOverlay" class="info-modal-overlay" style="display:none;">
-        <div id="infoModalNested" class="info-modal info-modal-nested">
-            <div class="modal-header modal-header--nested">
-                <button id="infoModalNestedBack" class="modal-back" type="button" title="Zurück" aria-label="Zurück" aria-hidden="true">&#8592;</button>
-                <h2 id="infoModalNestedTitle">Info</h2>
-            </div>
-            <button id="infoModalNestedClose" class="modal-close">&times;</button>
-            <div id="infoModalNestedContent"></div>
-        </div>
+    <button class="modal-close" id="infoModalDetailClose">
+     ×
+    </button>
+    <div id="infoModalDetailContent">
     </div>
-
-    <div class="app-shell">
-        <div class="top-info">
-            <div class="top-info-left">
-                <div class="app-menu">
-                    <button id="appMenuToggle" type="button" class="nav-pill-button app-menu-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="appMenuDropdown" aria-label="Menü">
-                        <span class="hamburger" aria-hidden="true">
-                            <span class="hamburger-line"></span>
-                            <span class="hamburger-line"></span>
-                            <span class="hamburger-line"></span>
-                        </span>
-                    </button>
-                    <div id="appMenuDropdown" class="app-menu-dropdown" role="menu" aria-labelledby="appMenuToggle">
-                        <button type="button" id="menuFeedback" class="app-menu-item" role="menuitem">Feedback geben</button>
-                        <button type="button" id="menuExportPdf" class="app-menu-item" role="menuitem" data-default-label="Als PDF speichern">Als PDF speichern</button>
-                        <a id="menuQuality" class="app-menu-item" role="menuitem" href="quality.html">Qualitätskontrolle</a>
-                    </div>
-                </div>
-                <div class="language-select">
-                    <label id="langLabel" for="languageSelect">Sprache:</label>
-                    <select id="languageSelect">
-                        <option value="de">Deutsch</option>
-                        <option value="fr">Fran&ccedil;ais</option>
-                        <option value="it">Italiano</option>
-                    </select>
-                </div>
-                <button id="openBrickQuizButton" type="button" class="nav-pill-button" style="display:none;">Brick-Quiz starten</button>
-            </div>
-            <div class="top-info-right">
-                <div class="version-line">
-                    <span id="versionSpan">V?</span>
-                    <span>&middot;</span>
-                    <span>Arnet Konsilium</span>
-                    <span>&middot;</span>
-                    <a href="https://www.arkons.ch/" target="_blank">https://www.arkons.ch/</a>
-                    <span>&middot;</span>
-                    <span class="version-year">2025</span>
-                    <span>&middot;</span>
-                    <span id="tarifVersionSpan"></span>
-                </div>
-            </div>
-        </div>
-
-        <h1 id="mainHeader">Neuer Arzttarif Schweiz: TARDOC und Pauschalen</h1>
-        <p id="intro">Die KI unterst&uuml;tzt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, Medikamenten- und CHOP-Suchen sind m&ouml;glich. Bitte keine pers&ouml;nlichen Daten eingeben.</p>
-
-        <div id="inputFrame" class="input-frame">
-            <label id="exampleLabel" for="beispielSelect">Beispiel ausw&auml;hlen:</label>
-            <select id="beispielSelect" onchange="beispielEinfuegen()">
-                <option value="" selected disabled>--- Bitte ausw&auml;hlen ---</option>
-            </select>
-
-            <label id="chopLabel" for="chopInput">&Uuml;ber den CHOP-Code suchen:</label>
-            <div id="chopContainer">
-                <input type="text" id="chopInput" autocomplete="off" placeholder="CHOP-Code oder Text">
-                <div id="chopCaretHitbox" class="caret-hitbox" role="button" aria-label="CHOP-Liste &ouml;ffnen/schlie&szlig;en" tabindex="0"></div>
-                <div id="chopDropdown" class="hidden chop-dropdown"></div>
-            </div>
-
-            <label id="userLabel" for="userInput">Leistungsbeschreibung / LKN:</label>
-            <textarea id="userInput" rows="4" placeholder="z.B. Haus&auml;rztliche Konsultation von 17 Minuten..."></textarea>
-
-            <label id="medicationLabel" for="medicationInput">Medikamente (kommagetrennt, optional):</label>
-            <input type="text" id="medicationInput" placeholder="z.B. M09AX07, Spinraza, 7680664950014">
-
-            <div id="icdHeaderRow">
-                <label id="icdLabel" for="icdInput">Hauptdiagnose ICD (optional):</label>
-                <div>
-                    <button id="icdFilterToggle" type="button" class="icd-toggle-btn" style="display:none;"></button>
-                    <input type="hidden" id="icdToggleState" name="icdToggleState" value="0">
-                </div>
-            </div>
-            <div id="icdContainer">
-                <input type="text" id="icdInput" autocomplete="off" placeholder="z.B. K35.8, J45.9">
-                <div id="icdCaretHitbox" class="caret-hitbox" role="button" aria-label="ICD-Liste &ouml;ffnen/schlie&szlig;en" tabindex="0"></div>
-                <div id="icdDropdown" class="hidden icd-dropdown"></div>
-            </div>
-
-            <div class="form-option-row">
-                <div class="icd-checkbox">
-                    <input type="checkbox" id="useIcdCheckbox" checked>
-                    <label id="useIcdLabel" for="useIcdCheckbox">ICD ber&uuml;cksichtigen</label>
-                </div>
-            </div>
-        </div>
-
-        <div class="action-buttons">
-            <button id="analyzeButton" onclick="getBillingAnalysis()">Tarifpositionen finden</button>
-        </div>
-        <div id="spinner"><span id="spinnerText">Wird geladen...</span></div>
-        <div id="output">Daten geladen. Bereit zur Prüfung.</div>
-
-        <div class="disclaimer-card">
-            <div id="disclaimer">
-                <strong>Haftungsausschluss:</strong> Alle Ausk&uuml;nfte erfolgen ohne Gew&auml;hr... (<a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">OAAT-OTMA Online-Portal</a>).
-            </div>
-            <div id="newDisclaimer">
-                <!-- Content will be inserted by JavaScript -->
-            </div>
-        </div>
-
+   </div>
+  </div>
+  <!-- Nested (second level) Detail Info Modal -->
+  <div class="info-modal-overlay" id="infoModalNestedOverlay" style="display:none;">
+   <div class="info-modal info-modal-nested" id="infoModalNested">
+    <div class="modal-header modal-header--nested">
+     <button aria-hidden="true" aria-label="Zurück" class="modal-back" id="infoModalNestedBack" title="Zurück" type="button">
+      ←
+     </button>
+     <h2 id="infoModalNestedTitle">
+      Info
+     </h2>
     </div>
-
-    <div id="interactionBlocker" aria-hidden="true"></div>
-
-    <div id="feedbackModalOverlay" class="info-modal-overlay" style="display:none;">
-        <div id="feedbackModal" class="info-modal" style="width:400px;height:auto;top:20vh;left:calc(50% - 200px);">
-            <div class="modal-header"><h2 id="feedbackModalTitle">Provide Feedback</h2></div>
-            <button id="feedbackModalClose" class="modal-close">&times;</button>
-            <div id="feedbackModalBody">
-                <label for="feedbackCategory" id="fbCategoryLabel">Kategorie:</label>
-                <select id="feedbackCategory">
-                    <option id="fbCatGeneralOpt" value="Allgemein">Allgemein</option>
-                    <option id="fbCatServiceOpt" value="Leistungsbeschreibung">Leistungsbeschreibung</option>
-                    <option id="fbCatPauschaleOpt" value="Pauschale">Pauschale</option>
-                    <option id="fbCatSingleOpt" value="Einzelleistung">Einzelleistung</option>
-                </select>
-                <label for="feedbackCode" id="fbCodeLabel">Code (optional):</label>
-                <input type="text" id="feedbackCode">
-                <label for="feedbackText" id="fbMessageLabel">Nachricht:</label>
-                <textarea id="feedbackText" rows="3"></textarea>
-                <details id="fbContextDetails">
-                    <summary id="fbContextLabel">Kontext</summary>
-                    <pre id="fbContextPre" style="white-space:pre-wrap;"></pre>
-                </details>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button id="fbSubmitButton" type="button">Absenden</button>
-                    <button id="fbCancelButton" type="button">Abbrechen</button>
-                </div>
-                <div id="feedbackStatus" style="margin-top:10px;"></div>
-            </div>
-        </div>
+    <button class="modal-close" id="infoModalNestedClose">
+     ×
+    </button>
+    <div id="infoModalNestedContent">
     </div>
-
-    <script src="calculator.js?v=20250923T1245"></script>
-    <script>
-        fetch('/api/version')
+   </div>
+  </div>
+  <div class="app-shell">
+   <div class="top-info">
+    <div class="top-info-left">
+     <div class="app-menu">
+      <button aria-controls="appMenuDropdown" aria-expanded="false" aria-haspopup="true" aria-label="Menü" class="nav-pill-button app-menu-toggle" id="appMenuToggle" type="button">
+       <span aria-hidden="true" class="hamburger">
+        <span class="hamburger-line">
+        </span>
+        <span class="hamburger-line">
+        </span>
+        <span class="hamburger-line">
+        </span>
+       </span>
+      </button>
+      <div aria-labelledby="appMenuToggle" class="app-menu-dropdown" id="appMenuDropdown" role="menu">
+       <button class="app-menu-item" id="menuFeedback" role="menuitem" type="button">
+        Feedback geben
+       </button>
+       <button class="app-menu-item" data-default-label="Als PDF speichern" id="menuExportPdf" role="menuitem" type="button">
+        Als PDF speichern
+       </button>
+       <a class="app-menu-item" href="quality.html" id="menuQuality" role="menuitem">
+        Qualitätskontrolle
+       </a>
+      </div>
+     </div>
+     <div class="language-select">
+      <label for="languageSelect" id="langLabel">
+       Sprache:
+      </label>
+      <select id="languageSelect">
+       <option value="de">
+        Deutsch
+       </option>
+       <option value="fr">
+        Français
+       </option>
+       <option value="it">
+        Italiano
+       </option>
+      </select>
+     </div>
+     <button class="nav-pill-button" id="openBrickQuizButton" style="display:none;" type="button">
+      Brick-Quiz starten
+     </button>
+    </div>
+    <div class="top-info-right">
+     <div class="version-line">
+      <span id="versionSpan">
+       V?
+      </span>
+      <span>
+       ·
+      </span>
+      <span>
+       Arnet Konsilium
+      </span>
+      <span>
+       ·
+      </span>
+      <a href="https://www.arkons.ch/" target="_blank">
+       https://www.arkons.ch/
+      </a>
+      <span>
+       ·
+      </span>
+      <span class="version-year">
+       2025
+      </span>
+      <span>
+       ·
+      </span>
+      <span id="tarifVersionSpan">
+      </span>
+     </div>
+    </div>
+    <h1 id="mainHeader">
+     Neuer Arzttarif Schweiz: TARDOC und Pauschalen
+    </h1>
+   </div>
+   <p id="intro">
+    Die KI unterstützt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, Medikamenten- und CHOP-Suchen sind möglich. Bitte keine persönlichen Daten eingeben.
+   </p>
+   <div class="content-wrapper">
+    <div class="left-panel">
+     <div class="input-frame" id="inputFrame">
+      <label for="beispielSelect" id="exampleLabel">
+       Beispiel auswählen:
+      </label>
+      <select id="beispielSelect" onchange="beispielEinfuegen()">
+       <option disabled="" selected="" value="">
+        --- Bitte auswählen ---
+       </option>
+      </select>
+      <label for="chopInput" id="chopLabel">
+       Über den CHOP-Code suchen:
+      </label>
+      <div id="chopContainer">
+       <input autocomplete="off" id="chopInput" placeholder="CHOP-Code oder Text" type="text"/>
+       <div aria-label="CHOP-Liste öffnen/schließen" class="caret-hitbox" id="chopCaretHitbox" role="button" tabindex="0">
+       </div>
+       <div class="hidden chop-dropdown" id="chopDropdown">
+       </div>
+      </div>
+      <label for="userInput" id="userLabel">
+       Leistungsbeschreibung / LKN:
+      </label>
+      <textarea id="userInput" placeholder="z.B. Hausärztliche Konsultation von 17 Minuten..." rows="4"></textarea>
+      <label for="medicationInput" id="medicationLabel">
+       Medikamente (kommagetrennt, optional):
+      </label>
+      <input id="medicationInput" placeholder="z.B. M09AX07, Spinraza, 7680664950014" type="text"/>
+      <div id="icdHeaderRow">
+       <label for="icdInput" id="icdLabel">
+        Hauptdiagnose ICD (optional):
+       </label>
+       <div>
+        <button class="icd-toggle-btn" id="icdFilterToggle" style="display:none;" type="button">
+        </button>
+        <input id="icdToggleState" name="icdToggleState" type="hidden" value="0"/>
+       </div>
+      </div>
+      <div id="icdContainer">
+       <input autocomplete="off" id="icdInput" placeholder="z.B. K35.8, J45.9" type="text"/>
+       <div aria-label="ICD-Liste öffnen/schließen" class="caret-hitbox" id="icdCaretHitbox" role="button" tabindex="0">
+       </div>
+       <div class="hidden icd-dropdown" id="icdDropdown">
+       </div>
+      </div>
+      <div class="form-option-row">
+       <div class="icd-checkbox">
+        <input checked="" id="useIcdCheckbox" type="checkbox"/>
+        <label for="useIcdCheckbox" id="useIcdLabel">
+         ICD berücksichtigen
+        </label>
+       </div>
+      </div>
+     </div>
+     <div class="action-buttons">
+      <button id="analyzeButton" onclick="getBillingAnalysis()">
+       Tarifpositionen finden
+      </button>
+     </div>
+     <div id="spinner">
+      <span id="spinnerText">
+       Wird geladen...
+      </span>
+     </div>
+     <div class="disclaimer-card">
+      <div id="disclaimer">
+       <strong>
+        Haftungsausschluss:
+       </strong>
+       Alle Auskünfte erfolgen ohne Gewähr... (
+       <a href="https://tarifbrowser.oaat-otma.ch/startPortal" target="_blank">
+        OAAT-OTMA Online-Portal
+       </a>
+       ).
+      </div>
+      <div id="newDisclaimer">
+       <!-- Content will be inserted by JavaScript -->
+      </div>
+     </div>
+    </div>
+    <div id="output">
+     Daten geladen. Bereit zur Prüfung.
+    </div>
+   </div>
+  </div>
+  <div aria-hidden="true" id="interactionBlocker">
+  </div>
+  <div class="info-modal-overlay" id="feedbackModalOverlay" style="display:none;">
+   <div class="info-modal" id="feedbackModal" style="width:400px;height:auto;top:20vh;left:calc(50% - 200px);">
+    <div class="modal-header">
+     <h2 id="feedbackModalTitle">
+      Provide Feedback
+     </h2>
+    </div>
+    <button class="modal-close" id="feedbackModalClose">
+     ×
+    </button>
+    <div id="feedbackModalBody">
+     <label for="feedbackCategory" id="fbCategoryLabel">
+      Kategorie:
+     </label>
+     <select id="feedbackCategory">
+      <option id="fbCatGeneralOpt" value="Allgemein">
+       Allgemein
+      </option>
+      <option id="fbCatServiceOpt" value="Leistungsbeschreibung">
+       Leistungsbeschreibung
+      </option>
+      <option id="fbCatPauschaleOpt" value="Pauschale">
+       Pauschale
+      </option>
+      <option id="fbCatSingleOpt" value="Einzelleistung">
+       Einzelleistung
+      </option>
+     </select>
+     <label for="feedbackCode" id="fbCodeLabel">
+      Code (optional):
+     </label>
+     <input id="feedbackCode" type="text"/>
+     <label for="feedbackText" id="fbMessageLabel">
+      Nachricht:
+     </label>
+     <textarea id="feedbackText" rows="3"></textarea>
+     <details id="fbContextDetails">
+      <summary id="fbContextLabel">
+       Kontext
+      </summary>
+      <pre id="fbContextPre" style="white-space:pre-wrap;"></pre>
+     </details>
+     <div style="display:flex; gap:10px; margin-top:10px;">
+      <button id="fbSubmitButton" type="button">
+       Absenden
+      </button>
+      <button id="fbCancelButton" type="button">
+       Abbrechen
+      </button>
+     </div>
+     <div id="feedbackStatus" style="margin-top:10px;">
+     </div>
+    </div>
+   </div>
+  </div>
+  <script src="calculator.js?v=20250923T1245">
+  </script>
+  <script>
+   fetch('/api/version')
             .then(r => r.json())
             .then(d => {
                 const span = document.getElementById('versionSpan');
@@ -2591,7 +2830,11 @@
         }
 
         function onIcdBlur(){
-            setTimeout(hideIcdDropdown, 100);
+            const dd = document.getElementById('icdDropdown');
+            setTimeout(()=>{
+                if(dd && dd.matches(':hover')) return;
+                hideIcdDropdown();
+            }, 100);
         }
 
         function onIcdArrow(e){
@@ -2925,10 +3168,6 @@
                 if(status) status.textContent = t('fail', currentLang);
             }
         }
-    </script>
-</body>
+  </script>
+ </body>
 </html>
-
-
-
-
