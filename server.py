@@ -1965,7 +1965,7 @@ def load_data() -> bool:
 
     global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
     global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, pauschale_bedingungen_indexed, tabellen_data
-    global tabellen_dict_by_table, daten_geladen, chop_data, lkn_to_tables_index
+    global tabellen_dict_by_table, daten_geladen, chop_data, lkn_to_tables_index, pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index
 
     all_loaded_successfully = True
     logger.info("--- Lade Daten ---")
@@ -1974,6 +1974,9 @@ def load_data() -> bool:
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
     lkn_to_tables_index.clear()
+    pauschale_lp_index.clear()
+    pauschale_cond_lkn_index.clear()
+    pauschale_cond_table_index.clear()
     token_doc_freq.clear()
     chop_data.clear()
 
@@ -2193,6 +2196,45 @@ def load_data() -> bool:
         logger.warning("  WARNUNG: Keine Pauschalbedingungen zum Indizieren vorhanden (pauschale_bedingungen_data ist leer).")
     elif not all_loaded_successfully:
         logger.warning("  WARNUNG: Überspringe Indizierung der Pauschalbedingungen aufgrund vorheriger Ladefehler.")
+
+    # Baue zusätzliche Indizes für Pauschalen-Suche (nur wenn Daten vorhanden)
+    if pauschale_lp_data and pauschalen_dict:
+        for entry in pauschale_lp_data:
+            lkn_val = entry.get("Leistungsposition")
+            pc_val = entry.get("Pauschale")
+            if not (lkn_val and pc_val):
+                continue
+            lkn_key = str(lkn_val).strip().upper()
+            pc_key = str(pc_val).strip()
+            if lkn_key and pc_key in pauschalen_dict:
+                pauschale_lp_index[lkn_key].add(pc_key)
+        logger.info("  Pauschale-LP-Index aufgebaut (%s Einträge).", len(pauschale_lp_index))
+
+    if pauschale_bedingungen_data and pauschalen_dict:
+        BED_TYP_KEY = "Bedingungstyp"; BED_WERTE_KEY = "Werte"
+        for cond in pauschale_bedingungen_data:
+            pc_val = cond.get("Pauschale")
+            if not (pc_val and str(pc_val) in pauschalen_dict):
+                continue
+            pc_key = str(pc_val)
+            typ = str(cond.get(BED_TYP_KEY, "")).upper()
+            werte = cond.get(BED_WERTE_KEY, "")
+            if not werte:
+                continue
+            if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+                for lkn in str(werte).split(","):
+                    lkn_norm = lkn.strip().upper()
+                    if lkn_norm:
+                        pauschale_cond_lkn_index[lkn_norm].add(pc_key)
+            elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+                for table_name in (t.strip().lower() for t in str(werte).split(",") if t.strip()):
+                    if table_name:
+                        pauschale_cond_table_index[table_name].add(pc_key)
+        logger.info(
+            "  Pauschalbedingungen-Indizes aufgebaut (LKN: %s, Tabellen: %s).",
+            len(pauschale_cond_lkn_index),
+            len(pauschale_cond_table_index),
+        )
 
 
     logger.info("--- Daten laden abgeschlossen ---")
@@ -4968,30 +5010,40 @@ def _determine_final_billing(
     TARDOC-Auswertung zurück. Sie liefert das JSON für den HTTP-Response sowie
     Zusatzdaten aus der Mapping-Stufe für die Detailanzeige im Frontend.
     """
-    hat_pauschalen_potential_nach_regeln = any(l.get('typ') in ['P', 'PZ'] for l in rule_checked_leistungen_list)
     llm_stage2_mapping_results: Dict[str, Any] = {"mapping_results": []}
 
-    if not rule_checked_leistungen_list or not hat_pauschalen_potential_nach_regeln:
-        logger.info("Keine P/PZ LKNs nach Regelprüfung oder keine LKNs übrig. Gehe direkt zu TARDOC.")
-        finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
-        return finale_abrechnung_obj, llm_stage2_mapping_results
-
-    logger.info("Pauschalenpotenzial nach Regelprüfung vorhanden. Starte LKN-Mapping & Pauschalen-Hauptprüfung.")
-
-    # Ab hier folgt die bestehende Logik der ursprünglichen Funktion.
+    # Kandidaten aus Indizes (auch wenn keine P/PZ LKNs explizit vorhanden sind)
     potential_pauschale_codes_set: Set[str] = set()
-    regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')) for l in rule_checked_leistungen_list if l.get('lkn')}
+    regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')).upper() for l in rule_checked_leistungen_list if l.get('lkn')}
+    for lkn_code in regelkonforme_lkn_codes_fuer_suche:
+        if lkn_code in pauschale_lp_index:
+            potential_pauschale_codes_set.update(pauschale_lp_index[lkn_code])
+        if lkn_code in pauschale_cond_lkn_index:
+            potential_pauschale_codes_set.update(pauschale_cond_lkn_index[lkn_code])
+        for table_name in _get_tables_for_context_lkn(lkn_code):
+            table_norm = str(table_name).lower()
+            if table_norm in pauschale_cond_table_index:
+                potential_pauschale_codes_set.update(pauschale_cond_table_index[table_norm])
 
+    if potential_pauschale_codes_set:
+        logger.info(
+            "Pauschalenpotenzial aus Index-Treffern: %s",
+            potential_pauschale_codes_set,
+        )
+
+    # Zusätzliche Suche über vollständige Daten (Fallback zu Indizes)
     for item_lp in pauschale_lp_data:
         lkn_in_lp_db_val = item_lp.get('Leistungsposition')
-        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val in regelkonforme_lkn_codes_fuer_suche:
+        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val.upper() in regelkonforme_lkn_codes_fuer_suche:
             pc_code = item_lp.get('Pauschale')
-            if pc_code and str(pc_code) in pauschalen_dict: potential_pauschale_codes_set.add(str(pc_code))
+            if pc_code and str(pc_code) in pauschalen_dict:
+                potential_pauschale_codes_set.add(str(pc_code))
 
     regelkonforme_lkns_in_tables_cache: Dict[str, Set[str]] = {}
     for cond_data in pauschale_bedingungen_data:
         pc_code_cond_val = cond_data.get('Pauschale')
-        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict): continue
+        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict):
+            continue
         pc_code_cond = str(pc_code_cond_val)
         bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
         werte_cond_str = cond_data.get('Werte', "")

@@ -25,6 +25,7 @@ let tokenTotals = {
     llm1: { input: 0, output: 0 },
     llm2: { input: 0, output: 0 }
 };
+let perfStats = { durationsMs: [] };
 
 function applyLanguage(lang){
     currentLang = lang;
@@ -39,6 +40,7 @@ function applyLanguage(lang){
     document.getElementById('qcResIt').textContent = t('qcColResIt', lang);
     buildTable();
     updateTokenSummary();
+    updatePerformanceSummary();
 }
 
 function loadExamples(){
@@ -79,6 +81,7 @@ function buildTable(){
 function runTest(id, lang) {
     return new Promise((resolve) => {
         const exampleId = parseInt(id);
+        const started = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         fetch('/api/test-example', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -123,6 +126,12 @@ function runTest(id, lang) {
             }
             console.error(`Error testing example ${id} lang ${lang}:`, error);
             resolve({ id, lang, passed: false, error: error.message });
+        })
+        .finally(() => {
+            const ended = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            const durationMs = Math.max(0, ended - started);
+            perfStats.durationsMs.push(durationMs);
+            updatePerformanceSummary();
         });
     });
 }
@@ -187,7 +196,9 @@ async function testAll() {
     totalTests = 0;
     passedTests = 0;
     tokenTotals = { llm1: { input: 0, output: 0 }, llm2: { input: 0, output: 0 } };
+    perfStats = { durationsMs: [] };
     updateTokenSummary();
+    updatePerformanceSummary();
 
     const exampleIds = Object.keys(examplesData);
     totalTests = exampleIds.length * 3;
@@ -210,13 +221,21 @@ function updateOverallSummary() {
         summaryDiv.textContent = t('qcSummary', currentLang)
             .replace('{passed}', passedTests)
             .replace('{total}', totalTests);
+        summaryDiv.style.display = 'inline-flex';
     } else {
         summaryDiv.textContent = '';
+        summaryDiv.style.display = 'none';
     }
 }
 
 function updateTokenSummary() {
     const div = document.getElementById('tokenSummary');
+    const hasTokens = tokenTotals.llm1.input || tokenTotals.llm1.output || tokenTotals.llm2.input || tokenTotals.llm2.output;
+    if (!hasTokens) {
+        div.textContent = '';
+        div.style.display = 'none';
+        return;
+    }
     const line1 = t('qcTokensLlm1', currentLang)
         .replace('{in}', tokenTotals.llm1.input)
         .replace('{out}', tokenTotals.llm1.output);
@@ -224,6 +243,39 @@ function updateTokenSummary() {
         .replace('{in}', tokenTotals.llm2.input)
         .replace('{out}', tokenTotals.llm2.output);
     div.innerHTML = line1 + '<br>' + line2;
+    div.style.display = 'inline-flex';
+}
+
+function percentile(values, pct){
+    if(!values.length) return 0;
+    const sorted=[...values].sort((a,b)=>a-b);
+    const k=(sorted.length-1)*pct;
+    const f=Math.floor(k);
+    const c=Math.ceil(k);
+    if(f===c) return sorted[k];
+    return sorted[f]+(sorted[c]-sorted[f])*(k-f);
+}
+
+function updatePerformanceSummary(){
+    const div=document.getElementById('perfSummary');
+    if(!div) return;
+    if(!perfStats.durationsMs.length){
+        div.textContent='';
+        div.style.display='none';
+        return;
+    }
+    const durations=perfStats.durationsMs;
+    const sum=durations.reduce((a,b)=>a+b,0);
+    const avg=sum/durations.length;
+    const median=percentile(durations,0.5);
+    const p95=percentile(durations,0.95);
+    const max=Math.max(...durations);
+    div.textContent = t('qcPerfStats', currentLang)
+        .replace('{avg}', avg.toFixed(0))
+        .replace('{med}', median.toFixed(0))
+        .replace('{p95}', p95.toFixed(0))
+        .replace('{max}', max.toFixed(0));
+    div.style.display='inline-flex';
 }
 
 document.getElementById('testAllBtn').addEventListener('click', testAll);

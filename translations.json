@@ -59,7 +59,8 @@
     "qcTokensLlm2": "LLM2 Tokens (Input/Ausgabe): {in} / {out}",
     "medicationLabel": "Medikamente (kommagetrennt, optional):",
     "medicationPlaceholder": "z.B. M09AX07, Spinraza, 7680664950014",
-    "brickQuizButton": "Brick-Quiz starten"
+    "brickQuizButton": "Brick-Quiz starten",
+    "qcPerfStats": "Performance (ms): Ø {avg} · Median {med} · p95 {p95} · max {max}"
   },
   "fr": {
     "langLabel": "Langue :",
@@ -121,7 +122,8 @@
     "qcTokensLlm2": "Tokens LLM2 (Entrée/Sortie) : {in} / {out}",
     "medicationLabel": "Medicaments (separes par des virgules, optionnel) :",
     "medicationPlaceholder": "p. ex. M09AX07, Spinraza, 7680664950014",
-    "brickQuizButton": "Lancer le Brick-Quiz"
+    "brickQuizButton": "Lancer le Brick-Quiz",
+    "qcPerfStats": "Performance (ms) : Ø {avg} · médiane {med} · p95 {p95} · max {max}"
   },
   "it": {
     "langLabel": "Lingua:",
@@ -183,6 +185,7 @@
     "qcTokensLlm2": "Token LLM2 (Input/Output): {in} / {out}",
     "medicationLabel": "Medicamenti (separati da virgola, opzionale):",
     "medicationPlaceholder": "es. M09AX07, Spinraza, 7680664950014",
-    "brickQuizButton": "Avviare il Brick-Quiz"
+    "brickQuizButton": "Avviare il Brick-Quiz",
+    "qcPerfStats": "Performance (ms): Ø {avg} · mediana {med} · p95 {p95} · max {max}"
   }
 }
