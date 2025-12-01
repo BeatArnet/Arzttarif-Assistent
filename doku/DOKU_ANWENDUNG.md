@@ -2,10 +2,10 @@
 
 Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistenten ausprobieren möchten. Sie zeigt die typischen Arbeitsschritte, gibt Hinweise zur iterativen Nutzung und beschreibt die Grenzen des Systems.
 
-Hinweis Version 3.3
-- Überarbeitetes, responsives GUI-Layout (breitere TARDOC-Tabelle, bessere Spaltenbreiten/Abstände).
-- Anzeige-Korrekturen (Umlaute, Farben), verbesserte Lesbarkeit.
-- Fachlogik unverändert gegenüber 3.2; Details siehe `CHANGELOG.md`.
+Hinweis Version 4.4
+- Suche & Trefferqualität: Stage 1 kombiniert direkte LKN-Erkennung, gewichtete Schlüsselwortsuche und Embedding-Ranking. Alter/Geschlecht werden automatisch aus dem Freitext erkannt und fließen in die Kandidatenliste ein; Zuschläge für Kinder oder geschlechtsspezifische Leistungen werden dadurch zuverlässiger gefunden.
+- Ergebnisdetails: Die LLM-Details zeigen eine gerankte Kandidatenliste, Kontextzeilen enthalten Demografie-Hinweise zu TARDOC-Positionen.
+- Geschwindigkeit & QS: Pauschalen-Checks laufen schneller durch vorindizierte Regeln. Die Qualitätskontrolle zeigt Laufzeiten/Token (Ø/Median/p95/Max) und umfasst zusätzliche Referenzfälle.
 
 ## 1. Voraussetzungen und Start
 
@@ -48,6 +48,7 @@ Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gew
 
 ## 5. Tipps für erfahrene Nutzende
 
+* **Patientenkontext nutzen:** Alter oder Geschlecht können im Freitext oder in den Formularfeldern stehen – die App erkennt beides und priorisiert alters-/geschlechtsspezifische Zuschläge automatisch.
 * **CHOP- und ICD-Suche:** Über die Felder für CHOP-Code und ICD können Sie direkt nach Eingriffen bzw. Diagnosen suchen und diese in die Analyse einbeziehen.
 * **Ergebnisse nachvollziehen:** Der Assistent zeigt bei Pauschalen die geprüften Bedingungen an. Bei TARDOC-Einzelleistungen werden die relevanten Regeln mitgeliefert. Nutzen Sie diese Informationen, um die Entscheidung nachzuvollziehen.
 * **Feedback-Funktion:** Falls Sie Verbesserungswünsche haben, können Sie über den Button "Feedback geben" eine kurze Nachricht senden.

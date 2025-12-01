@@ -13,7 +13,9 @@ verletzte Regeln hervorheben kann.
 import logging
 import re  # Importiere Regex für Mengenanpassung
 import configparser
-from typing import Dict, List
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, TypedDict, cast
+
 from utils import get_lang_field
 
 logger = logging.getLogger(__name__)
@@ -38,28 +40,335 @@ REGEX_NICHT_KUMULIERBAR_VARIANT = re.compile(
 # Fügen Sie hier weitere Typen hinzu, falls Ihr Regelmodell sie enthält
 
 
+class FallKontext(TypedDict, total=False):
+    LKN: str
+    Menge: int
+    Begleit_LKNs: List[str]
+    Begleit_Typen: Dict[str, str]
+    Typ: str
+    Alter: int
+    Geschlecht: str
+    Medikamente: List[str]
+    GTIN: List[str]
+    ICD: List[str]
+    Pauschalen: List[str]
+
+
+class RegelDefinition(TypedDict, total=False):
+    Typ: str
+    MaxMenge: int
+    LKNs: List[str]
+    LKN: List[str] | str
+    Feld: str
+    Wert: str | int | None
+    MinWert: int | None
+    MaxWert: int | None
+    ICD: List[str] | str
+    ICDs: List[str] | str
+    Pauschale: List[str] | str
+    Pauschalen: List[str] | str
+
+
+def _coerce_fall(fall_input: FallKontext | Mapping[str, Any]) -> FallKontext:
+    """Cast eingehende Fälle defensiv auf den TypedDict."""
+    return cast(FallKontext, fall_input)
+
+
+def _coerce_rule(rule_input: RegelDefinition | Mapping[str, Any]) -> RegelDefinition:
+    """Cast Regeldatensätze aus JSON/Dict in den TypedDict."""
+    return cast(RegelDefinition, rule_input)
+
+
+@dataclass
+class RuleEvaluationContext:
+    fall: FallKontext
+    lkn: str
+    menge: int
+    begleit: List[str]
+    begleit_typen: Dict[str, str]
+    leistungsgruppen_map: Dict[str, Set[str]]
+    medications: List[str]
+
+
+@dataclass
+class RuleEvaluationState:
+    errors: List[str] = field(default_factory=list)
+    allowed: bool = True
+    moegliche_zusatzpositionen: List[str] = field(default_factory=list)
+    hat_kumulierbar_regel: bool = False
+
+    def add_error(self, message: str) -> None:
+        self.errors.append(message)
+        self.allowed = False
+
+
+RuleHandler = Callable[[RegelDefinition, RuleEvaluationContext, RuleEvaluationState], None]
+
+
 # --- Hauptfunktion zur Regelprüfung für LKNs ---
+def _normalize_rule_codes(
+    entries: object,
+    *,
+    uppercase: bool = True,
+) -> List[str]:
+    if entries is None:
+        return []
+    if isinstance(entries, str):
+        values = [entries]
+    else:
+        values = list(entries) if isinstance(entries, Sequence) else []
+    if uppercase:
+        return [str(entry).upper() for entry in values if entry]
+    return [str(entry) for entry in values if entry]
+
+
+def _check_rule_menge(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    max_menge = rule.get("MaxMenge")
+    if isinstance(max_menge, (int, float)) and ctx.menge > max_menge:
+        state.add_error(
+            f"Mengenbeschränkung überschritten (max. {max_menge}, angefragt {ctx.menge})"
+        )
+
+
+def _check_rule_zuschlag(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    parents = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"))
+    if not parents:
+        logger.info(
+            "Regel 'Nur als Zuschlag zu' ohne Basisangabe bei LKN %s ignoriert.",
+            ctx.lkn,
+        )
+        return
+    if not any(parent in ctx.begleit for parent in parents):
+        state.add_error(
+            "Nur als Zuschlag zu " + ", ".join(parents) + " zulässig (Basis fehlt)"
+        )
+
+
+def _collect_possible_additions(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    zusatz = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"))
+    state.moegliche_zusatzpositionen.extend(zusatz)
+
+
+def _check_rule_patient_condition(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    field = rule.get("Feld")
+    if not field:
+        return
+    wert_regel = rule.get("Wert")
+    min_val = rule.get("MinWert")
+    max_val = rule.get("MaxWert")
+    wert_fall = ctx.fall.get(field)
+
+    bedingung_text = f"Patientenbedingung ({field})"
+    field_normalized = str(field).upper()
+
+    if wert_fall is None:
+        state.add_error(f"{bedingung_text} nicht erfüllt: Kontextwert fehlt")
+        return
+
+    if field == "Alter":
+        try:
+            alter_patient = int(wert_fall)
+        except (TypeError, ValueError):
+            state.add_error(
+                f"{bedingung_text}: Ungültiger Alterswert im Fall ({wert_fall})"
+            )
+            return
+        range_parts: List[str] = []
+        if min_val is not None and alter_patient < int(min_val):
+            range_parts.append(f"min. {min_val}")
+        if max_val is not None and alter_patient > int(max_val):
+            range_parts.append(f"max. {max_val}")
+        if wert_regel is not None and alter_patient != int(wert_regel):
+            range_parts.append(f"exakt {wert_regel}")
+        if range_parts:
+            state.add_error(
+                f"{bedingung_text} ({' '.join(range_parts)}) nicht erfüllt (Patient: {alter_patient})"
+            )
+        return
+
+    if field == "Geschlecht":
+        if isinstance(wert_regel, str) and isinstance(wert_fall, str):
+            if wert_fall.lower() != wert_regel.lower():
+                state.add_error(
+                    f"{bedingung_text}: erwartet '{wert_regel}', gefunden '{wert_fall}'"
+                )
+        else:
+            state.add_error(
+                f"{bedingung_text}: Ungültige Werte für Geschlechtsprüfung"
+            )
+        return
+
+    if field_normalized in {"GTIN", "MEDIKAMENTE", "MEDIKAMENT", "ATC"}:
+        required_medications = (
+            [str(wert_regel)]
+            if isinstance(wert_regel, (str, int))
+            else [str(w) for w in (wert_regel or [])]
+        )
+        provided_medications_upper = ctx.medications
+        if not any(
+            str(req).upper() in provided_medications_upper for req in required_medications
+        ):
+            state.add_error(
+                f"{bedingung_text}: Erwartet einen von {required_medications}, nicht gefunden"
+            )
+        return
+
+    logger.info(
+        "Unbekanntes Feld '%s' für Patientenbedingung bei LKN %s.",
+        field,
+        ctx.lkn,
+    )
+
+
+def _check_rule_diagnose(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    required_icds = rule.get("ICD") or rule.get("ICDs") or []
+    required_icds = _normalize_rule_codes(required_icds)
+    provided_icds = ctx.fall.get("ICD", [])
+    if isinstance(provided_icds, str):
+        provided_icds = [provided_icds]
+    provided_upper = {str(code).upper() for code in provided_icds if code}
+    if required_icds and not any(req in provided_upper for req in required_icds):
+        state.add_error(
+            f"Erforderliche Diagnose(n) nicht vorhanden (Benötigt: {', '.join(required_icds)})"
+        )
+
+
+def _check_rule_pauschal_ausschluss(
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> None:
+    verbotene = rule.get("Pauschale") or rule.get("Pauschalen") or []
+    verbotene = _normalize_rule_codes(verbotene)
+    abgerechnete = ctx.fall.get("Pauschalen", [])
+    if isinstance(abgerechnete, str):
+        abgerechnete = [abgerechnete]
+    abgerechnete_upper = {str(code).upper() for code in abgerechnete if code}
+    if any(verb in abgerechnete_upper for verb in verbotene):
+        state.add_error(
+            f"Leistung nicht zulässig bei gleichzeitiger Abrechnung der Pauschale(n): {', '.join(verbotene)}"
+        )
+
+
+def _check_rule_kumulation(
+    typ: str,
+    rule: RegelDefinition,
+    ctx: RuleEvaluationContext,
+    state: RuleEvaluationState,
+) -> bool:
+    if REGEX_NICHT_KUMULIERBAR_VARIANT.match(typ):
+        not_with = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"))
+        type_match = REGEX_NICHT_KUMULIERBAR_VARIANT.match(typ)
+        if type_match and type_match.group(1):
+            typen_filter = [
+                t.strip().upper() for t in type_match.group(1).split(",") if t.strip()
+            ]
+        else:
+            typen_filter = []
+        konflikt: List[str] = []
+        for code in ctx.begleit:
+            if code not in not_with:
+                continue
+            if not typen_filter:
+                konflikt.append(code)
+                continue
+            code_typ = ctx.begleit_typen.get(code)
+            if code_typ and code_typ in typen_filter:
+                konflikt.append(code)
+            elif not code_typ:
+                konflikt.append(code)
+        if konflikt:
+            state.add_error("Nicht kumulierbar mit: " + ", ".join(konflikt))
+        return True
+
+    if typ.startswith("Nur kumulierbar"):
+        allowed_entries = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"), uppercase=False)
+
+        def match_entry(entry: str) -> bool:
+            entry_str = entry.strip()
+            entry_upper = entry_str.upper()
+            if entry_upper.startswith("KAPITEL"):
+                prefix = entry_upper.replace("KAPITEL", "").strip()
+                return any(code.startswith(prefix) for code in ctx.begleit)
+            if entry_upper.startswith("LEISTUNGSGRUPPE"):
+                gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
+                group_lkns = ctx.leistungsgruppen_map.get(gruppe)
+                if group_lkns is None:
+                    return True
+                return any(code in group_lkns for code in ctx.begleit)
+            return any(entry_upper == code for code in ctx.begleit)
+
+        if not any(match_entry(entry) for entry in allowed_entries):
+            state.add_error("Nur kumulierbar mit: " + ", ".join(allowed_entries))
+        return True
+
+    if typ.startswith("Kumulierbar"):
+        entries = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"))
+        state.moegliche_zusatzpositionen.extend(entries)
+        state.hat_kumulierbar_regel = True
+        return True
+
+    return False
+
+
+HANDLER_DISPATCH: Dict[str, RuleHandler] = {
+    REGEL_MENGE: _check_rule_menge,
+    REGEL_ZUSCHLAG_ZU: _check_rule_zuschlag,
+    REGEL_MOEG_ZUSATZPOSITIONEN: _collect_possible_additions,
+    REGEL_PAT_BEDINGUNG: _check_rule_patient_condition,
+    REGEL_DIAGNOSE: _check_rule_diagnose,
+    REGEL_PAUSCHAL_AUSSCHLUSS: _check_rule_pauschal_ausschluss,
+}
+
+
 def pruefe_abrechnungsfaehigkeit(
-    fall: dict, regelwerk: dict, leistungsgruppen_map: dict | None = None
+    fall: FallKontext | Mapping[str, Any],
+    regelwerk: Mapping[str, Sequence[RegelDefinition | Mapping[str, Any]]],
+    leistungsgruppen_map: Mapping[str, Sequence[str]] | None = None,
+    *,
+    kumulation_explizit: Optional[int] = None,
 ) -> dict:
     """
-    Prüft, ob eine gegebene Leistungsposition abrechnungsfähig ist.
+    Pr?ft, ob eine gegebene Leistungsposition abrechnungsf?hig ist.
 
     Args:
-        fall: Dict mit Kontext zur Leistung (LKN, Menge, ICD, Begleit-LKNs, Pauschalen,
+        fall: Kontext zur Leistung (LKN, Menge, ICD, Begleit-LKNs, Pauschalen,
               optional Alter, Geschlecht, GTIN).
         regelwerk: Mapping von LKN zu Regel-Definitionen aus lade_regelwerk.
-    Returns:
-        Dict mit Schlüsseln:
-          - abrechnungsfaehig (bool): True, wenn alle Regeln erfüllt sind.
-          - fehler (list): Liste der Regelverstösse (Fehlermeldungen).
+        leistungsgruppen_map: Optionales Mapping f?r Gruppenkumulationen.
+        kumulation_explizit: Override f?r die explizite Kumulationspr?fung.
     """
-    lkn = str(fall.get("LKN") or "").upper()
-    menge = fall.get("Menge", 0) or 0
-    begleit = [str(code).upper() for code in (fall.get("Begleit_LKNs") or [])]
-    typ_lkn = str(fall.get("Typ") or "").upper()
-    raw_begleit_typen = fall.get("Begleit_Typen") or {}
-    if isinstance(raw_begleit_typen, dict):
+    kumulation_explizit = KUMULATION_EXPLIZIT if kumulation_explizit is None else kumulation_explizit
+
+    fall_data = _coerce_fall(fall)
+
+    lkn = str(fall_data.get("LKN") or "").upper()
+    menge = int(fall_data.get("Menge", 0) or 0)
+    begleit = [str(code).upper() for code in (fall_data.get("Begleit_LKNs") or []) if code]
+    typ_lkn = str(fall_data.get("Typ") or "").upper()
+
+    raw_begleit_typen = fall_data.get("Begleit_Typen") or {}
+    if isinstance(raw_begleit_typen, MutableMapping):
         begleit_typen = {
             str(code).upper(): str(t).upper()
             for code, t in raw_begleit_typen.items()
@@ -67,284 +376,78 @@ def pruefe_abrechnungsfaehigkeit(
         }
     else:
         begleit_typen = {}
-    if typ_lkn and lkn not in begleit_typen:
+    if typ_lkn and lkn and lkn not in begleit_typen:
         begleit_typen[lkn] = typ_lkn
-    leistungsgruppen_map = {
-        str(k).upper(): {str(c).upper() for c in v}
+
+    norm_leistungsgruppen = {
+        str(k).upper(): {str(c).upper() for c in (v or []) if c}
         for k, v in (leistungsgruppen_map or {}).items()
     }
-    # Kontextdaten
-    alter = fall.get("Alter")
-    medications = fall.get("Medikamente")
+
+    medications = fall_data.get("Medikamente")
     if medications is None:
-        medications = fall.get("GTIN")
-    medications = medications or []  # Stelle sicher, dass Medikamentenangaben hier ankommen
+        medications = fall_data.get("GTIN")
+    if medications is None:
+        medications = []
     if isinstance(medications, str):
-        medications = [medications]  # Mache zur Liste, falls String
+        medications = [medications]
+    medications_upper = [str(code).upper() for code in medications if code]
 
-    errors: list = []
-    allowed = True
-    moegliche_zusatzpositionen: list[str] = []
-    hat_kumulierbar_regel = False
+    ctx = RuleEvaluationContext(
+        fall=fall_data,
+        lkn=lkn,
+        menge=menge,
+        begleit=begleit,
+        begleit_typen=begleit_typen,
+        leistungsgruppen_map=norm_leistungsgruppen,
+        medications=medications_upper,
+    )
+    state = RuleEvaluationState()
 
-    # Hole die Regeln für diese LKN
-    rules = regelwerk.get(lkn) or []
-    if not rules:
-        # Keine Regeln definiert -> gilt als OK
+    rules_raw = list(regelwerk.get(lkn) or [])
+    if not rules_raw:
         return {"abrechnungsfaehig": True, "fehler": []}
 
+    rules = [_coerce_rule(rule) for rule in rules_raw]
+
     for rule in rules:
-        typ = rule.get("Typ")
+        typ = str(rule.get("Typ") or "").strip()
         if not typ:
-            continue  # Regel ohne Typ ignorieren
-
-        # --- Mengenbesschränkung ---
-        if typ == REGEL_MENGE:
-            max_menge = rule.get("MaxMenge")
-            if isinstance(max_menge, (int, float)) and menge > max_menge:
-                allowed = False
-                errors.append(
-                    f"Mengenbeschränkung überschritten (max. {max_menge}, angefragt {menge})"
-                )
-
-        # --- Nur als Zuschlag zu ---
-        elif typ == REGEL_ZUSCHLAG_ZU:
-            parent_entries = rule.get("LKNs")
-            if not parent_entries:
-                parent_entries = rule.get("LKN")
-            if isinstance(parent_entries, str):
-                parent_entries = [parent_entries]
-            parents = [str(p).upper() for p in (parent_entries or []) if p]
-            if not parents:
-                logger.info("Regel 'Nur als Zuschlag zu' ohne Basisangabe bei LKN %s ignoriert.", lkn)
-            elif not any(parent in begleit for parent in parents):
-                allowed = False
-                errors.append("Nur als Zuschlag zu " + ", ".join(parents) + " zulässig (Basis fehlt)")
-
-        # --- Mögliche Zusatzpositionen ---
-        elif typ == REGEL_MOEG_ZUSATZPOSITIONEN:
-            zusatz = rule.get("LKNs") or rule.get("LKN") or []
-            if isinstance(zusatz, str):
-                zusatz = [zusatz]
-            zusatz = [str(z).upper() for z in zusatz]
-            moegliche_zusatzpositionen.extend(zusatz)
-
-        # --- Nicht kumulierbar mit (inkl. Varianten) ---
-        elif REGEX_NICHT_KUMULIERBAR_VARIANT.match(typ):
-            not_with = rule.get("LKNs") or rule.get("LKN") or []
-            if isinstance(not_with, str):
-                not_with = [not_with]
-            not_with = [str(nw).upper() for nw in not_with]
-            type_match = REGEX_NICHT_KUMULIERBAR_VARIANT.match(typ)
-            if type_match and type_match.group(1):
-                typen_filter = [
-                    t.strip().upper()
-                    for t in type_match.group(1).split(",")
-                    if t.strip()
-                ]
-            else:
-                typen_filter = []
-            konflikt: list[str] = []
-            for code in begleit:
-                if code not in not_with:
-                    continue
-                if not typen_filter:
-                    konflikt.append(code)
-                    continue
-                code_typ = begleit_typen.get(code)
-                if code_typ:
-                    if code_typ in typen_filter:
-                        konflikt.append(code)
-                else:
-                    konflikt.append(code)
-            if konflikt:
-                allowed = False
-                codes = ", ".join(konflikt)
-                errors.append(f"Nicht kumulierbar mit: {codes}")
-
-        # --- Nur kumulierbar mit ---
-        elif typ.startswith("Nur kumulierbar"):
-            allowed_entries = rule.get("LKNs") or rule.get("LKN") or []
-            if isinstance(allowed_entries, str):
-                allowed_entries = [allowed_entries]
-
-            def match_entry(entry: str) -> bool:
-                entry_str = entry.strip()
-                entry_upper = entry_str.upper()
-                if entry_upper.startswith("KAPITEL"):
-                    prefix = entry_upper.replace("KAPITEL", "").strip()
-                    return any(code.startswith(prefix) for code in begleit)
-                if entry_upper.startswith("LEISTUNGSGRUPPE"):
-                    gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
-                    group_lkns = leistungsgruppen_map.get(gruppe)
-                    if group_lkns is None:
-                        return True  # Ohne Mapping keine Prüfung
-                    return any(code in group_lkns for code in begleit)
-                return any(entry_upper == code for code in begleit)
-
-            if not any(match_entry(e) for e in allowed_entries):
-                allowed = False
-                errors.append("Nur kumulierbar mit: " + ", ".join(allowed_entries))
-
-        # --- Kumulierbar mit ---
-        elif typ.startswith("Kumulierbar"):
-            entries = rule.get("LKNs") or rule.get("LKN") or []
-            if isinstance(entries, str):
-                entries = [entries]
-            entries = [str(e).upper() for e in entries]
-            moegliche_zusatzpositionen.extend(entries)
-            hat_kumulierbar_regel = True
-            continue  # Auswertung (nur bei expliziter Kumulation) erfolgt nach der Schleife
-
-        # --- Patientenbedingung (Generisch) ---
-        elif typ == REGEL_PAT_BEDINGUNG:
-            field = rule.get("Feld")  # z.B. "Alter", "Geschlecht", "GTIN"
-            wert_regel = rule.get("Wert")  # Wert aus der Regel
-            min_val = rule.get("MinWert")  # Für Bereiche (z.B. Alter)
-            max_val = rule.get("MaxWert")  # Für Bereiche (z.B. Alter)
-            wert_fall = fall.get(field)  # Wert aus dem Abrechnungsfall
-
-            bedingung_text = f"Patientenbedingung ({field})"
-            field_normalized = str(field).upper() if field else ""
-            condition_met = False
-
-            if wert_fall is None:
-                condition_met = (
-                    False  # Bedingung nicht prüfbar/erfüllt, wenn Wert fehlt
-                )
-                errors.append(f"{bedingung_text} nicht erfüllt: Kontextwert fehlt")
-            elif field == "Alter":
-                try:
-                    alter_patient = int(wert_fall)
-                    alter_ok = True
-                    range_parts = []
-                    if min_val is not None and alter_patient < int(min_val):
-                        alter_ok = False
-                        range_parts.append(f"min. {min_val}")
-                    if max_val is not None and alter_patient > int(max_val):
-                        alter_ok = False
-                        range_parts.append(f"max. {max_val}")
-                    if wert_regel is not None and alter_patient != int(wert_regel):
-                        alter_ok = False
-                        range_parts.append(f"exakt {wert_regel}")  # Exakter Wert?
-                    condition_met = alter_ok
-                    if not condition_met:
-                        errors.append(
-                            f"{bedingung_text} ({' '.join(range_parts)}) nicht erfüllt (Patient: {alter_patient})"
-                        )
-                except (ValueError, TypeError):
-                    condition_met = False
-                    errors.append(
-                        f"{bedingung_text}: Ungültiger Alterswert im Fall ({wert_fall})"
-                    )
-            elif field == "Geschlecht":
-                if isinstance(wert_regel, str) and isinstance(wert_fall, str):
-                    condition_met = wert_fall.lower() == wert_regel.lower()
-                    if not condition_met:
-                        errors.append(
-                            f"{bedingung_text}: erwartet '{wert_regel}', gefunden '{wert_fall}'"
-                        )
-                else:
-                    condition_met = False
-                    errors.append(
-                        f"{bedingung_text}: Ungültige Werte für Geschlechtsprüfung"
-                    )
-            elif field_normalized in {"GTIN", "MEDIKAMENTE", "MEDIKAMENT", "ATC"}:
-                required_medications = (
-                    [str(wert_regel)]
-                    if isinstance(wert_regel, (str, int))
-                    else [str(w) for w in (wert_regel or [])]
-                )
-                provided_medications_upper = [str(code).upper() for code in (medications or [])]
-                condition_met = any(str(req).upper() in provided_medications_upper for req in required_medications)
-                if not condition_met:
-                    errors.append(
-                        f"{bedingung_text}: Erwartet einen von {required_medications}, nicht gefunden"
-                    )
-            else:
-                logger.info(
-                    "Unbekanntes Feld '%s' für Patientenbedingung bei LKN %s.",
-                    field,
-                    lkn,
-                )
-                condition_met = True  # Unbekannte Felder ignorieren
-
-            if not condition_met:
-                allowed = False
-
-        # --- Diagnosepflicht ---
-        elif typ == REGEL_DIAGNOSE:
-            required_icds = rule.get("ICD") or rule.get("ICDs", [])
-            if isinstance(required_icds, str):
-                required_icds = [required_icds]
-            provided_icds = fall.get("ICD", [])
-            if isinstance(provided_icds, str):
-                provided_icds = [provided_icds]
-
-            if required_icds and not any(
-                req_icd.upper() in (p_icd.upper() for p_icd in provided_icds)
-                for req_icd in required_icds
-            ):
-                allowed = False
-                errors.append(
-                    f"Erforderliche Diagnose(n) nicht vorhanden (Benötigt: {', '.join(required_icds)})"
-                )
-
-        # --- Pauschalenausschluss ---
-        elif typ == REGEL_PAUSCHAL_AUSSCHLUSS:
-            verbotene_pauschalen = rule.get("Pauschale") or rule.get("Pauschalen", [])
-            if isinstance(verbotene_pauschalen, str):
-                verbotene_pauschalen = [verbotene_pauschalen]
-            abgerechnete_pauschalen = fall.get("Pauschalen", [])
-            if isinstance(abgerechnete_pauschalen, str):
-                abgerechnete_pauschalen = [abgerechnete_pauschalen]
-
-            if any(verb in abgerechnete_pauschalen for verb in verbotene_pauschalen):
-                allowed = False
-                errors.append(
-                    f"Leistung nicht zulässig bei gleichzeitiger Abrechnung der Pauschale(n): {', '.join(verbotene_pauschalen)}"
-                )
-
-        # --- Unbekannter Regeltyp ---
-        else:
-            logger.info(
-                "Unbekannter Regeltyp '%s' für LKN %s ignoriert.",
-                typ,
-                lkn,
-            )
             continue
+        handler = HANDLER_DISPATCH.get(typ)
+        if handler:
+            handler(rule, ctx, state)
+            continue
+        if _check_rule_kumulation(typ, rule, ctx, state):
+            continue
+        logger.info("Unbekannter Regeltyp '%s' f?r LKN %s ignoriert.", typ, lkn)
 
-    # Explizite Kumulation prüfen, falls konfiguriert und Regeln vorhanden
-    if KUMULATION_EXPLIZIT and hat_kumulierbar_regel and moegliche_zusatzpositionen:
-        moegliche_zusatzpositionen = list(dict.fromkeys(moegliche_zusatzpositionen))
+    if kumulation_explizit and state.hat_kumulierbar_regel and state.moegliche_zusatzpositionen:
+        state.moegliche_zusatzpositionen = list(dict.fromkeys(state.moegliche_zusatzpositionen))
 
         def code_erlaubt(code: str) -> bool:
-            for entry in moegliche_zusatzpositionen:
-                e_str = entry.strip()
-                e_upper = e_str.upper()
-                if e_upper.startswith("KAPITEL"):
-                    prefix = e_upper.replace("KAPITEL", "").strip()
+            for entry in state.moegliche_zusatzpositionen:
+                entry_upper = entry.upper()
+                if entry_upper.startswith("KAPITEL"):
+                    prefix = entry_upper.replace("KAPITEL", "").strip()
                     if code.startswith(prefix):
                         return True
-                elif e_upper.startswith("LEISTUNGSGRUPPE"):
-                    gruppe = e_upper.replace("LEISTUNGSGRUPPE", "").strip()
-                    group_lkns = leistungsgruppen_map.get(gruppe)
-                    if group_lkns is None:
-                        return True  # Ohne Mapping keine Prüfung
-                    if code in group_lkns:
+                elif entry_upper.startswith("LEISTUNGSGRUPPE"):
+                    gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
+                    group_lkns = norm_leistungsgruppen.get(gruppe)
+                    if group_lkns is None or code in group_lkns:
                         return True
-                elif code == e_upper:
+                elif code == entry_upper:
                     return True
             return False
 
         ungueltig = [code for code in begleit if not code_erlaubt(code)]
         if ungueltig:
-            allowed = False
-            errors.append(
-                "Nur kumulierbar mit: " + ", ".join(moegliche_zusatzpositionen)
+            state.add_error(
+                "Nur kumulierbar mit: " + ", ".join(state.moegliche_zusatzpositionen)
             )
 
-    return {"abrechnungsfaehig": allowed, "fehler": errors}
+    return {"abrechnungsfaehig": state.allowed, "fehler": state.errors}
 
 
 def prepare_tardoc_abrechnung(

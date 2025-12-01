@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Qualitätskontrolle</title>
-    <!-- Favicon Links wie in index.html -->
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
     <link rel="alternate icon" href="/favicon.ico" type="image/x-icon">
     <style>
-        /* Design an index.html angelehnt */
         :root {
             --primary: #005EB8;
             --primary-light: #E6F0FA;
             --primary-strong: #0a4ea1;
             --accent: #00856F;
+            --einzel-accent: #0a7bd4;
+            --pauschal-accent: #0e9a78;
             --danger: #D80027;
             --text-color: #333;
             --text-muted: #5b6b80;
@@ -25,12 +26,16 @@
             --surface-strong: rgba(255, 255, 255, 0.95);
             --shadow-flat: 0 1px 2px rgba(12, 38, 86, 0.06);
             --shadow-card: 0 22px 38px rgba(15, 36, 84, 0.16);
-            --focus-ring: 0 0 0 3px rgba(0,94,184,0.3);
+            --focus-ring: 0 0 0 3px rgba(0, 94, 184, 0.3);
             --form-width: 760px;
             --content-max: calc(100vw - 26px);
         }
 
-        html, body { height: 100%; }
+        html,
+        body {
+            height: 100%;
+        }
+
         body {
             margin: 0;
             min-height: 100vh;
@@ -39,23 +44,27 @@
             flex-direction: column;
             align-items: flex-start;
             background: radial-gradient(120% 140% at 15% 10%, rgba(0, 94, 184, 0.12), transparent 55%),
-                        radial-gradient(110% 130% at 85% 15%, rgba(0, 133, 111, 0.12), transparent 52%),
-                        linear-gradient(125deg, #f8fbff, #eef3ff, #f6fbff);
+                radial-gradient(110% 130% at 85% 15%, rgba(0, 133, 111, 0.12), transparent 52%),
+                linear-gradient(125deg, #f8fbff, #eef3ff, #f6fbff);
             background-size: 120% 120%, 120% 120%, 200% 200%;
             color: var(--text-color);
             font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             box-sizing: border-box;
             width: 100%;
         }
+
         .app-shell {
             width: 100%;
             max-width: var(--content-max);
             margin: 0;
             padding: 0 10px 16px;
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
-        /* Top-Bar wie in index */
+        /* Top-Bar */
         .top-info {
             display: flex;
             justify-content: flex-start;
@@ -69,9 +78,9 @@
             box-shadow: 0 22px 38px rgba(15, 36, 84, 0.16);
             margin-bottom: 14px;
             width: 100%;
-            max-width: var(--content-max);
             box-sizing: border-box;
         }
+
         .top-info-left,
         .top-info-right {
             display: flex;
@@ -79,9 +88,23 @@
             gap: 18px;
             flex-wrap: wrap;
         }
-        .top-info-right { margin-left: auto; }
-        .language-select { display:flex; align-items:center; gap:8px; margin:0; }
-        .language-select label { font-weight: 600; color: var(--text-muted); }
+
+        .top-info-right {
+            margin-left: auto;
+        }
+
+        .language-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .language-select label {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
         #languageSelect {
             width: auto;
             margin-bottom: 0;
@@ -91,65 +114,277 @@
             border: 1px solid rgba(0, 94, 184, 0.18);
             box-shadow: var(--shadow-flat);
         }
-        #backLink { color: var(--primary-strong); text-decoration: underline; font-weight: 600; }
-        #backLink:hover { text-decoration: underline; }
-        .version-line { font-size: 0.95em; color: var(--text-muted); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-        .version-line a { color: var(--primary-strong); font-weight: 600; }
 
-        /* Überschrift */
+        #backLink {
+            color: var(--primary-strong);
+            text-decoration: underline;
+            font-weight: 600;
+        }
+
+        #backLink:hover {
+            text-decoration: underline;
+        }
+
+        .version-line {
+            font-size: 0.95em;
+            color: var(--text-muted);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .version-line a {
+            color: var(--primary-strong);
+            font-weight: 600;
+        }
+
         h1 {
             color: var(--primary-strong);
             font-size: clamp(1.6rem, 2.2vw, 2.05rem);
             letter-spacing: 0.01em;
-            margin: 6px 0 6px;
+            margin: 4px 0 12px;
             font-weight: 650;
         }
 
-        /* Card für Inhalt */
-        .content-card {
-            margin-top: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.76);
-            padding: 16px 18px;
-            background: linear-gradient(180deg, var(--surface-strong) 0%, rgba(246, 250, 255, 0.95) 100%);
-            border-radius: 18px;
-            box-shadow: var(--shadow-card);
+        /* Split Layout */
+        .split-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-auto-rows: auto;
+            align-items: stretch;
+            gap: 18px;
             width: 100%;
-            max-width: var(--content-max);
-            box-sizing: border-box;
+            flex: 1;
+            /* Take remaining height */
+            min-height: 0;
+            /* Allow shrinking */
+            margin-bottom: 14px;
         }
 
-        /* Tabelle im Card-Stil */
-        table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; background:#fff; }
-        th, td {
-            border: 1px solid var(--details-border);
-            padding: 5px 10px;
-            font-size: 0.95em;
-            line-height: 1.25;
+        .group-section {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: linear-gradient(180deg, var(--surface-strong) 0%, rgba(246, 250, 255, 0.95) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.76);
+            border-radius: 18px;
+            box-shadow: var(--shadow-card);
+            padding: 12px;
+            overflow: hidden;
+            min-height: 0;
         }
-        th { background: var(--primary-light); text-align: left; }
-        #overallSummary, #tokenSummary, #perfSummary { color: var(--text-muted); }
+
+        .group-section::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 18px;
+            background: linear-gradient(120deg, rgba(10, 125, 212, 0.06), rgba(0, 154, 120, 0.06));
+            pointer-events: none;
+        }
+
+        .group-section.einzelleistungen::after,
+        .group-section.pauschalen::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 12px;
+            bottom: 12px;
+            width: 6px;
+            border-radius: 12px;
+        }
+
+        .group-section.einzelleistungen::after {
+            background: linear-gradient(180deg, var(--einzel-accent), rgba(10, 125, 212, 0.25));
+        }
+
+        .group-section.pauschalen::after {
+            background: linear-gradient(180deg, var(--pauschal-accent), rgba(14, 154, 120, 0.25));
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--details-border);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .group-metrics {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .group-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .group-kicker {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #fff;
+            background: var(--einzel-accent);
+            box-shadow: var(--shadow-flat);
+        }
+
+        .group-section.pauschalen .group-kicker {
+            background: var(--pauschal-accent);
+        }
+
+        .group-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--primary-strong);
+            line-height: 1.2;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Custom Scrollbar */
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 94, 184, 0.2);
+            border-radius: 3px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 94, 184, 0.4);
+        }
+
+        /* Compact Table Styles */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0;
+            background: #fff;
+            font-size: 0.85rem;
+        }
+
+        .compact-table {
+            font-size: 0.82rem;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--details-border);
+            padding: 4px 6px;
+            line-height: 1.15;
+            vertical-align: middle;
+        }
+
+        th {
+            background: var(--primary-light);
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .compact-table tr:nth-child(even) {
+            background: rgba(0, 94, 184, 0.02);
+        }
+
+        .compact-table th.col-id,
+        .compact-table td:nth-child(1) {
+            width: 62px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .compact-table th.col-action,
+        .compact-table td:nth-child(3) {
+            width: 110px;
+            text-align: center;
+        }
+
+        .compact-table th.col-res-de,
+        .compact-table th.col-res-fr,
+        .compact-table th.col-res-it,
+        .compact-table td:nth-child(4),
+        .compact-table td:nth-child(5),
+        .compact-table td:nth-child(6) {
+            width: 70px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .compact-table td:nth-child(2) {
+            max-width: 460px;
+        }
+
+        .compact-table td {
+            height: 32px;
+        }
+
+        .global-controls {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.78);
+            padding: 10px 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+
+        #overallSummary,
+        #tokenSummary,
+        #perfSummary {
+            color: var(--text-muted);
+        }
+
         .summary-strip {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             align-items: center;
-            margin-top: 10px;
-            font-size: 0.95em;
+            font-size: 0.92em;
         }
+
         .summary-chip {
             background: rgba(0, 94, 184, 0.06);
             border: 1px solid rgba(0, 94, 184, 0.12);
             color: var(--text-color);
-            padding: 8px 10px;
+            padding: 6px 10px;
             border-radius: 10px;
             box-shadow: var(--shadow-flat);
         }
 
-        /* Buttons wie in index */
+        .summary-chip.mini {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            background: rgba(0, 94, 184, 0.05);
+        }
+
         button {
-            padding: 10px 18px;
+            padding: 8px 14px;
             cursor: pointer;
-            margin-top: 8px;
             background: linear-gradient(132deg, var(--primary) 0%, #0a7bd4 100%);
             color: #fff;
             border: none;
@@ -157,28 +392,68 @@
             box-shadow: 0 16px 28px rgba(0, 82, 168, 0.25);
             transition: transform 0.2s ease, box-shadow 0.2s ease, background-position 0.25s ease;
             background-size: 150% 150%;
+            font-weight: 600;
         }
-        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 22px 36px rgba(0, 82, 168, 0.28); background-position: 100% 0%; }
-        button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.8), var(--focus-ring); }
-        button:disabled { background: linear-gradient(135deg, #adb8c8 0%, #94a2b5 100%); cursor:not-allowed; box-shadow:none; transform:none; opacity:0.75; }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 22px 36px rgba(0, 82, 168, 0.28);
+            background-position: 100% 0%;
+        }
+
+        button:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8), var(--focus-ring);
+        }
+
+        button:disabled {
+            background: linear-gradient(135deg, #adb8c8 0%, #94a2b5 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+            opacity: 0.75;
+        }
+
+        /* Action Button Compact override */
+        .action-btn {
+            padding: 3px 8px;
+            font-size: 0.78rem;
+            border-radius: 7px;
+            margin: 0;
+            box-shadow: none;
+        }
+
+        @media (max-width: 1024px) {
+            .split-container {
+                grid-template-columns: 1fr;
+                height: auto;
+                flex: none;
+            }
+
+            .group-section {
+                max-height: 500px;
+            }
+        }
 
         @media (max-width: 768px) {
-            :root { --content-max: calc(100vw - 32px); }
-            body { padding: 26px 12px 18px; }
-            .top-info { flex-direction: column; align-items: stretch; gap: 10px; text-align: left; }
+            :root {
+                --content-max: calc(100vw - 32px);
+            }
+
+            body {
+                padding: 26px 12px 18px;
+            }
+
+            .top-info {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                text-align: left;
+            }
         }
     </style>
-    <!-- Optional: kleine Grund-Animation wie in index (falls benötigt) -->
-    <script>
-        // Keyframes optional, falls Animation genutzt wird
-        try {
-            const style = document.createElement('style');
-            style.textContent = '@keyframes gradientShift { 0%{background-position:0% 0%, 100% 0%, 0% 0%} 50%{background-position:100% 100%, 0% 100%, 100% 100%} 100%{background-position:0% 0%, 100% 0%, 0% 0%} }';
-            document.head.appendChild(style);
-        } catch(e) {}
-    </script>
-    
 </head>
+
 <body>
     <div class="app-shell">
         <div class="top-info">
@@ -210,20 +485,65 @@
 
         <h1 id="qcHeader">Qualitätskontrolle</h1>
 
-        <div class="content-card">
-            <table id="exampleTable">
-                <thead>
-                    <tr>
-                        <th id="qcId">ID</th>
-                        <th id="qcExample">Beispiel</th>
-                        <th id="qcAction">Aktion</th>
-                        <th id="qcResDe">Ergebnis DE</th>
-                        <th id="qcResFr">Ergebnis FR</th>
-                        <th id="qcResIt">Ergebnis IT</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div class="split-container">
+            <!-- Einzelleistungen Section -->
+            <div class="group-section einzelleistungen">
+                <div class="group-header">
+                    <div class="group-title">
+                        <span class="group-kicker">TARDOC</span>
+                        <h2 id="headerEinzelleistungen">Einzelleistungen</h2>
+                    </div>
+                    <div class="group-metrics">
+                        <span id="perfEinzSummary" class="summary-chip mini"></span>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="tableEinzelleistungen" class="compact-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">ID</th>
+                                <th class="col-example">Beispiel</th>
+                                <th class="col-action">Aktion</th>
+                                <th class="col-res-de">DE</th>
+                                <th class="col-res-fr">FR</th>
+                                <th class="col-res-it">IT</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pauschalen Section -->
+            <div class="group-section pauschalen">
+                <div class="group-header">
+                    <div class="group-title">
+                        <span class="group-kicker">Pauschale</span>
+                        <h2 id="headerPauschalen">Pauschalen</h2>
+                    </div>
+                    <div class="group-metrics">
+                        <span id="perfPauschSummary" class="summary-chip mini"></span>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="tablePauschalen" class="compact-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">ID</th>
+                                <th class="col-example">Beispiel</th>
+                                <th class="col-action">Aktion</th>
+                                <th class="col-res-de">DE</th>
+                                <th class="col-res-fr">FR</th>
+                                <th class="col-res-it">IT</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="global-controls">
             <button id="testAllBtn">Alle Beispiele testen</button>
             <div class="summary-strip">
                 <div id="overallSummary" class="summary-chip"></div>
@@ -244,13 +564,13 @@
                 const tspan = document.getElementById('tarifVersionSpan');
                 if (tspan && d && d.tarif_version) tspan.textContent = d.tarif_version;
             })
-            .catch(() => {});
+            .catch(() => { });
 
         // Sprache synchron mit index steuern
         document.addEventListener('DOMContentLoaded', () => {
             const sel = document.getElementById('languageSelect');
             const stored = localStorage.getItem('language');
-            const initial = (stored && ['de','fr','it'].includes(stored)) ? stored : 'de';
+            const initial = (stored && ['de', 'fr', 'it'].includes(stored)) ? stored : 'de';
             if (sel) sel.value = initial;
             sel?.addEventListener('change', (e) => {
                 const lang = e.target.value;
@@ -260,4 +580,5 @@
         });
     </script>
 </body>
+
 </html>

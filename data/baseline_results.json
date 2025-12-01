@@ -1,4 +1,111 @@
 {
+  "_groups": {
+    "einzelleistungen": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "pauschalen": [
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19"
+    ]
+  },
+  "_grouped_by_result": {
+    "einzelleistungen": [
+      {
+        "id": "1",
+        "de": "Hausärztliche Konsultation von 17 Minuten"
+      },
+      {
+        "id": "2",
+        "de": "Konsultation 10 Minuten und Entfernung Warze mit scharfem Löffel 5 Minuten, mit Wechselzeit zu Dermatologie"
+      },
+      {
+        "id": "3",
+        "de": "Konsultation 25 Minuten, grosser rheumatologischer Untersuch"
+      },
+      {
+        "id": "4",
+        "de": "Konsultation 15 Minuten"
+      },
+      {
+        "id": "5",
+        "de": "Hausärztliche Konsultation von 25 Minuten"
+      },
+      {
+        "id": "6",
+        "de": "Hausärztliche Konsultation 15 Min plus 10 Minuten Beratung; Kind 8 jährig"
+      },
+      {
+        "id": "7",
+        "de": "Diabetes Betreuung MPK 20 Minuten"
+      }
+    ],
+    "pauschalen": [
+      {
+        "id": "8",
+        "de": "Kiefergelenk, Luxation. Geschlossene Reposition"
+      },
+      {
+        "id": "9",
+        "de": "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin"
+      },
+      {
+        "id": "10",
+        "de": "Aufklärung des Patienten und Leberbiopsie durch die Haut"
+      },
+      {
+        "id": "11",
+        "de": "Blinddarmentfernung"
+      },
+      {
+        "id": "12",
+        "de": "Korrekturop eines Hallux valgus rechts"
+      },
+      {
+        "id": "13",
+        "de": "Bronchoskopie mit Lavage"
+      },
+      {
+        "id": "14",
+        "de": "Rechtsherzkatheter"
+      },
+      {
+        "id": "15",
+        "de": "Fingerfraktur, Nagelung geschlossen"
+      },
+      {
+        "id": "16",
+        "de": "Fingerfraktur, Nagelung geschlossen mit Anästhesie durch Anästhesistin"
+      },
+      {
+        "id": "17",
+        "de": "Implantation Hypoglossusstimulator"
+      },
+      {
+        "id": "18",
+        "de": "Eingiff an einem geraden Augenmuskel"
+      },
+      {
+        "id": "19",
+        "de": "Schieloperation an drei Augenmuskeln"
+      }
+    ]
+  },
   "1": {
     "query": {
       "de": "Hausärztliche Konsultation von 17 Minuten",
@@ -147,6 +254,23 @@
   },
   "7": {
     "query": {
+      "de": "Diabetes Betreuung MPK 20 Minuten",
+      "fr": "Suivi du diabète CMA 20 minutes",
+      "it": "Cura del diabete CMA 20 minuti"
+    },
+    "baseline": {
+      "pauschale": null,
+      "einzelleistungen": [
+        {
+          "code": "AK.05.0020",
+          "qty": 20
+        }
+      ]
+    },
+    "current": {}
+  },
+  "8": {
+    "query": {
       "de": "Kiefergelenk, Luxation. Geschlossene Reposition",
       "fr": "Articulation temporo-mandibulaire, luxation, réduction fermée",
       "it": "Articolazione temporo-mandibolare, lussazione, riduzione a cielo chiuso"
@@ -160,7 +284,7 @@
     },
     "current": {}
   },
-  "8": {
+  "9": {
     "query": {
       "de": "Kiefergelenk, Luxation. Geschlossene Reposition mit Anästhesie durch Anästhesistin",
       "fr": "Articulation temporo-mandibulaire, réduction fermée d'une luxation, anésthesie par anésthesiste",
@@ -175,7 +299,7 @@
     },
     "current": {}
   },
-  "9": {
+  "10": {
     "query": {
       "de": "Aufklärung des Patienten und Leberbiopsie durch die Haut",
       "fr": "Information du patient et biopsie hépatique percutanée",
@@ -190,7 +314,7 @@
     },
     "current": {}
   },
-  "10": {
+  "11": {
     "query": {
       "de": "Blinddarmentfernung",
       "fr": "Appendicectomie",
@@ -205,7 +329,7 @@
     },
     "current": {}
   },
-  "11": {
+  "12": {
     "query": {
       "de": "Korrekturop eines Hallux valgus rechts",
       "fr": "Correction d'un hallux valgus droit",
@@ -220,7 +344,7 @@
     },
     "current": {}
   },
-  "12": {
+  "13": {
     "query": {
       "de": "Bronchoskopie mit Lavage",
       "fr": "Bronchoscopie avec lavage",
@@ -235,7 +359,7 @@
     },
     "current": {}
   },
-  "13": {
+  "14": {
     "query": {
       "de": "Rechtsherzkatheter",
       "fr": "Cathétérisme cardiaque droite",
@@ -250,7 +374,7 @@
     },
     "current": {}
   },
-  "14": {
+  "15": {
     "query": {
       "de": "Fingerfraktur, Nagelung geschlossen",
       "fr": "Fracture du doigt, enclouage",
@@ -265,7 +389,7 @@
     },
     "current": {}
   },
-  "15": {
+  "16": {
     "query": {
       "de": "Fingerfraktur, Nagelung geschlossen mit Anästhesie durch Anästhesistin",
       "fr": "Fracture du doigt, enclouage fermé avec anesthésie par un anesthésiste",
@@ -280,7 +404,7 @@
     },
     "current": {}
   },
-  "16": {
+  "17": {
     "query": {
       "de": "Implantation Hypoglossusstimulator",
       "fr": "Implantation stimulateur du nerf hypoglosse",
@@ -295,20 +419,33 @@
     },
     "current": {}
   },
-  "17": {
+  "18": {
     "query": {
-      "de": "Diabetes Betreuung MPK 20 Minuten",
-      "fr": "Suivi du diabète CMA 20 minutes",
-      "it": "Cura del diabete CMA 20 minuti"
+      "de": "Eingiff an einem geraden Augenmuskel",
+      "fr": "Opérations sur un muscle oculaire droit",
+      "it": "Intervento chirurgico per strabismo, muscoli retti"
     },
     "baseline": {
-      "pauschale": null,
-      "einzelleistungen": [
-        {
-          "code": "AK.05.0020",
-          "qty": 20
-        }
-      ]
+      "pauschale": {
+        "code": "C02.25D",
+        "qty": 1
+      },
+      "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "19": {
+    "query": {
+      "de": "Schieloperation an drei Augenmuskeln",
+      "fr": "Opérations sur trois muscles oculaires droits",
+      "it": "Interventi a tre muscoli retti dell'occhio"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C02.25A",
+        "qty": 1
+      },
+      "einzelleistungen": []
     },
     "current": {}
   }
