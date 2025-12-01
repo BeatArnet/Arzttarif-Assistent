@@ -42,7 +42,7 @@ Dieses Dokument beschreibt alle JSON-Dateien unter `data/`, ihren Inhalt, die je
 | Datei | Struktur | Einträge | Primärer Bezug | Hauptzweck |
 | --- | --- | --- | --- | --- |
 | `LKAAT_Leistungskatalog.json` | Liste von Objekten | 3 253 | `LKN` | Stammdaten aller Einzelleistungen inkl. mehrsprachiger Beschreibungen |
-| `TARDOC_Tarifpositionen.json` | Liste von Objekten | 1 388 | `LKN` | Vollständige TARDOC-Tarifpositionen mit Regeln, Zeiten und Dignitäten |
+| `TARDOC_Tarifpositionen.json` | Liste von Objekten | 1 388 | `LKN` | Vollständige TARDOC-Tarifpositionen mit Regeln, Zeiten, Dignitäten sowie Min/Max-Alter und Geschlechtsvorgaben für Demografie-Matching |
 | `TARDOC_Interpretationen.json` | Wörterbuch -> Listen | 3 Listen | `KNR` / `Nr` | Allgemeine & kapitelspezifische Interpretationen |
 | `DIGNITAETEN.json` | Liste von Objekten | 157 | `DignitaetCode` | Qualitative Dignitäten (DE/FR/IT) |
 | `PAUSCHALEN_Pauschalen.json` | Liste von Objekten | 314 | `Pauschale` | Metadaten zu Pauschalen inkl. Prüflogik und Taxpunkten |
@@ -52,7 +52,7 @@ Dieses Dokument beschreibt alle JSON-Dateien unter `data/`, ihren Inhalt, die je
 | `synonyms.json` | Wörterbuch -> Objekte | 3 201 | Freitext | Synonyme & Komponenten für LKN-Codes |
 | `leistungskatalog_embeddings.json` | Wörterbuch mit Listen | 2 Schlüssel | - | Vorberechnete Vektor-Embeddings für LKN-Kontext |
 | `vektor_index_codes.json` | Liste | 3 253 | Reihenindex | Reihenfolge der LKN-Codes im FAISS-Index |
-| `baseline_results.json` | Wörterbuch -> Objekte | 17 | Beispiel-ID | Referenzresultate für Qualitätstests |
+| `baseline_results.json` | Wörterbuch -> Objekte | 21 | Beispiel-ID | Referenzresultate für Qualitätstests |
 | `beispiele.json` | Liste von Objekten | 17 | - | Ausformulierte Prompts (DE/FR/IT) für Tests & Demo |
 | `CHOP_Katalog.json` | Liste von Objekten | 13 599 | `code` | CHOP-Prozedurenkatalog (DE) für Suchfunktion |
 
@@ -224,7 +224,7 @@ erDiagram
 ### baseline_results.json
 
 - **Quelle & Erstellung:** Manuell gepflegte Referenzfälle, gepflegt zusammen mit `beispiele.json`. Neue Modellstände werden mit `run_quality_tests.py` gegen die Baseline geprüft; nach akzeptierter Änderung werden die `baseline`-Werte aktualisiert.
-- **Format & Umfang:** Wörterbuch mit 17 Testfällen (`"1"`, `"2"` ...).
+- **Format & Umfang:** Wörterbuch mit 21 Testfällen (`"1"`, `"2"` ...).
 - **Felder:** `query` (DE/FR/IT Prompttexte), `baseline` (Referenzergebnis mit `pauschale` und/oder `einzelleistungen`), `current` (Platz für aktuelle Testergebnisse).
 - **Verwendung:** Backend-Endpunkte `/api/test-example` und `/api/quality` lesen die Referenzwerte (`server.py`). Das Frontend `quality.html` vergleicht Live-Ergebnisse mit den Baselines; Skripte `run_quality_tests.py` und `llm_vergleich.py` nutzen dieselbe Quelle.
 - **Beziehungen:** IDs korrespondieren zu Einträgen in `beispiele.json`.

@@ -4,7 +4,13 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.3 (2025-11-24, aktuell)
+### V4.4 (2025-12-01, aktuell)
+- Semantische Suche überarbeitet: Stage 1 kombiniert nun direkte LKN-Erkennung, gewichtete Schlüsselwortsuche und Embedding-Ranking (FAISS) und baut daraus den Prompt-Kontext; demografische Hinweise aus dem Freitext fliessen in die Kandidatenliste ein und erscheinen als Ranking-Liste im UI.
+- Patientenkontext: Alter/Geschlecht werden automatisch aus dem Text erkannt und mit den TARDOC-Metadaten (Min-/Max-Alter, Geschlechtereinschränkung) abgeglichen; passende Zuschläge werden dadurch auch ohne explizite LKN-Felder berücksichtigt.
+- Performance & Pauschalen: Regel- und Pauschalenprüfung nutzen vorberechnete Indizes und einen separaten Renderer; die Pipelines laufen dadurch merklich schneller.
+- Qualitätskontrolle: Referenzfälle erweitert, `run_quality_tests.py` und `quality.html` zeigen nun Laufzeit- und Token-Statistiken (Ø/Median/p95/Max) pro Testgruppe.
+
+### V4.3 (2025-11-24)
 - Design neu zweispaltig und damit für breitere Bildschirme
 geeignet.
 

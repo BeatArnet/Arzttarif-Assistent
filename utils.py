@@ -11,7 +11,19 @@ werden.
 import html
 import logging
 from contextvars import ContextVar, Token
-from typing import Dict, List, Any, Set, Tuple, TYPE_CHECKING, cast, TypedDict, Optional
+from typing import (
+    Any,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+    TypedDict,
+    cast,
+)
 import re
 import unicodedata
 
@@ -24,7 +36,7 @@ TableContentCacheKey = Tuple[TableNameTuple, str, str]
 
 
 class _TableCacheEntry(TypedDict):
-    source: Dict[str, List[Dict[str, Any]]]
+    source: Mapping[str, Sequence[Dict[str, Any]]]
     data: Dict[TableContentCacheKey, List[Dict[str, Any]]]
 
 
@@ -53,7 +65,7 @@ def deactivate_table_content_cache(token: Optional[Token]) -> None:
 
 
 def _get_cache_bucket(
-    tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]]
+    tabellen_dict_by_table: Mapping[str, Sequence[Dict[str, Any]]]
 ) -> Optional[Dict[TableContentCacheKey, List[Dict[str, Any]]]]:
     cache_map = _table_content_cache_var.get()
     if cache_map is None:
@@ -80,7 +92,12 @@ def escape(text: Any) -> str:
     """Maskiert HTML-Sonderzeichen in einem String."""
     return html.escape(str(text))
 
-def get_table_content(table_ref: str, table_type: str, tabellen_dict_by_table: dict, lang: str = 'de') -> list[dict]:
+def get_table_content(
+    table_ref: str,
+    table_type: str,
+    tabellen_dict_by_table: Mapping[str, Sequence[Dict[str, Any]]],
+    lang: str = 'de',
+) -> List[Dict[str, Any]]:
     """Holt Einträge für eine Tabelle und einen Typ (Case-Insensitive).
     Berücksichtigt die Sprache für den Text."""
     TAB_CODE_KEY = 'Code'; TAB_TEXT_KEY = 'Code_Text'; TAB_TYP_KEY = 'Tabelle_Typ'

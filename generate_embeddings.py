@@ -24,34 +24,19 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base
 MAX_SEQ_LENGTH = 384
 
 
-def get_embedding_text_for_entry(entry: dict) -> str:
-    """Erstellt den Text, der für das Embedding eines Katalogeintrags verwendet wird."""
-    parts: list[str] = []
-
-    lkn = entry.get("LKN", "")
-    typ = entry.get("Typ", "")
-    if lkn:
-        parts.append(f"LKN: {lkn}")
-    if typ:
-        parts.append(f"Typ: {typ}")
-
-    for key in ["Beschreibung", "Beschreibung_f", "Beschreibung_i"]:
+def get_embedding_text_for_lkaat(entry: dict) -> str:
+    """Erstellt den Text für das Embedding eines Einzelleistung-Eintrags."""
+    parts = [
+        f"Einzelleistung LKN: {entry.get('LKN', '')}",
+        f"Typ: {entry.get('Typ', '')}",
+    ]
+    for key in ["Beschreibung", "Beschreibung_f", "Beschreibung_i", "MedizinischeInterpretation", "MedizinischeInterpretation_f", "MedizinischeInterpretation_i"]:
         if entry.get(key):
             parts.append(str(entry[key]))
-
-    for key in [
-        "MedizinischeInterpretation",
-        "MedizinischeInterpretation_f",
-        "MedizinischeInterpretation_i",
-    ]:
-        if entry.get(key):
-            parts.append(str(entry[key]))
-
-    return ". ".join(parts)
-
+    return ". ".join(filter(None, parts))
 
 def main() -> None:
-    """Generiert Embeddings und speichert FAISS-Index inklusive Code-Mapping."""
+    """Generiert Embeddings für den Leistungskatalog und speichert FAISS-Index inklusive Code-Mapping."""
     import sys
     
     print("Starte Embedding-Generierung...", flush=True)
@@ -67,10 +52,14 @@ def main() -> None:
 
     start_time = time.time()
 
+    all_entries = []
+
+    # Lade Leistungskatalog (Einzelleistungen)
     print(f"Lade Leistungskatalog von: {LEISTUNGSKATALOG_PATH}", flush=True)
     try:
         with open(LEISTUNGSKATALOG_PATH, "r", encoding="utf-8") as f:
             leistungskatalog = json.load(f)
+            all_entries.extend(leistungskatalog)
         print(f"Leistungskatalog mit {len(leistungskatalog)} Einträgen geladen.", flush=True)
     except FileNotFoundError:
         print(f"FEHLER: Leistungskatalog-Datei nicht gefunden unter {LEISTUNGSKATALOG_PATH}", flush=True)
@@ -91,14 +80,22 @@ def main() -> None:
     print("Bereite Texte für das Embedding vor...", flush=True)
     texts_to_embed: list[str] = []
     lkn_codes: list[str] = []
-    for entry in leistungskatalog:
-        if isinstance(entry, dict) and entry.get("LKN"):
-            texts_to_embed.append(get_embedding_text_for_entry(entry))
-            lkn_codes.append(str(entry["LKN"]))
-    print(f"{len(texts_to_embed)} Texte vorbereitet.", flush=True)
+
+    for entry in all_entries:
+        if not isinstance(entry, dict):
+            continue
+
+        # Nur Einzelleistungen berücksichtigen
+        code = entry.get("LKN")
+
+        if code:
+            texts_to_embed.append(get_embedding_text_for_lkaat(entry))
+            lkn_codes.append(str(code))
+
+    print(f"{len(texts_to_embed)} Texte aus {len(all_entries)} LKAAT-Einträgen vorbereitet.", flush=True)
 
     if not texts_to_embed:
-        print("WARNUNG: Keine gültigen Einträge gefunden.", flush=True)
+        print("WARNUNG: Keine gültigen Einträge für das Embedding gefunden.", flush=True)
         return
 
     print("Generiere Embeddings (dies kann einige Minuten dauern)...", flush=True)

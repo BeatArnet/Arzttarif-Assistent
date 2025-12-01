@@ -5,9 +5,9 @@ Regelprüfer für Einzelleistungen und Pauschalen zusammen. Eingehende Anfragen
 durchlaufen eine Pipeline: Stufe 1 extrahiert potenzielle Tarifcodes über ein
 LLM, das Python-Backend prüft Mengen und Regeln, und Stufe 2 ordnet oder
 korrigiert die Vorschläge bei Bedarf. Zusätzlich stellt das Modul
-Qualitätssicherungs-Endpunkte, das Ausliefern der leichten Weboberfläche sowie
+Qualitätssicherungs-Endpunkte, das Ausliefern der Weboberfläche sowie
 umfangreiche Logging- und Telemetrie-Hooks bereit. Viele Importe bringen
-Fallback-Stubs mit, damit Testläufe auch ohne Flask oder externe HTTP-Abhängige
+Fallback-Stubs mit, damit Testläufe auch ohne Flask oder externe HTTP-Abhängigkeiten
 funktionieren.
 """
 
@@ -21,12 +21,23 @@ from pathlib import Path
 # Use explicit module alias to avoid any name shadowing or analysis confusion
 import datetime as dt
 from functools import lru_cache
-from types import SimpleNamespace
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple, Mapping, Protocol
+from importlib import import_module
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple, Mapping, Protocol, Callable, DefaultDict
 
 # Always initialize optional third-party helpers to a known value so static analyzers
 # see a bound name even if the optional dependency is missing.
 Compress: Optional[Any] = None
+USING_FLASK_STUB = False
+
+
+def _load_stub_module():
+    """Lädt die Stub-Implementierung (tests.mocks bevorzugt, sonst mocks im Root)."""
+    for module_name in ("tests.mocks", "mocks"):
+        try:
+            return import_module(module_name)
+        except ModuleNotFoundError:
+            continue
+    raise ModuleNotFoundError("Kein mocks-Modul gefunden. Flask installieren oder Stubs bereitstellen.")
 
 if TYPE_CHECKING:
     from flask import (
@@ -50,175 +61,20 @@ else:
             send_from_directory,
         )
     except ModuleNotFoundError:
-        FlaskType = None
+        USING_FLASK_STUB = True
+        _stub_mod = _load_stub_module()
+        FlaskBlueprint = _stub_mod.FlaskBlueprint
+        FlaskType = _stub_mod.FlaskType
+        FlaskRequest = _stub_mod.FlaskRequest
+        abort = _stub_mod.abort
+        jsonify = _stub_mod.jsonify
+        request = _stub_mod.request
+        send_from_directory = _stub_mod.send_from_directory
 
-    try:
-        from flask_compress import Compress
-    except ModuleNotFoundError:
-        Compress = None
-
-    if FlaskType is None:  # Minimal stubs for test environment
-        class FlaskType:
-            def __init__(self, *a, **kw):
-                """Leichte Flask-Attrappenklasse für Tests ohne echte Abhängigkeiten."""
-                self.routes = {}
-                self.config = {}
-                self._after_request_funcs = []
-                self._before_request_funcs = []
-                self._teardown_request_funcs = []
-
-            def route(self, path, methods=None):
-                """Registriert eine Dummy-Route mit zugehöriger Handlerfunktion."""
-                methods = tuple((methods or ["GET"]))
-
-                def decorator(func):
-                    """Dekorator, der die Route-Hinweise im Stub speichert."""
-                    self.routes[(path, methods)] = func
-                    return func
-
-                return decorator
-
-            def after_request(self, func):
-                """Merkt sich eine After-Request-Funktion im Stub."""
-                self._after_request_funcs.append(func)
-                return func
-
-            def before_request(self, func):
-                """Merkt sich eine Before-Request-Funktion im Stub."""
-                self._before_request_funcs.append(func)
-                return func
-
-            def teardown_request(self, func):
-                """Merkt sich eine Teardown-Funktion im Stub."""
-                self._teardown_request_funcs.append(func)
-                return func
-
-            def test_client(self):
-                """Stellt einen minimalen Test-Client bereit, der die Routen-Map nutzt."""
-                app = self
-
-                class Client:
-                    def __enter__(self):
-                        """Aktiviert Kontextmanager für with-Block im Stub-Client."""
-                        return self
-
-                    def __exit__(self, exc_type, exc, tb):
-                        """Beendet Kontextmanager ohne spezielle Aufräumarbeiten."""
-                        return False
-
-                    def post(self, path, json=None):
-                        """Simuliert einen POST-Request gegen die registrierte Route."""
-                        func = app.routes.get((path, ("POST",)))
-                        if not func:
-                            raise AssertionError("Route not found")
-                        global request
-
-                        class Req:
-                            is_json = True
-
-                            def get_json(self, silent: bool = False):
-                                """Gibt den stub-JSON-Body aus dem Testaufruf zurück."""
-                                return json
-
-                        request = Req()
-                        resp = func()
-                        status = 200
-                        data = resp
-                        if isinstance(resp, tuple):
-                            data, status = resp
-
-                        class R:
-                            def __init__(self, d, s):
-                                """Speichert Dummy-Antwortdaten und Statuscode."""
-                                self.status_code = s
-                                self._d = d
-
-                            def get_json(self):
-                                """Liefert den Dummy-JSON-Inhalt zurück."""
-                                return self._d
-
-                            def get_data(self, as_text: bool = False):
-                                """Liefer Dummy-Daten wahlweise als Text oder Bytes zurück."""
-                                return self._d if not as_text else str(self._d)
-
-                        return R(data, status)
-
-                    def get(self, path, query_string=None):
-                        """Simuliert einen GET-Request gegen die registrierte Route."""
-                        func = app.routes.get((path, ("GET",)))
-                        if not func:
-                            raise AssertionError("Route not found")
-                        global request
-
-                        class Req:
-                            is_json = False
-                            args = query_string or {}
-
-                            def get_json(self, silent: bool = False):
-                                """Liefert ein leeres JSON-Objekt für GET-Stubs."""
-                                return {}
-
-                        request = Req()
-                        resp = func()
-                        status = 200
-                        data = resp
-                        if isinstance(resp, tuple):
-                            data, status = resp
-
-                        class R:
-                            def __init__(self, d, s):
-                                """Speichert Dummy-Antwortdaten und Statuscode."""
-                                self.status_code = s
-                                self._d = d
-
-                            def get_json(self):
-                                """Liefert den Dummy-JSON-Inhalt zurück."""
-                                return self._d
-
-                            def get_data(self, as_text: bool = False):
-                                """Liefer Dummy-Daten wahlweise als Text oder Bytes zurück."""
-                                return self._d if not as_text else str(self._d)
-
-                        return R(data, status)
-
-                return Client()
-
-            def run(self, *a, **k):
-                """Platzhalter für flask.Flask.run in Umgebungen ohne Serverstart."""
-                pass
-
-        Flask = FlaskType
-
-        class FlaskBlueprint:
-            def __init__(self, *a: Any, **kw: Any) -> None:
-                """Stub-Blueprint ohne Funktionalität für Testumgebungen."""
-                pass
-
-        def jsonify(obj: Any = None) -> Any:
-            """Stub für flask.jsonify, der das Objekt unverändert zurückgibt."""
-            return obj
-
-        def send_from_directory(directory: os.PathLike[str] | str, path: os.PathLike[str] | str, **kwargs: Any) -> Any:
-            """Stub für flask.send_from_directory, gibt den Dateinamen zurück."""
-            return str(path)
-
-        class Request:
-            def __init__(self) -> None:
-                """Minimale Request-Attrappe für Tests ohne Flask."""
-                self.is_json = False
-                self.environ: Dict[str, Any] = {}
-
-            def get_json(self, silent: bool = False) -> Any:
-                """Stub für request.get_json, liefert leeres Dict."""
-                return {}
-
-        request = Request()
-
-        FlaskRequest = Request
-
-        def abort(code: int) -> None:
-            """Stub für flask.abort, wirft immer eine Exception."""
-            raise Exception(f"abort {code}")
+try:
+    from flask_compress import Compress
+except ModuleNotFoundError:
+    Compress = None
 
 Request = FlaskRequest
 
@@ -233,15 +89,8 @@ else:
     try:  # pragma: no cover - executed only when Flask is installed
         import flask as _flask_module
     except ModuleNotFoundError:  # pragma: no cover - matches fallback stub usage
-        _flask_module = SimpleNamespace(
-            Blueprint=FlaskBlueprint,
-            Flask=FlaskType,
-            Request=FlaskRequest,
-            abort=abort,
-            jsonify=jsonify,
-            request=request,
-            send_from_directory=send_from_directory,
-        )
+        _stub_mod = _load_stub_module()
+        _flask_module = _stub_mod.flask_namespace()
 
 flask = cast(Any, _flask_module)
 
@@ -254,30 +103,10 @@ try:
     RequestsHTTPError = requests.exceptions.HTTPError
     RequestsRequestException = requests.exceptions.RequestException
 except ModuleNotFoundError:
-    class RequestsRequestException(Exception):
-        """Fallback RequestException if requests is not available."""
-
-        pass
-
-    class RequestsHTTPError(RequestsRequestException):
-        """Fallback HTTPError capturing an optional response."""
-
-        def __init__(self, response: Any | None = None) -> None:
-            """Initialisiert die Fehlerinstanz mit optionalem Response-Objekt."""
-            super().__init__("HTTP error")
-            self.response = response
-
-    class _DummyRequests:
-        class exceptions:
-            RequestException = RequestsRequestException
-            HTTPError = RequestsHTTPError
-
-        @staticmethod
-        def post(*a: Any, **k: Any) -> None:
-            """Stub für HTTP-POST, der fehlende requests-Installation meldet."""
-            raise RuntimeError("requests module not available")
-
-    requests: Any = _DummyRequests()
+    _stub_mod = _load_stub_module()
+    RequestsHTTPError = _stub_mod.RequestsHTTPError
+    RequestsRequestException = _stub_mod.RequestsRequestException
+    requests: Any = _stub_mod._DummyRequests()
 
 HTTPError = RequestsHTTPError
 RequestException = RequestsRequestException
@@ -287,7 +116,6 @@ except ModuleNotFoundError:
     def load_dotenv(*a, **k) -> bool:
         """Fallback für python-dotenv: tut nichts und liefert False."""
         return False
-from typing import Dict, List, Any, Set, Tuple, Callable, Optional, cast
 from utils import (
     get_table_content,
     translate_rule_error_message,
@@ -329,9 +157,10 @@ import logging
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 import sys
+import shutil
 
 # Configure logging
-lkn_to_tables_index: Dict[str, List[str]] = {}
+lkn_to_tables_index: DefaultDict[str, List[str]] = defaultdict(list)
 # Custom StreamHandler to handle encoding errors
 class SafeEncodingStreamHandler(logging.StreamHandler):
     def emit(self, record):
@@ -344,6 +173,26 @@ class SafeEncodingStreamHandler(logging.StreamHandler):
             self.flush()
         except Exception:
             self.handleError(record)
+
+class SafeRotatingFileHandler(RotatingFileHandler):
+    """Rotating handler that tolerates Windows file locks (e.g. OneDrive/AV)."""
+
+    def rotate(self, source: str, dest: str) -> None:
+        try:
+            super().rotate(source, dest)
+            return
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) != 32:
+                raise
+        # Fallback: copy current log and truncate instead of renaming
+        try:
+            if os.path.exists(source):
+                shutil.copy2(source, dest)
+            with open(source, "w", encoding=self.encoding or "utf-8") as fh:
+                fh.truncate(0)
+        except Exception:
+            # If the fallback also fails, continue without rotating to avoid log spam
+            return
 
 # Get the root logger
 root_logger = logging.getLogger()
@@ -576,18 +425,19 @@ except Exception:
 LOG_FILE_LEVEL_NAME = config.get('LOGGING', 'file_level', fallback=CONSOLE_LOG_LEVEL_NAME).upper()
 LOG_FILE_LEVEL = logging._nameToLevel.get(LOG_FILE_LEVEL_NAME, CONSOLE_LOG_LEVEL)
 
-file_handler: Optional[RotatingFileHandler] = None
+file_handler: Optional[SafeRotatingFileHandler] = None
 
 if LOG_FILE_ENABLED and LOG_FILE_PATH:
     try:
         log_path = Path(LOG_FILE_PATH)
         if log_path.parent and not log_path.parent.exists():
             log_path.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = RotatingFileHandler(
+        file_handler = SafeRotatingFileHandler(
             LOG_FILE_PATH,
             maxBytes=LOG_FILE_MAX_BYTES,
             backupCount=LOG_FILE_BACKUP_COUNT,
             encoding='utf-8',
+            delay=True,
         )
         file_handler.setLevel(LOG_FILE_LEVEL)
         file_handler.setFormatter(formatter)
@@ -1594,6 +1444,7 @@ CheckPauschaleConditionsType = Callable[
         str,
         Optional[Dict[str, Dict[str, Any]]],
         Optional[Dict[str, Any]],
+        bool,
     ],
     Dict[str, Any]
 ]
@@ -1613,6 +1464,10 @@ class DetermineApplicablePauschaleType(Protocol):
         pauschalen_dict: Dict[str, Dict[str, Any]],
         leistungskatalog_dict: Dict[str, Dict[str, Any]],
         tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]],
+        pauschale_lp_index: Mapping[str, Set[str]],
+        pauschale_cond_lkn_index: Mapping[str, Set[str]],
+        pauschale_cond_table_index: Mapping[str, Set[str]],
+        lkn_to_tables_index: Mapping[str, List[str]],
         potential_pauschale_codes_set: Optional[Set[str]] = ...,
         lang: str = ...,
         prepared_structures: Optional[Dict[str, Any]] = ...,
@@ -1641,6 +1496,7 @@ def default_check_html_fallback(
     lang: str = "de",
     pauschalen_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     prepared_structures: Optional[Dict[str, Any]] = None,
+    tolerant: bool = False,
 ) -> Dict[str, Any]:
     """Fallback für HTML-Detailprüfung, falls Modulimport fehlschlägt."""
     logger.warning("Fallback für 'check_pauschale_conditions' aktiv.")
@@ -1680,6 +1536,10 @@ def default_determine_applicable_pauschale_fallback(
     pauschalen_dict: Dict[str, Dict[str, Any]],
     leistungskatalog_dict: Dict[str, Dict[str, Any]],
     tabellen_dict_by_table: Dict[str, List[Dict[str, Any]]],
+    pauschale_lp_index: Mapping[str, Set[str]],
+    pauschale_cond_lkn_index: Mapping[str, Set[str]],
+    pauschale_cond_table_index: Mapping[str, Set[str]],
+    lkn_to_tables_index: Mapping[str, List[str]],
     potential_pauschale_codes_set: Optional[Set[str]] = None,
     lang: str = 'de',
     prepared_structures: Optional[Dict[str, Any]] = None,
@@ -1688,13 +1548,22 @@ def default_determine_applicable_pauschale_fallback(
     logger.warning("Fallback für 'determine_applicable_pauschale' aktiv.")
     return {"type": "Error", "message": "Pauschalen-Hauptprüfung nicht verfügbar (Fallback)"}
 
+def prepare_tardoc_abrechnung_fallback(
+    regel_ergebnisse_details_list: List[Dict[Any, Any]],
+    leistungskatalog_dict_arg: Dict[str, Dict[Any, Any]],
+    lang: str = "de",
+) -> Dict[str, Any]:
+    """Fallback für prepare_tardoc_abrechnung, falls Regelprüfer-Modul fehlt."""
+    logger.warning("Fallback für 'prepare_tardoc_abrechnung' aktiv.")
+    return {"type": "Error", "message": "TARDOC-Abrechnungsaufbereitung nicht verfügbar (Fallback)"}
+
 # --- Initialisiere Funktionsvariablen mit Fallbacks ---
 evaluate_structured_conditions: EvaluateStructuredConditionsType = default_evaluate_fallback
 check_pauschale_conditions: CheckPauschaleConditionsType = default_check_html_fallback
 get_simplified_conditions: GetSimplifiedConditionsType = default_get_simplified_conditions_fallback
 generate_condition_detail_html: GenerateConditionDetailHtmlType = default_generate_condition_detail_html_fallback
 determine_applicable_pauschale_func: DetermineApplicablePauschaleType = default_determine_applicable_pauschale_fallback
-prepare_tardoc_abrechnung_func: PrepareTardocAbrechnungType # Wird unten zugewiesen
+prepare_tardoc_abrechnung_func: PrepareTardocAbrechnungType = prepare_tardoc_abrechnung_fallback
 
 # --- Importiere Regelprüfer-Module und überschreibe Fallbacks bei Erfolg ---
 try:
@@ -1781,12 +1650,15 @@ tardoc_tarif_dict: dict[str, dict] = {}
 tardoc_interp_dict: dict[str, dict] = {}
 tardoc_demographic_cache: dict[str, Dict[str, Any]] = {}
 pauschale_lp_data: list[dict] = []
-pauschale_lp_index: Dict[str, Set[str]] = defaultdict(set)
+pauschale_lp_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> LKNs (LP-Zuordnung)
+pauschale_lp_index_by_lkn: DefaultDict[str, Set[str]] = defaultdict(set)  # LKN -> Pauschalen (abgeleitet)
 pauschalen_data: list[dict] = []
 pauschalen_dict: dict[str, dict] = {}
 pauschale_bedingungen_data: list[dict] = []
-pauschale_cond_lkn_index: Dict[str, Set[str]] = defaultdict(set)
-pauschale_cond_table_index: Dict[str, Set[str]] = defaultdict(set)
+pauschale_cond_lkn_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> LKN-Bedingungen
+pauschale_cond_lkn_index_by_lkn: DefaultDict[str, Set[str]] = defaultdict(set)  # LKN -> Pauschalen (Bedingungen)
+pauschale_cond_table_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> Tabellen-Bedingungen
+pauschale_cond_table_index_by_table: DefaultDict[str, Set[str]] = defaultdict(set)  # Tabelle -> Pauschalen
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
 medication_entries: list[dict[str, Any]] = []
@@ -1807,6 +1679,8 @@ def create_app() -> FlaskType:
     Render (bzw. Gunicorn) ruft diese Factory einmal pro Worker auf
     und bekommt das WSGI-Objekt zurück.
     """
+    if USING_FLASK_STUB and not os.getenv("ALLOW_FLASK_STUBS"):
+        raise RuntimeError("Flask ist nicht installiert. Bitte 'pip install flask flask-compress' ausführen oder ALLOW_FLASK_STUBS=1 setzen (nur für Tests).")
     app = FlaskType(__name__, static_folder='.', static_url_path='')
     # Stelle sicher, dass alle JSON-Antworten UTF-8 liefern und nicht auf ASCII
     # zurückfallen. Ohne dieses Flag werden Umlaute in Kombination mit bestimmten
@@ -1951,43 +1825,79 @@ def resolve_medication_inputs(raw_inputs: List[str]) -> tuple[List[str], List[st
     return sorted(resolved), unresolved
 
 
+_QUANTITY_TIME_UNITS_RE = re.compile(
+    r"\b(min|minute|minuten|minuti|minutes|minutos|heures|heure|ore|ora|stunden|stunde|std|h)\b",
+    re.IGNORECASE,
+)
+_QUANTITY_WORD_MAP = {
+    # German
+    "eins": 1, "eine": 1, "einen": 1, "ein": 1, "zwei": 2, "drei": 3, "vier": 4, "fuenf": 5, "fünf": 5,
+    # French
+    "un": 1, "une": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5,
+    # Italian
+    "uno": 1, "una": 1, "due": 2, "tre": 3, "quattro": 4, "cinque": 5,
+}
+_QUANTITY_VAGUE_WORDS = {
+    "mehrere", "verschiedene", "einige", "paar", "plusieurs", "divers", "quelques", "alcuni", "diversi", "parecchi", "qualche"
+}
+def _extract_quantity_hint(text: str) -> Optional[int]:
+    """Heuristisch Mengenhinweise aus Freitext ziehen (mehrsprachig, ohne Zeitangaben)."""
+    if not isinstance(text, str):
+        return None
+    cleaned = text
+    for code in extract_lkn_codes_from_text(text):
+        cleaned = cleaned.replace(code, " ")
+    lowered = cleaned.lower()
+    # Explizite Ziffern (ohne Minuten/Stunden-Bezug)
+    for match in re.finditer(r"\b(\d{1,2})\b", lowered):
+        value = int(match.group(1))
+        window = lowered[max(0, match.start() - 12): match.end() + 12]
+        if _QUANTITY_TIME_UNITS_RE.search(window):
+            continue
+        if value > 0:
+            return value
+    # Zahlwörter
+    for word, value in _QUANTITY_WORD_MAP.items():
+        pattern = rf"\b{re.escape(word)}\b"
+        for match in re.finditer(pattern, lowered):
+            window = lowered[max(0, match.start() - 12): match.end() + 12]
+            if _QUANTITY_TIME_UNITS_RE.search(window):
+                continue
+            return value
+    # Vage Pluralhinweise -> mind. 2
+    for word in _QUANTITY_VAGUE_WORDS:
+        if re.search(rf"\b{re.escape(word)}\b", lowered):
+            return 2
+    return None
 
-# --- Daten laden Funktion ---
-def load_data() -> bool:
-    """Lädt Tarif-, Synonym- und Regeldaten aus dem lokalen ``data``-Verzeichnis.
 
-    Dabei leert die Funktion alle globalen Caches, parst jede benötigte
-    JSON-Datei und erzeugt Hilfsindizes (z.B. LKN → Datensatz,
-    Tabellenname → Tabellenzeilen, Medikamenten-Token → ATC). Es wird ``True``
-    zurückgegeben, sobald alle kritischen Dateien erfolgreich eingelesen wurden,
-    damit der Aufrufer beim Start frühzeitig abbrechen kann.
-    """
-
-    global leistungskatalog_data, leistungskatalog_dict, regelwerk_dict, tardoc_tarif_dict, tardoc_interp_dict
-    global pauschale_lp_data, pauschalen_data, pauschalen_dict, pauschale_bedingungen_data, pauschale_bedingungen_indexed, tabellen_data
-    global tabellen_dict_by_table, daten_geladen, chop_data, lkn_to_tables_index, pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index
-
-    all_loaded_successfully = True
-    logger.info("--- Lade Daten ---")
-    # Reset all data containers
+# --- Daten laden Hilfsfunktionen ---
+def _reset_data_containers() -> None:
     leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_tarif_dict.clear(); tardoc_interp_dict.clear()
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
     lkn_to_tables_index.clear()
     pauschale_lp_index.clear()
+    pauschale_lp_index_by_lkn.clear()
     pauschale_cond_lkn_index.clear()
+    pauschale_cond_lkn_index_by_lkn.clear()
     pauschale_cond_table_index.clear()
+    pauschale_cond_table_index_by_table.clear()
     token_doc_freq.clear()
     chop_data.clear()
 
+
+def _load_catalogs() -> bool:
+    """Lädt Kern-JSONs (Kataloge, Tabellen etc.) und baut Grund-Lookups."""
+    all_ok = True
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
         "PauschaleLP": (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None),
         "Pauschalen": (PAUSCHALEN_PATH, pauschalen_data, 'Pauschale', pauschalen_dict),
         "PauschaleBedingungen": (PAUSCHALE_BED_PATH, pauschale_bedingungen_data, None, None),
-        "TARDOC_TARIF": (TARDOC_TARIF_PATH, [], 'LKN', tardoc_tarif_dict),  # Tarifpositionen
-        "TARDOC_INTERP": (TARDOC_INTERP_PATH, [], 'LKN', tardoc_interp_dict),  # Interpretationen
-        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None),  # Tabellen nur in Liste (vorerst)
+        "TARDOC_TARIF": (TARDOC_TARIF_PATH, [], 'LKN', tardoc_tarif_dict),
+        "TARDOC_INTERP": (TARDOC_INTERP_PATH, [], 'LKN', tardoc_interp_dict),
+        "Tabellen": (TABELLEN_PATH, tabellen_data, None, None),
         "CHOP": (CHOP_PATH, chop_data, None, None)
     }
 
@@ -1999,7 +1909,6 @@ def load_data() -> bool:
                     data_from_file = json.load(f)
 
                 if name == "TARDOC_INTERP" and isinstance(data_from_file, dict):
-                    # Spezifische Behandlung für TARDOC_Interpretationen.json
                     logger.info("  Spezialbehandlung für TARDOC_INTERP: Extrahiere Listen aus dem Wörterbuch.")
                     combined_list = []
                     for key, value in data_from_file.items():
@@ -2009,7 +1918,7 @@ def load_data() -> bool:
                     logger.info("  Kombinierte Liste für TARDOC_INTERP enthält %d Einträge.", len(data_from_file))
 
                 if isinstance(data_from_file, list):
-                     target_list_ref.clear() # target_list_ref ist die globale Liste
+                     target_list_ref.clear()
                      target_list_ref.extend(data_from_file)
                      
                      if key_field and target_dict_ref is not None:
@@ -2020,28 +1929,27 @@ def load_data() -> bool:
                                  if key_val:
                                      target_dict_ref[str(key_val)] = item
                          logger.info("  ✓ %s-Daten '%s' geladen (%s Einträge in Liste, %s in Dict).", name, path, len(target_list_ref), len(target_dict_ref))
-                     elif target_dict_ref is None: # Nur loggen, wenn nicht schon fürs Dict geloggt
+                     elif target_dict_ref is None:
                           logger.info("  ✓ %s-Daten '%s' geladen (%s Einträge in Liste).", name, path, len(target_list_ref))
 
-                if name == "Tabellen": # Spezifische Behandlung für 'Tabellen'
+                if name == "Tabellen":
                     TAB_KEY = "Tabelle"
                     tabellen_dict_by_table.clear()
-                    for item in data_from_file: # data_from_file ist hier der Inhalt von PAUSCHALEN_Tabellen.json
+                    for item in data_from_file:
                         if isinstance(item, dict):
                             table_name = item.get(TAB_KEY)
-                            if table_name: # Stelle sicher, dass table_name nicht None ist
+                            if table_name:
                                 normalized_key = str(table_name).lower()
                                 if normalized_key not in tabellen_dict_by_table:
                                     tabellen_dict_by_table[normalized_key] = []
                                 tabellen_dict_by_table[normalized_key].append(item)
                             
-                            # Populate lkn_to_tables_index
                             code_val = item.get("Code")
                             if code_val and table_name:
-                                if code_val not in lkn_to_tables_index:
-                                    lkn_to_tables_index[code_val] = []
-                                if table_name not in lkn_to_tables_index[code_val]:
-                                    lkn_to_tables_index[code_val].append(table_name)
+                                code_key = str(code_val).strip().upper()
+                                table_key = str(table_name).strip().lower()
+                                if code_key and table_key and table_key not in lkn_to_tables_index[code_key]:
+                                    lkn_to_tables_index[code_key].append(table_key)
 
                     logger.info("  Tabellen-Daten gruppiert nach Tabelle (%s Tabellen).", len(tabellen_dict_by_table))
                     _build_medication_lookup(data_from_file)
@@ -2050,17 +1958,16 @@ def load_data() -> bool:
                     not_found_keys_check = {k for k in missing_keys_check if k not in tabellen_dict_by_table}
                     if not_found_keys_check:
                          logger.error("  FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table: %s!", not_found_keys_check)
-                         all_loaded_successfully = False
+                         all_ok = False
             else:
                 logger.error("  FEHLER: %s-Datei nicht gefunden: %s", name, path)
                 if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "PauschaleBedingungen", "Tabellen"]:
-                    all_loaded_successfully = False
+                    all_ok = False
         except (json.JSONDecodeError, IOError, Exception) as e:
             logger.error("  FEHLER beim Laden/Verarbeiten von %s (%s): %s", name, path, e)
-            all_loaded_successfully = False
+            all_ok = False
             traceback.print_exc()
 
-    # Extract demographic helper data from TARDOC tariff entries
     try:
         tardoc_demographic_cache.clear()
         for lkn, info in tardoc_tarif_dict.items():
@@ -2075,7 +1982,11 @@ def load_data() -> bool:
         logger.warning("  WARNUNG: Konnte demografische Metadaten aus TARDOC nicht extrahieren: %s", e)
         tardoc_demographic_cache.clear()
 
-    # Zusätzliche optionale Dateien laden
+    return all_ok
+
+
+def _load_optional_datasets() -> None:
+    """Lädt optionale Dateien (Baseline, Beispiele) ohne die Erfolgslage zu beeinflussen."""
     try:
         global baseline_results
         with open(BASELINE_RESULTS_PATH, 'r', encoding='utf-8') as f:
@@ -2093,7 +2004,9 @@ def load_data() -> bool:
         logger.warning("  WARNUNG: Beispiel-Daten konnten nicht geladen werden: %s", e)
         examples_data = []
 
-    # Regelwerk direkt aus TARDOC_Tarifpositionen extrahieren
+
+def _load_rules() -> bool:
+    """Extrahiert Regelwerke aus geladenen Katalogen."""
     try:
         regelwerk_dict.clear()
         for lkn, info in tardoc_tarif_dict.items():
@@ -2101,13 +2014,22 @@ def load_data() -> bool:
             if rules:
                 regelwerk_dict[lkn] = rules
         logger.info("  Regelwerk aus TARDOC geladen (%s LKNs mit Regeln).", len(regelwerk_dict))
+        return True
     except Exception as e:
         logger.error("  FEHLER beim Extrahieren des Regelwerks aus TARDOC: %s", e)
-        traceback.print_exc(); regelwerk_dict.clear(); all_loaded_successfully = False
+        traceback.print_exc()
+        regelwerk_dict.clear()
+        return False
 
-    # Compute document frequencies for ranking
-    compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
-    logger.info("  Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
+
+def _build_indices(all_loaded_successfully: bool) -> bool:
+    """Baut Token-, Beschreibung- und Pauschalen-Indizes basierend auf geladenen Daten."""
+    try:
+        compute_token_doc_freq(leistungskatalog_dict, token_doc_freq)
+        logger.info("  Token-Dokumentfrequenzen berechnet (%s Tokens).", len(token_doc_freq))
+    except Exception as e:
+        logger.error("  FEHLER bei compute_token_doc_freq: %s", e)
+        all_loaded_successfully = False
 
     catalog_description_lookup.clear()
     for details in leistungskatalog_dict.values():
@@ -2147,11 +2069,10 @@ def load_data() -> bool:
         full_catalog_token_count = total_tokens
         logger.info("  Vollständiger Katalog-Kontext enthält %s Tokens.", full_catalog_token_count)
 
-    # NEU: Indexiere und sortiere Pauschalbedingungen
     if pauschale_bedingungen_data and all_loaded_successfully:
         logger.info("  Beginne Indizierung und Sortierung der Pauschalbedingungen...")
         pauschale_bedingungen_indexed.clear()
-        PAUSCHALE_KEY_FOR_INDEX = 'Pauschale' # Konstante für Schlüssel
+        PAUSCHALE_KEY_FOR_INDEX = 'Pauschale'
         GRUPPE_KEY_FOR_SORT = 'Gruppe'
         BEDID_KEY_FOR_SORT = 'BedingungsID'
 
@@ -2159,8 +2080,7 @@ def load_data() -> bool:
 
         for cond_item in pauschale_bedingungen_data:
             pauschale_code_val = cond_item.get(PAUSCHALE_KEY_FOR_INDEX)
-            if pauschale_code_val: # Nur wenn Pauschalencode vorhanden ist
-                # Stelle sicher, dass der Code ein String ist
+            if pauschale_code_val:
                 pauschale_code_str = str(pauschale_code_val)
                 if pauschale_code_str not in temp_construction_dict:
                     temp_construction_dict[pauschale_code_str] = []
@@ -2169,21 +2089,17 @@ def load_data() -> bool:
                 logger.warning("  WARNUNG: Pauschalbedingung ohne Pauschalencode gefunden: %s", cond_item.get('BedingungsID', 'ID unbekannt'))
 
         for pauschale_code_key, conditions_list in temp_construction_dict.items():
-            # Sortiere die Bedingungen für jeden Pauschalencode
-            # Wichtig: Default-Werte für Sortierschlüssel, falls sie fehlen, um TypeError zu vermeiden
             conditions_list.sort(
                 key=lambda c: (
-                    c.get(GRUPPE_KEY_FOR_SORT, float('inf')), # Fehlende Gruppen ans Ende
-                    c.get(BEDID_KEY_FOR_SORT, float('inf'))   # Fehlende BedIDs ans Ende
+                    c.get(GRUPPE_KEY_FOR_SORT, float('inf')),
+                    c.get(BEDID_KEY_FOR_SORT, float('inf'))
                 )
             )
             pauschale_bedingungen_indexed[pauschale_code_key] = conditions_list
 
         logger.info("  Pauschalbedingungen indiziert und sortiert (%s Pauschalen mit Bedingungen).", len(pauschale_bedingungen_indexed))
         
-        # Pre-compute structured conditions for all pauschalen
         try:
-            # Import here to avoid circular imports if not already imported
             from regelpruefer_pauschale import build_pauschale_condition_structure_index
             global prepared_structures
             prepared_structures = build_pauschale_condition_structure_index(pauschale_bedingungen_data)
@@ -2197,7 +2113,8 @@ def load_data() -> bool:
     elif not all_loaded_successfully:
         logger.warning("  WARNUNG: Überspringe Indizierung der Pauschalbedingungen aufgrund vorheriger Ladefehler.")
 
-    # Baue zusätzliche Indizes für Pauschalen-Suche (nur wenn Daten vorhanden)
+    pauschale_lp_index.clear()
+    pauschale_lp_index_by_lkn.clear()
     if pauschale_lp_data and pauschalen_dict:
         for entry in pauschale_lp_data:
             lkn_val = entry.get("Leistungsposition")
@@ -2207,9 +2124,18 @@ def load_data() -> bool:
             lkn_key = str(lkn_val).strip().upper()
             pc_key = str(pc_val).strip()
             if lkn_key and pc_key in pauschalen_dict:
-                pauschale_lp_index[lkn_key].add(pc_key)
-        logger.info("  Pauschale-LP-Index aufgebaut (%s Einträge).", len(pauschale_lp_index))
+                pauschale_lp_index[pc_key].add(lkn_key)
+                pauschale_lp_index_by_lkn[lkn_key].add(pc_key)
+        logger.info(
+            "  Pauschale-LP-Index aufgebaut (%s Pauschalen, %s direkte LKN-Zuordnungen).",
+            len(pauschale_lp_index),
+            sum(len(v) for v in pauschale_lp_index.values()),
+        )
 
+    pauschale_cond_lkn_index.clear()
+    pauschale_cond_lkn_index_by_lkn.clear()
+    pauschale_cond_table_index.clear()
+    pauschale_cond_table_index_by_table.clear()
     if pauschale_bedingungen_data and pauschalen_dict:
         BED_TYP_KEY = "Bedingungstyp"; BED_WERTE_KEY = "Werte"
         for cond in pauschale_bedingungen_data:
@@ -2221,21 +2147,39 @@ def load_data() -> bool:
             werte = cond.get(BED_WERTE_KEY, "")
             if not werte:
                 continue
-            if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+            if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN", "LKN IN LISTE"]:
                 for lkn in str(werte).split(","):
                     lkn_norm = lkn.strip().upper()
                     if lkn_norm:
-                        pauschale_cond_lkn_index[lkn_norm].add(pc_key)
-            elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+                        pauschale_cond_lkn_index[pc_key].add(lkn_norm)
+                        pauschale_cond_lkn_index_by_lkn[lkn_norm].add(pc_key)
+            elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"]:
                 for table_name in (t.strip().lower() for t in str(werte).split(",") if t.strip()):
                     if table_name:
-                        pauschale_cond_table_index[table_name].add(pc_key)
+                        pauschale_cond_table_index[pc_key].add(table_name)
+                        pauschale_cond_table_index_by_table[table_name].add(pc_key)
         logger.info(
-            "  Pauschalbedingungen-Indizes aufgebaut (LKN: %s, Tabellen: %s).",
+            "  Pauschalbedingungen-Indizes aufgebaut (Pauschale->LKN: %s, Pauschale->Tabellen: %s).",
             len(pauschale_cond_lkn_index),
             len(pauschale_cond_table_index),
         )
 
+    return all_loaded_successfully
+
+
+# --- Daten laden Funktion ---
+def load_data() -> bool:
+    """Lädt Tarif-, Synonym- und Regeldaten aus dem lokalen ``data``-Verzeichnis."""
+
+    global daten_geladen
+
+    logger.info("--- Lade Daten ---")
+    _reset_data_containers()
+
+    all_loaded_successfully = _load_catalogs()
+    _load_optional_datasets()
+    all_loaded_successfully = _load_rules() and all_loaded_successfully
+    all_loaded_successfully = _build_indices(all_loaded_successfully) and all_loaded_successfully
 
     logger.info("--- Daten laden abgeschlossen ---")
     if not all_loaded_successfully:
@@ -2253,20 +2197,437 @@ app: FlaskType = create_app()
 
 # Hilfsfunktion zum stabilen Parsen von LLM-JSON-Antworten
 def parse_llm_json_response(raw_text_response: str) -> Union[Dict[str, Any], List[Any]]:
-    """Extrahiert JSON aus einem LLM-Rohtext und parst es stabil.
+    """Extrahiert JSON aus einem LLM-Rohtext und parst es robust (Markdown, Kommentare, Balancing)."""
 
-    Entfernt Steuerzeichen und ignoriert Text ausserhalb des ersten JSON-Objekts."""
-    match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_text_response, re.IGNORECASE)
-    json_text = match.group(1) if match else raw_text_response
-    cleaned_text = ''.join(ch for ch in json_text if ord(ch) >= 32 or ch in '\n\t\r')
-    try:
-        return json.loads(cleaned_text)
-    except json.JSONDecodeError:
-        start = cleaned_text.find('{')
-        end = cleaned_text.rfind('}')
-        if start != -1 and end != -1 and end > start:
-            return json.loads(cleaned_text[start:end + 1])
-        raise
+    def _strip_code_fence(txt: str) -> str:
+        s = (txt or "").strip()
+        if "```" not in s:
+            return s
+        start = s.find("```")
+        after = s[start + 3 :]
+        nl = after.find("\n")
+        if nl != -1:
+            body = after[nl + 1 :]
+            end = body.find("```")
+            if end != -1:
+                return body[:end].strip()
+        return s
+
+    def _strip_json_comments(src: str) -> str:
+        out: List[str] = []
+        i, n = 0, len(src)
+        in_str = False
+        esc = False
+        while i < n:
+            ch = src[i]
+            if in_str:
+                out.append(ch)
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                i += 1
+            else:
+                if ch == '"':
+                    in_str = True
+                    out.append(ch)
+                    i += 1
+                elif ch == "/" and i + 1 < n and src[i + 1] == "/":
+                    i += 2
+                    while i < n and src[i] not in ("\n", "\r"):
+                        i += 1
+                elif ch == "/" and i + 1 < n and src[i + 1] == "*":
+                    i += 2
+                    while i + 1 < n and not (src[i] == "*" and src[i + 1] == "/"):
+                        i += 1
+                    i = i + 2 if i + 1 < n else n
+                else:
+                    out.append(ch)
+                    i += 1
+        return "".join(out)
+
+    def _clean_trailing_commas(src: str) -> str:
+        return re.sub(r",\s*(?=[}\]])", "", src)
+
+    def _sanitize_control_chars(src: str) -> str:
+        return "".join(ch for ch in src if ord(ch) >= 32 or ch in "\n\t\r")
+
+    def _repair_object_separators(src: str) -> str:
+        """Fügt fehlende schließende Klammern ein, wenn ein neuer Objektblock startet."""
+        out: List[str] = []
+        stack: List[str] = []
+        in_str = False
+        esc = False
+        i, n = 0, len(src)
+        while i < n:
+            ch = src[i]
+            if in_str:
+                out.append(ch)
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                i += 1
+                continue
+            if ch == '"':
+                in_str = True
+                out.append(ch)
+                i += 1
+                continue
+            if ch in "{[":
+                stack.append(ch)
+                out.append(ch)
+                i += 1
+                continue
+            if ch == "}":
+                if stack and stack[-1] == "{":
+                    stack.pop()
+                out.append(ch)
+                i += 1
+                continue
+            if ch == "]":
+                if stack and stack[-1] == "[":
+                    stack.pop()
+                out.append(ch)
+                i += 1
+                continue
+            if ch == ",":
+                j = i + 1
+                while j < n and src[j].isspace():
+                    j += 1
+                next_char = src[j] if j < n else ""
+                k = i - 1
+                while k >= 0 and src[k].isspace():
+                    k -= 1
+                prev_char = src[k] if k >= 0 else ""
+                # Heuristik: Wenn wir uns noch in einem offenen Objekt befinden,
+                # das nicht sauber mit '}' abgeschlossen wurde, und direkt danach
+                # ein neuer Objekt-Block startet, füge eine schließende Klammer ein.
+                if (
+                    next_char == "{"
+                    and prev_char not in ("}", "]")
+                    and stack
+                    and stack[-1] == "{"
+                ):
+                    out.append("}")
+                    stack.pop()
+                    out.append(",")
+                    i += 1
+                    continue
+            out.append(ch)
+            i += 1
+        return "".join(out)
+
+    def _balanced_fragment(src: str) -> str | None:
+        def _scan(open_ch: str, close_ch: str) -> str | None:
+            i = src.find(open_ch)
+            if i == -1:
+                return None
+            stack = 0
+            in_str = False
+            esc = False
+            for j in range(i, len(src)):
+                ch = src[j]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                    continue
+                if ch == '"':
+                    in_str = True
+                    continue
+                if ch == open_ch:
+                    stack += 1
+                elif ch == close_ch:
+                    stack -= 1
+                    if stack == 0:
+                        return src[i : j + 1]
+            return None
+
+        return _scan("{", "}") or _scan("[", "]")
+
+    def _balance_brackets(src: str) -> str:
+        stack: List[str] = []
+        in_str = False
+        esc = False
+        for ch in src:
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                stack.append("}")
+            elif ch == "[":
+                stack.append("]")
+            elif ch in ("}", "]") and stack:
+                stack.pop()
+        return src + "".join(reversed(stack))
+
+    def _attempt_parse(txt: str) -> Any | None:
+        cleaned = _sanitize_control_chars(txt)
+        for base in (cleaned, _strip_json_comments(cleaned)):
+            if not base:
+                continue
+            for variant in (base, _repair_object_separators(base)):
+                candidate = _clean_trailing_commas(variant)
+                try:
+                    return json.loads(candidate)
+                except Exception:
+                    continue
+        return None
+
+    source = _strip_code_fence(raw_text_response)
+    parsed = _attempt_parse(source)
+    if parsed is not None:
+        return parsed
+
+    first_start_candidates = [pos for pos in (source.find("{"), source.find("[")) if pos != -1]
+    last_end = max(source.rfind("}"), source.rfind("]"))
+    if first_start_candidates and last_end != -1:
+        first_start = min(first_start_candidates)
+        if last_end > first_start:
+            sliced = source[first_start : last_end + 1]
+            parsed = _attempt_parse(sliced)
+            if parsed is not None:
+                return parsed
+
+    balanced = _balanced_fragment(source)
+    if balanced:
+        parsed = _attempt_parse(balanced)
+        if parsed is not None:
+            return parsed
+
+    if first_start_candidates:
+        fragment = source[min(first_start_candidates) :]
+        fragment = _balance_brackets(_clean_trailing_commas(_strip_json_comments(fragment)))
+        parsed = _attempt_parse(fragment)
+        if parsed is not None:
+            return parsed
+
+    raise json.JSONDecodeError("Could not parse LLM JSON response", raw_text_response or "", 0)
+
+
+def validate_stage1_result(raw_response: Any, provider_label: str = "LLM_S1") -> Dict[str, Any]:
+    """Validiert und normalisiert das Ergebnis der LLM-Stufe 1 für alle Provider."""
+    if isinstance(raw_response, list):
+        if len(raw_response) == 1 and isinstance(raw_response[0], dict):
+            llm_response_json = cast(Dict[str, Any], raw_response[0])
+            logger.info("%s_INFO: JSON-Antwort war eine Liste, erstes Element wurde extrahiert.", provider_label)
+        else:
+            logger.error("%s_ERROR: Antwort ist eine Liste, aber nicht im erwarteten Format (einelementige Liste mit Objekt): %s", provider_label, type(raw_response))
+            raise ValueError("Antwort ist eine Liste, aber nicht im erwarteten Format.")
+    elif isinstance(raw_response, dict):
+        llm_response_json = raw_response
+    else:
+        logger.error("%s_ERROR: Antwort ist kein JSON-Objekt, sondern %s", provider_label, type(raw_response))
+        raise ValueError("Antwort ist kein JSON-Objekt.")
+
+    llm_response_json.setdefault("identified_leistungen", [])
+    llm_response_json.setdefault("extracted_info", {})
+    llm_response_json.setdefault("begruendung_llm", "N/A")
+
+    if not isinstance(llm_response_json["identified_leistungen"], list):
+        logger.error("%s_ERROR: 'identified_leistungen' ist keine Liste, sondern %s", provider_label, type(llm_response_json["identified_leistungen"]))
+        raise ValueError("'identified_leistungen' ist keine Liste.")
+    if not isinstance(llm_response_json["extracted_info"], dict):
+        logger.error("%s_ERROR: 'extracted_info' ist kein Dictionary, sondern %s", provider_label, type(llm_response_json["extracted_info"]))
+        raise ValueError("'extracted_info' ist kein Dictionary.")
+    if not isinstance(llm_response_json["begruendung_llm"], str):
+        logger.warning("%s_WARN: 'begruendung_llm' ist kein String, sondern %s. Wird auf N/A gesetzt.", provider_label, type(llm_response_json["begruendung_llm"]))
+        llm_response_json["begruendung_llm"] = "N/A"
+
+    extracted_info_defaults = {
+        "dauer_minuten": None,
+        "menge_allgemein": None,
+        "alter": None,
+        "alter_operator": None,
+        "geschlecht": None,
+        "seitigkeit": "unbekannt",
+        "anzahl_prozeduren": None,
+    }
+    expected_types_extracted_info = {
+        "dauer_minuten": (int, type(None)),
+        "menge_allgemein": (int, type(None)),
+        "alter": (int, type(None)),
+        "alter_operator": (str, type(None)),
+        "geschlecht": (str, type(None)),
+        "seitigkeit": (str, type(None)),
+        "anzahl_prozeduren": (int, type(None)),
+    }
+    current_extracted_info = llm_response_json["extracted_info"]
+    validated_extracted_info: Dict[str, Any] = {}
+    for key, default_value in extracted_info_defaults.items():
+        val = current_extracted_info.get(key) if isinstance(current_extracted_info, dict) else None
+        if val is None:
+            validated_extracted_info[key] = default_value
+            if key == "seitigkeit" and default_value == "unbekannt":
+                validated_extracted_info[key] = "unbekannt"
+            continue
+
+        expected_type_tuple = expected_types_extracted_info[key]
+        if isinstance(val, expected_type_tuple):
+            validated_extracted_info[key] = "unbekannt" if key == "seitigkeit" and val is None else val
+        else:
+            conversion_successful = False
+            if expected_type_tuple[0] is int and val is not None:
+                try:
+                    validated_extracted_info[key] = int(val)
+                    conversion_successful = True
+                    logger.info("%s_INFO: Wert für '%s' ('%s') zu int konvertiert.", provider_label, key, val)
+                except (ValueError, TypeError):
+                    pass
+            elif expected_type_tuple[0] is str and val is not None:
+                try:
+                    validated_extracted_info[key] = str(val)
+                    conversion_successful = True
+                    logger.info("%s_INFO: Wert für '%s' ('%s') zu str konvertiert.", provider_label, key, val)
+                except (ValueError, TypeError):
+                    pass
+            if not conversion_successful:
+                validated_extracted_info[key] = default_value
+                logger.warning(
+                    "%s_WARN: Typfehler für '%s'. Erwartet %s, bekam %s ('%s'). Default '%s'.",
+                    provider_label,
+                    key,
+                    expected_type_tuple,
+                    type(val),
+                    val,
+                    default_value,
+                )
+    llm_response_json["extracted_info"] = validated_extracted_info
+
+    validated_identified_leistungen = []
+    for i, item in enumerate(llm_response_json.get("identified_leistungen", [])):
+        if not isinstance(item, dict):
+            logger.warning("%s_WARN: Element %s in 'identified_leistungen' ist kein Dictionary. Übersprungen: %s", provider_label, i, item)
+            continue
+        lkn_val = item.get("lkn")
+        menge_val = item.get("menge")
+        if not isinstance(lkn_val, str) or not lkn_val.strip():
+            logger.warning("%s_WARN: Ungültige oder leere LKN in Element %s. Übersprungen: %s", provider_label, i, item)
+            continue
+        item["lkn"] = lkn_val.strip().upper()
+        if menge_val is None:
+            item["menge"] = 1
+        elif not isinstance(menge_val, int):
+            try:
+                item["menge"] = int(menge_val)
+            except (ValueError, TypeError):
+                item["menge"] = 1
+                logger.warning("%s_WARN: Menge '%s' (LKN: %s) ungültig. Auf 1 gesetzt.", provider_label, menge_val, item.get("lkn"))
+        if item.get("menge", 1) < 0:
+            item["menge"] = 1
+            logger.warning("%s_WARN: Negative Menge %s (LKN: %s). Auf 1 gesetzt.", provider_label, item.get("menge"), item.get("lkn"))
+        item.setdefault("typ", "N/A")
+        lkn_key = item.get("lkn")
+        if leistungskatalog_dict and lkn_key and lkn_key in leistungskatalog_dict:
+            item["beschreibung"] = leistungskatalog_dict[lkn_key].get("Beschreibung", "N/A")
+        else:
+            item.setdefault("beschreibung", "N/A")
+        validated_identified_leistungen.append(item)
+    llm_response_json["identified_leistungen"] = validated_identified_leistungen
+    logger.info("%s_INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.", provider_label)
+    return llm_response_json
+
+
+def _prepare_stage1_prompt(
+    user_input: str,
+    katalog_context: str,
+    lang: str,
+    query_variants: Optional[List[str]],
+    provider_label: str,
+) -> tuple[str, int]:
+    """Erzeugt Stage-1-Prompt inkl. Kürzung/Tokenzählung für alle Provider."""
+    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
+    prompt_tokens = count_tokens(prompt)
+    token_budget = GEMINI_TOKEN_BUDGET
+    if prompt_tokens > token_budget:
+        if GEMINI_TRIM_ENABLED:
+            try:
+                original_prompt_tokens = prompt_tokens
+                ratio = max(0.2, token_budget / max(1.0, float(prompt_tokens)))
+                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
+                trimmed_context = katalog_context[:new_len]
+                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+                trimmed_prompt_tokens = count_tokens(prompt)
+                logger.warning(
+                    "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
+                    original_prompt_tokens,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                logger.warning(
+                    "LLM Stufe 1 (%s): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
+                    provider_label,
+                    token_budget,
+                    new_len,
+                    trimmed_prompt_tokens,
+                )
+                prompt_tokens = trimmed_prompt_tokens
+            except Exception:
+                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
+                pass
+        else:
+            logger.warning(
+                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
+                prompt_tokens,
+                token_budget,
+            )
+    return prompt, prompt_tokens
+
+
+def _should_retry_request(exc: RequestException) -> bool:
+    """Bestimmt, ob bei HTTP-Fehlern erneut versucht werden soll (429/5xx)."""
+    resp_obj = getattr(exc, "response", None)
+    status = getattr(resp_obj, "status_code", None)
+    return isinstance(status, int) and (status == 429 or status >= 500)
+
+
+def _post_with_retries(
+    url: str,
+    payload: Dict[str, Any],
+    timeout: int,
+    max_retries: int,
+    backoff_seconds: float,
+    logger_prefix: str,
+    before_request: Optional[Callable[[], None]] = None,
+) -> Any:
+    """Führt POST-Anfrage mit Retry-Logik (429/5xx) und optionalem Hook vor Request aus."""
+    last_error: RequestException | None = None
+    for attempt in range(max_retries):
+        try:
+            if before_request:
+                before_request()
+            response = requests.post(url, json=payload, timeout=timeout)
+            logger.info("%s Antwort Status Code: %s", logger_prefix, response.status_code)
+            if response.status_code == 429:
+                raise HTTPError(response=response)
+            response.raise_for_status()
+            return response
+        except RequestException as exc:
+            last_error = exc
+            if attempt < max_retries - 1 and _should_retry_request(exc):
+                resp_obj = getattr(exc, "response", None)
+                status = getattr(resp_obj, "status_code", None)
+                wait_time = backoff_seconds * (2 ** attempt)
+                logger.warning("%s Fehler %s. Neuer Versuch in %s Sekunden.", logger_prefix, status or str(exc), wait_time)
+                time.sleep(wait_time)
+                continue
+            raise
+    raise last_error if last_error else ConnectionError(f"{logger_prefix}: Keine Antwort erhalten")
 
 # --- LLM Stufe 1: LKN Identifikation ---
 def call_gemini_stage1(
@@ -2294,42 +2655,9 @@ def call_gemini_stage1(
             },
             {"input_tokens": 0, "output_tokens": 0},
         )
-    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
-    prompt_tokens = count_tokens(prompt)
-    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
-    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
-    if prompt_tokens > TOKEN_BUDGET:
-        if GEMINI_TRIM_ENABLED:
-            try:
-                original_prompt_tokens = prompt_tokens
-                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
-                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
-                trimmed_context = katalog_context[:new_len]
-                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
-                trimmed_prompt_tokens = count_tokens(prompt)
-                logger.warning(
-                    "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
-                    original_prompt_tokens,
-                    new_len,
-                    trimmed_prompt_tokens,
-                )
-                logger.warning(
-                    "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
-                    TOKEN_BUDGET,
-                    new_len,
-                    trimmed_prompt_tokens,
-                )
-                prompt_tokens = trimmed_prompt_tokens
-            except Exception:
-                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
-                pass
-        else:
-            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
-            logger.warning(
-                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
-                prompt_tokens,
-                TOKEN_BUDGET,
-            )
+    prompt, prompt_tokens = _prepare_stage1_prompt(
+        user_input, katalog_context, lang, query_variants, provider_label="Gemini"
+    )
 
     response_tokens = 0
     if LOG_TOKENS:
@@ -2357,43 +2685,15 @@ def call_gemini_stage1(
     if LOG_LLM_INPUT:
         detail_logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
     try:
-        response = None
-        for attempt in range(GEMINI_MAX_RETRIES):
-            try:
-                # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
-                enforce_llm_min_interval()
-                response = requests.post(gemini_url, json=payload, timeout=90)
-                logger.info("Gemini Stufe 1 Antwort Status Code: %s", response.status_code)
-                if response.status_code == 429:
-                    raise HTTPError(response=response)
-                response.raise_for_status()
-                break
-            except RequestException as e:
-                if attempt < GEMINI_MAX_RETRIES - 1:
-                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
-                    logger.warning(
-                        "Gemini Stufe 1 Netzwerkfehler: %s. Neuer Versuch in %s Sekunden.",
-                        e,
-                        wait_time,
-                    )
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    error_detail = ""
-                    if isinstance(e, HTTPError) and e.response is not None:
-                        error_detail = f"{e.response.status_code} {e.response.text}"
-                    else:
-                        error_detail = str(e)
-                    logger.error(
-                        "Netzwerkfehler bei Gemini Stufe 1 nach %s Versuchen: %s",
-                        GEMINI_MAX_RETRIES,
-                        error_detail,
-                    )
-                    raise ConnectionError(
-                        f"Netzwerkfehler bei Gemini Stufe 1: {error_detail}"
-                    ) from e
-        if response is None:
-            raise ConnectionError("Keine Antwort von Gemini Stufe 1 erhalten")
+        response = _post_with_retries(
+            gemini_url,
+            payload,
+            timeout=90,
+            max_retries=GEMINI_MAX_RETRIES,
+            backoff_seconds=GEMINI_BACKOFF_SECONDS,
+            logger_prefix="Gemini Stufe 1",
+            before_request=enforce_llm_min_interval,
+        )
         gemini_data = response.json()
         if LOG_LLM_OUTPUT:
             detail_logger.debug(
@@ -2491,155 +2791,16 @@ def call_gemini_stage1(
                 "begruendung_llm": f"Fehler: Ungültiges JSON vom LLM erhalten. {json_err}"
             }
 
-        # Strikte Validierung der Hauptstruktur
-        raw_llm_response: Any = llm_response_json
-        if isinstance(raw_llm_response, list):
-            if len(raw_llm_response) == 1 and isinstance(raw_llm_response[0], dict):
-                llm_response_json = cast(Dict[str, Any], raw_llm_response[0])
-                logger.info("LLM_S1_INFO: JSON-Antwort war eine Liste, erstes Element wurde extrahiert.")
-            else:
-                logger.error(f"LLM_S1_ERROR: Antwort ist eine Liste, aber nicht im erwarteten Format (einelementige Liste mit Objekt): {type(raw_llm_response)}")
-                raise ValueError("Antwort ist eine Liste, aber nicht im erwarteten Format.")
-        elif isinstance(raw_llm_response, dict):
-            llm_response_json = raw_llm_response
-        else:
-            logger.error(f"LLM_S1_ERROR: Antwort ist kein JSON-Objekt, sondern {type(raw_llm_response)}")
-            raise ValueError("Antwort ist kein JSON-Objekt.")
-
-        if not isinstance(llm_response_json, dict):
-            logger.error(f"LLM_S1_ERROR: Antwort ist kein JSON-Objekt, sondern {type(llm_response_json)}")
-            raise ValueError("Antwort ist kein JSON-Objekt.")
-
-        llm_response_json.setdefault("identified_leistungen", [])
-        llm_response_json.setdefault("extracted_info", {})
-        llm_response_json.setdefault("begruendung_llm", "N/A")
-
-        if not isinstance(llm_response_json["identified_leistungen"], list):
-            logger.error(f"LLM_S1_ERROR: 'identified_leistungen' ist keine Liste, sondern {type(llm_response_json['identified_leistungen'])}")
-            raise ValueError("'identified_leistungen' ist keine Liste.")
-        if not isinstance(llm_response_json["extracted_info"], dict):
-            logger.error(f"LLM_S1_ERROR: 'extracted_info' ist kein Dictionary, sondern {type(llm_response_json['extracted_info'])}")
-            raise ValueError("'extracted_info' ist kein Dictionary.")
-        if not isinstance(llm_response_json["begruendung_llm"], str):
-            logger.warning(f"LLM_S1_WARN: 'begruendung_llm' ist kein String, sondern {type(llm_response_json['begruendung_llm'])}. Wird auf N/A gesetzt.")
-            llm_response_json["begruendung_llm"] = "N/A"
-
-        # Validierung und Default-Setzung für extracted_info
-        extracted_info_defaults = {
-            "dauer_minuten": None, "menge_allgemein": None, "alter": None,
-            "alter_operator": None,
-            "geschlecht": None, "seitigkeit": "unbekannt", "anzahl_prozeduren": None
-        }
-        expected_types_extracted_info = {
-            "dauer_minuten": (int, type(None)), "menge_allgemein": (int, type(None)),
-            "alter": (int, type(None)), "alter_operator": (str, type(None)),
-            "geschlecht": (str, type(None)),
-            "seitigkeit": (str, type(None)), "anzahl_prozeduren": (int, type(None))
-        }
-
-        current_extracted_info = llm_response_json["extracted_info"] # Sollte jetzt immer ein Dict sein
-        validated_extracted_info = {}
-
-        for key, default_value in extracted_info_defaults.items():
-            val = current_extracted_info.get(key) # Sicherer Zugriff mit get
-            if val is None: # Wenn Schlüssel fehlt oder Wert explizit None ist
-                 validated_extracted_info[key] = default_value
-                 if key == "seitigkeit" and default_value == "unbekannt": # Spezieller Fall für Seitigkeit Default
-                     validated_extracted_info[key] = "unbekannt"
-                 continue
-
-            expected_type_tuple = expected_types_extracted_info[key]
-            if isinstance(val, expected_type_tuple):
-                validated_extracted_info[key] = val
-                if key == "seitigkeit" and val is None: # Falls LLM None für Seitigkeit liefert
-                    validated_extracted_info[key] = "unbekannt"
-            else:
-                conversion_successful = False
-                if expected_type_tuple[0] is int and val is not None:
-                    try:
-                        validated_extracted_info[key] = int(val)
-                        conversion_successful = True
-                        logger.info("Wert für '%s' ('%s') zu int konvertiert.", key, val)
-                    except (ValueError, TypeError): pass
-                elif expected_type_tuple[0] is str and val is not None:
-                    try:
-                        validated_extracted_info[key] = str(val)
-                        conversion_successful = True
-                        logger.info("Wert für '%s' ('%s') zu str konvertiert.", key, val)
-                    except (ValueError, TypeError): pass
-                if not conversion_successful:
-                    validated_extracted_info[key] = default_value
-                    logger.warning(
-                        "Typfehler für '%s'. Erwartet %s, bekam %s ('%s'). Default '%s'.",
-                        key,
-                        expected_type_tuple,
-                        type(val),
-                        val,
-                        default_value,
-                    )
-        llm_response_json["extracted_info"] = validated_extracted_info
-
-        validated_identified_leistungen = []
-        expected_leistung_keys = ["lkn", "typ", "beschreibung", "menge"]
-        for i, item in enumerate(llm_response_json.get("identified_leistungen", [])): # Sicherer Zugriff
-            if not isinstance(item, dict):
-                logger.warning(
-                    "Element %s in 'identified_leistungen' ist kein Dictionary. Übersprungen: %s",
-                    i,
-                    item,
-                )
-                continue
-            # Minimalprüfung auf lkn und menge, da Typ/Beschreibung eh überschrieben werden
-            lkn_val = item.get("lkn")
-            menge_val = item.get("menge")
-
-            if not isinstance(lkn_val, str) or not lkn_val.strip():
-                logger.warning(
-                    "Ungültige oder leere LKN in Element %s. Übersprungen: %s",
-                    i,
-                    item,
-                )
-                continue
-            item["lkn"] = lkn_val.strip().upper()
-
-            if menge_val is None: item["menge"] = 1
-            elif not isinstance(menge_val, int):
-                try:
-                    item["menge"] = int(menge_val)
-                except (ValueError, TypeError):
-                    item["menge"] = 1
-                    logger.warning(
-                        "Menge '%s' (LKN: %s) ungültig. Auf 1 gesetzt.",
-                        menge_val,
-                        item.get('lkn'),
-                    )
-            if item["menge"] < 0:
-                item["menge"] = 1
-                logger.warning(
-                    "Negative Menge %s (LKN: %s). Auf 1 gesetzt.",
-                    item.get('menge'),
-                    item.get('lkn'),
-                )
-            
-            # Typ und Beschreibung sind optional vom LLM, werden eh aus lokalem Katalog genommen
-            item.setdefault("typ", "N/A")
-            # item.setdefault("beschreibung", "N/A")
-            lkn_key = item.get("lkn")
-            if leistungskatalog_dict and lkn_key and lkn_key in leistungskatalog_dict:
-                item["beschreibung"] = leistungskatalog_dict[lkn_key].get("Beschreibung", "N/A")
-            else:
-                item.setdefault("beschreibung", "N/A")
-            validated_identified_leistungen.append(item)
-        llm_response_json["identified_leistungen"] = validated_identified_leistungen
-        logger.info("LLM_S1_INFO: LLM Stufe 1 Antwortstruktur und Basistypen validiert/normalisiert.")
+        llm_response_json = validate_stage1_result(llm_response_json, provider_label="LLM_S1")
         if LOG_S1_PARSED_JSON:
             detail_logger.info(f"LLM_S1_PARSED_JSON: {json.dumps(llm_response_json, indent=2, ensure_ascii=False)}")
         return llm_response_json, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
     except RequestException as req_err:
         error_detail = ""
-        if isinstance(req_err, HTTPError) and req_err.response is not None:
-            error_detail = f"{req_err.response.status_code} {req_err.response.text}"
+        resp_obj = getattr(req_err, "response", None)
+        if isinstance(req_err, HTTPError) and resp_obj is not None:
+            error_detail = f"{resp_obj.status_code} {resp_obj.text}"
         else:
             error_detail = str(req_err)
         logger.error("Netzwerkfehler bei Gemini Stufe 1: %s", error_detail)
@@ -2682,42 +2843,9 @@ def call_openai_stage1(
     base_url = base_url or "https://api.openai.com/v1"
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
-    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
-    prompt_tokens = count_tokens(prompt)
-    # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
-    TOKEN_BUDGET = GEMINI_TOKEN_BUDGET
-    if prompt_tokens > TOKEN_BUDGET:
-        if GEMINI_TRIM_ENABLED:
-            try:
-                original_prompt_tokens = prompt_tokens
-                ratio = max(0.2, TOKEN_BUDGET / max(1.0, float(prompt_tokens)))
-                new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
-                trimmed_context = katalog_context[:new_len]
-                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
-                trimmed_prompt_tokens = count_tokens(prompt)
-                logger.warning(
-                    "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
-                    original_prompt_tokens,
-                    new_len,
-                    trimmed_prompt_tokens,
-                )
-                logger.warning(
-                    "LLM Stufe 1 (Gemini): Prompt gekürzt auf Budget (%s). Kontext nun %s Zeichen (Tokens ~%s).",
-                    TOKEN_BUDGET,
-                    new_len,
-                    trimmed_prompt_tokens,
-                )
-                prompt_tokens = trimmed_prompt_tokens
-            except Exception:
-                # Fallback: belasse Prompt unverändert, wenn Kürzen fehlschlägt
-                pass
-        else:
-            # WICHTIG: Diese Warnung und das unveränderte Prompt-Handling dürfen ohne expliziten Auftrag nicht angepasst werden.
-            logger.warning(
-                "LLM Stufe 1: Prompt überschreitet konfiguriertes Budget (%s Tokens > %s). Kürzen deaktiviert (GEMINI.trim_enabled=0); Prompt wird unverändert übertragen.",
-                prompt_tokens,
-                TOKEN_BUDGET,
-            )
+    prompt, prompt_tokens = _prepare_stage1_prompt(
+        user_input, katalog_context, lang, query_variants, provider_label=provider
+    )
 
     response_tokens = 0
     if LOG_TOKENS:
@@ -2731,7 +2859,7 @@ def call_openai_stage1(
     except Exception as e:  # pragma: no cover - optional dependency
         raise RuntimeError("openai package not available") from e
     # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
-    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)  # type: ignore[reportGeneralTypeIssues]
     # Einfache Retry-Logik bei 5xx/Serverfehlern
     last_exc: Exception | None = None
     resp = None  # ensure defined for static analyzers
@@ -2858,203 +2986,21 @@ def call_openai_stage1(
     response_tokens = count_tokens(content)
     if LOG_TOKENS:
         detail_logger.info("LLM Stufe 1 Antwort Tokens: %s", response_tokens)
-    # Robuster JSON-Parse: direkter Parse, sonst aus Text extrahieren
     try:
-        data = json.loads(content or "{}")
-    except Exception:
-        def _extract_json_payload(txt: str) -> Any | None:
-            """Extrahiert den JSON-Teil aus einem LLM-Text und entfernt Markdown-Umschläge."""
-            s = (txt or "").strip()
-            # Entferne Markdown-Codeblöcke ```json ... ``` falls vorhanden
-            if "```" in s:
-                start = s.find("```")
-                after = s[start + 3 :]
-                # Überspringe optionalen Sprachenhinweis (json)
-                nl = after.find("\n")
-                if nl != -1:
-                    body = after[nl + 1 :]
-                    end = body.find("```")
-                    if end != -1:
-                        s = body[:end].strip()
-            # Versuche, offensichtliche abschließende Erklärungen/Markdown nach JSON zu entfernen
-            # (alles nach der letzten schließenden Klammer wird entfernt)
-            last_brace = max(s.rfind('}'), s.rfind(']'))
-            if last_brace != -1:
-                s = s[: last_brace + 1]
-            # Finde erstes JSON-Objekt oder -Array mithilfe einfacher Klammerbalance
-            def _scan_balanced(src: str, open_ch: str, close_ch: str) -> str | None:
-                """Liefert den ersten balancierten JSON-Block im Text zurück."""
-                i = src.find(open_ch)
-                if i == -1:
-                    return None
-                stack = 0
-                in_str = False
-                esc = False
-                for j in range(i, len(src)):
-                    ch = src[j]
-                    if in_str:
-                        if esc:
-                            esc = False
-                        elif ch == "\\":
-                            esc = True
-                        elif ch == '"':
-                            in_str = False
-                        continue
-                    else:
-                        if ch == '"':
-                            in_str = True
-                            continue
-                        if ch == open_ch:
-                            stack += 1
-                        elif ch == close_ch:
-                            stack -= 1
-                            if stack == 0:
-                                return src[i : j + 1]
-                return None
-            candidate = _scan_balanced(s, "{", "}") or _scan_balanced(s, "[", "]")
-            if candidate:
-                try:
-                    # Versuche direktes Parsen, ansonsten entferne Kommentare und parse erneut
-                    try:
-                        return json.loads(candidate)
-                    except Exception:
-                        # Entferne //- und /**/-Kommentare außerhalb von Strings
-                        def _strip_json_comments(src: str) -> str:
-                            """Entfernt einfache Kommentarformen aus JSON-ähnlichen Strings."""
-                            out = []
-                            i, n = 0, len(src)
-                            in_str = False
-                            esc = False
-                            while i < n:
-                                ch = src[i]
-                                if in_str:
-                                    out.append(ch)
-                                    if esc:
-                                        esc = False
-                                    elif ch == '\\':
-                                        esc = True
-                                    elif ch == '"':
-                                        in_str = False
-                                    i += 1
-                                else:
-                                    if ch == '"':
-                                        in_str = True
-                                        out.append(ch)
-                                        i += 1
-                                    elif ch == '/' and i + 1 < n and src[i+1] == '/':
-                                        i += 2
-                                        while i < n and src[i] not in ('\n', '\r'):
-                                            i += 1
-                                    elif ch == '/' and i + 1 < n and src[i+1] == '*':
-                                        i += 2
-                                        while i + 1 < n and not (src[i] == '*' and src[i+1] == '/'):
-                                            i += 1
-                                        i = i + 2 if i + 1 < n else n
-                                    else:
-                                        out.append(ch)
-                                        i += 1
-                            return ''.join(out)
-                        cleaned = _strip_json_comments(candidate)
-                        # Entferne trailing-Kommas vor } oder ]
-                        import re as _re
-                        cleaned = _re.sub(r",\s*(?=[}\]])", "", cleaned)
-                        return json.loads(cleaned)
-                except Exception:
-                    pass
-            # Reparatur-Versuch: JSON klammern-balanziert schließen
-            try:
-                start_idx = s.find('{')
-                if start_idx != -1:
-                    fragment = s[start_idx:]
-                    # Entferne Kommentare
-                    def _strip_json_comments2(src: str) -> str:
-                        """Entfernt Kommentare als Reparaturpfad für stark fehlerhafte JSON-Fragmente."""
-                        out = []
-                        i, n = 0, len(src)
-                        in_str = False
-                        esc = False
-                        while i < n:
-                            ch = src[i]
-                            if in_str:
-                                out.append(ch)
-                                if esc:
-                                    esc = False
-                                elif ch == '\\':
-                                    esc = True
-                                elif ch == '"':
-                                    in_str = False
-                                i += 1
-                            else:
-                                if ch == '"':
-                                    in_str = True
-                                    out.append(ch)
-                                    i += 1
-                                elif ch == '/' and i + 1 < n and src[i+1] == '/':
-                                    i += 2
-                                    while i < n and src[i] not in ('\n', '\r'):
-                                        i += 1
-                                elif ch == '/' and i + 1 < n and src[i+1] == '*':
-                                    i += 2
-                                    while i + 1 < n and not (src[i] == '*' and src[i+1] == '/'):
-                                        i += 1
-                                    i = i + 2 if i + 1 < n else n
-                                else:
-                                    out.append(ch)
-                                    i += 1
-                        return ''.join(out)
-                    frag = _strip_json_comments2(fragment)
-                    # Entferne trailing-Kommas
-                    import re as _re2
-                    frag = _re2.sub(r",\s*(?=[}\]])", "", frag)
-                    # Balance-Klammern: füge die fehlenden schließenden Klammern an
-                    stack = []
-                    in_str = False
-                    esc = False
-                    for ch in frag:
-                        if in_str:
-                            if esc:
-                                esc = False
-                            elif ch == '\\':
-                                esc = True
-                            elif ch == '"':
-                                in_str = False
-                            continue
-                        else:
-                            if ch == '"':
-                                in_str = True
-                            elif ch == '{':
-                                stack.append('}')
-                            elif ch == '[':
-                                stack.append(']')
-                            elif ch in ('}', ']') and stack:
-                                stack.pop()
-                    if stack:
-                        frag_repaired = frag + ''.join(reversed(stack))
-                    else:
-                        frag_repaired = frag
-                    return json.loads(frag_repaired)
-            except Exception:
-                pass
-            return None
-        extracted = _extract_json_payload(content if isinstance(content, str) else "")
-        if isinstance(extracted, dict):
-            # Non-strict JSON (z.B. in ```json``` oder mit Kommentaren) erfolgreich extrahiert
-            if LOG_LLM_OUTPUT:
-                try:
-                    detail_logger.info("LLM_S1_NONSTRICT_JSON_RECOVERED (%s)", provider)
-                except Exception:
-                    pass
-            data = extracted
-        else:
-            # Endgültiger Fehler: Rohtext als Fehler loggen
-            try:
-                detail_logger.error("LLM_S1_INVALID_JSON_RAW (%s): %s", provider, content)
-            except Exception:
-                pass
-            raise ValueError(f"{provider} Stufe 1: ungültige JSON-Antwort")
-    data.setdefault("identified_leistungen", [])
-    data.setdefault("extracted_info", {})
-    data.setdefault("begruendung_llm", "")
+        parsed = parse_llm_json_response(content or "{}")
+    except json.JSONDecodeError as parse_err:
+        try:
+            detail_logger.error("LLM_S1_INVALID_JSON_RAW (%s): %s", provider, content)
+        except Exception:
+            pass
+        raise ValueError(f"{provider} Stufe 1: ungültige JSON-Antwort ({parse_err})")
+    data = validate_stage1_result(parsed, provider_label=f"LLM_S1_{provider.upper()}")
+    if LOG_S1_PARSED_JSON:
+        detail_logger.info(
+            "LLM_S1_%s_PARSED_JSON: %s",
+            provider.upper(),
+            json.dumps(data, indent=2, ensure_ascii=False),
+        )
     return data, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
 def call_gemini_stage2_mapping(
@@ -3147,47 +3093,14 @@ def call_gemini_stage2_mapping(
         model,
     )
     try:
-        response = None
-        last_exception: Optional[RequestException] = None
-        for attempt in range(GEMINI_MAX_RETRIES):
-            try:
-                response = requests.post(gemini_url, json=payload, timeout=GEMINI_TIMEOUT)
-                logger.info(
-                    "Gemini Stufe 2 (Mapping) Antwort Status Code: %s",
-                    response.status_code,
-                )
-                if response.status_code == 429:
-                    raise HTTPError(response=response)
-                response.raise_for_status()
-                break
-            except RequestException as req_err:
-                last_exception = req_err
-                status_code = (
-                    req_err.response.status_code
-                    if isinstance(req_err, HTTPError) and req_err.response is not None
-                    else None
-                )
-                if (
-                    status_code is not None
-                    and (status_code == 429 or 500 <= status_code < 600)
-                    and attempt < GEMINI_MAX_RETRIES - 1
-                ):
-                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
-                    logger.warning(
-                        "Gemini Stufe 2 (Mapping) Fehler %s. Neuer Versuch in %s Sekunden.",
-                        status_code,
-                        wait_time,
-                    )
-                    time.sleep(wait_time)
-                    continue
-                raise
-        if response is None:
-            logger.error(
-                "Gemini Stufe 2 (Mapping) scheiterte nach %s Versuchen: %s",
-                GEMINI_MAX_RETRIES,
-                last_exception,
-            )
-            return None, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+        response = _post_with_retries(
+            gemini_url,
+            payload,
+            timeout=GEMINI_TIMEOUT,
+            max_retries=GEMINI_MAX_RETRIES,
+            backoff_seconds=GEMINI_BACKOFF_SECONDS,
+            logger_prefix="Gemini Stufe 2 (Mapping)",
+        )
         gemini_data = response.json()
 
         raw_text_response_part = ""
@@ -3348,7 +3261,7 @@ def call_openai_stage2_mapping(
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
     # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
-    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)  # type: ignore[reportGeneralTypeIssues]
     # Retry-Logik bei 5xx analog Stufe 1
     last_exc: Exception | None = None
     resp = None
@@ -3485,49 +3398,15 @@ def call_gemini_stage2_ranking(
     }
     logger.info("Sende Anfrage Stufe 2 (Ranking) an Gemini Model: %s...", model)
     try:
-        response = None
-        last_exception: Optional[RequestException] = None
-        for attempt in range(GEMINI_MAX_RETRIES):
-            try:
-                # Respektiere konfigurierten Mindestabstand zwischen LLM-Requests
-                enforce_llm_min_interval()
-                response = requests.post(gemini_url, json=payload, timeout=GEMINI_TIMEOUT)
-                logger.info(
-                    "Gemini Stufe 2 (Ranking) Antwort Status Code: %s",
-                    response.status_code,
-                )
-                if response.status_code == 429:
-                    raise HTTPError(response=response)
-                response.raise_for_status()
-                break
-            except RequestException as req_err:
-                last_exception = req_err
-                status_code = (
-                    req_err.response.status_code
-                    if isinstance(req_err, HTTPError) and req_err.response is not None
-                    else None
-                )
-                if (
-                    status_code is not None
-                    and (status_code == 429 or 500 <= status_code < 600)
-                    and attempt < GEMINI_MAX_RETRIES - 1
-                ):
-                    wait_time = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
-                    logger.warning(
-                        "Gemini Stufe 2 (Ranking) Fehler %s. Neuer Versuch in %s Sekunden.",
-                        status_code,
-                        wait_time,
-                    )
-                    time.sleep(wait_time)
-                    continue
-                raise
-        if response is None:
-            logger.error(
-                "Gemini Stufe 2 (Ranking) scheiterte nach %s Versuchen: %s",
-                GEMINI_MAX_RETRIES,
-                last_exception,
-            )
-            return [], {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
+        response = _post_with_retries(
+            gemini_url,
+            payload,
+            timeout=GEMINI_TIMEOUT,
+            max_retries=GEMINI_MAX_RETRIES,
+            backoff_seconds=GEMINI_BACKOFF_SECONDS,
+            logger_prefix="Gemini Stufe 2 (Ranking)",
+            before_request=enforce_llm_min_interval,
+        )
         gemini_data = response.json()
 
         ranked_text = ""
@@ -3661,7 +3540,7 @@ def call_openai_stage2_ranking(
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
     # Deaktiviert SDK-interne Retries, damit unsere eigene Drossel/Retry greift
-    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+    client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)  # type: ignore[reportGeneralTypeIssues]
     # Retry-Logik bei 5xx analog Stufe 1
     last_exc: Exception | None = None
     resp = None
@@ -4992,8 +4871,28 @@ def _validate_and_apply_rules(
 
 def _get_tables_for_context_lkn(lkn: str) -> List[str]:
     """Return list of table names that contain the given LKN."""
-    return lkn_to_tables_index.get(lkn, [])
+    normalized = str(lkn or "").strip().upper()
+    return lkn_to_tables_index.get(normalized, [])
 
+
+def find_potential_pauschalen(lkn_codes: Set[str]) -> Set[str]:
+    """Liefert Pauschalen-Kandidaten basierend auf LKN- und Tabellen-Indizes."""
+    candidates: Set[str] = set()
+    for raw_code in lkn_codes:
+        if not isinstance(raw_code, str):
+            continue
+        lkn_code = raw_code.strip().upper()
+        if not lkn_code:
+            continue
+        if lkn_code in pauschale_lp_index_by_lkn:
+            candidates.update(pauschale_lp_index_by_lkn[lkn_code])
+        if lkn_code in pauschale_cond_lkn_index_by_lkn:
+            candidates.update(pauschale_cond_lkn_index_by_lkn[lkn_code])
+        for table_name in _get_tables_for_context_lkn(lkn_code):
+            table_norm = str(table_name).lower()
+            if table_norm in pauschale_cond_table_index_by_table:
+                candidates.update(pauschale_cond_table_index_by_table[table_norm])
+    return {pc for pc in candidates if pc in pauschalen_dict}
 
 def _determine_final_billing(
     rule_checked_leistungen_list: List[Dict[str, Any]],
@@ -5015,15 +4914,7 @@ def _determine_final_billing(
     # Kandidaten aus Indizes (auch wenn keine P/PZ LKNs explizit vorhanden sind)
     potential_pauschale_codes_set: Set[str] = set()
     regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')).upper() for l in rule_checked_leistungen_list if l.get('lkn')}
-    for lkn_code in regelkonforme_lkn_codes_fuer_suche:
-        if lkn_code in pauschale_lp_index:
-            potential_pauschale_codes_set.update(pauschale_lp_index[lkn_code])
-        if lkn_code in pauschale_cond_lkn_index:
-            potential_pauschale_codes_set.update(pauschale_cond_lkn_index[lkn_code])
-        for table_name in _get_tables_for_context_lkn(lkn_code):
-            table_norm = str(table_name).lower()
-            if table_norm in pauschale_cond_table_index:
-                potential_pauschale_codes_set.update(pauschale_cond_table_index[table_norm])
+    potential_pauschale_codes_set.update(find_potential_pauschalen(regelkonforme_lkn_codes_fuer_suche))
 
     if potential_pauschale_codes_set:
         logger.info(
@@ -5209,44 +5100,7 @@ def _determine_final_billing(
 
     # --- OPTIMIERUNG: Index-basierte Suche statt linearer Scan ---
     erweiterte_lkn_suchmenge = {str(l).upper() for l in final_lkn_context_for_pauschale_set}
-    neu_gefundene_codes: Set[str] = set()
-
-
-
-    # 1. Suche über Pauschale_Leistungsposition (LKN -> Pauschale)
-    for lkn_in_context in erweiterte_lkn_suchmenge:
-        if lkn_in_context in pauschale_lp_index:
-            neu_gefundene_codes.update(pauschale_lp_index[lkn_in_context])
-
-    # 2. Suche über Pauschale_Bedingungen (LKN -> Pauschale)
-    for lkn_in_context in erweiterte_lkn_suchmenge:
-        if lkn_in_context in pauschale_cond_lkn_index:
-            neu_gefundene_codes.update(pauschale_cond_lkn_index[lkn_in_context])
-
-    # 3. Suche über Pauschale_Bedingungen (Tabelle -> Pauschale)
-    # Wir müssen wissen, welche Tabellen für die LKNs im Kontext relevant sind.
-    # Das ist etwas komplexer, da wir von LKN -> Tabelle -> Pauschale müssen.
-    # Wir nutzen den Cache `context_lkns_in_tables_cache` (via _get_tables_for_context_lkn)
-    # oder iterieren über die Tabellen, die wir kennen.
-    
-    # Optimierung: Wir prüfen nur Tabellen, die in `pauschale_cond_table_index` vorkommen.
-    # Aber wir wissen nicht direkt, welche LKN in welcher Tabelle ist, ohne in tabellen_dict_by_table zu schauen.
-    # Da tabellen_dict_by_table aber nach Tabellenname indiziert ist, können wir für jede relevante Tabelle
-    # prüfen, ob sie LKNs aus unserem Kontext enthält.
-    
-    # Umgekehrt: Für jede LKN im Kontext, finde ihre Tabellen.
-    # _get_tables_for_context_lkn macht genau das (und cached es).
-    
-    for lkn_in_context in erweiterte_lkn_suchmenge:
-        tables_for_lkn = _get_tables_for_context_lkn(lkn_in_context)
-        for table_name in tables_for_lkn:
-            if table_name in pauschale_cond_table_index:
-                neu_gefundene_codes.update(pauschale_cond_table_index[table_name])
-
-    # Filter: Nur existierende Pauschalen
-    neu_gefundene_codes = {pc for pc in neu_gefundene_codes if pc in pauschalen_dict}
-
-
+    neu_gefundene_codes = find_potential_pauschalen(erweiterte_lkn_suchmenge)
     if neu_gefundene_codes:
         potential_pauschale_codes_set.update(neu_gefundene_codes)
     logger.debug(
@@ -5276,7 +5130,9 @@ def _determine_final_billing(
         pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
             user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
             pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
-            leistungskatalog_dict, tabellen_dict_by_table, potential_pauschale_codes_set,
+            leistungskatalog_dict, tabellen_dict_by_table,
+            pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
+            potential_pauschale_codes_set,
             lang,
             prepared_structures=prepared_structures # Pass pre-computed structures
         )
@@ -5371,7 +5227,6 @@ def analyze_billing():
 
     llm1_time = time.time()
     logger.info(f"[{request_id}] Zeit nach LLM Stufe 1: {llm1_time - start_time:.2f}s")
-
     extracted_info_llm = llm_stage1_result.get("extracted_info", {})
     patient_context = _merge_patient_demographics(alter_user, geschlecht_user, extracted_info_llm, heuristic_demo)
     alter_context_val: Optional[int] = patient_context.get("age_value")
@@ -5434,8 +5289,40 @@ def analyze_billing():
     llm_stage1_result["ranking_candidates"] = candidate_codes
 
     seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
-    anzahl_prozeduren_val = extracted_info_llm.get("anzahl_prozeduren")
+    def _to_int(value: Any) -> Optional[int]:
+        """Generic helper to normalize int-like values from LLM output."""
+        if isinstance(value, bool):
+            return None
+        try:
+            return int(str(value).strip())
+        except Exception:
+            return None
+
+    anzahl_prozeduren_val = _to_int(extracted_info_llm.get("anzahl_prozeduren"))
+    # Bestmögliche Ableitung einer Gesamtanzahl für Pauschalen:
+    # 1) explizit extrahierte Anzahl (anzahl_prozeduren)
+    # 2) generische Menge aus LLM (menge_allgemein)
+    # 3) Summe der Mengen aller identifizierten Leistungen (falls > 0)
     anzahl_fuer_pauschale_context = anzahl_prozeduren_val
+    if anzahl_fuer_pauschale_context is None:
+        menge_allgemein_val = _to_int(extracted_info_llm.get("menge_allgemein"))
+        if isinstance(menge_allgemein_val, int):
+            anzahl_fuer_pauschale_context = menge_allgemein_val
+    if anzahl_fuer_pauschale_context is None:
+        qty_hint = _extract_quantity_hint(user_input)
+        if qty_hint is not None:
+            anzahl_fuer_pauschale_context = qty_hint
+    if anzahl_fuer_pauschale_context is None:
+        sum_mengen = 0
+        for l in final_validated_llm_leistungen:
+            if not isinstance(l, dict):
+                continue
+            try:
+                sum_mengen += int(l.get("menge", 0) or 0)
+            except (ValueError, TypeError):
+                continue
+        if sum_mengen > 0:
+            anzahl_fuer_pauschale_context = sum_mengen
     if seitigkeit_context_val.lower() == 'beidseits' and anzahl_fuer_pauschale_context is None:
         if len(final_validated_llm_leistungen) == 1 and final_validated_llm_leistungen[0].get('menge') == 1:
             anzahl_fuer_pauschale_context = 2
@@ -5484,6 +5371,10 @@ def analyze_billing():
                     pauschalen_dict,
                     leistungskatalog_dict,
                     tabellen_dict_by_table,
+                    pauschale_lp_index,
+                    pauschale_cond_lkn_index,
+                    pauschale_cond_table_index,
+                    lkn_to_tables_index,
                     potential_pauschale_codes_set,
                     lang,
                     prepared_structures=None,
@@ -5611,6 +5502,7 @@ def pauschale_conditions_html() -> Any:
             lang,
             pauschalen_dict,
             prepared_structures,
+            False,
         )
         html_fragment = sanitize_html_fragment(result.get("html") or "")
         response_payload = {

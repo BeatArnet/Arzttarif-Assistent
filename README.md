@@ -80,7 +80,13 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
     ```bash
     pip install -r requirements.txt
     ```
-5.  **API-Schlüssel konfigurieren:**
+5.  **Embeddings erzeugen (RAG ist standardmässig aktiviert, `config.ini` `[RAG].enabled = 1`):**
+    ```bash
+    pip install sentence-transformers
+    python generate_embeddings.py
+    ```
+    Das Skript erzeugt `data/leistungskatalog_embeddings.json`, `data/vektor_index.faiss` und `data/vektor_index_codes.json`. Nach Daten- oder Synonym-Updates erneut ausführen, sonst funktioniert die semantische Suche nicht.
+6.  **API-Schlüssel konfigurieren:**
     *   Erstelle eine Datei namens `.env` im Hauptverzeichnis.
     *   Hinterlege die notwendigen Schlüssel abhängig vom gewählten Provider (nur die benötigten setzen):
         ```env
@@ -95,7 +101,7 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
         SYNONYM_LLM_API_KEY="..."
         SYNONYM_LLM_MODEL="gemini-2.5-flash"
         ```
-6.  **Anwendung starten:**
+7.  **Anwendung starten:**
     ```bash
     python server.py
     ```

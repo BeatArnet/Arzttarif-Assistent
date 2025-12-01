@@ -2,6 +2,7 @@ import unittest
 import sys
 import pathlib
 import json
+from collections import defaultdict
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 from regelpruefer_pauschale import (
     evaluate_pauschale_logic_orchestrator,
@@ -237,6 +238,17 @@ class TestPauschaleLogic(unittest.TestCase):
             "X00.01B": {"Pauschale": "X00.01B", "Pauschale_Text": "B", "Taxpunkte": "200"},
         }
         context = {"LKN": ["ANY"]}
+        pauschale_lp_index = defaultdict(set)
+        pauschale_cond_lkn_index = defaultdict(set)
+        pauschale_cond_table_index = defaultdict(set)
+        lkn_to_tables_index = defaultdict(list)
+        for cond in pauschale_bedingungen_data:
+            typ = str(cond.get("Bedingungstyp", "")).upper()
+            if typ in {"LKN", "LEISTUNGSPOSITIONEN IN LISTE", "LKN IN LISTE"}:
+                for value in str(cond.get("Werte", "")).split(","):
+                    value_norm = value.strip().upper()
+                    if value_norm:
+                        pauschale_cond_lkn_index[str(cond.get("Pauschale"))].add(value_norm)
 
         result = determine_applicable_pauschale(
             user_input="",
@@ -247,6 +259,10 @@ class TestPauschaleLogic(unittest.TestCase):
             pauschalen_dict=pauschalen_dict,
             leistungskatalog_dict=leistungskatalog_dict,
             tabellen_dict_by_table=tabellen_dict_by_table,
+            pauschale_lp_index=pauschale_lp_index,
+            pauschale_cond_lkn_index=pauschale_cond_lkn_index,
+            pauschale_cond_table_index=pauschale_cond_table_index,
+            lkn_to_tables_index=lkn_to_tables_index,
             potential_pauschale_codes_input={"X00.01A", "X00.01B"}
         )
         self.assertEqual(result["details"]["Pauschale"], "X00.01A")

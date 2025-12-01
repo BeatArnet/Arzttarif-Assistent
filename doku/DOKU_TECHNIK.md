@@ -84,8 +84,8 @@ flowchart LR
 
 ### 2.1 Vorverarbeitung & Kontextaufbau
 - Eingaben (`inputText`, optionale ICD/GTIN, Alter, Geschlecht) werden bereinigt.
-- Synonymkatalog (falls aktiviert) erweitert Suchbegriffe via `synonyms/expander.expand_query`; ansonsten werden nur Rohbegriffe verwendet.
-- RAG/Embeddings (falls aktiviert) ranken Katalogeinträge über `rank_embeddings_entries`; ohne RAG erfolgt ein tokenfrequenzbasiertes Ranking über `compute_token_doc_freq` und `rank_leistungskatalog_entries`.
+- Synonymkatalog (falls aktiviert) erweitert Suchbegriffe via `synonyms/expander.expand_query`; ansonsten werden nur Rohbegriffe verwendet. Zusätzlich werden explizite LKN-Codes per Regex (`extract_lkn_codes_from_text`) sowie demografische Hinweise (Alter/Geschlecht) aus dem Freitext extrahiert.
+- Hybrides Ranking: direkte LKN/ Synonym-/Demografie-Treffer kommen zuerst, darauf folgen gewichtete Schlüsselworttreffer (`rank_leistungskatalog_entries`) und – falls RAG aktiv ist – Embedding-Ergebnisse aus dem FAISS-Index (`rank_embeddings_entries`). Eine Fallback-Variantensuche sorgt für mindestens 5 Kandidaten.
 - Durch `expand_compound_words` und `extract_keywords` werden Suchterm‑Varianten erzeugt (optional unter Nutzung des Synonymkatalogs).
 
 ### 2.2 LLM‑Stufe 1 – Identifikation von LKN
@@ -99,10 +99,11 @@ flowchart LR
 - Aufsplitten zusammengesetzter Wörter (`expand_compound_words`).
 - Schlüsselwort‑Extraktion und optionales Synonym‑Mapping (`extract_keywords`, `expand_query`).
 - Sammeln explizit erwähnter LKN‑Codes, damit der Kontext nicht leer bleibt.
+- Demografie-Heuristik: `extract_patient_demographics` leitet Alter/Geschlecht aus dem Freitext ab, gleicht sie mit TARDOC-Min/Max-Alter und Geschlechtereinschränkungen ab und nutzt die Hinweise sowohl als zusätzliche Suchtokens als auch als Seed für passende Zuschläge.
 Diese Schritte erzeugen einen bereinigten Behandlungstext sowie eine Tokenmenge als Suchanker für den Katalog.
 
 #### 2.2.2 Aufbau des Katalogkontextes
-- Aus gerankten LKNs wird zeilenweise ein Kontextstring generiert: `LKN: <Code>, Typ: <Typ>, Beschreibung: <Beschreibung>, MedizinischeInterpretation: <…>`
+- Aus gerankten LKNs wird zeilenweise ein Kontextstring generiert: `LKN: <Code>, Typ: <Typ>, Beschreibung: <Beschreibung>, MedizinischeInterpretation: <…>, Demografie: <Alters-/Geschlechtsinfo falls vorhanden>`.
 - Der String fliesst in den Prompt; seine Länge wird mit `count_tokens` heuristisch gezählt (regex‑basiert, modellabhängige Abweichung möglich).
 
 #### 2.2.3 HTTP‑Payload & Modelleinstellungen
@@ -123,6 +124,7 @@ Diese Struktur zwingt das Modell, Tätigkeiten zu finden, Mengen zu berechnen un
 
 #### 2.2.5 Rückgabestruktur (Validierung/Normalisierung)
 - `identified_leistungen`: Liste von Objekten mit `lkn` (string), `typ` (string), `beschreibung` (string), `menge` (int). Fehlende/fehlerhafte Werte werden korrigiert, `lkn` wird upper‑cased.
+- `ranking_candidates`: Vom Hybrid-Ranking (direkte Codes, Keywords, Embeddings) ermittelte LKN-Liste zur Anzeige im UI.
 - `extracted_info` mit Defaults und Typkonvertierung:
   - `dauer_minuten`, `menge_allgemein`, `alter`, `anzahl_prozeduren`: `int | null`
   - `geschlecht`: `str | null`
@@ -169,6 +171,7 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
   - `check_pauschale_conditions` erstellt HTML‑Detailergebnisse und Fehlermeldungen.
   - `evaluate_pauschale_logic_orchestrator` bewertet UND/ODER‑Logik (inkl. WHERE‑Klauseln) oder fällt heuristisch auf AST‑Auswertung zurück.
   - `determine_applicable_pauschale` wählt die bestbewertete, regelkonforme Pauschale (Score v. a. Taxpunkte; alternativ LLM‑Ranking).
+- Performance: vorberechnete Indizes (`pauschale_lp_index`, `pauschale_cond_*`, `lkn_to_tables_index`) und ein separater Renderer (`pauschale_renderer.with_table_content_cache`) reduzieren Lookups und HTML-Generierung.
 - `prepare_tardoc_abrechnung` sammelt abrechenbare Einzelleistungen für TARDOC.
 
 ### 2.5 Ergebnisaufbau
@@ -181,11 +184,11 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 ### 2.6 Betriebsmodi: Synonymkatalog & RAG
 - Mit Synonymkatalog/RAG:
   - Suchterm‑Expansion: `expand_query` nutzt `data/synonyms.json` (mehr Treffer, Risiko von Ausreissern)
-  - Ranking: Embedding‑Ähnlichkeit (`data/leistungskatalog_embeddings.json`)
+  - Ranking: Kombination aus gewichteter Schlüsselwortsuche und Embedding‑Ähnlichkeit (`data/leistungskatalog_embeddings.json`)
   - Datenbedarf: Synonyme + Embeddings
 - Ohne Synonymkatalog/RAG:
-  - Nur originaler Nutzertext
-  - Ranking: Token‑Frequenz‑Vergleich
+  - Nur originaler Nutzertext, direkte LKN und demografische Hinweise
+  - Ranking: Token‑Frequenz‑Vergleich inkl. Fallback-Variantsuche (kein Embedding)
   - Datenbedarf: nur Leistungskatalog
 - Fehlerquellen: Falsche Synonyme oder geringe Abdeckung vs. geringere Treffergenauigkeit ohne Synonyme/RAG.
 
@@ -213,7 +216,7 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 ### server.py
 
 - `create_app()` – Initialisiert die Flask‑Instanz und lädt die JSON‑Daten einmalig.
-- `load_data()` – Liest alle Dateien aus dem `data/`‑Verzeichnis ein (Leistungskatalog, TARDOC, Pauschalen usw.).
+- `load_data()` – orchestriert den Datenimport, ruft intern `_reset_data_containers()`, `_load_catalogs()`, `_load_optional_datasets()`, `_load_rules()`, `_build_indices()` auf.
 - `call_stage1()` (anbieterspezifisch) – Kommuniziert mit dem konfigurierten LLM‑Provider (u. a. Gemini, OpenAI, Apertus) und liefert LKN‑Vorschläge und Kontext.
 - API‑Endpoints:
   - `/api/analyze-billing` – Hauptendpunkt zur Analyse eines Freitexts.
@@ -375,6 +378,7 @@ Hinweis: Das frühere Hilfsskript `update_prompts.py` (einmaliges Text‑Patchen
 - `synonyms/models.py` – Strukturierte Modelle für Synonymkatalog und Einträge.
 - `synonyms/scorer.py` – Scoring/Ranking von Synonymvorschlägen.
 - `synonyms/api.py` – Minimaler Flask‑Blueprint (`/api/synonyms/*`) als Entwicklungs‑Stub.
+- Stubs (Flask/requests) wohnen in `tests/mocks.py` und werden nur geladen, wenn Flask/requests fehlen.
 - `synonyms/__init__.py` – Paketinitialisierung.
 
 ### Tests (pytest)

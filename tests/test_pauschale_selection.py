@@ -1,16 +1,74 @@
 import sys
 import pathlib
 import unittest
+from collections import defaultdict
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from regelpruefer_pauschale import determine_applicable_pauschale
 
 
+def build_indexes(pauschale_lp_data, bedingungen, tabellen_dict_by_table=None):
+    """Create the index structures expected by determine_applicable_pauschale from test data."""
+    pauschale_lp_index = defaultdict(set)
+    for entry in pauschale_lp_data or []:
+        pc = entry.get("Pauschale")
+        lkn = entry.get("Leistungsposition")
+        if pc and lkn:
+            pauschale_lp_index[str(pc)].add(str(lkn).upper())
+
+    pauschale_cond_lkn_index = defaultdict(set)
+    pauschale_cond_table_index = defaultdict(set)
+    for cond in bedingungen or []:
+        pc = cond.get("Pauschale")
+        typ = str(cond.get("Bedingungstyp", "")).upper()
+        werte = cond.get("Werte")
+        if not (pc and werte):
+            continue
+        if typ in {"LKN", "LEISTUNGSPOSITIONEN IN LISTE", "LKN IN LISTE"}:
+            for value in str(werte).split(","):
+                value_norm = value.strip().upper()
+                if value_norm:
+                    pauschale_cond_lkn_index[str(pc)].add(value_norm)
+        elif typ in {"LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"}:
+            for table in str(werte).split(","):
+                table_norm = table.strip().lower()
+                if table_norm:
+                    pauschale_cond_table_index[str(pc)].add(table_norm)
+
+    lkn_to_tables_index = defaultdict(list)
+    if tabellen_dict_by_table:
+        for table_name, rows in tabellen_dict_by_table.items():
+            table_norm = str(table_name).lower()
+            for row in rows:
+                if str(row.get("Tabelle_Typ", "")).lower() != "service_catalog":
+                    continue
+                code_val = row.get("Code")
+                if code_val:
+                    code_norm = str(code_val).upper()
+                    if table_norm not in lkn_to_tables_index[code_norm]:
+                        lkn_to_tables_index[code_norm].append(table_norm)
+
+    return pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index
+
+
 class TestPauschaleSelection(unittest.TestCase):
     def test_no_candidates(self):
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], [])
         result = determine_applicable_pauschale(
-            "", [], {}, [], [], {}, {}, {}, set()
+            "",
+            [],
+            {},
+            [],
+            [],
+            {},
+            {},
+            {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
+            set(),
         )
         self.assertEqual(result["type"], "Error")
         self.assertIn("potenziellen Pauschalen", result["message"])
@@ -22,8 +80,21 @@ class TestPauschaleSelection(unittest.TestCase):
         bedingungen = [
             {"Pauschale": "X", "Bedingungstyp": "LKN", "Werte": "A"}
         ]
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], bedingungen)
         result = determine_applicable_pauschale(
-            "", [], {}, [], bedingungen, pauschalen_dict, {}, {}, {"X"}
+            "",
+            [],
+            {},
+            [],
+            bedingungen,
+            pauschalen_dict,
+            {},
+            {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
+            {"X"},
         )
         self.assertEqual(result["type"], "Error")
         self.assertEqual(len(result.get("evaluated_pauschalen", [])), 1)
@@ -43,6 +114,7 @@ class TestPauschaleSelection(unittest.TestCase):
                 "Taxpunkte": "100",
             },
         }
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], [])
         result = determine_applicable_pauschale(
             "",
             [],
@@ -52,6 +124,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             {},
             {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
             {"X00.01A", "C90.01A"},
         )
         self.assertEqual(result["details"]["Pauschale"], "X00.01A")
@@ -67,6 +143,7 @@ class TestPauschaleSelection(unittest.TestCase):
             {"Pauschale": "A", "BedingungsID": 2, "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE", "Gruppe": 1, "Operator": "UND", "Werte": "X"},
             {"Pauschale": "B", "BedingungsID": 3, "Bedingungstyp": "LEISTUNGSPOSITIONEN IN LISTE", "Gruppe": 1, "Operator": "UND", "Werte": "X"},
         ]
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], bedingungen)
         result = determine_applicable_pauschale(
             "",
             [],
@@ -76,6 +153,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             {},
             {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
             {"A", "B"},
         )
         self.assertEqual(result["details"]["Pauschale"], "A")
@@ -98,6 +179,7 @@ class TestPauschaleSelection(unittest.TestCase):
                 "Werte": "X",
             },
         ]
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], bedingungen)
         result = determine_applicable_pauschale(
             "",
             [],
@@ -107,6 +189,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             {},
             {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
             {"A", "B"},
         )
         self.assertEqual(result["details"]["Pauschale"], "B")
@@ -125,6 +211,7 @@ class TestPauschaleSelection(unittest.TestCase):
                 "Taxpunkte": "200",
             },
         }
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], [])
         result = determine_applicable_pauschale(
             "",
             [],
@@ -134,6 +221,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             {},
             {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
             {"C90.01A", "C90.01B"},
         )
         self.assertEqual(result["details"]["Pauschale"], "C90.01A")
@@ -153,26 +244,32 @@ class TestPauschaleSelection(unittest.TestCase):
             },
         }
         # Beide Kandidaten erfüllen dieselben Bedingungen mit gleicher Match-Anzahl.
+        bedingungen = [
+            {
+                "Pauschale": "C06.00A",
+                "Bedingungstyp": "LKN",
+                "Werte": "X",
+            },
+            {
+                "Pauschale": "C06.00B",
+                "Bedingungstyp": "LKN",
+                "Werte": "X",
+            },
+        ]
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], bedingungen)
         result = determine_applicable_pauschale(
             "",
             [],
             {"LKN": ["X"]},
             [],
-            [
-                {
-                    "Pauschale": "C06.00A",
-                    "Bedingungstyp": "LKN",
-                    "Werte": "X",
-                },
-                {
-                    "Pauschale": "C06.00B",
-                    "Bedingungstyp": "LKN",
-                    "Werte": "X",
-                },
-            ],
+            bedingungen,
             pauschalen_dict,
             {},
             {},
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
             {"C06.00A", "C06.00B"},
         )
 
@@ -232,6 +329,7 @@ class TestPauschaleSelection(unittest.TestCase):
             "MATCH": {"Beschreibung": "Match"},
             "IRRLKN": {"Beschreibung": "Irr"},
         }
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes([], bedingungen, tabellen_dict_by_table)
 
         result = determine_applicable_pauschale(
             "",
@@ -242,6 +340,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             leistungskatalog_dict,
             tabellen_dict_by_table,
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
         )
 
         evaluated_codes = {cand["code"] for cand in result.get("evaluated_pauschalen", [])}
@@ -318,6 +420,7 @@ class TestPauschaleSelection(unittest.TestCase):
             "MATCH": {"Beschreibung": "Match"},
             "WA.10.0050": {"Beschreibung": "Anästhesie"},
         }
+        lp_index, cond_lkn_index, cond_table_index, lkn_table_index = build_indexes(pauschale_lp_data, bedingungen, tabellen_dict_by_table)
 
         result = determine_applicable_pauschale(
             "",
@@ -328,6 +431,10 @@ class TestPauschaleSelection(unittest.TestCase):
             pauschalen_dict,
             leistungskatalog_dict,
             tabellen_dict_by_table,
+            lp_index,
+            cond_lkn_index,
+            cond_table_index,
+            lkn_table_index,
         )
 
         evaluated_codes = {cand["code"] for cand in result.get("evaluated_pauschalen", [])}
