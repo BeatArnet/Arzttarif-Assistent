@@ -371,7 +371,7 @@
     {
         "Pauschale": "C01.05B",
         "Pauschale_Text": "Einbau/Revision eines anderen Stimulators od. Einbau v. intrakraniellen Elektroden, Einlage v. Verweilkatheter u. andere Eingriffe am Schädel",
-        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap01)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Liste (C01.EG.0010)))) ODER ((Hauptdiagnose in Tabelle (Cap01)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C01.09_10, C01.09_2)))) ODER ((Hauptdiagnose in Tabelle (Cap01)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C01.21_10))) und ((Leistungspositionen in Liste (C01.RA.0030)) oder (Leistungspositionen in Liste (C01.RC.0050)))) ODER ((Hauptdiagnose in Tabelle (Cap03)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Liste (C03.GM.0060))) ODER ((Hauptdiagnose in Tabelle (Cap05)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Tabelle (C01.05_2)))",
+        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap01)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Liste (C01.RC.0050, C01.FE.0010, C01.EG.0010, C01.RA.0030)))) ODER ((Hauptdiagnose in Tabelle (Cap01)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C01.09_10, C01.09_2)))) ODER ((Hauptdiagnose in Tabelle (Cap03)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Liste (C03.GM.0060))) ODER ((Hauptdiagnose in Tabelle (Cap05)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Tabelle (C01.05_2)))",
         "Taxpunkte": "4931.43",
         "Dignitaeten": "0100|0600|1200|9912",
         "Pauschale_Text_f": "Implantation/révision d’un autre stimulateur ou implantation d’électrodes intracrâniennes, pose d’un cathéter épidural et autres interventions sur le crâne",
@@ -601,7 +601,7 @@
     {
         "Pauschale": "C02.25A",
         "Pauschale_Text": "Eingriffe an mehr als zwei geraden Augenmuskeln",
-        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Liste (C02.CQ.0010) where (Anzahl > 1))",
+        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und (Leistungspositionen in Liste (C02.CQ.0010) where (Anzahl > 2))",
         "Taxpunkte": "4630.70",
         "Dignitaeten": "0100|0810|1200",
         "Pauschale_Text_f": "Opérations sur plus de deux muscles oculaires droits",
@@ -621,7 +621,7 @@
     {
         "Pauschale": "C02.25C",
         "Pauschale_Text": "Eingriffe an schrägen Augenmuskeln, Rezidiv-Eingriffe an Augenmuskeln u. Eingriffe an zwei geraden Augenmuskeln",
-        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.25_30)))",
+        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.25_30)) oder (Leistungspositionen in Liste (C02.CQ.0010) where (Anzahl = 2)))",
         "Taxpunkte": "3398.35",
         "Dignitaeten": "0100|0810|1200",
         "Pauschale_Text_f": "Opérations sur muscles oculaires obliques, réopérations sur muscles oculaires et opérations sur deux muscles oculaires droits",
@@ -651,7 +651,7 @@
     {
         "Pauschale": "C02.30B",
         "Pauschale_Text": "Sonstige Eingriffe am Lid (mehr als ein Lid) od. an Tränenorganen",
-        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.30_31, C02.30_30)))) ODER ((Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.35_31))))",
+        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.30_31) where (Seitigkeit = \"B\")) oder (Leistungspositionen in Tabelle (C02.30_30) where (Anzahl > 1)))) ODER ((Hauptdiagnose in Tabelle (Cap02)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C02.35_31))))",
         "Taxpunkte": "3035.65",
         "Dignitaeten": "0100|0300|0810|1000|1200|2000|2100",
         "Pauschale_Text_f": "Opérations sur la paupière, plus d'une paupière",
@@ -1338,33 +1338,6 @@
         "Implantate_inbegriffen": true
     },
     {
-        "Pauschale": "C90.02B",
-        "Pauschale_Text": "Interventionelle Prozeduren ohne Bezug zu einem Capitulum",
-        "Prüflogik": "(1 = 1) und ((Leistungspositionen in Tabelle (nonOR)))",
-        "Taxpunkte": "952.17",
-        "Dignitaeten": "9999",
-        "Pauschale_Text_f": "Procédures interventionnelles sans rapport avec un capitulum",
-        "Pauschale_Text_i": "Procedure interventistiche senza riferimento a un capitulum",
-        "Implantate_inbegriffen": true
-    },
-    {
-        "Pauschale": "C90.03Z",
-        "Pauschale_Text": "Sonstige Prozeduren ohne Bezug zu einem Capitulum",
-        "Prüflogik": "(1 = 1) und ((Leistungspositionen in Tabelle (nonELT)))",
-        "Dignitaeten": "9999",
-        "Pauschale_Text_f": "Autres procédures sans rapport avec un capitulum",
-        "Pauschale_Text_i": "Altre procedure senza riferimento a un capitulum",
-        "Implantate_inbegriffen": true
-    },
-    {
-        "Pauschale": "C99.80Z",
-        "Pauschale_Text": "Nicht gruppierbar",
-        "Prüflogik": "(((Hauptdiagnose in Tabelle (Cap12)) und (Geschlecht in Liste (W))) oder ((Hauptdiagnose in Tabelle (Cap13, Cap14)) und (Geschlecht in Liste (M))) und (Leistungspositionen in Tabelle (OR, nonOR, nonELT))) oder (Leistungspositionen in Tabelle (ambP.PZ) und nicht (Leistungspositionen in Tabelle (OR, nonOR, nonELT)))",
-        "Pauschale_Text_f": "Ne peut pas être groupé",
-        "Pauschale_Text_i": "Non raggruppabile",
-        "Implantate_inbegriffen": false
-    },
-    {
         "Pauschale": "C05.25E",
         "Pauschale_Text": "Stripping einseitig od. Ligatur v. Vv. perforantes bds.",
         "Prüflogik": "(Hauptdiagnose in Tabelle (Cap05)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C05.25_13, C05.25_20)) oder (Leistungspositionen in Liste (C05.GB.0130) where ((Anzahl > 1 oder Seitigkeit = 'B'))))",
@@ -1717,7 +1690,7 @@
     {
         "Pauschale": "C08.10A",
         "Pauschale_Text": "Komplexe (kiefer-) chir. Eingriffe an Gesichtsschädelknochen",
-        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Liste (C08.AJ.Z010)))) ODER ((Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Tabelle (C08.10_1))))",
+        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Tabelle (C08.10_1)) oder (Leistungspositionen in Liste (C08.AD.0020, C08.AD.0040) where (Seitigkeit = \"B\")))",
         "Taxpunkte": "8216.06",
         "Dignitaeten": "0100|0810|1000|1200|2100",
         "Pauschale_Text_f": "Chirurgie maxillo-faciale complexe Interventions sur les os de la face",
@@ -1727,7 +1700,7 @@
     {
         "Pauschale": "C08.10B",
         "Pauschale_Text": "Sonstige (kiefer-) chir. Eingriffe an Gesichtsschädelknochen",
-        "Prüflogik": "(Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Tabelle (C08.10A)))",
+        "Prüflogik": "((Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Liste (C08.AJ.0010)))) ODER ((Hauptdiagnose in Tabelle (Cap08)) und ((Leistungspositionen in Tabelle (OR))) und ((Leistungspositionen in Tabelle (C08.10))) und ((Leistungspositionen in Tabelle (C08.10A))))",
         "Taxpunkte": "5374.31",
         "Dignitaeten": "0100|1200|2100",
         "Pauschale_Text_f": "Autre chirurgie maxillo-faciale Interventions sur les os de la face",
@@ -3133,5 +3106,32 @@
         "Pauschale_Text_f": "Procédures interventionnelles sans rapport avec un capitulum, anesthésie par l'anesthésiste",
         "Pauschale_Text_i": "Procedure interventistiche senza riferimento a un capitulum con anestesia effettuata da anestesista",
         "Implantate_inbegriffen": true
+    },
+    {
+        "Pauschale": "C90.02B",
+        "Pauschale_Text": "Interventionelle Prozeduren ohne Bezug zu einem Capitulum",
+        "Prüflogik": "(1 = 1) und ((Leistungspositionen in Tabelle (nonOR)))",
+        "Taxpunkte": "952.17",
+        "Dignitaeten": "9999",
+        "Pauschale_Text_f": "Procédures interventionnelles sans rapport avec un capitulum",
+        "Pauschale_Text_i": "Procedure interventistiche senza riferimento a un capitulum",
+        "Implantate_inbegriffen": true
+    },
+    {
+        "Pauschale": "C90.03Z",
+        "Pauschale_Text": "Sonstige Prozeduren ohne Bezug zu einem Capitulum",
+        "Prüflogik": "(1 = 1) und ((Leistungspositionen in Tabelle (nonELT)))",
+        "Dignitaeten": "9999",
+        "Pauschale_Text_f": "Autres procédures sans rapport avec un capitulum",
+        "Pauschale_Text_i": "Altre procedure senza riferimento a un capitulum",
+        "Implantate_inbegriffen": true
+    },
+    {
+        "Pauschale": "C99.80Z",
+        "Pauschale_Text": "Nicht gruppierbar",
+        "Prüflogik": "(((Hauptdiagnose in Tabelle (Cap12_mod)) und (Geschlecht in Liste (W))) oder ((Hauptdiagnose in Tabelle (Cap13, Cap14)) und (Geschlecht in Liste (M))) und (Leistungspositionen in Tabelle (OR, nonOR, nonELT))) oder (Leistungspositionen in Tabelle (ambP.PZ) und nicht (Leistungspositionen in Tabelle (OR, nonOR, nonELT)))",
+        "Pauschale_Text_f": "Ne peut pas être groupé",
+        "Pauschale_Text_i": "Non raggruppabile",
+        "Implantate_inbegriffen": false
     }
 ]

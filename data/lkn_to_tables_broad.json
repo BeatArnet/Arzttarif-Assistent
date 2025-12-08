@@ -1,0 +1,5609 @@
+{
+    "C00.BA.0010": [
+        "nonelt"
+    ],
+    "C00.BA.0020": [
+        "nonelt"
+    ],
+    "C00.BA.0030": [
+        "nonelt"
+    ],
+    "C00.BA.0040": [
+        "nonelt"
+    ],
+    "C00.BA.0050": [
+        "nonelt"
+    ],
+    "C00.BA.0060": [
+        "nonelt"
+    ],
+    "C00.BA.0070": [
+        "nonelt"
+    ],
+    "C00.BA.0080": [
+        "nonelt"
+    ],
+    "C00.BA.0100": [
+        "nonelt"
+    ],
+    "C00.BA.0110": [
+        "nonelt"
+    ],
+    "C00.BA.0120": [
+        "nonelt"
+    ],
+    "C00.BA.0130": [
+        "nonelt"
+    ],
+    "C00.BB.0010": [
+        "nonelt"
+    ],
+    "C00.BB.0020": [
+        "nonelt"
+    ],
+    "C00.BB.0030": [
+        "nonelt"
+    ],
+    "C00.BB.0040": [
+        "nonelt"
+    ],
+    "C00.BB.0050": [
+        "nonelt"
+    ],
+    "C00.BB.0060": [
+        "nonelt"
+    ],
+    "C00.BB.0070": [
+        "nonelt"
+    ],
+    "C00.BB.0080": [
+        "nonelt"
+    ],
+    "C00.BB.0090": [
+        "nonelt"
+    ],
+    "C00.BC.0010": [
+        "nonelt"
+    ],
+    "C00.BC.0040": [
+        "nonelt"
+    ],
+    "C00.BC.0050": [
+        "nonelt"
+    ],
+    "C00.BD.0010": [
+        "nonelt"
+    ],
+    "C00.BD.0050": [
+        "nonelt"
+    ],
+    "C00.BD.0060": [
+        "nonelt"
+    ],
+    "C00.BD.0080": [
+        "nonelt"
+    ],
+    "C00.BD.0090": [
+        "nonelt"
+    ],
+    "C00.BD.0110": [
+        "nonelt"
+    ],
+    "C00.BD.0120": [
+        "nonelt"
+    ],
+    "C00.BE.0010": [
+        "nonelt"
+    ],
+    "C00.BE.0020": [
+        "nonelt"
+    ],
+    "C00.BF.0010": [
+        "nonelt"
+    ],
+    "C00.BF.0020": [
+        "nonelt"
+    ],
+    "C00.BF.0030": [
+        "nonelt"
+    ],
+    "C00.BG.0010": [
+        "nonelt"
+    ],
+    "C00.BG.0020": [
+        "nonelt"
+    ],
+    "C00.BH.0010": [
+        "nonelt"
+    ],
+    "C00.BH.0020": [
+        "nonelt"
+    ],
+    "C00.BI.0010": [
+        "nonelt"
+    ],
+    "C00.BI.0030": [
+        "nonelt"
+    ],
+    "C00.BI.0040": [
+        "nonelt"
+    ],
+    "C00.BI.0050": [
+        "nonelt"
+    ],
+    "C00.BI.0060": [
+        "nonelt"
+    ],
+    "C00.BI.0070": [
+        "nonelt"
+    ],
+    "C00.BI.0080": [
+        "nonelt"
+    ],
+    "C00.BI.0090": [
+        "nonelt"
+    ],
+    "C00.BI.0100": [
+        "nonelt"
+    ],
+    "C00.BI.0110": [
+        "nonelt"
+    ],
+    "C00.RE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RN.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RN.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RO.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RP.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RQ.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RR.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RS.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.RT.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C00.XD.0010": [
+        "nonelt"
+    ],
+    "C00.XD.0020": [
+        "nonelt"
+    ],
+    "C00.XE.0010": [
+        "nonelt"
+    ],
+    "C00.XE.0030": [
+        "nonelt"
+    ],
+    "C01.AA.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0031": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0051": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0052": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0053": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0054": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0055": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0056": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0057": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0058": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0059": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AE.0030": [
+        "nonelt"
+    ],
+    "C01.AF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AF.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.AK.0011": [
+        "nonelt",
+        "or"
+    ],
+    "C01.EG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.EG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C01.FF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C01.GD.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C01.GD.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C01.GF.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C01.MA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C01.MA.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C01.PA.0200": [
+        "nonelt"
+    ],
+    "C01.RA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RA.0031": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RA.0032": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RA.0033": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0061": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0062": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0063": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0064": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0065": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0066": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0067": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0068": [
+        "nonelt",
+        "or"
+    ],
+    "C01.RC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AK.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AK.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AK.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AK.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AK.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AL.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AL.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C02.AL.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CF.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CG.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CG.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CG.Z001": [
+        "or"
+    ],
+    "C02.CG.Z002": [
+        "or"
+    ],
+    "C02.CG.Z003": [
+        "or"
+    ],
+    "C02.CG.Z004": [
+        "or"
+    ],
+    "C02.CK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CK.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CL.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CM.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CN.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CO.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CO.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CO.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CO.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0091": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CP.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CQ.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CQ.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C02.CQ.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C02.KE.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0161": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AC.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.AH.0010": [
+        "nonelt"
+    ],
+    "C03.AI.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GB.0250": [
+        "nonelt"
+    ],
+    "C03.GC.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GC.0200": [
+        "nonelt"
+    ],
+    "C03.GD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0060": [
+        "nonelt"
+    ],
+    "C03.GD.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0101": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0270": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GD.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0020": [
+        "nonelt"
+    ],
+    "C03.GE.0030": [
+        "nonelt"
+    ],
+    "C03.GE.0040": [
+        "nonelt"
+    ],
+    "C03.GE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0070": [
+        "nonelt"
+    ],
+    "C03.GE.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0270": [
+        "nonelt"
+    ],
+    "C03.GE.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0320": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0330": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0350": [
+        "nonelt"
+    ],
+    "C03.GE.0360": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0370": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0390": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0400": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GE.0410": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GF.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0021": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0022": [
+        "nonelt"
+    ],
+    "C03.GG.0023": [
+        "nonelt"
+    ],
+    "C03.GG.0030": [
+        "nonelt"
+    ],
+    "C03.GG.0040": [
+        "nonelt"
+    ],
+    "C03.GG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0060": [
+        "nonelt"
+    ],
+    "C03.GG.0070": [
+        "nonelt"
+    ],
+    "C03.GG.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0081": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0082": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0083": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0091": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0101": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GG.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GH.0110": [
+        "or"
+    ],
+    "C03.GI.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GI.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GI.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GI.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GI.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GI.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0031": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GJ.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GK.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GK.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GL.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GL.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GL.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GL.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GM.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C03.GN.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C03.KE.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C04.GC.0020": [
+        "nonelt"
+    ],
+    "C04.GC.0120": [
+        "nonelt"
+    ],
+    "C04.GD.0010": [
+        "nonelt"
+    ],
+    "C04.GD.0020": [
+        "nonelt"
+    ],
+    "C04.GD.0030": [
+        "nonelt"
+    ],
+    "C04.GF.0060": [
+        "nonelt"
+    ],
+    "C04.MA.0010": [
+        "nonelt"
+    ],
+    "C04.MA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C04.MA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C04.MA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GB.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0051": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0052": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GC.0081": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.GF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KD.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KE.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KF.0010": [
+        "nonelt"
+    ],
+    "C05.KG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C05.KG.0170": [
+        "nonelt"
+    ],
+    "C05.KH.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RD.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RD.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RD.Z001": [
+        "or"
+    ],
+    "C05.RD.Z003": [
+        "or"
+    ],
+    "C05.RE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RH.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RI.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RJ.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RJ.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RL.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RL.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RM.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C05.RM.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CB.0011": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CB.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CG.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CH.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CI.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0270": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0350": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0400": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0460": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0500": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0520": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0570": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0640": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0710": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0720": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0730": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0750": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0780": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0790": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0800": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0820": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0830": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0880": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0890": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0900": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0920": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.0930": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.1040": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.1050": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.1160": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.1170": [
+        "nonelt",
+        "or"
+    ],
+    "C06.CK.1180": [
+        "nonelt",
+        "or"
+    ],
+    "C07.AB.0010": [
+        "nonelt"
+    ],
+    "C07.AB.0040": [
+        "nonelt"
+    ],
+    "C07.AB.0050": [
+        "nonelt"
+    ],
+    "C07.AB.0060": [
+        "nonelt"
+    ],
+    "C07.AB.0070": [
+        "nonelt"
+    ],
+    "C07.AB.0080": [
+        "nonelt"
+    ],
+    "C07.AB.0090": [
+        "nonelt"
+    ],
+    "C07.AG.0010": [
+        "nonelt"
+    ],
+    "C07.CK.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0320": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0330": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0360": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0370": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0380": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0390": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0410": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0420": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0430": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0440": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0450": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0470": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0480": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0490": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0510": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0530": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0540": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0550": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0560": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0580": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0590": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0600": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0610": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0620": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0630": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0650": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0660": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0670": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0680": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0690": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0700": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0740": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0760": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0770": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0810": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0840": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0850": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0860": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0870": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0910": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0930": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0940": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0950": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0960": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0970": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0980": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.0990": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1000": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1010": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1020": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1030": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1060": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1070": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1080": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1090": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1100": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1110": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1120": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1130": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1140": [
+        "nonelt",
+        "or"
+    ],
+    "C07.CK.1150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0010": [
+        "nonelt"
+    ],
+    "C08.AA.0020": [
+        "nonelt"
+    ],
+    "C08.AA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0080": [
+        "nonelt"
+    ],
+    "C08.AA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AA.0100": [
+        "nonelt"
+    ],
+    "C08.AA.0110": [
+        "nonelt"
+    ],
+    "C08.AA.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AC.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AD.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AE.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AG.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AH.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AI.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AJ.0010": [
+        "or"
+    ],
+    "C08.AL.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AL.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AL.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.AL.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0010": [
+        "nonelt"
+    ],
+    "C08.BA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BA.Z001": [
+        "or"
+    ],
+    "C08.BA.Z002": [
+        "or"
+    ],
+    "C08.BB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.BB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.CB.0090": [
+        "nonelt"
+    ],
+    "C08.CB.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0010": [
+        "nonelt"
+    ],
+    "C08.DA.0020": [
+        "nonelt"
+    ],
+    "C08.DA.0030": [
+        "nonelt"
+    ],
+    "C08.DA.0031": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0040": [
+        "nonelt"
+    ],
+    "C08.DA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0070": [
+        "nonelt"
+    ],
+    "C08.DA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DA.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.DC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EA.0010": [
+        "nonelt"
+    ],
+    "C08.EA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.EC.0130": [
+        "nonelt"
+    ],
+    "C08.EC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0030": [
+        "nonelt"
+    ],
+    "C08.FA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0070": [
+        "nonelt"
+    ],
+    "C08.FA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0120": [
+        "nonelt"
+    ],
+    "C08.FA.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FA.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0081": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.FC.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0091": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0092": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0151": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GC.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0020": [
+        "nonelt"
+    ],
+    "C08.GD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GD.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GE.0010": [
+        "nonelt"
+    ],
+    "C08.GE.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.GG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.HB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KA.0010": [
+        "nonelt"
+    ],
+    "C08.KA.0020": [
+        "nonelt"
+    ],
+    "C08.KB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KD.Z001": [
+        "or"
+    ],
+    "C08.KD.Z002": [
+        "or"
+    ],
+    "C08.KF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.KF.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0020": [
+        "nonelt"
+    ],
+    "C08.LA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0110": [
+        "nonelt"
+    ],
+    "C08.LA.0120": [
+        "nonelt"
+    ],
+    "C08.LA.0130": [
+        "nonelt"
+    ],
+    "C08.LA.0140": [
+        "nonelt"
+    ],
+    "C08.LA.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LA.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LB.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.LC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0070": [
+        "nonelt"
+    ],
+    "C08.MC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.MD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.ME.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.ME.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0030": [
+        "nonelt"
+    ],
+    "C08.NA.0040": [
+        "nonelt"
+    ],
+    "C08.NA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NC.0040": [
+        "nonelt"
+    ],
+    "C08.NC.0050": [
+        "nonelt"
+    ],
+    "C08.NC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.ND.0010": [
+        "nonelt"
+    ],
+    "C08.ND.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.ND.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.ND.0040": [
+        "nonelt"
+    ],
+    "C08.ND.0050": [
+        "nonelt"
+    ],
+    "C08.ND.0070": [
+        "nonelt"
+    ],
+    "C08.NE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NE.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.NG.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PA.0010": [
+        "nonelt"
+    ],
+    "C08.PA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PA.0030": [
+        "nonelt"
+    ],
+    "C08.PA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PA.0041": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PA.0050": [
+        "nonelt"
+    ],
+    "C08.PA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PC.0020": [
+        "nonelt"
+    ],
+    "C08.PC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PC.0060": [
+        "nonelt"
+    ],
+    "C08.PC.0070": [
+        "nonelt"
+    ],
+    "C08.PC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.PF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QA.0010": [
+        "nonelt"
+    ],
+    "C08.QA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0010": [
+        "nonelt"
+    ],
+    "C08.QB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0040": [
+        "nonelt"
+    ],
+    "C08.QB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QD.0010": [
+        "nonelt"
+    ],
+    "C08.QD.0020": [
+        "nonelt"
+    ],
+    "C08.QD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QE.Z001": [
+        "or"
+    ],
+    "C08.QF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QF.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QG.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QH.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.QI.0010": [
+        "nonelt"
+    ],
+    "C08.QI.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.RA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.RA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.RA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.RC.0020": [
+        "nonelt"
+    ],
+    "C08.SA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0011": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0320": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0330": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0350": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0360": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0370": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0380": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0390": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0400": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0410": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0420": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0430": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0440": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0450": [
+        "nonelt"
+    ],
+    "C08.SA.0460": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0470": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0480": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0490": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0500": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0510": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0520": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0530": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0540": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0550": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0560": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0570": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0580": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0590": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0600": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0610": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0620": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0630": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0640": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0650": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0660": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0670": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0680": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0700": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0720": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0730": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0740": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0750": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0760": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0770": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0780": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0790": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0810": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0820": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0830": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0840": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0860": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0870": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0880": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0890": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0900": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0910": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0920": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0930": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0940": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0950": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0960": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0970": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0980": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.0990": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1000": [
+        "nonelt"
+    ],
+    "C08.SA.1010": [
+        "nonelt"
+    ],
+    "C08.SA.1020": [
+        "nonelt"
+    ],
+    "C08.SA.1030": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1040": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1050": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1060": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1070": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1080": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1090": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1100": [
+        "nonelt"
+    ],
+    "C08.SA.1110": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1120": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1130": [
+        "nonelt"
+    ],
+    "C08.SA.1140": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1150": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1160": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1170": [
+        "nonelt"
+    ],
+    "C08.SA.1180": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1190": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1200": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1210": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1220": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1230": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1240": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1250": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1260": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1270": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1280": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1300": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1310": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1320": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1330": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1380": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1390": [
+        "nonelt"
+    ],
+    "C08.SA.1400": [
+        "nonelt",
+        "or"
+    ],
+    "C08.SA.1410": [
+        "nonelt"
+    ],
+    "C08.SA.1420": [
+        "nonelt"
+    ],
+    "C08.SA.1430": [
+        "nonelt"
+    ],
+    "C08.SA.1440": [
+        "or"
+    ],
+    "C08.SA.1450": [
+        "or"
+    ],
+    "C09.AB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AB.0100": [
+        "nonelt"
+    ],
+    "C09.AC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0140": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0170": [
+        "nonelt",
+        "or"
+    ],
+    "C09.AC.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C09.CJ.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.CJ.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.CK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.GB.0130": [
+        "nonelt"
+    ],
+    "C09.KD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KD.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KD.0091": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0250": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0270": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0311": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0312": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0320": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0330": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0340": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0350": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0360": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0370": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0380": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0390": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0400": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0410": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0420": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0430": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0440": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0450": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0460": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0470": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0480": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0490": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0500": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0510": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0520": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0530": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0540": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0550": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0560": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0570": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0580": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0590": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0600": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0620": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KE.0630": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0160": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0190": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0210": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0330": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0350": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0360": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0380": [
+        "nonelt",
+        "or"
+    ],
+    "C09.KF.0400": [
+        "nonelt"
+    ],
+    "C09.KF.0410": [
+        "nonelt"
+    ],
+    "C09.KF.0420": [
+        "nonelt"
+    ],
+    "C09.KF.0430": [
+        "nonelt"
+    ],
+    "C09.KF.0440": [
+        "nonelt"
+    ],
+    "C09.KF.0450": [
+        "nonelt"
+    ],
+    "C09.KH.0090": [
+        "nonelt"
+    ],
+    "C09.MA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MA.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MB.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MB.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MB.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C09.MD.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C09.ME.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C10.GN.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C10.GN.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EA.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EB.0030": [
+        "nonelt"
+    ],
+    "C11.EB.0031": [
+        "nonelt"
+    ],
+    "C11.EB.0130": [
+        "nonelt"
+    ],
+    "C11.EB.0140": [
+        "nonelt"
+    ],
+    "C11.EB.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EB.0160": [
+        "nonelt"
+    ],
+    "C11.EB.0230": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EB.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EC.0010": [
+        "nonelt"
+    ],
+    "C11.EC.0020": [
+        "nonelt"
+    ],
+    "C11.EC.0030": [
+        "nonelt"
+    ],
+    "C11.EC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EC.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EC.0060": [
+        "or"
+    ],
+    "C11.EC.0070": [
+        "or"
+    ],
+    "C11.ED.0020": [
+        "nonelt"
+    ],
+    "C11.ED.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C11.ED.0040": [
+        "nonelt"
+    ],
+    "C11.ED.0050": [
+        "nonelt"
+    ],
+    "C11.ED.0060": [
+        "nonelt"
+    ],
+    "C11.ED.0070": [
+        "nonelt"
+    ],
+    "C11.ED.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EF.0010": [
+        "nonelt"
+    ],
+    "C11.EF.0020": [
+        "nonelt"
+    ],
+    "C11.EF.0030": [
+        "nonelt"
+    ],
+    "C11.EF.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EF.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EF.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EG.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EG.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EG.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C11.EK.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C11.GH.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C11.GH.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C11.GH.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C11.KE.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0020": [
+        "nonelt"
+    ],
+    "C12.EA.0030": [
+        "nonelt"
+    ],
+    "C12.EA.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0100": [
+        "nonelt"
+    ],
+    "C12.EA.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0111": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0140": [
+        "nonelt"
+    ],
+    "C12.EA.0150": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0180": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0200": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0220": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0240": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0250": [
+        "nonelt"
+    ],
+    "C12.EA.0260": [
+        "nonelt"
+    ],
+    "C12.EA.0270": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0280": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0290": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0300": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0310": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EA.0320": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EB.0260": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EE.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EE.0020": [
+        "nonelt"
+    ],
+    "C12.EE.0030": [
+        "nonelt"
+    ],
+    "C12.EE.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EE.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C12.EE.0060": [
+        "nonelt"
+    ],
+    "C12.EF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C13.DB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GB.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GB.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GB.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0011": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0012": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0013": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0014": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0015": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0080": [
+        "nonelt"
+    ],
+    "C13.GC.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GC.0130": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GE.0010": [
+        "nonelt"
+    ],
+    "C13.GE.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GE.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GE.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GE.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GE.0120": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GF.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GG.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GI.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C13.GI.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C14.AE.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C14.AF.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C14.AF.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C14.GB.0020": [
+        "nonelt"
+    ],
+    "C14.GB.0030": [
+        "nonelt"
+    ],
+    "C14.GD.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C14.GD.0090": [
+        "nonelt",
+        "or"
+    ],
+    "C14.GD.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C14.GD.0110": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KB.0070": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KB.0080": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KB.0100": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KD.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KD.0030": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KD.0040": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KD.0050": [
+        "nonelt",
+        "or"
+    ],
+    "C14.KD.0060": [
+        "nonelt",
+        "or"
+    ],
+    "C23.GC.0010": [
+        "nonelt",
+        "or"
+    ],
+    "C23.GC.0020": [
+        "nonelt",
+        "or"
+    ],
+    "C90.AF.0010": [
+        "nonelt"
+    ],
+    "WA.10.0010": [
+        "anast"
+    ],
+    "WA.10.0020": [
+        "anast"
+    ],
+    "WA.10.0030": [
+        "anast"
+    ],
+    "WA.10.0040": [
+        "anast"
+    ],
+    "WA.10.0050": [
+        "anast"
+    ]
+}

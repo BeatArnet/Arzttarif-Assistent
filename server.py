@@ -1333,6 +1333,13 @@ TARDOC_TARIF_PATH = DATA_DIR / "TARDOC_Tarifpositionen.json"
 TARDOC_INTERP_PATH = DATA_DIR / "TARDOC_Interpretationen.json"
 PAUSCHALE_LP_PATH = DATA_DIR / "PAUSCHALEN_Leistungspositionen.json"
 PAUSCHALEN_PATH = DATA_DIR / "PAUSCHALEN_Pauschalen.json"
+PAUSCHALEN_TABELLEN_PRECISE_MAP_PATH = DATA_DIR / "PAUSCHALEN_Tabellen_precise_map.json"
+PAUSCHALEN_TABELLEN_BROAD_MAP_PATH = DATA_DIR / "PAUSCHALEN_Tabellen_broad_map.json"
+PAUSCHALEN_COND_TABLE_PRECISE_PATH = DATA_DIR / "Pauschale_cond_table_precise.json"
+PAUSCHALEN_COND_TABLE_BROAD_PATH = DATA_DIR / "Pauschale_cond_table_broad.json"
+LKN_TO_TABLES_PRECISE_PATH = DATA_DIR / "lkn_to_tables_precise.json"
+LKN_TO_TABLES_BROAD_PATH = DATA_DIR / "lkn_to_tables_broad.json"
+PAUSCHALEN_INDICES_META_PATH = DATA_DIR / "pauschalen_indices_meta.json"
 PAUSCHALE_BED_PATH = DATA_DIR / "PAUSCHALEN_Bedingungen.json"
 TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
@@ -1469,6 +1476,8 @@ class DetermineApplicablePauschaleType(Protocol):
         pauschale_cond_table_index: Mapping[str, Set[str]],
         lkn_to_tables_index: Mapping[str, List[str]],
         potential_pauschale_codes_set: Optional[Set[str]] = ...,
+        potential_pauschale_precise_input: Optional[Set[str]] = ...,
+        potential_pauschale_broad_input: Optional[Set[str]] = ...,
         lang: str = ...,
         prepared_structures: Optional[Dict[str, Any]] = ...,
     ) -> Dict[str, Any]:
@@ -1541,6 +1550,8 @@ def default_determine_applicable_pauschale_fallback(
     pauschale_cond_table_index: Mapping[str, Set[str]],
     lkn_to_tables_index: Mapping[str, List[str]],
     potential_pauschale_codes_set: Optional[Set[str]] = None,
+    potential_pauschale_precise_input: Optional[Set[str]] = None,
+    potential_pauschale_broad_input: Optional[Set[str]] = None,
     lang: str = 'de',
     prepared_structures: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -1556,6 +1567,16 @@ def prepare_tardoc_abrechnung_fallback(
     """Fallback für prepare_tardoc_abrechnung, falls Regelprüfer-Modul fehlt."""
     logger.warning("Fallback für 'prepare_tardoc_abrechnung' aktiv.")
     return {"type": "Error", "message": "TARDOC-Abrechnungsaufbereitung nicht verfügbar (Fallback)"}
+
+# Fallback für Hilfsfunktion aus regelpruefer_pauschale
+def is_pauschale_code_ge_c90(code: Optional[str]) -> bool:
+    """Erkenne C9x-Fallback-Pauschalen; Fallback-Implementierung wenn Modul nicht geladen ist."""
+    if not code:
+        return False
+    try:
+        return str(code).upper().startswith("C9")
+    except Exception:
+        return False
 
 # --- Initialisiere Funktionsvariablen mit Fallbacks ---
 evaluate_structured_conditions: EvaluateStructuredConditionsType = default_evaluate_fallback
@@ -1628,6 +1649,8 @@ try:
         logger.error(
             "FEHLER: 'determine_applicable_pauschale' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv."
         )
+    if rpp_module and hasattr(rpp_module, 'is_pauschale_code_ge_c90'):
+        is_pauschale_code_ge_c90 = rpp_module.is_pauschale_code_ge_c90  # type: ignore[attr-defined]
 
 except ImportError as e_imp:
     logger.error(
@@ -1649,6 +1672,14 @@ regelwerk_dict: dict[str, list] = {} # Annahme: lade_regelwerk gibt List[RegelDi
 tardoc_tarif_dict: dict[str, dict] = {}
 tardoc_interp_dict: dict[str, dict] = {}
 tardoc_demographic_cache: dict[str, Dict[str, Any]] = {}
+BROAD_TABLES_DEFAULT: Set[str] = {"or", "elt", "nonelt", "anast"}
+broad_table_names: Set[str] = set(BROAD_TABLES_DEFAULT)
+precomputed_table_map_precise: Dict[str, List[str]] = {}
+precomputed_table_map_broad: Dict[str, List[str]] = {}
+precomputed_pauschale_cond_table_precise: Dict[str, List[str]] = {}
+precomputed_pauschale_cond_table_broad: Dict[str, List[str]] = {}
+precomputed_lkn_tables_precise: Dict[str, List[str]] = {}
+precomputed_lkn_tables_broad: Dict[str, List[str]] = {}
 pauschale_lp_data: list[dict] = []
 pauschale_lp_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> LKNs (LP-Zuordnung)
 pauschale_lp_index_by_lkn: DefaultDict[str, Set[str]] = defaultdict(set)  # LKN -> Pauschalen (abgeleitet)
@@ -1659,8 +1690,14 @@ pauschale_cond_lkn_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pausc
 pauschale_cond_lkn_index_by_lkn: DefaultDict[str, Set[str]] = defaultdict(set)  # LKN -> Pauschalen (Bedingungen)
 pauschale_cond_table_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> Tabellen-Bedingungen
 pauschale_cond_table_index_by_table: DefaultDict[str, Set[str]] = defaultdict(set)  # Tabelle -> Pauschalen
+pauschale_cond_table_index_precise: DefaultDict[str, Set[str]] = defaultdict(set)
+pauschale_cond_table_index_broad: DefaultDict[str, Set[str]] = defaultdict(set)
+pauschale_cond_table_index_by_table_precise: DefaultDict[str, Set[str]] = defaultdict(set)
+pauschale_cond_table_index_by_table_broad: DefaultDict[str, Set[str]] = defaultdict(set)
 tabellen_data: list[dict] = []
 tabellen_dict_by_table: dict[str, list[dict]] = {}
+lkn_to_tables_index_precise: DefaultDict[str, List[str]] = defaultdict(list)
+lkn_to_tables_index_broad: DefaultDict[str, List[str]] = defaultdict(list)
 medication_entries: list[dict[str, Any]] = []
 medication_lookup_by_token: dict[str, Set[str]] = {}
 pauschale_bedingungen_indexed: Dict[str, List[Dict[str, Any]]] = {}
@@ -1877,19 +1914,164 @@ def _reset_data_containers() -> None:
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
     lkn_to_tables_index.clear()
+    lkn_to_tables_index_precise.clear(); lkn_to_tables_index_broad.clear()
+    precomputed_table_map_precise.clear(); precomputed_table_map_broad.clear()
+    precomputed_pauschale_cond_table_precise.clear(); precomputed_pauschale_cond_table_broad.clear()
+    precomputed_lkn_tables_precise.clear(); precomputed_lkn_tables_broad.clear()
+    broad_table_names.clear(); broad_table_names.update(BROAD_TABLES_DEFAULT)
     pauschale_lp_index.clear()
     pauschale_lp_index_by_lkn.clear()
     pauschale_cond_lkn_index.clear()
     pauschale_cond_lkn_index_by_lkn.clear()
     pauschale_cond_table_index.clear()
     pauschale_cond_table_index_by_table.clear()
+    pauschale_cond_table_index_precise.clear(); pauschale_cond_table_index_broad.clear()
+    pauschale_cond_table_index_by_table_precise.clear(); pauschale_cond_table_index_by_table_broad.clear()
     token_doc_freq.clear()
     chop_data.clear()
 
 
+def _load_precomputed_pauschalen_indices() -> None:
+    """Lädt optionale, vorab berechnete Pauschalen-Indizes (Broad/Precise-Splits)."""
+
+    def _load_json_map(path: Path, description: str) -> Dict[str, Any]:
+        if not path.is_file():
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                logger.info("  ✓ Vorberechnete %s geladen (%s Einträge).", description, len(data))
+                return data
+            logger.warning("  WARNUNG: %s ist keine Dict-Struktur (%s).", description, path)
+        except Exception as exc:
+            logger.warning("  WARNUNG: %s konnte nicht geladen werden (%s).", description, exc)
+        return {}
+
+    global broad_table_names
+    if PAUSCHALEN_INDICES_META_PATH.is_file():
+        try:
+            with open(PAUSCHALEN_INDICES_META_PATH, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            meta_broad = meta.get("broad_tables")
+            if isinstance(meta_broad, list):
+                normalized = {str(t).strip().lower() for t in meta_broad if str(t).strip()}
+                if normalized:
+                    broad_table_names = normalized
+                    logger.info("  ✓ Broad-Tabellen aus Meta übernommen: %s", sorted(broad_table_names))
+        except Exception as exc:
+            logger.warning("  WARNUNG: Meta-Datei für vorberechnete Indizes konnte nicht gelesen werden: %s", exc)
+
+    precomputed_table_map_precise.update(_load_json_map(PAUSCHALEN_TABELLEN_PRECISE_MAP_PATH, "Tabellen->Pauschalen (präzise)"))
+    precomputed_table_map_broad.update(_load_json_map(PAUSCHALEN_TABELLEN_BROAD_MAP_PATH, "Tabellen->Pauschalen (breit)"))
+    precomputed_pauschale_cond_table_precise.update(_load_json_map(PAUSCHALEN_COND_TABLE_PRECISE_PATH, "Pauschale->Tabellen (präzise)"))
+    precomputed_pauschale_cond_table_broad.update(_load_json_map(PAUSCHALEN_COND_TABLE_BROAD_PATH, "Pauschale->Tabellen (breit)"))
+    precomputed_lkn_tables_precise.update(_load_json_map(LKN_TO_TABLES_PRECISE_PATH, "LKN->Tabellen (präzise)"))
+    precomputed_lkn_tables_broad.update(_load_json_map(LKN_TO_TABLES_BROAD_PATH, "LKN->Tabellen (breit)"))
+
+
+def _populate_lkn_table_splits() -> None:
+    """Befüllt LKN->Tabellen-Splits aus vorberechneten Daten oder über Broad-Liste."""
+    lkn_to_tables_index_precise.clear()
+    lkn_to_tables_index_broad.clear()
+
+    if precomputed_lkn_tables_precise or precomputed_lkn_tables_broad:
+        for lkn, tables in precomputed_lkn_tables_precise.items():
+            norm_lkn = str(lkn).strip().upper()
+            if not norm_lkn:
+                continue
+            lkn_to_tables_index_precise[norm_lkn] = [str(t).strip().lower() for t in tables if str(t).strip()]
+        for lkn, tables in precomputed_lkn_tables_broad.items():
+            norm_lkn = str(lkn).strip().upper()
+            if not norm_lkn:
+                continue
+            lkn_to_tables_index_broad[norm_lkn] = [str(t).strip().lower() for t in tables if str(t).strip()]
+        logger.info(
+            "  ✓ LKN->Tabellen Splits aus vorberechneten Dateien geladen (präzise: %s, breit: %s).",
+            len(lkn_to_tables_index_precise),
+            len(lkn_to_tables_index_broad),
+        )
+        return
+
+    for lkn, tables in lkn_to_tables_index.items():
+        norm_lkn = str(lkn).strip().upper()
+        if not norm_lkn:
+            continue
+        for table_name in tables:
+            norm_table = str(table_name).strip().lower()
+            if not norm_table:
+                continue
+            target = lkn_to_tables_index_broad if norm_table in broad_table_names else lkn_to_tables_index_precise
+            target[norm_lkn].append(norm_table)
+    if lkn_to_tables_index_precise or lkn_to_tables_index_broad:
+        logger.info(
+            "  ✓ LKN->Tabellen Splits zur Laufzeit erzeugt (präzise: %s, breit: %s).",
+            len(lkn_to_tables_index_precise),
+            len(lkn_to_tables_index_broad),
+        )
+
+
+def _populate_pauschale_table_splits() -> None:
+    """Befüllt Pauschale-Tabellen-Splits aus vorberechneten Daten oder über Broad-Liste."""
+    pauschale_cond_table_index_precise.clear()
+    pauschale_cond_table_index_broad.clear()
+    pauschale_cond_table_index_by_table_precise.clear()
+    pauschale_cond_table_index_by_table_broad.clear()
+
+    def _add_mapping(target_pc_map: DefaultDict[str, Set[str]], target_table_map: DefaultDict[str, Set[str]], table_name: str, pauschale_code: str) -> None:
+        norm_table = str(table_name).strip().lower()
+        norm_pc = str(pauschale_code).strip()
+        if norm_table and norm_pc:
+            target_pc_map[norm_pc].add(norm_table)
+            target_table_map[norm_table].add(norm_pc)
+
+    if precomputed_table_map_precise or precomputed_table_map_broad:
+        for table_name, pauschalen_list in precomputed_table_map_precise.items():
+            for pc in pauschalen_list or []:
+                _add_mapping(pauschale_cond_table_index_precise, pauschale_cond_table_index_by_table_precise, table_name, pc)
+        for table_name, pauschalen_list in precomputed_table_map_broad.items():
+            for pc in pauschalen_list or []:
+                _add_mapping(pauschale_cond_table_index_broad, pauschale_cond_table_index_by_table_broad, table_name, pc)
+        logger.info(
+            "  ✓ Pauschale-Tabellen Splits aus vorberechneten Tabellen-Maps geladen (präzise Tabellen: %s, breite Tabellen: %s).",
+            len(pauschale_cond_table_index_by_table_precise),
+            len(pauschale_cond_table_index_by_table_broad),
+        )
+        return
+
+    if precomputed_pauschale_cond_table_precise or precomputed_pauschale_cond_table_broad:
+        for pc, tables in precomputed_pauschale_cond_table_precise.items():
+            for table_name in tables or []:
+                _add_mapping(pauschale_cond_table_index_precise, pauschale_cond_table_index_by_table_precise, table_name, pc)
+        for pc, tables in precomputed_pauschale_cond_table_broad.items():
+            for table_name in tables or []:
+                _add_mapping(pauschale_cond_table_index_broad, pauschale_cond_table_index_by_table_broad, table_name, pc)
+        logger.info(
+            "  ✓ Pauschale-Tabellen Splits aus vorberechneten Pauschale->Tabellen-Dateien geladen (präzise: %s, breit: %s).",
+            len(pauschale_cond_table_index_precise),
+            len(pauschale_cond_table_index_broad),
+        )
+        return
+
+    # Fallback: Split aus vorhandenen Gesamt-Indizes
+    for pauschale_code, tables in pauschale_cond_table_index.items():
+        for table_name in tables:
+            if str(table_name).strip().lower() in broad_table_names:
+                _add_mapping(pauschale_cond_table_index_broad, pauschale_cond_table_index_by_table_broad, table_name, pauschale_code)
+            else:
+                _add_mapping(pauschale_cond_table_index_precise, pauschale_cond_table_index_by_table_precise, table_name, pauschale_code)
+
+    if pauschale_cond_table_index_precise or pauschale_cond_table_index_broad:
+        logger.info(
+            "  ✓ Pauschale-Tabellen Splits zur Laufzeit erzeugt (präzise: %s, breit: %s).",
+            len(pauschale_cond_table_index_precise),
+            len(pauschale_cond_table_index_broad),
+        )
+
 def _load_catalogs() -> bool:
     """Lädt Kern-JSONs (Kataloge, Tabellen etc.) und baut Grund-Lookups."""
     all_ok = True
+    _load_precomputed_pauschalen_indices()
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
         "PauschaleLP": (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None),
@@ -1959,6 +2141,7 @@ def _load_catalogs() -> bool:
                     if not_found_keys_check:
                          logger.error("  FEHLER: Kritische Tabellenschlüssel fehlen in tabellen_dict_by_table: %s!", not_found_keys_check)
                          all_ok = False
+                    _populate_lkn_table_splits()
             else:
                 logger.error("  FEHLER: %s-Datei nicht gefunden: %s", name, path)
                 if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "PauschaleBedingungen", "Tabellen"]:
@@ -1967,6 +2150,9 @@ def _load_catalogs() -> bool:
             logger.error("  FEHLER beim Laden/Verarbeiten von %s (%s): %s", name, path, e)
             all_ok = False
             traceback.print_exc()
+
+    if not lkn_to_tables_index_precise and not lkn_to_tables_index_broad and (precomputed_lkn_tables_precise or precomputed_lkn_tables_broad):
+        _populate_lkn_table_splits()
 
     try:
         tardoc_demographic_cache.clear()
@@ -2163,6 +2349,7 @@ def _build_indices(all_loaded_successfully: bool) -> bool:
             len(pauschale_cond_lkn_index),
             len(pauschale_cond_table_index),
         )
+    _populate_pauschale_table_splits()
 
     return all_loaded_successfully
 
@@ -4874,10 +5061,10 @@ def _get_tables_for_context_lkn(lkn: str) -> List[str]:
     normalized = str(lkn or "").strip().upper()
     return lkn_to_tables_index.get(normalized, [])
 
-
-def find_potential_pauschalen(lkn_codes: Set[str]) -> Set[str]:
-    """Liefert Pauschalen-Kandidaten basierend auf LKN- und Tabellen-Indizes."""
-    candidates: Set[str] = set()
+def find_potential_pauschalen_split(lkn_codes: Set[str]) -> tuple[Set[str], Set[str]]:
+    """Liefert (präzise, breit) Pauschalen-Kandidaten basierend auf LKN- und Tabellen-Indizes."""
+    precise_candidates: Set[str] = set()
+    broad_candidates: Set[str] = set()
     for raw_code in lkn_codes:
         if not isinstance(raw_code, str):
             continue
@@ -4885,14 +5072,39 @@ def find_potential_pauschalen(lkn_codes: Set[str]) -> Set[str]:
         if not lkn_code:
             continue
         if lkn_code in pauschale_lp_index_by_lkn:
-            candidates.update(pauschale_lp_index_by_lkn[lkn_code])
+            precise_candidates.update(pauschale_lp_index_by_lkn[lkn_code])
         if lkn_code in pauschale_cond_lkn_index_by_lkn:
-            candidates.update(pauschale_cond_lkn_index_by_lkn[lkn_code])
-        for table_name in _get_tables_for_context_lkn(lkn_code):
-            table_norm = str(table_name).lower()
-            if table_norm in pauschale_cond_table_index_by_table:
-                candidates.update(pauschale_cond_table_index_by_table[table_norm])
-    return {pc for pc in candidates if pc in pauschalen_dict}
+            precise_candidates.update(pauschale_cond_lkn_index_by_lkn[lkn_code])
+        tables_precise = lkn_to_tables_index_precise.get(lkn_code, [])
+        tables_broad = lkn_to_tables_index_broad.get(lkn_code, [])
+        used_split_tables = False
+        if tables_precise:
+            used_split_tables = True
+            for table_name in tables_precise:
+                table_norm = str(table_name).lower()
+                if table_norm in pauschale_cond_table_index_by_table_precise:
+                    precise_candidates.update(pauschale_cond_table_index_by_table_precise[table_norm])
+        if tables_broad:
+            used_split_tables = True
+            for table_name in tables_broad:
+                table_norm = str(table_name).lower()
+                if table_norm in pauschale_cond_table_index_by_table_broad:
+                    broad_candidates.update(pauschale_cond_table_index_by_table_broad[table_norm])
+        if not used_split_tables:
+            for table_name in _get_tables_for_context_lkn(lkn_code):
+                table_norm = str(table_name).lower()
+                if table_norm in pauschale_cond_table_index_by_table:
+                    precise_candidates.update(pauschale_cond_table_index_by_table[table_norm])
+    return (
+        {pc for pc in precise_candidates if pc in pauschalen_dict},
+        {pc for pc in broad_candidates if pc in pauschalen_dict},
+    )
+
+
+def find_potential_pauschalen(lkn_codes: Set[str]) -> Set[str]:
+    """Liefert Pauschalen-Kandidaten basierend auf LKN- und Tabellen-Indizes."""
+    precise, broad = find_potential_pauschalen_split(lkn_codes)
+    return precise.union(broad)
 
 def _determine_final_billing(
     rule_checked_leistungen_list: List[Dict[str, Any]],
@@ -4912,52 +5124,17 @@ def _determine_final_billing(
     llm_stage2_mapping_results: Dict[str, Any] = {"mapping_results": []}
 
     # Kandidaten aus Indizes (auch wenn keine P/PZ LKNs explizit vorhanden sind)
-    potential_pauschale_codes_set: Set[str] = set()
     regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')).upper() for l in rule_checked_leistungen_list if l.get('lkn')}
-    potential_pauschale_codes_set.update(find_potential_pauschalen(regelkonforme_lkn_codes_fuer_suche))
+    potential_pauschale_precise_set, potential_pauschale_broad_set = find_potential_pauschalen_split(regelkonforme_lkn_codes_fuer_suche)
 
-    if potential_pauschale_codes_set:
+    if potential_pauschale_precise_set or potential_pauschale_broad_set:
         logger.info(
-            "Pauschalenpotenzial aus Index-Treffern: %s",
-            potential_pauschale_codes_set,
+            "Pauschalenpotenzial aus Index-Treffern (präzise: %s, breit: %s)",
+            potential_pauschale_precise_set,
+            potential_pauschale_broad_set,
         )
 
-    # Zusätzliche Suche über vollständige Daten (Fallback zu Indizes)
-    for item_lp in pauschale_lp_data:
-        lkn_in_lp_db_val = item_lp.get('Leistungsposition')
-        if isinstance(lkn_in_lp_db_val, str) and lkn_in_lp_db_val.upper() in regelkonforme_lkn_codes_fuer_suche:
-            pc_code = item_lp.get('Pauschale')
-            if pc_code and str(pc_code) in pauschalen_dict:
-                potential_pauschale_codes_set.add(str(pc_code))
-
-    regelkonforme_lkns_in_tables_cache: Dict[str, Set[str]] = {}
-    for cond_data in pauschale_bedingungen_data:
-        pc_code_cond_val = cond_data.get('Pauschale')
-        if not (pc_code_cond_val and str(pc_code_cond_val) in pauschalen_dict):
-            continue
-        pc_code_cond = str(pc_code_cond_val)
-        bedingungstyp_cond_str = cond_data.get('Bedingungstyp', "").upper()
-        werte_cond_str = cond_data.get('Werte', "")
-        if bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-            werte_liste_cond_set = {w.strip().upper() for w in str(werte_cond_str).split(',') if w.strip()}
-            if not regelkonforme_lkn_codes_fuer_suche.isdisjoint(werte_liste_cond_set):
-                potential_pauschale_codes_set.add(pc_code_cond)
-        elif bedingungstyp_cond_str in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-            table_refs_cond_set = {t.strip().lower() for t in str(werte_cond_str).split(',') if t.strip()}
-            for lkn_regelkonform_raw in regelkonforme_lkn_codes_fuer_suche:
-                if isinstance(lkn_regelkonform_raw, str):
-                    lkn_regelkonform_str = lkn_regelkonform_raw
-                    if lkn_regelkonform_str not in regelkonforme_lkns_in_tables_cache:
-                        tables_for_lkn_set = set()
-                        for table_name_key_norm, table_entries_list in tabellen_dict_by_table.items():
-                            for entry_item in table_entries_list:
-                                if entry_item.get('Code', '').upper() == lkn_regelkonform_str and \
-                                   entry_item.get('Tabelle_Typ', '').lower() == "service_catalog":
-                                    tables_for_lkn_set.add(table_name_key_norm)
-                        regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str] = tables_for_lkn_set
-                    if not table_refs_cond_set.isdisjoint(regelkonforme_lkns_in_tables_cache[lkn_regelkonform_str]):
-                        potential_pauschale_codes_set.add(pc_code_cond)
-                        break
+    potential_pauschale_codes_set: Set[str] = potential_pauschale_precise_set.union(potential_pauschale_broad_set)
 
     logger.debug(
         "DEBUG: %s potenzielle Pauschalen für Mapping/Prüfung gefunden: %s",
@@ -4971,7 +5148,7 @@ def _determine_final_billing(
         return finale_abrechnung_obj, llm_stage2_mapping_results
 
     mapping_candidate_lkns_dict = get_LKNs_from_pauschalen_conditions(
-        potential_pauschale_codes_set, pauschale_bedingungen_data,
+        potential_pauschale_precise_set, pauschale_bedingungen_data,
         tabellen_dict_by_table, leistungskatalog_dict)
 
     tardoc_lkns_to_map_list = [l for l in rule_checked_leistungen_list if l.get('typ') in ['E', 'EZ']]
@@ -5100,12 +5277,17 @@ def _determine_final_billing(
 
     # --- OPTIMIERUNG: Index-basierte Suche statt linearer Scan ---
     erweiterte_lkn_suchmenge = {str(l).upper() for l in final_lkn_context_for_pauschale_set}
-    neu_gefundene_codes = find_potential_pauschalen(erweiterte_lkn_suchmenge)
-    if neu_gefundene_codes:
-        potential_pauschale_codes_set.update(neu_gefundene_codes)
+    neu_precise, neu_broad = find_potential_pauschalen_split(erweiterte_lkn_suchmenge)
+    if neu_precise:
+        potential_pauschale_precise_set.update(neu_precise)
+    if neu_broad:
+        potential_pauschale_broad_set.update(neu_broad)
+    potential_pauschale_codes_set = potential_pauschale_precise_set.union(potential_pauschale_broad_set)
     logger.debug(
-        "DEBUG: %s potenzielle Pauschalen nach erweiterter Suche: %s",
+        "DEBUG: %s potenzielle Pauschalen nach erweiterter Suche (präzise %s, breit %s): %s",
         len(potential_pauschale_codes_set),
+        len(potential_pauschale_precise_set),
+        len(potential_pauschale_broad_set),
         potential_pauschale_codes_set,
     )
 
@@ -5125,22 +5307,65 @@ def _determine_final_billing(
         "Anzahl": context.get("anzahl_fuer_pauschale_context"),
     }
     context["pauschale_haupt_pruef_kontext"] = pauschale_haupt_pruef_kontext
+    finale_abrechnung_obj = None
     try:
-        logger.info(f"Starte Pauschalen-Hauptprüfung (useIcd=%s)...", context.get("use_icd_flag"))
-        pauschale_pruef_ergebnis_dict = determine_applicable_pauschale_func(
-            user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
-            pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
-            leistungskatalog_dict, tabellen_dict_by_table,
-            pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
-            potential_pauschale_codes_set,
-            lang,
-            prepared_structures=prepared_structures # Pass pre-computed structures
-        )
-        finale_abrechnung_obj = pauschale_pruef_ergebnis_dict
-        if finale_abrechnung_obj.get("type") == "Pauschale":
+        eval_precise_set = set(potential_pauschale_precise_set)
+        eval_broad_additional = potential_pauschale_broad_set.difference(eval_precise_set)
+        # Broad-Kandidaten weiter eingrenzen: nur gleiche Stämme wie präzise oder C9x
+        def _same_subchapter(code_a: str, code_b: str) -> bool:
+            if not code_a or not code_b:
+                return False
+            match_a = re.match(r"^([A-Z]\d{2}\.\d{2})", str(code_a))
+            match_b = re.match(r"^([A-Z]\d{2}\.\d{2})", str(code_b))
+            if match_a and match_b:
+                return match_a.group(1).upper() == match_b.group(1).upper()
+            return str(code_a)[:4].upper() == str(code_b)[:4].upper()
+
+        if eval_precise_set and eval_broad_additional:
+            filtered_broad = set()
+            for code in eval_broad_additional:
+                if is_pauschale_code_ge_c90(code):
+                    filtered_broad.add(code)
+                elif any(_same_subchapter(code, ref) for ref in eval_precise_set):
+                    filtered_broad.add(code)
+            eval_broad_additional = filtered_broad
+        if eval_precise_set:
+            logger.info(
+                "Starte Pauschalen-Hauptprüfung (präzise Kandidaten: %s, useIcd=%s)...",
+                len(eval_precise_set),
+                context.get("use_icd_flag"),
+            )
+            finale_abrechnung_obj = determine_applicable_pauschale_func(
+                user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
+                pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                leistungskatalog_dict, tabellen_dict_by_table,
+                pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
+                eval_precise_set,
+                potential_pauschale_precise_input=eval_precise_set,
+                potential_pauschale_broad_input=set(),
+                lang=lang,
+                prepared_structures=prepared_structures # Pass pre-computed structures
+            )
+        if (not finale_abrechnung_obj or finale_abrechnung_obj.get("type") != "Pauschale") and eval_broad_additional:
+            logger.info(
+                "Keine anwendbare Pauschale aus präzisem Satz. Starte Broad-Fallback (zusätzlich %s Kandidaten).",
+                len(eval_broad_additional),
+            )
+            finale_abrechnung_obj = determine_applicable_pauschale_func(
+                user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
+                pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                leistungskatalog_dict, tabellen_dict_by_table,
+                pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
+                eval_precise_set.union(eval_broad_additional),
+                potential_pauschale_precise_input=eval_precise_set,
+                potential_pauschale_broad_input=eval_broad_additional,
+                lang=lang,
+                prepared_structures=prepared_structures # Pass pre-computed structures
+            )
+        if finale_abrechnung_obj and finale_abrechnung_obj.get("type") == "Pauschale":
             logger.info("Anwendbare Pauschale gefunden: %s", finale_abrechnung_obj.get('details', {}).get('Pauschale'))
         else:
-            logger.info("Keine anwendbare Pauschale. Grund: %s", finale_abrechnung_obj.get('message', 'Unbekannt'))
+            logger.info("Keine anwendbare Pauschale. Grund: %s", (finale_abrechnung_obj or {}).get('message', 'Unbekannt'))
     except Exception as e_pauschale_main:
         logger.error("Fehler bei Pauschalen-Hauptprüfung: %s", e_pauschale_main)
         traceback.print_exc()
@@ -5376,7 +5601,7 @@ def analyze_billing():
                     pauschale_cond_table_index,
                     lkn_to_tables_index,
                     potential_pauschale_codes_set,
-                    lang,
+                    lang=lang,
                     prepared_structures=None,
                 )
             except Exception as e:

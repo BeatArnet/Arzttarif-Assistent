@@ -48,6 +48,7 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
 3.  **Daten (`./data` Verzeichnis):**
     *   Die JSON-Datendateien (`LKAAT_Leistungskatalog.json`, `PAUSCHALEN_*.json`, `TARDOC_*.json` etc.) dienen als lokale Wissensbasis.
     *   **Wichtiger Hinweis:** Die JSON-Dateien werden direkt und ohne Umwege in diesem GitHub-Repository gespeichert und versioniert. Für grosse Dateien wird Git LFS verwendet.
+    *   Optional vorberechnete Pauschalen-Splits (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `pauschalen_indices_meta.json`) beschleunigen die Kandidatensuche; der Server lädt sie automatisch, sonst werden die Splits zur Laufzeit erzeugt.
 
 ## Technologie-Stack
 

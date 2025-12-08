@@ -443,7 +443,7 @@
           <li>Im HUD siehst du Level, Punkte, Leben sowie die Anzahl korrekt beantworteter Fragen.</li>
           <li>Du kannst das Quiz jederzeit über den „Quiz ✓/✗“-Button deaktivieren oder reaktivieren.</li>
         </ul>
-        <h3>questions.json erstellen</h3>
+        <h3>questions.js erstellen</h3>
         <ol>
           <li>Pflege den Fragenkatalog in <code>Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx</code> (Stichwort, Frage,
             Antwort_1‑3, Korrekte_Antwort).</li>
@@ -1390,6 +1390,29 @@
         soundManager.playGameOver(); // <‑ Klang
       }
 
+      function ensureReachableBricks(grid, rows, cols) {
+        // Avoid destroyable bricks being locked in by unbreakable neighbors.
+        const isUnbreakable = (b) => b && b.type === 'unbreakable';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const br = grid[r][c];
+            if (!br || br.type === 'unbreakable') continue;
+            const neighbors = [
+              r > 0 ? grid[r - 1][c] : null,
+              r < rows - 1 ? grid[r + 1][c] : null,
+              c > 0 ? grid[r][c - 1] : null,
+              c < cols - 1 ? grid[r][c + 1] : null
+            ];
+            if (neighbors.every(isUnbreakable)) {
+              const freed = choice(neighbors);
+              freed.type = 'normal';
+              freed.hp = 1;
+              freed.scoreValue = 50;
+            }
+          }
+        }
+      }
+
       function buildLevel(level) {
         game.bricks.length = 0;
         const cols = 10;
@@ -1398,6 +1421,7 @@
         const top = 70;
         const brickW = (WORLD.w - marginX * 2) / cols;
         const brickH = 28;
+        const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
             if (Math.random() < 0.07) continue;
@@ -1419,8 +1443,10 @@
             const b = new Brick(x, y, w, h, hp, type);
             if (type === 'moving') b.vy = rand(40, 90) * (Math.random() < 0.5 ? -1 : 1);
             game.bricks.push(b);
+            grid[r][c] = b;
           }
         }
+        ensureReachableBricks(grid, rows, cols);
       }
 
       function spawnBallOnPaddle() {

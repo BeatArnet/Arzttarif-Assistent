@@ -4,7 +4,14 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.4 (2025-12-01, aktuell)
+### V4.5 (2025-12-10, aktuell)
+- Aktualisierte Datenbasis vom 28.11.2025
+- Pauschalen-Kandidaten zweistufig: präzise Quellen (direkte LKN/Tabellen) werden zuerst geprüft, breite Tabellen (z. B. OR/NONELT/ANAST) nur noch als Fallback und nur, wenn sie zum gleichen Unterkapitel oder als C9x-Fallback passen.
+- Vorberechnete Pauschalen-Indizes unterstützt: optionale JSONs `PAUSCHALEN_Tabellen_precise_map.json`, `..._broad_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `pauschalen_indices_meta.json`; Server lädt sie automatisch und spart Laufzeit-Splitting.
+- Evaluierte Pauschalenliste gefiltert: UI zeigt nur noch die gewählte Pauschale, nah verwandte Codes (gleicher Stamm) sowie C9x-Fallbacks.
+- Fallback-Helfer ergänzt (`is_pauschale_code_ge_c90`) und Pylance-Warnungen zu neuen Parametern beseitigt.
+
+### V4.4 (2025-12-01)
 - Semantische Suche überarbeitet: Stage 1 kombiniert nun direkte LKN-Erkennung, gewichtete Schlüsselwortsuche und Embedding-Ranking (FAISS) und baut daraus den Prompt-Kontext; demografische Hinweise aus dem Freitext fliessen in die Kandidatenliste ein und erscheinen als Ranking-Liste im UI.
 - Patientenkontext: Alter/Geschlecht werden automatisch aus dem Text erkannt und mit den TARDOC-Metadaten (Min-/Max-Alter, Geschlechtereinschränkung) abgeglichen; passende Zuschläge werden dadurch auch ohne explizite LKN-Felder berücksichtigt.
 - Performance & Pauschalen: Regel- und Pauschalenprüfung nutzen vorberechnete Indizes und einen separaten Renderer; die Pipelines laufen dadurch merklich schneller.
