@@ -13,8 +13,11 @@ Hilfsskripte für Entwicklung und Operations
   - Parameter: `-DevPath`, `-ProdPath`, `-Branch`.
 
 - `clean_json.py`
-  - Entfernt Steuerzeichen aus JSON‑Dateien und schreibt `<name>.clean.json`.
+  - Entfernt Steuerzeichen aus JSON-Dateien und schreibt `<name>.clean.json`.
   - Nutzung: `python scripts/clean_json.py <pfad/zur/datei.json>`
+- `check_index.py`
+  - Prüft, ob `index.html` die erwarteten DOM-Hooks (`app-shell`, `top-info`) enthält.
+  - Nutzung: `python scripts/check_index.py`
 
 Hinweise
 - Skripte sind optional und verändern lokale Repositories/Dateien. Vor Ausführung Pfade/Parameter prüfen.

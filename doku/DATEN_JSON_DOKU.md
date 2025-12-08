@@ -49,6 +49,13 @@ Dieses Dokument beschreibt alle JSON-Dateien unter `data/`, ihren Inhalt, die je
 | `PAUSCHALEN_Leistungspositionen.json` | Liste von Objekten | 11 323 | `ID` | Zuordnung von Einzelleistungen zu Pauschalen |
 | `PAUSCHALEN_Bedingungen.json` | Liste von Objekten | 2 538 | `BedingungsID` | Bedingungslogik pro Pauschale |
 | `PAUSCHALEN_Tabellen.json` | Liste von Objekten | 19 603 | `Tabelle` + `Code` | Nachschlagetabellen für ICD-, Medikament- und Leistungslisten |
+| `PAUSCHALEN_Tabellen_precise_map.json` | Dict: Tabelle → Liste Pauschalen | variabel | `Tabelle` | Vorberechneter Index nicht-breiter Tabellen auf Pauschalen |
+| `PAUSCHALEN_Tabellen_broad_map.json` | Dict: Tabelle → Liste Pauschalen | variabel | `Tabelle` | Vorberechneter Index breiter Tabellen (z. B. OR/ELT/NONELT) |
+| `Pauschale_cond_table_precise.json` | Dict: Pauschale → Tabellen | variabel | `Pauschale` | Split der Tabellen-Bedingungen (präzise) pro Pauschale |
+| `Pauschale_cond_table_broad.json` | Dict: Pauschale → Tabellen | variabel | `Pauschale` | Split der Tabellen-Bedingungen (breit) pro Pauschale |
+| `lkn_to_tables_precise.json` | Dict: LKN → Tabellen | variabel | `LKN` | LKN‑→Tabellen-Mapping (nicht-breit) |
+| `lkn_to_tables_broad.json` | Dict: LKN → Tabellen | variabel | `LKN` | LKN‑→Tabellen-Mapping (breit, z. B. OR/NONELT) |
+| `pauschalen_indices_meta.json` | Objekt | 1 | - | Meta (Broad-Liste, Counts, Generator-Version) für vorberechnete Pauschalen-Indizes |
 | `synonyms.json` | Wörterbuch -> Objekte | 3 201 | Freitext | Synonyme & Komponenten für LKN-Codes |
 | `leistungskatalog_embeddings.json` | Wörterbuch mit Listen | 2 Schlüssel | - | Vorberechnete Vektor-Embeddings für LKN-Kontext |
 | `vektor_index_codes.json` | Liste | 3 253 | Reihenindex | Reihenfolge der LKN-Codes im FAISS-Index |
@@ -197,6 +204,12 @@ erDiagram
 - **Felder:** `Tabelle` (Name), `Tabelle_Typ` (`service_catalog`, `icd`, `402`), `Code`, `Code_Text` (DE/FR/IT).
 - **Verwendung:** Nachschlagebasis für Bedingungen (`Leistungspositionen in Tabelle`, `Hauptdiagnose in Tabelle`, Medikamentenlisten). Der Server gruppiert die Daten nach `Tabelle` für schnelle Zugriffe und baut ein Medikamenten-Lookup.
 - **Beziehungen:** Tabellennamen werden von Pauschalbedingungen und Pauschal-Leistungspositionen referenziert. ICD-Codes werden für Diagnosen verwendet.
+
+### Vorberechnete Pauschalen-Indizes (optional)
+
+- **Dateien:** `PAUSCHALEN_Tabellen_precise_map.json`, `PAUSCHALEN_Tabellen_broad_map.json`, `Pauschale_cond_table_precise.json`, `Pauschale_cond_table_broad.json`, `lkn_to_tables_precise.json`, `lkn_to_tables_broad.json`, `pauschalen_indices_meta.json`.
+- **Inhalt:** Splits der Tabellen-Bedingungen in präzise vs. breite Tabellen (z. B. OR/ELT/NONELT/ANAST), vorgerechnete Reverse-Indizes Tabelle→Pauschale sowie LKN→Tabellen, plus Meta (Broad-Liste, Zählungen).
+- **Verwendung:** `server.py` lädt diese Dateien beim Start, um die Kandidatensuche für Pauschalen ohne Laufzeit-Splitting zu betreiben und Broad-Tabellen erst als Fallback zu prüfen. Fehlen die Dateien, werden die Splits zur Laufzeit aus den Basistabellen erzeugt.
 
 ### synonyms.json
 

@@ -165,13 +165,15 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 - Potentielle Pauschalencodes werden aus LKN‑Zuordnungen und Regelbedingungen gesammelt.
 - LLM‑Stufe 2 Ranking: `call_gemini_stage2_ranking` bzw. `call_openai_stage2_ranking` kann Kandidaten gewichten und sortieren.
 - Ergebnis: Liste `ranked_codes` (beste Pauschalen zuerst, dedupliziert).
+- Zweistufige Suche: Präzise Quellen (direkte LKN/Tabellen) werden zuerst geprüft; breite Tabellen (z. B. OR/NONELT/ANAST) kommen nur noch als Fallback zum Zug. Vorberechnete Splits (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`) werden automatisch geladen, ansonsten zur Laufzeit erzeugt.
 
 #### 2.4.3 Strukturierte Bedingungen & Hauptprüfung
 - Hauptlogik in `regelpruefer_pauschale`:
   - `check_pauschale_conditions` erstellt HTML‑Detailergebnisse und Fehlermeldungen.
   - `evaluate_pauschale_logic_orchestrator` bewertet UND/ODER‑Logik (inkl. WHERE‑Klauseln) oder fällt heuristisch auf AST‑Auswertung zurück.
   - `determine_applicable_pauschale` wählt die bestbewertete, regelkonforme Pauschale (Score v. a. Taxpunkte; alternativ LLM‑Ranking).
-- Performance: vorberechnete Indizes (`pauschale_lp_index`, `pauschale_cond_*`, `lkn_to_tables_index`) und ein separater Renderer (`pauschale_renderer.with_table_content_cache`) reduzieren Lookups und HTML-Generierung.
+- Performance: vorberechnete Indizes (`pauschale_lp_index`, `pauschale_cond_*`, `lkn_to_tables_index`) und ein separater Renderer (`pauschalen.with_table_content_cache`) reduzieren Lookups und HTML-Generierung.
+- Ergebnisliste gefiltert: UI zeigt nur noch die gewählte Pauschale, Pauschalen mit gleichem Unterkapitel-Stamm sowie C9x-Fallbacks, um fachfremde Kandidaten auszublenden.
 - `prepare_tardoc_abrechnung` sammelt abrechenbare Einzelleistungen für TARDOC.
 
 ### 2.5 Ergebnisaufbau
@@ -206,6 +208,7 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 - `server.py` – zentrale Flask‑Applikation und API‑Endpoints.
 - `regelpruefer_einzelleistungen.py` – Prüfung der TARDOC‑Regeln pro Leistung.
 - `regelpruefer_pauschale.py` – Logik zur Prüfung von Pauschalen.
+- `pauschalen/` – Hilfspaket mit Parser‑ und Renderer‑Funktionen für die Pauschalen‑Regelprüfung.
 - `utils.py` – Hilfsfunktionen (z. B. Übersetzungen, Textaufbereitung, Keyword‑Extraktion).
 - `calculator.js` / `quality.js` – Frontend‑Logik und Aufruf der API.
 - `data/` – JSON‑Dateien mit Tarif‑ und Testdaten.

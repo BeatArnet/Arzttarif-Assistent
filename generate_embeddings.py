@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import torch
 from sentence_transformers import SentenceTransformer
 
 try:
@@ -22,6 +23,16 @@ FAISS_CODES_FILE = DATA_DIR / "vektor_index_codes.json"
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 # Token-Limit für längere Texte erhöhen
 MAX_SEQ_LENGTH = 384
+DEFAULT_BATCH_SIZE_CPU = 16
+DEFAULT_BATCH_SIZE_ACCEL = 64
+
+
+def detect_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 
 def get_embedding_text_for_lkaat(entry: dict) -> str:
@@ -68,9 +79,13 @@ def main() -> None:
         print(f"FEHLER: Ungültiges JSON in {LEISTUNGSKATALOG_PATH}", flush=True)
         return
 
+    device = detect_device()
+    batch_size = DEFAULT_BATCH_SIZE_ACCEL if device != "cpu" else DEFAULT_BATCH_SIZE_CPU
+    print(f"Verwende Gerät: {device} (batch_size={batch_size})", flush=True)
+
     print(f"Lade Embedding-Modell: {EMBEDDING_MODEL_NAME}", flush=True)
     try:
-        model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        model = SentenceTransformer(EMBEDDING_MODEL_NAME, device=device)
         model.max_seq_length = MAX_SEQ_LENGTH
         print("Modell erfolgreich geladen.", flush=True)
     except Exception as exc:
@@ -100,12 +115,14 @@ def main() -> None:
 
     print("Generiere Embeddings (dies kann einige Minuten dauern)...", flush=True)
     try:
-        embeddings = model.encode(
-            texts_to_embed,
-            show_progress_bar=True,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        )
+        with torch.inference_mode():
+            embeddings = model.encode(
+                texts_to_embed,
+                batch_size=batch_size,
+                show_progress_bar=True,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+            )
         print(f"Embeddings generiert. Shape: {embeddings.shape}", flush=True)
     except Exception as exc:
         print(f"FEHLER bei der Generierung der Embeddings: {exc}", flush=True)

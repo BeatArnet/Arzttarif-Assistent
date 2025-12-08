@@ -42,13 +42,13 @@ from utils import (
     deactivate_table_content_cache,
 )
 from runtime_config import load_base_config
-from expression_parser import evaluate_boolean_expression_safe
-from pauschale_renderer import (
-    with_table_content_cache,
-    render_condition_results_html,
+from pauschalen import (
+    evaluate_boolean_expression_safe,
     generate_condition_detail_html,
-    get_beschreibung_fuer_lkn_im_backend,
     get_beschreibung_fuer_icd_im_backend,
+    get_beschreibung_fuer_lkn_im_backend,
+    render_condition_results_html,
+    with_table_content_cache,
 )
 import re, html
 
@@ -2595,7 +2595,9 @@ def determine_applicable_pauschale(
     pauschale_cond_lkn_index: Mapping[str, Set[str]],
     pauschale_cond_table_index: Mapping[str, Set[str]],
     lkn_to_tables_index: Mapping[str, List[str]],
-    potential_pauschale_codes_input: Set[str] | None = None, # Optional vorabgefilterte Codes
+    potential_pauschale_codes_input: Set[str] | None = None, # Optional vorabgefilterte Codes (vereint)
+    potential_pauschale_precise_input: Set[str] | None = None, # Optional präzise Kandidaten
+    potential_pauschale_broad_input: Set[str] | None = None, # Optional breite Kandidaten
     lang: str = 'de',
     prepared_structures: Dict[str, Any] | None = None
     ) -> dict:
@@ -2710,7 +2712,57 @@ def determine_applicable_pauschale(
                 reverse[value].add(key)
         return reverse
 
-    if potential_pauschale_codes_input is not None:
+    def _same_subchapter(code_a: str, code_b: str) -> bool:
+        """Heuristik: Zwei Pauschalen gehören zusammen, wenn ihr Stamm (Kapitel/Unterkapitel) übereinstimmt."""
+        if not code_a or not code_b:
+            return False
+        stem_re = re.compile(r"^([A-Z]\d{2}\.\d{2})", re.IGNORECASE)
+        stem_a = None
+        stem_b = None
+        match_a = stem_re.match(str(code_a))
+        match_b = stem_re.match(str(code_b))
+        if match_a:
+            stem_a = match_a.group(1).upper()
+        if match_b:
+            stem_b = match_b.group(1).upper()
+        if stem_a and stem_b:
+            return stem_a == stem_b
+        # Fallback: erster Block vor Buchstabensuffix
+        return str(code_a)[:4].upper() == str(code_b)[:4].upper()
+
+    def _filter_candidates_by_subchapter(codes: Set[str], reference_codes: Set[str]) -> Set[str]:
+        """Behalte Kandidaten, deren Stamm zu einem Referenzcode passt oder C9x-Fallback sind."""
+        if not codes:
+            return set()
+        if not reference_codes:
+            return set(codes)
+        filtered: Set[str] = set()
+        for code in codes:
+            if is_pauschale_code_ge_c90(code):
+                filtered.add(code)
+                continue
+            if any(_same_subchapter(code, ref) for ref in reference_codes):
+                filtered.add(code)
+        return filtered
+
+    if potential_pauschale_precise_input is not None or potential_pauschale_broad_input is not None:
+        potential_precise = set(potential_pauschale_precise_input or set())
+        potential_broad = set(potential_pauschale_broad_input or set())
+        # Weitere Eingrenzung: Broad nur behalten, wenn sie zu einem präzisen Stamm passen oder C9x sind
+        if potential_precise:
+            potential_broad = _filter_candidates_by_subchapter(potential_broad, potential_precise)
+        else:
+            potential_broad = {code for code in potential_broad if is_pauschale_code_ge_c90(code)}
+        if potential_pauschale_codes_input:
+            potential_precise.update(potential_pauschale_codes_input)
+        potential_pauschale_codes = potential_precise.union(potential_broad)
+        logger.info(
+            "DEBUG: Verwende übergebene potenzielle Pauschalen (präzise: %s, breit: %s, gesamt: %s)",
+            potential_precise,
+            potential_broad,
+            potential_pauschale_codes,
+        )
+    elif potential_pauschale_codes_input is not None:
         potential_pauschale_codes = set(potential_pauschale_codes_input)
         logger.info(
             "DEBUG: Verwende übergebene potenzielle Pauschalen: %s",
@@ -2940,6 +2992,20 @@ def determine_applicable_pauschale(
     best_pauschale_code = selected_candidate_info["code"]
     best_pauschale_details = selected_candidate_info["details"].copy() # Kopie für Modifikationen
     best_pauschale_details["evaluation_mode"] = selected_candidate_info.get("evaluation_mode", "strict" if not tolerant_mode_used else "relaxed")
+
+    # Filter Evaluationsliste auf nah verwandte Codes oder Fallback-C9x
+    related_codes = _filter_candidates_by_subchapter(
+        {cand.get("code", "") for cand in evaluated_candidates if cand.get("code")},
+        {best_pauschale_code},
+    )
+    filtered_evaluated_candidates = []
+    for cand in evaluated_candidates:
+        cand_code = str(cand.get("code", ""))
+        if not cand_code:
+            continue
+        if cand_code == best_pauschale_code or cand_code in related_codes:
+            filtered_evaluated_candidates.append(cand)
+    evaluated_candidates = filtered_evaluated_candidates
 
     # Generiere HTML für die Bedingungsprüfung der ausgewählten Pauschale
     condition_errors_html_gen = [] # Initialize with an empty list
