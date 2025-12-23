@@ -176,6 +176,11 @@ _TRANSLATIONS: Dict[str, Dict[str, str]] = {
         'fr': '(Conditions NON remplies)',
         'it': '(Condizioni NON soddisfatte)'
     },
+    'conditions_not_checked': {
+        'de': '(Bedingungen nicht geprüft)',
+        'fr': '(Conditions non vérifiées)',
+        'it': '(Condizioni non verificate)'
+    },
     'conditions_also_met': {
         'de': '(Bedingungen auch erfüllt)',
         'fr': '(Conditions aussi remplies)',
@@ -1028,6 +1033,8 @@ def rank_leistungskatalog_entries(
     token_doc_freq: Dict[str, int],
     limit: int = 200,
     return_scores: bool = False,
+    *,
+    include_medical_interpretation: bool = True,
 ) -> List[str] | List[Tuple[float, str]]:
     """Return LKN codes ranked by weighted token occurrences.
 
@@ -1035,16 +1042,22 @@ def rank_leistungskatalog_entries(
     tuples, otherwise just the codes are returned.
     """
     scored: List[Tuple[float, str]] = []
+    text_fields = [
+        "Beschreibung",
+        "Beschreibung_f",
+        "Beschreibung_i",
+    ]
+    if include_medical_interpretation:
+        text_fields.extend(
+            [
+                "MedizinischeInterpretation",
+                "MedizinischeInterpretation_f",
+                "MedizinischeInterpretation_i",
+            ]
+        )
     for lkn_code, details in leistungskatalog_dict.items():
         texts = []
-        for base in [
-            "Beschreibung",
-            "Beschreibung_f",
-            "Beschreibung_i",
-            "MedizinischeInterpretation",
-            "MedizinischeInterpretation_f",
-            "MedizinischeInterpretation_i",
-        ]:
+        for base in text_fields:
             val = details.get(base)
             if val:
                 texts.append(str(val))
@@ -1120,4 +1133,3 @@ def count_tokens(text: str) -> int:
     if not text:
         return 0
     return len(TOKEN_REGEX.findall(text))
-

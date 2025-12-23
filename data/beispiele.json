@@ -54,6 +54,15 @@
     "extendedValue_IT": "Consultazione del medico di base 15 minuti più 10 minuti di consulenza; supplemento per bambini di 8 anni"
   },
   {
+    "label": "MPK Diabetesberatung, 20 Minuten",
+    "value_DE": "MPK: Diabetes Betreuung 20 Minuten",
+    "extendedValue_DE": "Diabetes Betreuung MPK 20 Minuten",
+    "value_FR": "Suivi du diabète CMA 20 minutes",
+    "extendedValue_FR": "Suivi du diabète CMA 20 minutes",
+    "value_IT": "Cura del diabete CMA 20 minuti",
+    "extendedValue_IT": "Cura del diabete CMA 20 minuti"
+  },
+  {
     "label": "Kiefergelenk, Luxation. Geschlossene Reposition",
     "value_DE": "Kiefergelenk, Luxation. Geschlossene Reposition",
     "extendedValue_DE": "Kiefergelenk, Luxation. Geschlossene Reposition",
@@ -144,12 +153,21 @@
     "extendedValue_IT": "Impianto stimolatore del nervo ipoglosso"
   },
   {
-    "label": "MPK Diabetesberatung, 20 Minuten",
-    "value_DE": "MPK: Diabetes Betreuung 20 Minuten",
-    "extendedValue_DE": "Diabetes Betreuung MPK 20 Minuten",
-    "value_FR": "Suivi du diabète CMA 20 minutes",
-    "extendedValue_FR": "Suivi du diabète CMA 20 minutes",
-    "value_IT": "Cura del diabete CMA 20 minuti",
-    "extendedValue_IT": "Cura del diabete CMA 20 minuti"
+    "label": "Eingriff an einem geraden Augenmuskel",
+    "value_DE": "Eingriff an einem geraden Augenmuskel",
+    "extendedValue_DE": "Eingriff an einem geraden Augenmuskel",
+    "value_FR": "Opérations sur un muscle oculaire droit",
+    "extendedValue_FR": "Opérations sur un muscle oculaire droit",
+    "value_IT": "Intervento chirurgico per strabismo, muscoli retti",
+    "extendedValue_IT": "Intervento chirurgico per strabismo, muscoli retti"
+  },
+  {
+    "label": "Schieloperation an drei Augenmuskeln",
+    "value_DE": "Schieloperation an drei Augenmuskeln",
+    "extendedValue_DE": "Schieloperation an drei Augenmuskeln",
+    "value_FR": "Opérations sur trois muscles oculaires droits",
+    "extendedValue_FR": "Opérations sur trois muscles oculaires droits",
+    "value_IT": "Interventi a tre muscoli retti dell'occhio",
+    "extendedValue_IT": "Interventi a tre muscoli retti dell'occhio"
   }
 ]

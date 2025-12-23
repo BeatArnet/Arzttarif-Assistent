@@ -47,6 +47,10 @@ let pauschalenLookup = new Map();
 let tableRowsLookup = new Map();
 let tableDataCache = new Map();
 let tableDisplayNameLookup = new Map();
+let tpwData = {};
+let tpwState = { scope: 'tardoc', kanton: '', bereich: '', periodIndex: 0, currentValue: '' };
+let lastTardocTotalTp = null;
+const TPW_STORAGE_KEY = 'tpwSelection';
 
 // Zusätzliche Pauschalen-Infos
 let selectedPauschaleDetails = null;
@@ -608,7 +612,8 @@ const DATA_PATHS = {
     tardocGesamt: 'data/TARDOC_Tarifpositionen.json',
     tabellen: 'data/PAUSCHALEN_Tabellen.json',
     interpretationen: 'data/TARDOC_Interpretationen.json',
-    dignitaeten: 'data/DIGNITAETEN.json' // Path for the new dignities file
+    dignitaeten: 'data/DIGNITAETEN.json', // Path for the new dignities file
+    tpw: '/api/tpw'
 };
 
 // ─── 1 · Utility‑Funktionen ────────────────────────────────────────────────
@@ -690,6 +695,270 @@ function parseDecimal(value) {
     const normalized = String(value).replace(',', '.');
     const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// --- TPW Helper ------------------------------------------------------------
+function normalizeTpwPayload(raw) {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        return (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) ? raw.data : raw;
+    }
+    return {};
+}
+
+function getTpwScope(scopeKey = tpwState.scope) {
+    const scope = (tpwData && typeof tpwData === 'object' && tpwData[scopeKey]) ? tpwData[scopeKey] : {};
+    const kantone = (scope && typeof scope === 'object') ? (scope.kantone || scope.cantons || {}) : {};
+    return { kantone };
+}
+
+function listTpwKantone(scopeKey = tpwState.scope) {
+    const { kantone } = getTpwScope(scopeKey);
+    return Object.keys(kantone || {}).sort();
+}
+
+function listTpwBereiche(kanton, scopeKey = tpwState.scope) {
+    const { kantone } = getTpwScope(scopeKey);
+    const entry = kantone && kantone[kanton];
+    if (!entry || typeof entry !== 'object') return [];
+    return Object.keys(entry);
+}
+
+function getTpwPeriods(scopeKey = tpwState.scope, kanton = tpwState.kanton, bereich = tpwState.bereich) {
+    const { kantone } = getTpwScope(scopeKey);
+    const entry = kantone && kantone[kanton];
+    if (!entry || typeof entry !== 'object') return [];
+    const periods = entry[bereich];
+    return Array.isArray(periods) ? periods : [];
+}
+
+function parseDateSafe(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.toUpperCase() === 'YYYY-MM-DD') return null;
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isPeriodActive(period, refDate = new Date()) {
+    if (!period || typeof period !== 'object') return false;
+    const from = parseDateSafe(period.gueltig_von);
+    const to = parseDateSafe(period.gueltig_bis);
+    if (from && refDate < from) return false;
+    if (to && refDate > to) return false;
+    return true;
+}
+
+function pickDefaultPeriodIndex(periods) {
+    if (!Array.isArray(periods) || periods.length === 0) return 0;
+    const today = new Date();
+    const activeIdx = periods.findIndex(p => isPeriodActive(p, today));
+    if (activeIdx >= 0) return activeIdx;
+    return periods.length - 1;
+}
+
+function formatTpwRange(period) {
+    if (!period || typeof period !== 'object') return t('tpwNoValue', currentLang);
+    const openText = t('tpwOpenEnd', currentLang);
+    const from = (period.gueltig_von && period.gueltig_von.toString().trim()) || openText;
+    const bisRaw = period.gueltig_bis;
+    const to = (bisRaw === null || bisRaw === undefined || bisRaw === '') ? openText : String(bisRaw);
+    const base = `${from} – ${to}`;
+    return isPeriodActive(period) ? `${base} (${t('tpwCurrent', currentLang)})` : base;
+}
+
+function loadStoredTpwSelection() {
+    try {
+        const raw = localStorage.getItem(TPW_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+    } catch (err) {
+        console.warn('Unable to read stored TPW selection:', err);
+    }
+    return null;
+}
+
+function persistTpwSelection() {
+    try {
+        const payload = {
+            scope: tpwState.scope,
+            kanton: tpwState.kanton,
+            bereich: tpwState.bereich,
+            periodIndex: tpwState.periodIndex
+        };
+        localStorage.setItem(TPW_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+        console.warn('Unable to persist TPW selection:', err);
+    }
+}
+
+function ensureTpwStateDefaults() {
+    let kantone = listTpwKantone(tpwState.scope);
+    if (!kantone.length && tpwData && typeof tpwData === 'object') {
+        for (const scopeKey of Object.keys(tpwData)) {
+            const candidate = listTpwKantone(scopeKey);
+            if (candidate.length) {
+                tpwState.scope = scopeKey;
+                kantone = candidate;
+                break;
+            }
+        }
+    }
+    if (!tpwState.kanton || !kantone.includes(tpwState.kanton)) {
+        tpwState.kanton = kantone[0] || '';
+    }
+    const bereiche = listTpwBereiche(tpwState.kanton);
+    if (!tpwState.bereich || !bereiche.includes(tpwState.bereich)) {
+        tpwState.bereich = bereiche[0] || '';
+    }
+    const periods = getTpwPeriods(tpwState.scope, tpwState.kanton, tpwState.bereich);
+    if (!periods.length) {
+        tpwState.periodIndex = 0;
+    } else if (tpwState.periodIndex >= periods.length || tpwState.periodIndex < 0) {
+        tpwState.periodIndex = pickDefaultPeriodIndex(periods);
+    }
+}
+
+function getSelectedTpwPeriod() {
+    const periods = getTpwPeriods();
+    if (!Array.isArray(periods) || periods.length === 0) return null;
+    const idx = Math.min(Math.max(0, tpwState.periodIndex | 0), periods.length - 1);
+    return periods[idx];
+}
+
+function getDefaultTpwValueForSelection() {
+    const period = getSelectedTpwPeriod();
+    if (!period) return '';
+    if (period.tpw === null || period.tpw === undefined || period.tpw === '') return '';
+    const numeric = typeof period.tpw === 'number' ? period.tpw : parseDecimal(period.tpw);
+    return Number.isFinite(numeric) ? String(numeric) : '';
+}
+
+function setTpwValueFromSelection() {
+    tpwState.currentValue = getDefaultTpwValueForSelection();
+    const input = $('tpwValueInput');
+    if (input) {
+        input.value = tpwState.currentValue || '';
+        input.placeholder = t('tpwNoValue', currentLang);
+    }
+}
+
+function rebuildTpwSelectors() {
+    ensureTpwStateDefaults();
+    const kantonSelect = $('tpwKantonSelect');
+    const bereichSelect = $('tpwBereichSelect');
+    const periodSelect = $('tpwPeriodSelect');
+
+    if (kantonSelect) {
+        const kantone = listTpwKantone();
+        kantonSelect.innerHTML = '';
+        kantone.forEach(k => {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = k;
+            if (k === tpwState.kanton) opt.selected = true;
+            kantonSelect.appendChild(opt);
+        });
+    }
+
+    if (bereichSelect) {
+        const bereiche = listTpwBereiche(tpwState.kanton);
+        bereichSelect.innerHTML = '';
+        bereiche.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b;
+            const labelKey = b.toUpperCase() === 'OKP' ? 'tpwBereichOkp' : (b.toUpperCase() === 'MTK' ? 'tpwBereichMtk' : b);
+            const label = t(labelKey, currentLang);
+            opt.textContent = label || b;
+            if (b === tpwState.bereich) opt.selected = true;
+            bereichSelect.appendChild(opt);
+        });
+    }
+
+    if (periodSelect) {
+        const periods = getTpwPeriods();
+        periodSelect.innerHTML = '';
+        const defaultIdx = pickDefaultPeriodIndex(periods);
+        if (tpwState.periodIndex >= periods.length) {
+            tpwState.periodIndex = defaultIdx;
+        }
+        periods.forEach((p, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = formatTpwRange(p);
+            if (idx === tpwState.periodIndex) opt.selected = true;
+            periodSelect.appendChild(opt);
+        });
+    }
+}
+
+function formatChf(amount) {
+    if (amount === null || amount === undefined || Number.isNaN(amount)) return '–';
+    try {
+        const locale = currentLang === 'fr' ? 'fr-CH' : (currentLang === 'it' ? 'it-CH' : 'de-CH');
+        return new Intl.NumberFormat(locale, { style: 'currency', currency: 'CHF', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    } catch (err) {
+        const fixed = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+        return `CHF ${fixed}`;
+    }
+}
+
+function refreshTpwSummary() {
+    const totalNode = $('tpwTotalValue');
+    const amountNode = $('tpwAmountValue');
+    const totalTp = (typeof lastTardocTotalTp === 'number' && Number.isFinite(lastTardocTotalTp)) ? lastTardocTotalTp : null;
+    const normalizedTpw = (tpwState.currentValue === null || tpwState.currentValue === undefined) ? '' : String(tpwState.currentValue).trim();
+    const tpwValue = normalizedTpw ? Number.parseFloat(normalizedTpw.replace(',', '.')) : NaN;
+    const hasTpw = Number.isFinite(tpwValue);
+
+    if (totalNode) {
+        if (totalTp !== null) {
+            totalNode.textContent = totalTp.toFixed(2);
+        } else {
+            totalNode.textContent = t('tpwNoTaxpoints', currentLang);
+        }
+    }
+
+    if (amountNode) {
+        if (totalTp !== null && hasTpw) {
+            amountNode.textContent = formatChf(totalTp * tpwValue);
+        } else if (totalTp !== null) {
+            amountNode.textContent = t('tpwNoValue', currentLang);
+        } else {
+            amountNode.textContent = t('tpwNoTaxpoints', currentLang);
+        }
+    }
+}
+
+function handleTpwSelectionChange(kind, value) {
+    if (kind === 'kanton') {
+        tpwState.kanton = value;
+        tpwState.periodIndex = 0;
+    } else if (kind === 'bereich') {
+        tpwState.bereich = value;
+        tpwState.periodIndex = 0;
+    } else if (kind === 'periode') {
+        tpwState.periodIndex = parseInt(value, 10) || 0;
+    }
+    ensureTpwStateDefaults();
+    setTpwValueFromSelection();
+    rebuildTpwSelectors();
+    refreshTpwSummary();
+    persistTpwSelection();
+}
+
+function initTpwPanelFromData() {
+    const stored = loadStoredTpwSelection();
+    if (stored) {
+        tpwState.scope = stored.scope || tpwState.scope;
+        tpwState.kanton = stored.kanton || tpwState.kanton;
+        tpwState.bereich = stored.bereich || tpwState.bereich;
+        tpwState.periodIndex = stored.periodIndex || 0;
+    }
+    ensureTpwStateDefaults();
+    setTpwValueFromSelection();
+    rebuildTpwSelectors();
+    refreshTpwSummary();
 }
 
 function createInfoLink(code, type) {
@@ -2206,6 +2475,9 @@ async function showPauschaleInfoByCode(code) {
                 entry.bedingungs_pruef_html = fetched.html;
                 entry.conditions_structured = fetched.conditions_structured || entry.conditions_structured;
                 entry.bedingungs_fehler = fetched.errors || entry.bedingungs_fehler;
+                if (typeof fetched.is_valid_structured === 'boolean') {
+                    entry.is_valid_structured = fetched.is_valid_structured;
+                }
                 evaluatedPauschalenList[idx] = entry;
             }
         }
@@ -2362,6 +2634,264 @@ function hideSpinner() {
     setBusyState(false);
 }
 
+let flyingDoctorWanderMap = new Map();
+const flyingDoctorStuntClasses = ['is-flipping', 'is-wiggling', 'is-boosting'];
+const flyingDoctorStuntWeighted = ['is-flipping', 'is-flipping', 'is-wiggling', 'is-boosting'];
+
+function flyingDoctorRand(min, max) {
+    return min + Math.random() * (max - min);
+}
+
+function flyingDoctorRandInt(min, max) {
+    return Math.floor(flyingDoctorRand(min, max + 1));
+}
+
+function flyingDoctorPick(list) {
+    return list[Math.floor(Math.random() * list.length)];
+}
+
+function flyingDoctorBounds(el) {
+    const width = window.innerWidth || 0;
+    const height = window.innerHeight || 0;
+    const rect = el.getBoundingClientRect();
+    const spriteWidth = rect.width || 200;
+    const spriteHeight = rect.height || 150;
+    const padX = Math.min(90, Math.max(20, spriteWidth * 0.25));
+    const padY = Math.min(80, Math.max(20, spriteHeight * 0.25));
+    const minX = padX;
+    const minY = padY;
+    const maxX = Math.max(minX, width - spriteWidth - padX);
+    const maxY = Math.max(minY, height - spriteHeight - padY);
+    return { width, height, spriteWidth, spriteHeight, minX, maxX, minY, maxY };
+}
+
+function flyingDoctorEdgePoint(side, bounds) {
+    const margin = Math.max(120, Math.min(bounds.width, bounds.height) * 0.25);
+    if (side === 'left') {
+        return { x: -bounds.spriteWidth - margin, y: flyingDoctorRand(bounds.minY, bounds.maxY) };
+    }
+    if (side === 'right') {
+        return { x: bounds.width + margin, y: flyingDoctorRand(bounds.minY, bounds.maxY) };
+    }
+    if (side === 'top') {
+        return { x: flyingDoctorRand(bounds.minX, bounds.maxX), y: -bounds.spriteHeight - margin };
+    }
+    return { x: flyingDoctorRand(bounds.minX, bounds.maxX), y: bounds.height + margin };
+}
+
+function flyingDoctorInteriorPoint(bounds) {
+    return { x: flyingDoctorRand(bounds.minX, bounds.maxX), y: flyingDoctorRand(bounds.minY, bounds.maxY) };
+}
+
+function flyingDoctorPath(points) {
+    if (!points || points.length < 2) return '';
+    const parts = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = p2.y - (p3.y - p1.y) / 6;
+        parts.push(`C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`);
+    }
+    return parts.join(' ');
+}
+
+function buildFlyingDoctorFlight(el) {
+    const bounds = flyingDoctorBounds(el);
+    if (!bounds.width || !bounds.height) return null;
+    const sides = ['left', 'right', 'top', 'bottom'];
+    const entrySide = flyingDoctorPick(sides);
+    let exitSide = flyingDoctorPick(sides);
+    if (exitSide === entrySide) {
+        exitSide = flyingDoctorPick(sides.filter(side => side !== entrySide));
+    }
+
+    const points = [flyingDoctorEdgePoint(entrySide, bounds)];
+    const midCount = flyingDoctorRandInt(2, 4);
+    for (let i = 0; i < midCount; i++) {
+        points.push(flyingDoctorInteriorPoint(bounds));
+    }
+    points.push(flyingDoctorEdgePoint(exitSide, bounds));
+
+    if (Math.random() < 0.35 && points.length > 3) {
+        const pauseIndex = flyingDoctorRandInt(1, points.length - 2);
+        points.splice(pauseIndex, 0, { ...points[pauseIndex] });
+    }
+
+    const facing = points[0].x < points[points.length - 1].x ? 1 : -1;
+    const baseScale = flyingDoctorRand(0.85, 1.1);
+    const tiltBase = flyingDoctorRand(-6, 6);
+    const tiltStart = tiltBase + flyingDoctorRand(-12, 12);
+    const tiltMid = tiltBase + flyingDoctorRand(-8, 8);
+    const tiltEnd = tiltBase + flyingDoctorRand(-12, 12);
+    const keyframes = points.map((point, index) => {
+        const progress = points.length > 1 ? index / (points.length - 1) : 1;
+        let opacity = 1;
+        if (progress < 0.12) {
+            opacity = progress / 0.12;
+        } else if (progress > 0.88) {
+            opacity = (1 - progress) / 0.12;
+        }
+        opacity = Math.max(0, Math.min(1, opacity));
+        const tilt = tiltBase + flyingDoctorRand(-10, 10);
+        return {
+            transform: `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) rotate(${tilt.toFixed(1)}deg) scale(${baseScale.toFixed(2)}) scaleX(${facing})`,
+            opacity: Number(opacity.toFixed(2))
+        };
+    });
+
+    return {
+        path: flyingDoctorPath(points),
+        keyframes,
+        duration: flyingDoctorRandInt(14000, 26000),
+        idle: flyingDoctorRandInt(200, 1200),
+        facing,
+        baseScale,
+        tiltStart,
+        tiltMid,
+        tiltEnd
+    };
+}
+
+function clearFlyingDoctorTimers(state) {
+    if (!state) return;
+    if (state.startTimer) {
+        clearTimeout(state.startTimer);
+        state.startTimer = null;
+    }
+    if (state.timers && state.timers.length) {
+        state.timers.forEach(timer => clearTimeout(timer));
+        state.timers = [];
+    }
+}
+
+function clearFlyingDoctorStunts(state) {
+    if (!state || !state.timers || !state.timers.length) return;
+    state.timers.forEach(timer => clearTimeout(timer));
+    state.timers = [];
+}
+
+function supportsFlyingDoctorOffsetPath() {
+    return typeof CSS !== 'undefined'
+        && typeof CSS.supports === 'function'
+        && CSS.supports('offset-path', 'path("M 0 0 L 1 1")');
+}
+
+function scheduleFlyingDoctorStunts(el, duration, idle) {
+    const state = flyingDoctorWanderMap.get(el);
+    if (!state || !state.active) return;
+    const roll = Math.random();
+    let stuntCount = 0;
+    if (roll < 0.45) {
+        stuntCount = 1;
+    } else if (roll < 0.6) {
+        stuntCount = 2;
+    }
+    if (!stuntCount) return;
+
+    for (let i = 0; i < stuntCount; i++) {
+        const delay = Math.round((idle || 0) + flyingDoctorRand(duration * 0.2, duration * 0.85));
+        const className = flyingDoctorPick(flyingDoctorStuntWeighted);
+        const timer = setTimeout(() => {
+            if (!state.active) return;
+            el.classList.remove(...flyingDoctorStuntClasses);
+            el.classList.add(className);
+            const cleanupDelay = className === 'is-flipping' ? 950 : 700;
+            const cleanupTimer = setTimeout(() => {
+                el.classList.remove(className);
+            }, cleanupDelay);
+            state.timers.push(cleanupTimer);
+        }, delay);
+        state.timers.push(timer);
+    }
+}
+
+function runFlyingDoctorFlight(el) {
+    const state = flyingDoctorWanderMap.get(el);
+    if (!state || !state.active || typeof el.animate !== 'function') return;
+    clearFlyingDoctorStunts(state);
+    el.classList.remove(...flyingDoctorStuntClasses);
+    const flight = buildFlyingDoctorFlight(el);
+    if (!flight) return;
+    const easing = flyingDoctorPick(['linear', 'ease-in-out', 'cubic-bezier(0.45, 0, 0.25, 1)']);
+    let animation = null;
+    if (flight.path && supportsFlyingDoctorOffsetPath()) {
+        el.style.offsetPath = `path("${flight.path}")`;
+        el.style.offsetRotate = '0deg';
+        el.style.offsetAnchor = 'center';
+        const baseTransform = `scale(${flight.baseScale.toFixed(2)}) scaleX(${flight.facing})`;
+        animation = el.animate([
+            { offset: 0, offsetDistance: '0%', opacity: 0, transform: `${baseTransform} rotate(${flight.tiltStart.toFixed(1)}deg)` },
+            { offset: 0.12, offsetDistance: '12%', opacity: 1, transform: `${baseTransform} rotate(${flight.tiltMid.toFixed(1)}deg)` },
+            { offset: 0.88, offsetDistance: '88%', opacity: 1, transform: `${baseTransform} rotate(${flight.tiltMid.toFixed(1)}deg)` },
+            { offset: 1, offsetDistance: '100%', opacity: 0, transform: `${baseTransform} rotate(${flight.tiltEnd.toFixed(1)}deg)` }
+        ], {
+            duration: flight.duration,
+            easing,
+            delay: flight.idle,
+            fill: 'both'
+        });
+    } else {
+        el.style.offsetPath = '';
+        el.style.offsetDistance = '';
+        el.style.offsetRotate = '';
+        el.style.offsetAnchor = '';
+        animation = el.animate(flight.keyframes, {
+            duration: flight.duration,
+            easing,
+            delay: flight.idle,
+            fill: 'both'
+        });
+    }
+    state.animation = animation;
+    scheduleFlyingDoctorStunts(el, flight.duration, flight.idle);
+    animation.onfinish = () => {
+        if (state.active) runFlyingDoctorFlight(el);
+    };
+}
+
+function startFlyingDoctorWander(el) {
+    if (!el || typeof el.animate !== 'function') {
+        if (el) el.classList.remove('is-wandering');
+        return;
+    }
+    let state = flyingDoctorWanderMap.get(el);
+    if (!state) {
+        state = { active: false, animation: null, startTimer: null, timers: [] };
+        flyingDoctorWanderMap.set(el, state);
+    }
+    state.active = true;
+    clearFlyingDoctorTimers(state);
+    if (state.animation) {
+        try { state.animation.cancel(); } catch (_) {}
+        state.animation = null;
+    }
+    el.classList.add('is-wandering');
+    runFlyingDoctorFlight(el);
+}
+
+function stopFlyingDoctorWander(el) {
+    if (!el) return;
+    const state = flyingDoctorWanderMap.get(el);
+    if (state) {
+        state.active = false;
+        clearFlyingDoctorTimers(state);
+        if (state.animation) {
+            try { state.animation.cancel(); } catch (_) {}
+        }
+        flyingDoctorWanderMap.delete(el);
+    }
+    el.classList.remove('is-wandering', 'is-flipping', 'is-wiggling', 'is-boosting');
+    el.style.offsetPath = '';
+    el.style.offsetDistance = '';
+    el.style.offsetRotate = '';
+    el.style.offsetAnchor = '';
+}
+
 function setFlyingDoctorsActive(active){
     const layer = $('flyingDoctorLayer');
     const doctors = document.querySelectorAll('.flying-doctor');
@@ -2375,9 +2905,13 @@ function setFlyingDoctorsActive(active){
 
 function startFlyingDoctors(){
     setFlyingDoctorsActive(true);
+    const doctors = document.querySelectorAll('.flying-doctor');
+    doctors.forEach(el => startFlyingDoctorWander(el));
 }
 
 function stopFlyingDoctors(){
+    const doctors = document.querySelectorAll('.flying-doctor');
+    doctors.forEach(el => stopFlyingDoctorWander(el));
     setFlyingDoctorsActive(false);
 }
 
@@ -2595,12 +3129,15 @@ async function loadData() {
             fetchJSON(DATA_PATHS.tardocGesamt),
             fetchJSON(DATA_PATHS.tabellen),
             fetchJSON(DATA_PATHS.interpretationen),
-            fetchJSON(DATA_PATHS.dignitaeten) // Fetch dignities
+            fetchJSON(DATA_PATHS.dignitaeten), // Fetch dignities
+            fetchJSON(DATA_PATHS.tpw)
         ]);
 
         [ data_leistungskatalog, data_pauschaleLeistungsposition, data_pauschalen,
           data_pauschaleBedingungen, data_tardocGesamt, data_tabellen,
-          data_interpretationen, data_dignitaeten ] = loadedDataArray; // Assign dignities data
+          data_interpretationen, data_dignitaeten, tpwData ] = loadedDataArray; // Assign dignities & TPW data
+
+        tpwData = normalizeTpwPayload(tpwData);
 
         interpretationMap = {};
         if (data_interpretationen) {
@@ -2633,6 +3170,11 @@ async function loadData() {
         if (!Array.isArray(data_dignitaeten) || data_dignitaeten.length === 0) missingDataErrors.push("Dignitäten"); // Check dignities data
         if (missingDataErrors.length > 0) {
              throw new Error(`Folgende kritische Daten fehlen oder konnten nicht geladen werden: ${missingDataErrors.join(', ')}.`);
+        }
+        if (!tpwData || typeof tpwData !== 'object' || Object.keys(tpwData).length === 0) {
+            console.warn("Taxpunktwerte konnten nicht geladen werden oder sind leer.");
+        } else {
+            initTpwPanelFromData();
         }
 
         buildTableLookups();
@@ -2711,6 +3253,26 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initial: Umschalter verbergen bis Ergebnis vorliegt
     showIcdToggle(false);
     setIcdFilterMode('all');
+    // TPW-Events binden
+    const tpwKantonSelect = $('tpwKantonSelect');
+    if (tpwKantonSelect) {
+        tpwKantonSelect.addEventListener('change', (e) => handleTpwSelectionChange('kanton', e.target.value));
+    }
+    const tpwBereichSelect = $('tpwBereichSelect');
+    if (tpwBereichSelect) {
+        tpwBereichSelect.addEventListener('change', (e) => handleTpwSelectionChange('bereich', e.target.value));
+    }
+    const tpwPeriodSelect = $('tpwPeriodSelect');
+    if (tpwPeriodSelect) {
+        tpwPeriodSelect.addEventListener('change', (e) => handleTpwSelectionChange('periode', e.target.value));
+    }
+    const tpwValueInput = $('tpwValueInput');
+    if (tpwValueInput) {
+        tpwValueInput.addEventListener('input', (e) => {
+            tpwState.currentValue = e.target.value;
+            refreshTpwSummary();
+        });
+    }
 
     // --- Modal Close Handlers ---
     const modals = [
@@ -2875,6 +3437,8 @@ async function getBillingAnalysis() {
     try { showIcdToggle(false); } catch(e) {}
     try { setIcdFilterMode('all'); } catch(e) {}
     try { updateSelectedPauschaleDetails(null); } catch(e) {}
+    lastTardocTotalTp = null;
+    refreshTpwSummary();
     // Offene Dropdowns schliessen, damit Analyse nicht automatisch eine Liste öffnet
     try { if (typeof window.hideIcdDropdown === 'function') window.hideIcdDropdown(); } catch(e) {}
     try { if (typeof window.hideChopDropdown === 'function') window.hideChopDropdown(); } catch(e) {}
@@ -3263,6 +3827,17 @@ function displayPauschale(abrechnungsObjekt) {
 
     if (!pauschaleDetails) return `<p class='error'>${tDyn('errorPauschaleMissing')}</p>`;
 
+    // Steuer die TPW-Zusammenfassung auch bei Pauschalen (Taxpunkte anzeigen)
+    let parsedTaxpoints = NaN;
+    if (pauschaleDetails.Taxpunkte !== undefined && pauschaleDetails.Taxpunkte !== null) {
+        const norm = String(pauschaleDetails.Taxpunkte).replace(',', '.').trim();
+        if (norm !== '') {
+            parsedTaxpoints = Number.parseFloat(norm);
+        }
+    }
+    lastTardocTotalTp = Number.isFinite(parsedTaxpoints) ? parsedTaxpoints : null;
+    refreshTpwSummary();
+
     const hasConditionsHtml = typeof bedingungsHtml === 'string' && bedingungsHtml.trim() !== '';
     const metaItems = [];
     const logicStatusKey = conditions_met_structured ? 'logicOk' : 'logicNotOk';
@@ -3299,6 +3874,8 @@ function displayPauschale(abrechnungsObjekt) {
 // Zeigt TARDOC-Tabelle an
 function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
     if (!tardocLeistungen || tardocLeistungen.length === 0) {
+        lastTardocTotalTp = null;
+        refreshTpwSummary();
         return `<p><i>${tDyn('noTardoc')}</i></p>`;
     }
 
@@ -3383,6 +3960,8 @@ function displayTardocTable(tardocLeistungen, ruleResultsDetailsList = []) {
             </table>
         </div>`;
     html += `</details>`;
+    lastTardocTotalTp = gesamtTP;
+    refreshTpwSummary();
     return html;
 }
 
@@ -3458,4 +4037,3 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // Mache die Hauptfunktion global verfügbar
 window.getBillingAnalysis = getBillingAnalysis;
-

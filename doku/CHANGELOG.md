@@ -4,7 +4,10 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.5 (2025-12-10, aktuell)
+### V4.6 (2025-12-08, aktuell)
+- Betrag wird jetzt automatisch aus den hinterlegten Taxpunktwerten pro Kanton und Sozialversicherungsbereich berechnet und in der Oberfläche angezeigt.
+
+### V4.5 (2025-12-10)
 - Aktualisierte Datenbasis vom 28.11.2025
 - Pauschalen-Kandidaten zweistufig: präzise Quellen (direkte LKN/Tabellen) werden zuerst geprüft, breite Tabellen (z. B. OR/NONELT/ANAST) nur noch als Fallback und nur, wenn sie zum gleichen Unterkapitel oder als C9x-Fallback passen.
 - Vorberechnete Pauschalen-Indizes unterstützt: optionale JSONs `PAUSCHALEN_Tabellen_precise_map.json`, `..._broad_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `pauschalen_indices_meta.json`; Server lädt sie automatisch und spart Laufzeit-Splitting.

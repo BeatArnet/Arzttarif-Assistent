@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt die Einrichtung, das Deployment und den Betrieb des "Arzttarif-Assistenten", sowohl für die lokale Entwicklung als auch für den produktiven Einsatz auf einer Plattform wie Render.com.
 
-Aktuelle Version: 4.4 (01.12.2025) – siehe `config.ini` oder Endpoint `/api/version`.
+Aktuelle Version: 4.6 (08.12.2025) – siehe `config.ini` oder Endpoint `/api/version`.
 Ausführliche Änderungen: siehe `CHANGELOG.md`.
 
 **Inhaltsverzeichnis:**

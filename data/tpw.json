@@ -1,0 +1,62 @@
+{
+  "tardoc": {
+    "kantone": {
+      "AG": { "OKP": [{ "tpw": 0.89, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "AI": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "AR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BE": { "OKP": [{ "tpw": 0.86, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BL": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BS": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "FR": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GE": { "OKP": [{ "tpw": 0.96, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GL": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "JU": { "OKP": [{ "tpw": 0.94, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "LU": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "NE": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "NW": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "OW": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SG": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SH": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SO": { "OKP": [{ "tpw": 0.85, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SZ": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "TG": { "OKP": [{ "tpw": 1.0, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "TI": { "OKP": [{ "tpw": 0.93, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "UR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "VD": { "OKP": [{ "tpw": 0.94, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "VS": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "ZG": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "ZH": { "OKP": [{ "tpw": 0.9, "gueltig_von": "2026-01-01", "gueltig_bis": "2025-03-31" }, { "tpw": 0.91, "gueltig_von": "2025-04-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] }
+    }
+  },
+  "pauschalen": {
+    "kantone": {
+      "AG": { "OKP": [{ "tpw": 0.89, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "AI": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "AR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BE": { "OKP": [{ "tpw": 0.86, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BL": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "BS": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "FR": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GE": { "OKP": [{ "tpw": 0.96, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GL": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "GR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "JU": { "OKP": [{ "tpw": 0.94, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "LU": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "NE": { "OKP": [{ "tpw": 0.91, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "NW": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "OW": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SG": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SH": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SO": { "OKP": [{ "tpw": 0.85, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "SZ": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "TG": { "OKP": [{ "tpw": 1.0, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "TI": { "OKP": [{ "tpw": 0.93, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "UR": { "OKP": [{ "tpw": null, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "VD": { "OKP": [{ "tpw": 0.94, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "VS": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "ZG": { "OKP": [{ "tpw": 0.82, "gueltig_von": "2026-01-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] },
+      "ZH": { "OKP": [{ "tpw": 0.9, "gueltig_von": "2026-01-01", "gueltig_bis": "2025-03-31" }, { "tpw": 0.91, "gueltig_von": "2025-04-01", "gueltig_bis": null }], "MTK": [{ "tpw": 0.92, "gueltig_von": "2026-01-01", "gueltig_bis": null }] }
+    }
+  }
+}

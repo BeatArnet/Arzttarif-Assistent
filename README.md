@@ -19,6 +19,7 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
+Aktuelle Version: 4.6 (08.12.2025) – Betrag wird aus den hinterlegten Taxpunktwerten pro Kanton/Sozialversicherungsbereich berechnet und angezeigt.  
 Die vollständige Versionshistorie befindet sich in `doku/CHANGELOG.md`.
 
 ## Mehrsprachigkeit

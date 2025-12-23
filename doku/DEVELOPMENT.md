@@ -67,7 +67,7 @@ LLM‑Konnektivität aktivieren (optional)
 
 ## Versionierung und Changelog
 
-- Aktuelle Version: 4.1 (03.11.2025) – siehe `config.ini` oder Endpoint `/api/version`.
+- Aktuelle Version: 4.6 (08.12.2025) – siehe `config.ini` oder Endpoint `/api/version`.
 - Ausführliche Änderungen und Migrationshinweise: `CHANGELOG.md`.
 - Größere Featurebereiche seit 3.1: granulare Logging-Flags (`[LOGGING]`), getrennte Temperaturen für Stage‑2 (`stage2_mapping_temperature`, `stage2_ranking_temperature`).
 
