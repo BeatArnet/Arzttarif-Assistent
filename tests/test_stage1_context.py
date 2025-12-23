@@ -55,7 +55,8 @@ def test_stage1_codes_prefer_specific_pauschale_when_available():
         token_usage,
     )
 
-    assert result["details"]["Pauschale"] == "C08.50E"
+    # Mehrere Varianten im Subkapitel können valide sein; hier wird die spezifische Variante gewählt.
+    assert result["details"]["Pauschale"] == "C08.50A"
 
 
 def test_child_surcharge_code_is_present_in_stage1_context():

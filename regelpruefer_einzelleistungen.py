@@ -10,9 +10,10 @@ optionale Zuschläge, Patientendaten, ICD-Vorgaben u.v.m. Der öffentliche Einst
 aufgerufen und liefert strukturierte Fehler zurück, damit die Oberfläche
 verletzte Regeln hervorheben kann.
 """
-import logging
-import re  # Importiere Regex für Mengenanpassung
 import configparser
+import logging
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, TypedDict, cast
 
@@ -120,6 +121,66 @@ def _normalize_rule_codes(
     if uppercase:
         return [str(entry).upper() for entry in values if entry]
     return [str(entry) for entry in values if entry]
+
+
+def _normalize_fall_codes(entries: object) -> List[str]:
+    if entries is None:
+        return []
+    if isinstance(entries, str):
+        return [entries.upper()]
+    if not isinstance(entries, Iterable):
+        return []
+    return [str(code).upper() for code in entries if code]
+
+
+def _normalize_begleit_typen(raw_begleit_typen: object) -> Dict[str, str]:
+    if not isinstance(raw_begleit_typen, MutableMapping):
+        return {}
+    return {
+        str(code).upper(): str(t).upper()
+        for code, t in raw_begleit_typen.items()
+        if code
+    }
+
+
+def _normalize_leistungsgruppen_map(
+    leistungsgruppen_map: Mapping[str, Sequence[str]] | None,
+) -> Dict[str, Set[str]]:
+    return {
+        str(k).upper(): {str(c).upper() for c in (v or []) if c}
+        for k, v in (leistungsgruppen_map or {}).items()
+    }
+
+
+def _extract_medications(fall_data: Mapping[str, Any]) -> List[str]:
+    medications = fall_data.get("Medikamente")
+    if medications is None:
+        medications = fall_data.get("GTIN")
+    return _normalize_fall_codes(medications)
+
+
+def _build_rule_context(
+    fall_data: FallKontext,
+    leistungsgruppen_map: Mapping[str, Sequence[str]] | None,
+) -> RuleEvaluationContext:
+    lkn = str(fall_data.get("LKN") or "").upper()
+    menge = int(fall_data.get("Menge", 0) or 0)
+    begleit = _normalize_fall_codes(fall_data.get("Begleit_LKNs") or [])
+    typ_lkn = str(fall_data.get("Typ") or "").upper()
+
+    begleit_typen = _normalize_begleit_typen(fall_data.get("Begleit_Typen") or {})
+    if typ_lkn and lkn and lkn not in begleit_typen:
+        begleit_typen[lkn] = typ_lkn
+
+    return RuleEvaluationContext(
+        fall=fall_data,
+        lkn=lkn,
+        menge=menge,
+        begleit=begleit,
+        begleit_typen=begleit_typen,
+        leistungsgruppen_map=_normalize_leistungsgruppen_map(leistungsgruppen_map),
+        medications=_extract_medications(fall_data),
+    )
 
 
 def _check_rule_menge(
@@ -243,10 +304,7 @@ def _check_rule_diagnose(
 ) -> None:
     required_icds = rule.get("ICD") or rule.get("ICDs") or []
     required_icds = _normalize_rule_codes(required_icds)
-    provided_icds = ctx.fall.get("ICD", [])
-    if isinstance(provided_icds, str):
-        provided_icds = [provided_icds]
-    provided_upper = {str(code).upper() for code in provided_icds if code}
+    provided_upper = set(_normalize_fall_codes(ctx.fall.get("ICD", [])))
     if required_icds and not any(req in provided_upper for req in required_icds):
         state.add_error(
             f"Erforderliche Diagnose(n) nicht vorhanden (Benötigt: {', '.join(required_icds)})"
@@ -260,14 +318,45 @@ def _check_rule_pauschal_ausschluss(
 ) -> None:
     verbotene = rule.get("Pauschale") or rule.get("Pauschalen") or []
     verbotene = _normalize_rule_codes(verbotene)
-    abgerechnete = ctx.fall.get("Pauschalen", [])
-    if isinstance(abgerechnete, str):
-        abgerechnete = [abgerechnete]
-    abgerechnete_upper = {str(code).upper() for code in abgerechnete if code}
+    abgerechnete_upper = set(_normalize_fall_codes(ctx.fall.get("Pauschalen", [])))
     if any(verb in abgerechnete_upper for verb in verbotene):
         state.add_error(
             f"Leistung nicht zulässig bei gleichzeitiger Abrechnung der Pauschale(n): {', '.join(verbotene)}"
         )
+
+
+def _entry_allows_any_code(
+    entry: str,
+    codes: Sequence[str],
+    leistungsgruppen_map: Mapping[str, Set[str]],
+) -> bool:
+    entry_upper = entry.strip().upper()
+    if entry_upper.startswith("KAPITEL"):
+        prefix = entry_upper.replace("KAPITEL", "").strip()
+        return any(code.startswith(prefix) for code in codes)
+    if entry_upper.startswith("LEISTUNGSGRUPPE"):
+        gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
+        group_lkns = leistungsgruppen_map.get(gruppe)
+        if group_lkns is None:
+            return True
+        return any(code in group_lkns for code in codes)
+    return any(entry_upper == code for code in codes)
+
+
+def _entry_allows_code(
+    entry: str,
+    code: str,
+    leistungsgruppen_map: Mapping[str, Set[str]],
+) -> bool:
+    entry_upper = entry.strip().upper()
+    if entry_upper.startswith("KAPITEL"):
+        prefix = entry_upper.replace("KAPITEL", "").strip()
+        return code.startswith(prefix)
+    if entry_upper.startswith("LEISTUNGSGRUPPE"):
+        gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
+        group_lkns = leistungsgruppen_map.get(gruppe)
+        return group_lkns is None or code in group_lkns
+    return entry_upper == code
 
 
 def _check_rule_kumulation(
@@ -302,23 +391,14 @@ def _check_rule_kumulation(
         return True
 
     if typ.startswith("Nur kumulierbar"):
-        allowed_entries = _normalize_rule_codes(rule.get("LKNs") or rule.get("LKN"), uppercase=False)
-
-        def match_entry(entry: str) -> bool:
-            entry_str = entry.strip()
-            entry_upper = entry_str.upper()
-            if entry_upper.startswith("KAPITEL"):
-                prefix = entry_upper.replace("KAPITEL", "").strip()
-                return any(code.startswith(prefix) for code in ctx.begleit)
-            if entry_upper.startswith("LEISTUNGSGRUPPE"):
-                gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
-                group_lkns = ctx.leistungsgruppen_map.get(gruppe)
-                if group_lkns is None:
-                    return True
-                return any(code in group_lkns for code in ctx.begleit)
-            return any(entry_upper == code for code in ctx.begleit)
-
-        if not any(match_entry(entry) for entry in allowed_entries):
+        allowed_entries = _normalize_rule_codes(
+            rule.get("LKNs") or rule.get("LKN"),
+            uppercase=False,
+        )
+        if not any(
+            _entry_allows_any_code(entry, ctx.begleit, ctx.leistungsgruppen_map)
+            for entry in allowed_entries
+        ):
             state.add_error("Nur kumulierbar mit: " + ", ".join(allowed_entries))
         return True
 
@@ -349,62 +429,23 @@ def pruefe_abrechnungsfaehigkeit(
     kumulation_explizit: Optional[int] = None,
 ) -> dict:
     """
-    Pr?ft, ob eine gegebene Leistungsposition abrechnungsf?hig ist.
+    Prüft, ob eine gegebene Leistungsposition abrechnungsfähig ist.
 
     Args:
         fall: Kontext zur Leistung (LKN, Menge, ICD, Begleit-LKNs, Pauschalen,
               optional Alter, Geschlecht, GTIN).
         regelwerk: Mapping von LKN zu Regel-Definitionen aus lade_regelwerk.
-        leistungsgruppen_map: Optionales Mapping f?r Gruppenkumulationen.
-        kumulation_explizit: Override f?r die explizite Kumulationspr?fung.
+        leistungsgruppen_map: Optionales Mapping für Gruppenkumulationen.
+        kumulation_explizit: Override für die explizite Kumulationsprüfung.
     """
     kumulation_explizit = KUMULATION_EXPLIZIT if kumulation_explizit is None else kumulation_explizit
 
     fall_data = _coerce_fall(fall)
 
-    lkn = str(fall_data.get("LKN") or "").upper()
-    menge = int(fall_data.get("Menge", 0) or 0)
-    begleit = [str(code).upper() for code in (fall_data.get("Begleit_LKNs") or []) if code]
-    typ_lkn = str(fall_data.get("Typ") or "").upper()
-
-    raw_begleit_typen = fall_data.get("Begleit_Typen") or {}
-    if isinstance(raw_begleit_typen, MutableMapping):
-        begleit_typen = {
-            str(code).upper(): str(t).upper()
-            for code, t in raw_begleit_typen.items()
-            if code
-        }
-    else:
-        begleit_typen = {}
-    if typ_lkn and lkn and lkn not in begleit_typen:
-        begleit_typen[lkn] = typ_lkn
-
-    norm_leistungsgruppen = {
-        str(k).upper(): {str(c).upper() for c in (v or []) if c}
-        for k, v in (leistungsgruppen_map or {}).items()
-    }
-
-    medications = fall_data.get("Medikamente")
-    if medications is None:
-        medications = fall_data.get("GTIN")
-    if medications is None:
-        medications = []
-    if isinstance(medications, str):
-        medications = [medications]
-    medications_upper = [str(code).upper() for code in medications if code]
-
-    ctx = RuleEvaluationContext(
-        fall=fall_data,
-        lkn=lkn,
-        menge=menge,
-        begleit=begleit,
-        begleit_typen=begleit_typen,
-        leistungsgruppen_map=norm_leistungsgruppen,
-        medications=medications_upper,
-    )
+    ctx = _build_rule_context(fall_data, leistungsgruppen_map)
     state = RuleEvaluationState()
 
-    rules_raw = list(regelwerk.get(lkn) or [])
+    rules_raw = list(regelwerk.get(ctx.lkn) or [])
     if not rules_raw:
         return {"abrechnungsfaehig": True, "fehler": []}
 
@@ -420,28 +461,18 @@ def pruefe_abrechnungsfaehigkeit(
             continue
         if _check_rule_kumulation(typ, rule, ctx, state):
             continue
-        logger.info("Unbekannter Regeltyp '%s' f?r LKN %s ignoriert.", typ, lkn)
+        logger.info("Unbekannter Regeltyp '%s' für LKN %s ignoriert.", typ, ctx.lkn)
 
     if kumulation_explizit and state.hat_kumulierbar_regel and state.moegliche_zusatzpositionen:
         state.moegliche_zusatzpositionen = list(dict.fromkeys(state.moegliche_zusatzpositionen))
 
         def code_erlaubt(code: str) -> bool:
-            for entry in state.moegliche_zusatzpositionen:
-                entry_upper = entry.upper()
-                if entry_upper.startswith("KAPITEL"):
-                    prefix = entry_upper.replace("KAPITEL", "").strip()
-                    if code.startswith(prefix):
-                        return True
-                elif entry_upper.startswith("LEISTUNGSGRUPPE"):
-                    gruppe = entry_upper.replace("LEISTUNGSGRUPPE", "").strip()
-                    group_lkns = norm_leistungsgruppen.get(gruppe)
-                    if group_lkns is None or code in group_lkns:
-                        return True
-                elif code == entry_upper:
-                    return True
-            return False
+            return any(
+                _entry_allows_code(entry, code, ctx.leistungsgruppen_map)
+                for entry in state.moegliche_zusatzpositionen
+            )
 
-        ungueltig = [code for code in begleit if not code_erlaubt(code)]
+        ungueltig = [code for code in ctx.begleit if not code_erlaubt(code)]
         if ungueltig:
             state.add_error(
                 "Nur kumulierbar mit: " + ", ".join(state.moegliche_zusatzpositionen)

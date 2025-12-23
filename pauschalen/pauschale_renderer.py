@@ -26,6 +26,82 @@ __all__ = [
     "get_beschreibung_fuer_icd_im_backend",
 ]
 
+# Global ICD lookup cache (keyed by id(tabellen_dict_by_table), lang).
+# The tables dict is loaded once at startup, so a small process-wide cache is safe
+# and avoids repeated linear scans over large ICD catalogues.
+_ICD_LOOKUP_CACHE: Dict[Tuple[int, str], Tuple[Mapping[str, Sequence[Dict[str, Any]]], Dict[str, str]]] = {}
+
+
+def _normalize_table_type(raw_value: Any) -> str:
+    if raw_value is None:
+        return ""
+    value = str(raw_value).strip().lower()
+    return value.replace("-", "").replace("_", "")
+
+
+def _build_icd_lookup(
+    tabellen_dict_by_table: Mapping[str, Sequence[Dict[str, Any]]],
+    lang: str,
+) -> Dict[str, str]:
+    lang_code = str(lang or "de").lower()
+    lookup: Dict[str, str] = {}
+
+    main_key = "icd_hauptkatalog"
+    main_entries = (
+        tabellen_dict_by_table.get(main_key.lower())
+        or tabellen_dict_by_table.get(main_key)
+        or []
+    )
+    for entry in main_entries:
+        code = entry.get("Code")
+        if not code:
+            continue
+        typ_norm = _normalize_table_type(entry.get("Tabelle_Typ"))
+        if typ_norm and typ_norm != "icd":
+            continue
+        code_upper = str(code).upper()
+        if code_upper not in lookup:
+            lookup[code_upper] = (
+                get_lang_field(entry, "Code_Text", lang_code)
+                or entry.get("Code_Text")
+                or str(code)
+            )
+
+    for table_name, entries in tabellen_dict_by_table.items():
+        if str(table_name).lower() == main_key:
+            continue
+        for entry in entries:
+            typ_norm = _normalize_table_type(entry.get("Tabelle_Typ"))
+            if typ_norm != "icd":
+                continue
+            code = entry.get("Code")
+            if not code:
+                continue
+            code_upper = str(code).upper()
+            if code_upper in lookup:
+                continue
+            lookup[code_upper] = (
+                get_lang_field(entry, "Code_Text", lang_code)
+                or entry.get("Code_Text")
+                or str(code)
+            )
+
+    return lookup
+
+
+def _get_icd_lookup(
+    tabellen_dict_by_table: Mapping[str, Sequence[Dict[str, Any]]],
+    lang: str,
+) -> Dict[str, str]:
+    lang_code = str(lang or "de").lower()
+    cache_key = (id(tabellen_dict_by_table), lang_code)
+    cached = _ICD_LOOKUP_CACHE.get(cache_key)
+    if cached is not None and cached[0] is tabellen_dict_by_table:
+        return cached[1]
+    lookup = _build_icd_lookup(tabellen_dict_by_table, lang_code)
+    _ICD_LOOKUP_CACHE[cache_key] = (tabellen_dict_by_table, lookup)
+    return lookup
+
 
 def with_table_content_cache(func):
     """Ensure table lookups reuse a request-scoped cache while the function runs."""
@@ -71,27 +147,8 @@ def get_beschreibung_fuer_icd_im_backend(
         for entry in icd_entries_specific:
             if entry.get("Code", "").upper() == icd_code.upper():
                 return entry.get("Code_Text", icd_code)
-
-    haupt_icd_tabelle_name = "icd_hauptkatalog"
-    icd_entries_main = get_table_content(
-        haupt_icd_tabelle_name,
-        "icd",
-        tabellen_dict_by_table,
-        lang,
-    )
-    for entry in icd_entries_main:
-        if entry.get("Code", "").upper() == icd_code.upper():
-            return entry.get("Code_Text", icd_code)
-
-    for entries in tabellen_dict_by_table.values():
-        for entry in entries:
-            if (
-                entry.get("Tabelle_Typ") == "icd"
-                and entry.get("Code", "").upper() == icd_code.upper()
-            ):
-                return entry.get("Code_Text", icd_code)
-
-    return icd_code
+    lookup = _get_icd_lookup(tabellen_dict_by_table, lang)
+    return lookup.get(str(icd_code).upper(), icd_code)
 
 
 def render_condition_results_html(

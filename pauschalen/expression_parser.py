@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from functools import lru_cache
+from typing import Dict, List, Sequence, Tuple
 
 __all__ = [
+    "compile_boolean_expression",
     "tokenize_boolean_expression",
     "shunting_yard",
     "evaluate_rpn",
@@ -50,7 +52,7 @@ def shunting_yard(tokens: List[str]) -> List[str]:
     return output_queue
 
 
-def evaluate_rpn(rpn_queue: List[str], context: Dict[str, bool]) -> bool:
+def evaluate_rpn(rpn_queue: Sequence[str], context: Dict[str, bool]) -> bool:
     """Evaluate RPN queue."""
     stack: List[bool] = []
 
@@ -80,9 +82,14 @@ def evaluate_rpn(rpn_queue: List[str], context: Dict[str, bool]) -> bool:
     return stack[0]
 
 
+@lru_cache(maxsize=4096)
+def compile_boolean_expression(expression: str) -> Tuple[str, ...]:
+    """Compile an infix boolean expression into cached RPN tokens."""
+    tokens = tokenize_boolean_expression(expression or "")
+    return tuple(shunting_yard(tokens))
+
+
 def evaluate_boolean_expression_safe(expression: str, context: Dict[str, bool]) -> bool:
     """Evaluate a boolean expression string with AND/OR/NOT and parentheses."""
-    tokens = tokenize_boolean_expression(expression)
-    rpn_queue = shunting_yard(tokens)
+    rpn_queue = compile_boolean_expression(expression or "")
     return evaluate_rpn(rpn_queue, context)
-

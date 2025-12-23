@@ -34,6 +34,24 @@ MOCK_LLM_RESPONSE = {
     "begruendung_llm": "Die Konsultation dauerte 17 Minuten, was zu 1x CA.00.0010 und 12x CA.00.0020 führt."
 }
 
+MOCK_LLM_RESPONSE_FR_MUSCLE = {
+    "identified_leistungen": [
+        {
+            "lkn": "C02.CQ.0010",
+            "typ": "E",
+            "menge": 1,
+        }
+    ],
+    "extracted_info": {
+        "dauer_minuten": None,
+        "menge_allgemein": 1,
+        "alter": None,
+        "geschlecht": None,
+        "seitigkeit": "rechts",
+        "anzahl_prozeduren": 1,
+    },
+    "begruendung_llm": "FR test response.",
+}
 
 def test_parse_llm_json_response_with_trailing_text():
     raw = json.dumps(MOCK_LLM_RESPONSE) + " Hinweis"
@@ -119,6 +137,16 @@ def test_italian_context_localization():
     assert 'Consultazione medica' in context
     assert 'Ärztliche Konsultation' not in context
     assert 'Consultation médicale' not in context
+
+
+def test_test_example_french_muscle():
+    with patch('server.call_gemini_stage1', MagicMock(return_value=MOCK_LLM_RESPONSE_FR_MUSCLE)):
+        with server.app.test_client() as client:
+            resp = client.post('/api/test-example', json={'id': 18, 'lang': 'fr'})
+            assert resp.status_code == 200
+            data = resp.get_json() or {}
+            assert data.get('passed') is True
+            assert data.get('result', {}).get('pauschale', {}).get('code') == 'C02.25D'
 
 def test_submit_feedback_local(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)

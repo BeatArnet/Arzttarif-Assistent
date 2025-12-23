@@ -38,33 +38,25 @@ from utils import (
     translate,
     translate_condition_type,
     create_html_info_link,
-    activate_table_content_cache,
-    deactivate_table_content_cache,
 )
 from runtime_config import load_base_config
 from pauschalen import (
     evaluate_boolean_expression_safe,
-    generate_condition_detail_html,
     get_beschreibung_fuer_icd_im_backend,
     get_beschreibung_fuer_lkn_im_backend,
-    render_condition_results_html,
     with_table_content_cache,
 )
-import re, html
+import re
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "check_pauschale_conditions",
     "check_pauschale_conditions_structured",
-    "get_simplified_conditions",
-    "render_condition_results_html",
-    "generate_condition_detail_html",
     "determine_applicable_pauschale",
     "evaluate_pauschale_logic_orchestrator", # Added
     "check_single_condition",               # Added
     "DEFAULT_GROUP_OPERATOR",               # Added
-    "get_group_operator_for_pauschale",     # Added
     "build_pauschale_condition_structure_index",
     # _evaluate_boolean_tokens and evaluate_single_condition_group are internal
 ]
@@ -331,9 +323,14 @@ def _prepare_single_pauschale_structure(
             child_norm = _normalize_group_identifier(child_candidate)
             op_logic = _normalize_operator_label(cond.get("Operator"), default="ODER")
             ast_links.append((parent_norm, child_norm, op_logic, cond.get("BedingungsID", 0)))
-            if child_norm is not None and op_logic in ("UND", "ODER"):
-                inter_group_operators_map[child_norm] = op_logic
             op_display = _normalize_operator_label(cond.get("Werte"), default="")
+            if child_norm is not None:
+                # Prefer explicit AST operator (cond["Operator"]) for evaluation,
+                # but fall back to the display operator (cond["Werte"]) when missing.
+                if op_logic in ("UND", "ODER"):
+                    inter_group_operators_map[child_norm] = op_logic
+                elif op_display in ("UND", "ODER"):
+                    inter_group_operators_map[child_norm] = op_display
             if op_display in ("UND", "ODER"):
                 sequence.append({"type": "ast_operator", "operator": op_display})
             continue
@@ -465,45 +462,6 @@ def pauschale_requires_icd(
     return False
 
 
-@with_table_content_cache
-def count_matching_lkn_codes(
-    context: Mapping[str, Any],
-    structure: Optional[PreparedPauschaleStructure],
-    tabellen_dict_by_table: Dict[str, List[Dict]],
-) -> int:
-    """Return how many distinct context LKN codes satisfy LKN conditions for the Pauschale."""
-    provided_lkns = {str(lkn).upper() for lkn in context.get('LKN', []) if lkn}
-    if not provided_lkns or not structure:
-        return 0
-    matches: set[str] = set()
-    for group in structure.groups:
-        for cond in group.conditions:
-            cond_type = str(cond.get('Bedingungstyp', '')).upper()
-            cond_cache: Dict[str, Any] = cond.setdefault('__parsed_cache__', {})
-            if cond_type in LKN_LIST_CONDITION_TYPES:
-                values = cond_cache.get('lkn_required_set')
-                if values is None:
-                    values = frozenset(
-                        item.strip().upper() for item in str(cond.get('Werte', '')).split(',') if item.strip()
-                    )
-                    cond_cache['lkn_required_set'] = values
-                matches.update(provided_lkns.intersection(values))
-            elif cond_type in LKN_TABLE_CONDITION_TYPES:
-                table_ref = str(cond.get('Werte', '')).strip()
-                if not table_ref:
-                    continue
-                cache_key_codes = 'table_codes::service_catalog'
-                table_codes = cond_cache.get(cache_key_codes)
-                if table_codes is None:
-                    entries = get_table_content(table_ref, 'service_catalog', tabellen_dict_by_table)
-                    table_codes = frozenset(
-                        str(entry.get('Code', '')).upper() for entry in entries if entry.get('Code')
-                    )
-                    cond_cache[cache_key_codes] = table_codes
-                matches.update(provided_lkns.intersection(table_codes))
-    return len(matches)
-
-
 def is_pauschale_code_ge_c90(code: str | None) -> bool:
     """Return True if the Pauschale code is lexicographically >= C90."""
     if not code:
@@ -569,6 +527,46 @@ def _parse_comparison(expr: str) -> tuple[str, str]:
                 operator = '='
             return operator, right
     raise ValueError(f"Cannot parse comparison '{expr}'.")
+
+def _compare_numeric_with_operator(
+    provided_value: Any,
+    rule_value: Any,
+    operator_token: Any,
+    warn_label: str,
+    error_label: str,
+) -> bool:
+    try:
+        provided_int = int(provided_value)
+        rule_int = int(rule_value)
+    except (ValueError, TypeError) as exc:
+        logger.error(
+            "FEHLER (%s) Konvertierung: %s. Regelwert: '%s', Kontextwert: '%s'",
+            error_label,
+            exc,
+            rule_value,
+            provided_value,
+        )
+        return False
+
+    if operator_token == ">=":
+        return provided_int >= rule_int
+    if operator_token == "<=":
+        return provided_int <= rule_int
+    if operator_token == ">":
+        return provided_int > rule_int
+    if operator_token == "<":
+        return provided_int < rule_int
+    if operator_token == "=":
+        return provided_int == rule_int
+    if operator_token == "!=":
+        return provided_int != rule_int
+
+    logger.warning(
+        "WARNUNG (%s): Unbekannter Vergleichsoperator '%s'.",
+        warn_label,
+        operator_token,
+    )
+    return False
 
 
 def _evaluate_simple_condition(
@@ -734,14 +732,13 @@ def _evaluate_prueflogik_expression(
     debug: bool = False,
     tolerant: bool = False,
 ) -> bool:
+    expr_normalized, fragments = _compile_prueflogik_expression_template(prueflogik_expr)
     values: List[bool] = []
 
-    def _replace(match: re.Match) -> str:
-        idx = len(values)
-        fragment = match.group(0)
+    # Evaluate all compiled fragments in order (no regex re-scan of the whole expression).
+    for fragment in fragments:
         fragment_clean = fragment.strip()
         fragment_lower = fragment_clean.lower()
-
         if (
             fragment_lower.startswith('anzahl')
             or fragment_lower.startswith('seitigkeit')
@@ -763,23 +760,38 @@ def _evaluate_prueflogik_expression(
                 tabellen_dict_by_table,
                 tolerant=tolerant,
             )
-
         values.append(bool(result))
-        return f'__COND{idx}__'
 
-    token_expr = CONDITION_PATTERN.sub(_replace, prueflogik_expr)
-    if not values:
-        raise ValueError("Keine Bedingungen aus der Prüflogik extrahiert.")
-
-    # Replace logical operators with standard tokens for the parser
-    expr_normalized = _normalize_logical_operators(token_expr)
-    
-    # Create a mapping for the evaluator
     context_map = {f'__COND{i}__': val for i, val in enumerate(values)}
-    
     return evaluate_boolean_expression_safe(expr_normalized, context_map)
 
 
+@lru_cache(maxsize=2048)
+def _compile_prueflogik_expression_template(expr: str) -> Tuple[str, Tuple[str, ...]]:
+    """Compile Prüflogik into a reusable template + ordered condition fragments.
+
+    Returns
+    -------
+    (normalized_expression, fragments)
+        normalized_expression contains placeholders __COND0__, __COND1__, ...
+        fragments is the tuple of matched condition fragments in the same order.
+    """
+    expr_in = (expr or "").strip()
+    fragments: List[str] = []
+
+    def _replace(match: re.Match) -> str:
+        idx = len(fragments)
+        fragments.append(match.group(0))
+        return f'__COND{idx}__'
+
+    token_expr = CONDITION_PATTERN.sub(_replace, expr_in)
+    if not fragments:
+        raise ValueError("Keine Bedingungen aus der Prüflogik extrahiert.")
+    normalized = _normalize_logical_operators(token_expr)
+    return normalized, tuple(fragments)
+
+
+@lru_cache(maxsize=512)
 def _format_prueflogik_for_display(prueflogik_expr: str, lang: str = "de") -> str:
     """Return a pretty-printed version of the Prüflogik expression."""
     expr = (prueflogik_expr or "").strip()
@@ -1161,6 +1173,25 @@ def _get_or_create_table_codes(
     return table_codes
 
 
+def _extract_table_names(
+    raw_value: Any,
+    table_index: Mapping[str, Any],
+) -> List[str]:
+    tokens = [t.strip() for t in str(raw_value or "").split(",") if t.strip()]
+    if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
+        return tokens
+    table_names: List[str] = []
+    for token in tokens:
+        token_norm = str(token).lower()
+        if token_norm in table_index:
+            table_names.append(token)
+            continue
+        if token.upper() in ("ODER", "OR", "UND", "AND"):
+            continue
+        table_names.append(token)
+    return table_names
+
+
 def _check_icd_condition(
     condition: MutableMapping[str, Any],
     condition_type: str,
@@ -1376,72 +1407,26 @@ def check_single_condition(
             alter_eintritt = normalized_context.alter_bei_eintritt
             if alter_eintritt is None:
                 return True if tolerant else False
-            try:
-                alter_val = int(alter_eintritt)
-                regel_wert = int(werte_str)
-                vergleichsoperator = condition.get("Vergleichsoperator")
-
-                if vergleichsoperator == ">=":
-                    return alter_val >= regel_wert
-                if vergleichsoperator == "<=":
-                    return alter_val <= regel_wert
-                if vergleichsoperator == ">":
-                    return alter_val > regel_wert
-                if vergleichsoperator == "<":
-                    return alter_val < regel_wert
-                if vergleichsoperator == "=":
-                    return alter_val == regel_wert
-                if vergleichsoperator == "!=":
-                    return alter_val != regel_wert
-
-                logger.warning(
-                    "WARNUNG (check_single ALTER BEI EINTRITT): Unbekannter Vergleichsoperator '%s'.",
-                    vergleichsoperator,
-                )
-                return False
-            except (ValueError, TypeError) as e_alter:
-                logger.error(
-                    "FEHLER (check_single ALTER BEI EINTRITT) Konvertierung: %s. Regelwert: '%s', Kontextwert: '%s'",
-                    e_alter,
-                    werte_str,
-                    alter_eintritt,
-                )
-                return False
+            vergleichsoperator = condition.get("Vergleichsoperator")
+            return _compare_numeric_with_operator(
+                alter_eintritt,
+                werte_str,
+                vergleichsoperator,
+                warn_label="check_single ALTER BEI EINTRITT",
+                error_label="check_single ALTER BEI EINTRITT",
+            )
 
         if bedingungstyp == "ANZAHL":
             if provided_anzahl is None:
                 return True if tolerant else False
-            try:
-                kontext_anzahl_val = int(provided_anzahl)
-                regel_wert_anzahl_val = int(werte_str)
-                vergleichsoperator = condition.get("Vergleichsoperator")
-
-                if vergleichsoperator == ">=":
-                    return kontext_anzahl_val >= regel_wert_anzahl_val
-                if vergleichsoperator == "<=":
-                    return kontext_anzahl_val <= regel_wert_anzahl_val
-                if vergleichsoperator == ">":
-                    return kontext_anzahl_val > regel_wert_anzahl_val
-                if vergleichsoperator == "<":
-                    return kontext_anzahl_val < regel_wert_anzahl_val
-                if vergleichsoperator == "=":
-                    return kontext_anzahl_val == regel_wert_anzahl_val
-                if vergleichsoperator == "!=":
-                    return kontext_anzahl_val != regel_wert_anzahl_val
-
-                logger.warning(
-                    "WARNUNG (check_single ANZAHL): Unbekannter Vergleichsoperator '%s'.",
-                    vergleichsoperator,
-                )
-                return False
-            except (ValueError, TypeError) as e_anzahl:
-                logger.error(
-                    "FEHLER (check_single ANZAHL) Konvertierung: %s. Regelwert: '%s', Kontextwert: '%s'",
-                    e_anzahl,
-                    werte_str,
-                    provided_anzahl,
-                )
-                return False
+            vergleichsoperator = condition.get("Vergleichsoperator")
+            return _compare_numeric_with_operator(
+                provided_anzahl,
+                werte_str,
+                vergleichsoperator,
+                warn_label="check_single ANZAHL",
+                error_label="check_single ANZAHL",
+            )
 
         if bedingungstyp == "SEITIGKEIT":
             if provided_seitigkeit_str in ("unbekannt", "", None) and tolerant:
@@ -1493,40 +1478,6 @@ def check_single_condition(
         )
         traceback.print_exc()
         return False
-
-def get_group_operator_for_pauschale(
-    pauschale_code: str, bedingungen_data: List[Dict], default: str = DEFAULT_GROUP_OPERATOR
-) -> str:
-    """Liefert den Gruppenoperator (UND/ODER) fuer eine Pauschale."""
-    for cond in bedingungen_data:
-        if cond.get("Pauschale") == pauschale_code and "GruppenOperator" in cond:
-            op = str(cond.get("GruppenOperator", "")).strip().upper()
-            if op in ("UND", "ODER"):
-                return op
-
-    # Heuristik: Wenn keine explizite Angabe vorhanden ist, aber mehrere Gruppen
-    # existieren und in der ersten Gruppe mindestens eine Zeile mit "ODER"
-    # verknüpft ist, werten wir dies als globalen Gruppenoperator "ODER".
-    first_group_id = None
-    groups_seen: List[Any] = []
-    first_group_has_oder = False
-    for cond in bedingungen_data:
-        if cond.get("Pauschale") != pauschale_code:
-            continue
-        grp = cond.get("Gruppe")
-        if first_group_id is None:
-            first_group_id = grp
-        if grp not in groups_seen:
-            groups_seen.append(grp)
-        if grp == first_group_id:
-            if str(cond.get("Operator", "")).strip().upper() == "ODER":
-                first_group_has_oder = True
-
-    if len(groups_seen) > 1 and first_group_has_oder:
-        return "ODER"
-
-    return default
-
 
 def _evaluate_boolean_tokens(tokens: List[Any]) -> bool:
     """Evaluate a boolean expression represented as tokens.
@@ -1652,115 +1603,149 @@ def evaluate_single_condition_group(
     use_icd_flag = normalized_context.use_icd
     group_has_non_diag = any(str(cond.get('Bedingungstyp', '')).upper() not in diagnostic_types for cond in conditions_in_group)
 
-    baseline_level_group = 1
-    first_level_group = conditions_in_group[0].get('Ebene', 1)
-    if first_level_group < baseline_level_group:
-        first_level_group = baseline_level_group
+    def _evaluate_conditions_list(conditions: Sequence[MutableMapping[str, Any]]) -> bool:
+        if not conditions:
+            return True
+        baseline_level_group = 1
+        first_level_group = conditions[0].get('Ebene', 1)
+        if first_level_group < baseline_level_group:
+            first_level_group = baseline_level_group
 
-    first_res_group = check_single_condition(
-        conditions_in_group[0],
-        context,
-        tabellen_dict_by_table,
-        normalized_context,
-        tolerant=tolerant,
-    )
-
-    tokens_group: List[Any] = ["("] * (first_level_group - baseline_level_group)
-    tokens_group.append(bool(first_res_group))
-
-    prev_level_group = first_level_group
-
-    for i in range(1, len(conditions_in_group)):
-        cond_grp = conditions_in_group[i]
-        cur_level_group = cond_grp.get('Ebene', baseline_level_group)
-        if cur_level_group < baseline_level_group:
-            cur_level_group = baseline_level_group
-
-        linking_operator = str(conditions_in_group[i-1].get('Operator', "UND")).strip().upper()
-        if linking_operator not in ["AND", "OR"]: # This check is for already English operators, will adapt
-            # Convert German operator from condition data to English for _evaluate_boolean_tokens
-            if linking_operator == "UND":
-                english_operator = "AND"
-            elif linking_operator == "ODER":
-                english_operator = "OR"
-            else:
-                # Default to AND if somehow an unexpected operator string appears
-                logger.warning(f"Unexpected linking_operator '{linking_operator}' in Pauschale {pauschale_code_for_debug}, Gruppe {group_id_for_debug}. Defaulting to AND.")
-                english_operator = "AND"
-        else: # It was already "AND" or "OR" (e.g. if default was applied and it was English)
-             english_operator = linking_operator
-
-
-        if cur_level_group < prev_level_group:
-            tokens_group.extend([")"] * (prev_level_group - cur_level_group))
-
-        tokens_group.append(english_operator) # Append the English operator
-
-        if cur_level_group > prev_level_group:
-            tokens_group.extend(["("] * (cur_level_group - prev_level_group))
-
-        cur_res_group = check_single_condition(
-            cond_grp,
+        first_res_group = check_single_condition(
+            conditions[0],
             context,
             tabellen_dict_by_table,
             normalized_context,
             tolerant=tolerant,
         )
-        tokens_group.append(bool(cur_res_group))
 
-        prev_level_group = cur_level_group
+        tokens_group: List[Any] = ["("] * (first_level_group - baseline_level_group)
+        tokens_group.append(bool(first_res_group))
 
-    tokens_group.extend([")"] * (prev_level_group - baseline_level_group))
+        prev_level_group = first_level_group
 
-    if not any(isinstance(tok, bool) for tok in tokens_group):
-        if debug:
-             logging.warning( # Assuming logger is imported as logging
-                "DEBUG Pauschale %s, Gruppe %s: Token list for group evaluation has no boolean values. Tokens: %s. Defaulting to True.",
-                pauschale_code_for_debug, group_id_for_debug, tokens_group
-            )
-        return True
+        for i in range(1, len(conditions)):
+            cond_grp = conditions[i]
+            cur_level_group = cond_grp.get('Ebene', baseline_level_group)
+            if cur_level_group < baseline_level_group:
+                cur_level_group = baseline_level_group
 
-    calculated_result = False # Default to False
-    try:
-        # Ensure tokens_group is not empty before calling, though earlier checks should handle it.
-        if not tokens_group:
-             if debug:
-                logging.warning(f"DEBUG Pauschale {pauschale_code_for_debug}, Gruppe {group_id_for_debug}: Empty tokens_group before _evaluate_boolean_tokens. Defaulting to True as per earlier logic for empty group.")
-             return True # Consistent with how truly empty groups are handled (or False if that's preferred for error)
-
-        raw_eval_result = _evaluate_boolean_tokens(tokens_group)
-        calculated_result = bool(raw_eval_result) # Explicitly cast to bool immediately
-
-        if debug:
-            # Construct expr_str_group carefully for logging
-            expr_parts = []
-            for t_log in tokens_group: # Use a different loop variable for safety if tokens_group could be complex
-                if isinstance(t_log, bool):
-                    expr_parts.append(str(t_log).lower())
-                elif t_log in ("AND", "OR", "(", ")"):
-                    expr_parts.append(f" {t_log} " if t_log in ("AND", "OR") else t_log)
+            linking_operator = str(conditions[i-1].get('Operator', "UND")).strip().upper()
+            if linking_operator not in ["AND", "OR"]: # This check is for already English operators, will adapt
+                # Convert German operator from condition data to English for _evaluate_boolean_tokens
+                if linking_operator == "UND":
+                    english_operator = "AND"
+                elif linking_operator == "ODER":
+                    english_operator = "OR"
                 else:
-                    expr_parts.append(f" <UNKNOWN_TOKEN:{t_log}> ") # Should not happen if tokens are clean
-            expr_str_group = "".join(expr_parts).replace("  ", " ").strip()
-            
-            logging.info(
-                "DEBUG Pauschale %s, Gruppe %s: Eval tokens: %s (Expression: %s) => %s",
+                    # Default to AND if somehow an unexpected operator string appears
+                    logger.warning(f"Unexpected linking_operator '{linking_operator}' in Pauschale {pauschale_code_for_debug}, Gruppe {group_id_for_debug}. Defaulting to AND.")
+                    english_operator = "AND"
+            else: # It was already "AND" or "OR" (e.g. if default was applied and it was English)
+                 english_operator = linking_operator
+
+            if cur_level_group < prev_level_group:
+                tokens_group.extend([")"] * (prev_level_group - cur_level_group))
+
+            tokens_group.append(english_operator) # Append the English operator
+
+            if cur_level_group > prev_level_group:
+                tokens_group.extend(["("] * (cur_level_group - prev_level_group))
+
+            cur_res_group = check_single_condition(
+                cond_grp,
+                context,
+                tabellen_dict_by_table,
+                normalized_context,
+                tolerant=tolerant,
+            )
+            tokens_group.append(bool(cur_res_group))
+
+            prev_level_group = cur_level_group
+
+        tokens_group.extend([")"] * (prev_level_group - baseline_level_group))
+
+        if not any(isinstance(tok, bool) for tok in tokens_group):
+            if debug:
+                 logging.warning( # Assuming logger is imported as logging
+                    "DEBUG Pauschale %s, Gruppe %s: Token list for group evaluation has no boolean values. Tokens: %s. Defaulting to True.",
+                    pauschale_code_for_debug, group_id_for_debug, tokens_group
+                )
+            return True
+
+        calculated = False # Default to False
+        try:
+            # Ensure tokens_group is not empty before calling, though earlier checks should handle it.
+            if not tokens_group:
+                 if debug:
+                    logging.warning(f"DEBUG Pauschale {pauschale_code_for_debug}, Gruppe {group_id_for_debug}: Empty tokens_group before _evaluate_boolean_tokens. Defaulting to True as per earlier logic for empty group.")
+                 return True # Consistent with how truly empty groups are handled (or False if that's preferred for error)
+
+            raw_eval_result = _evaluate_boolean_tokens(tokens_group)
+            calculated = bool(raw_eval_result) # Explicitly cast to bool immediately
+
+            if debug:
+                # Construct expr_str_group carefully for logging
+                expr_parts = []
+                for t_log in tokens_group: # Use a different loop variable for safety if tokens_group could be complex
+                    if isinstance(t_log, bool):
+                        expr_parts.append(str(t_log).lower())
+                    elif t_log in ("AND", "OR", "(", ")"):
+                        expr_parts.append(f" {t_log} " if t_log in ("AND", "OR") else t_log)
+                    else:
+                        expr_parts.append(f" <UNKNOWN_TOKEN:{t_log}> ") # Should not happen if tokens are clean
+                expr_str_group = "".join(expr_parts).replace("  ", " ").strip()
+
+                logging.info(
+                    "DEBUG Pauschale %s, Gruppe %s: Eval tokens: %s (Expression: %s) => %s",
+                    pauschale_code_for_debug,
+                    group_id_for_debug,
+                    tokens_group,
+                    expr_str_group,
+                    calculated, # Log the captured boolean result
+                )
+        except Exception as e_eval_group:
+            logging.error(
+                "FEHLER bei Gruppenlogik-Ausdruck (Pauschale: %s, Gruppe: %s) Tokens: '%s': %s",
                 pauschale_code_for_debug,
                 group_id_for_debug,
-                tokens_group, 
-                expr_str_group,
-                calculated_result, # Log the captured boolean result
+                str(tokens_group),
+                e_eval_group,
             )
-    except Exception as e_eval_group:
-        logging.error(
-            "FEHLER bei Gruppenlogik-Ausdruck (Pauschale: %s, Gruppe: %s) Tokens: '%s': %s",
-            pauschale_code_for_debug,
-            group_id_for_debug,
-            str(tokens_group), 
-            e_eval_group,
+            traceback.print_exc()
+            # calculated remains False
+        return calculated
+
+    anzahl_conditions = [
+        cond for cond in conditions_in_group
+        if str(cond.get('Bedingungstyp', '')).upper() == "ANZAHL"
+    ]
+    non_anzahl_conditions = [
+        cond for cond in conditions_in_group
+        if str(cond.get('Bedingungstyp', '')).upper() != "ANZAHL"
+    ]
+
+    if anzahl_conditions and non_anzahl_conditions:
+        non_anzahl_result = _evaluate_conditions_list(non_anzahl_conditions)
+        anzahl_result = all(
+            check_single_condition(
+                cond,
+                context,
+                tabellen_dict_by_table,
+                normalized_context,
+                tolerant=tolerant,
+            )
+            for cond in anzahl_conditions
         )
-        traceback.print_exc()
-        # calculated_result remains False (its initialization)
+        calculated_result = non_anzahl_result and anzahl_result
+        if debug and non_anzahl_result and not anzahl_result:
+            logging.info(
+                "DEBUG Pauschale %s, Gruppe %s: ANZAHL gating failed (non-ANZAHL true, ANZAHL false).",
+                pauschale_code_for_debug,
+                group_id_for_debug,
+            )
+    else:
+        calculated_result = _evaluate_conditions_list(conditions_in_group)
 
     if not use_icd_flag and not group_has_non_diag:
         provided_icds = [icd for icd in normalized_context.icd_codes if icd]
@@ -1967,8 +1952,9 @@ def evaluate_pauschale_logic_orchestrator(
     debug: bool = False,
     prepared_structures: Optional[Dict[str, PreparedPauschaleStructure]] = None,
     tolerant: bool = False,
+    normalized_context: Optional[NormalizedContext] = None,
 ) -> bool:
-    normalized_context = build_normalized_context(context)
+    normalized_context = normalized_context or build_normalized_context(context)
 
     prueflogik_expr = None
     if pauschalen_dict:
@@ -2066,6 +2052,30 @@ def check_pauschale_conditions(
             "prueflogik_pretty": prueflogik_pretty,
             "group_logic_terms": group_logic_terms,
         }
+
+    # Local caches avoid repeated list copies / JSON dumps for large tables within one render call.
+    lang_norm = (lang or "de").lower()
+    table_entries_cache: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
+    table_json_cache: Dict[Tuple[str, str, str], str] = {}
+
+    def _get_table_entries(table_name: str, table_type: str) -> List[Dict[str, Any]]:
+        key = (str(table_name).lower(), table_type, lang_norm)
+        cached_entries = table_entries_cache.get(key)
+        if cached_entries is not None:
+            return cached_entries
+        entries = get_table_content(table_name, table_type, tabellen_dict_by_table, lang)
+        table_entries_cache[key] = entries
+        return entries
+
+    def _get_table_json(table_name: str, table_type: str) -> str:
+        key = (str(table_name).lower(), table_type, lang_norm)
+        cached_json = table_json_cache.get(key)
+        if cached_json is not None:
+            return cached_json
+        entries = _get_table_entries(table_name, table_type)
+        json_str = json.dumps(entries)
+        table_json_cache[key] = json_str
+        return json_str
 
     html_parts: list[str] = []
     if prueflogik_expr:
@@ -2169,34 +2179,38 @@ def check_pauschale_conditions(
                 "LEISTUNGSPOSITIONEN IN TABELLE",
                 "TARIFPOSITIONEN IN TABELLE",
             ):
-                tokens = [t.strip() for t in original_werte.split(',') if t.strip()]
-                if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
-                    table_names = tokens  # treat as literal table name (e.g., "OR")
-                else:
-                    table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
+                table_names = _extract_table_names(original_werte, tabellen_dict_by_table)
                 if table_names:
                     table_links = []
                     for tn in table_names:
-                        entries = get_table_content(tn, "service_catalog", tabellen_dict_by_table, lang)
-                        data_content = json.dumps(entries)
-                        table_links.append(create_html_info_link(tn, "lkn_table", escape(tn), data_content=data_content))
+                        data_content = _get_table_json(tn, "service_catalog")
+                        table_links.append(
+                            create_html_info_link(
+                                tn,
+                                "lkn_table",
+                                escape(tn),
+                                data_content=data_content,
+                            )
+                        )
                     werte_display = ", ".join(table_links)
                 else:
                     werte_display = ""
                     context_hint_allowed = False
 
             elif cond_type_upper in ("HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"):
-                tokens = [t.strip() for t in original_werte.split(',') if t.strip()]
-                if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
-                    table_names = tokens
-                else:
-                    table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
+                table_names = _extract_table_names(original_werte, tabellen_dict_by_table)
                 if table_names:
                     table_links = []
                     for tn in table_names:
-                        entries = get_table_content(tn, "icd", tabellen_dict_by_table, lang)
-                        data_content = json.dumps(entries)
-                        table_links.append(create_html_info_link(tn, "icd_table", escape(tn), data_content=data_content))
+                        data_content = _get_table_json(tn, "icd")
+                        table_links.append(
+                            create_html_info_link(
+                                tn,
+                                "icd_table",
+                                escape(tn),
+                                data_content=data_content,
+                            )
+                        )
                     werte_display = ", ".join(table_links)
                 else:
                     werte_display = ""
@@ -2304,13 +2318,6 @@ def check_pauschale_conditions(
                 translated_genders = [translate(g, lang) for g in gender_tokens]
                 werte_display = escape(", ".join(translated_genders))
 
-            elif cond_type_upper == "MEDIKAMENTE IN LISTE":
-                med_codes = [med.strip() for med in original_werte.split(',') if med.strip()]
-                if med_codes:
-                    werte_display = escape(", ".join(med_codes))
-                else:
-                    werte_display = f"<i>{translate('no_medications_spec', lang)}</i>"
-
             else:
                 werte_display = escape(original_werte)
 
@@ -2333,12 +2340,7 @@ def check_pauschale_conditions(
                     if "TABELLE" in cond_type_upper:
                         table_ref = cond_data.get(BED_WERTE_KEY)
                         if table_ref and isinstance(table_ref, str):
-                            for entry in get_table_content(
-                                table_ref,
-                                "icd",
-                                tabellen_dict_by_table,
-                                lang,
-                            ):
+                            for entry in _get_table_entries(table_ref, "icd"):
                                 if entry.get("Code"):
                                     required_codes_in_rule.add(entry["Code"].upper())
                     else:
@@ -2388,12 +2390,7 @@ def check_pauschale_conditions(
                     if "TABELLE" in cond_type_upper:
                         table_ref = cond_data.get(BED_WERTE_KEY)
                         if table_ref and isinstance(table_ref, str):
-                            for entry in get_table_content(
-                                table_ref,
-                                "service_catalog",
-                                tabellen_dict_by_table,
-                                lang,
-                            ):
+                            for entry in _get_table_entries(table_ref, "service_catalog"):
                                 if entry.get("Code"):
                                     required_lkn_codes.add(entry["Code"].upper())
                     else:
@@ -2542,6 +2539,90 @@ def check_pauschale_conditions_structured(
                 )
             )
 
+            matched_lkns: list[str] = []
+            matched_icds: list[str] = []
+            if matched:
+                cond_cache = _get_condition_cache(cond)
+                werte_raw = cond.get(BED_WERTE_KEY, "")
+
+                if cond_type_upper in LKN_LIST_CONDITION_TYPES:
+                    required_lkn_codes = _get_or_create_required_codes(
+                        cond_cache,
+                        "lkn_required_set",
+                        werte_raw,
+                    )
+                    if required_lkn_codes:
+                        matched_lkns = sorted(
+                            normalized_context.lkn_codes.intersection(required_lkn_codes)
+                        )
+
+                elif (
+                    cond_type_upper in LKN_TABLE_CONDITION_TYPES
+                    and cond_type_upper != "TARIFPOSITIONEN IN TABELLE"
+                ):
+                    table_names = _extract_table_names(werte_raw, tabellen_dict_by_table)
+
+                    if table_names:
+                        table_ref_clean = ", ".join(table_names)
+                        cache_key = (
+                            f"table_codes::service_catalog::{table_ref_clean.upper()}"
+                        )
+                        required_codes = _get_or_create_table_codes(
+                            cond_cache,
+                            cache_key,
+                            table_ref_clean,
+                            "service_catalog",
+                            tabellen_dict_by_table,
+                        )
+                        if required_codes:
+                            matched_lkns = sorted(
+                                normalized_context.lkn_codes.intersection(required_codes)
+                            )
+
+                elif cond_type_upper in ICD_CONDITION_TYPES:
+                    if cond_type_upper in (
+                        "ICD",
+                        "ICD IN LISTE",
+                        "HAUPTDIAGNOSE IN LISTE",
+                    ):
+                        required_icds = _get_or_create_required_codes(
+                            cond_cache,
+                            "icd_required_set",
+                            werte_raw,
+                        )
+                        if required_icds:
+                            matched_icds = sorted(
+                                normalized_context.icd_codes.intersection(required_icds)
+                            )
+                    else:
+                        table_ref = str(werte_raw or "").strip()
+                        if table_ref:
+                            cache_key = f"icd_table_codes::{table_ref.upper()}"
+                            table_codes = cond_cache.get(cache_key)
+                            if table_codes is None:
+                                icd_codes_in_rule_table = {
+                                    entry.get("Code", "").upper()
+                                    for entry in get_table_content(
+                                        table_ref,
+                                        "icd",
+                                        tabellen_dict_by_table,
+                                    )
+                                    if entry.get("Code")
+                                }
+                                extra_codes = DIAGNOSIS_TABLE_EXTRA_CODES.get(
+                                    table_ref.upper()
+                                )
+                                if extra_codes:
+                                    icd_codes_in_rule_table.update(
+                                        code.upper() for code in extra_codes
+                                    )
+                                table_codes = frozenset(icd_codes_in_rule_table)
+                                cond_cache[cache_key] = table_codes
+                            if table_codes:
+                                matched_icds = sorted(
+                                    normalized_context.icd_codes.intersection(table_codes)
+                                )
+
             if matched and cond_type_upper in (
                 "LEISTUNGSPOSITIONEN IN LISTE",
                 "LKN",
@@ -2559,12 +2640,30 @@ def check_pauschale_conditions_structured(
                     "max": cond.get(BED_MAX_KEY),
                     "vergleich": cond.get(BED_VERGLEICHSOP_KEY),
                     "matched": matched,
+                    "matched_lkns": matched_lkns,
+                    "matched_icds": matched_icds,
                 }
             )
 
         groups_output.append(group_entry)
 
     inter_group_ops_out = list(structure.inter_group_ops)
+    if not inter_group_ops_out and structure.sequence:
+        # Backward-compatible fallback: derive operators from the prepared sequence.
+        derived_ops: list[str] = []
+        last_was_group = False
+        for token in structure.sequence:
+            token_type = token.get("type")
+            if token_type == "group":
+                last_was_group = True
+                continue
+            if token_type == "ast_operator" and last_was_group:
+                op_val = str(token.get("operator") or "").upper()
+                if op_val in ("UND", "ODER"):
+                    derived_ops.append(op_val)
+                last_was_group = False
+        if derived_ops:
+            inter_group_ops_out = derived_ops
     group_children_out: dict[Any, list[dict[str, Any]]] = {
         parent: [dict(entry) for entry in entries]
         for parent, entries in structure.group_children.items()
@@ -2599,7 +2698,12 @@ def determine_applicable_pauschale(
     potential_pauschale_precise_input: Set[str] | None = None, # Optional präzise Kandidaten
     potential_pauschale_broad_input: Set[str] | None = None, # Optional breite Kandidaten
     lang: str = 'de',
-    prepared_structures: Dict[str, Any] | None = None
+    prepared_structures: Dict[str, Any] | None = None,
+    fast_mode: bool = False,
+    include_explanation_html: bool = True,
+    include_selected_conditions_html: bool = True,
+    include_candidate_sources: bool = True,
+    include_potential_icds: bool = True,
     ) -> dict:
     """Finde die bestmögliche Pauschale anhand der Regeln.
 
@@ -2683,10 +2787,38 @@ def determine_applicable_pauschale(
 
     use_icd_flag = context.get('useIcd', True)
     requires_icd_cache: Dict[str, bool] = {}
+    sources_required = bool(include_candidate_sources or include_explanation_html)
     candidate_lkn_sources: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     context_lkns_in_tables_cache: Dict[str, Set[str]] = {}
     excluded_lkn_tables = get_excluded_lkn_tables()
     normalized_context_primary = build_normalized_context(context)
+    request_eval_cache: MutableMapping[tuple[Any, ...], bool] | None = None
+    try:
+        cache_candidate = context.get("__pauschale_eval_cache")  # type: ignore[call-arg]
+        if isinstance(cache_candidate, dict):
+            request_eval_cache = cache_candidate
+    except Exception:
+        request_eval_cache = None
+
+    def _eval_cache_key(
+        pauschale_code: str,
+        tolerant_flag: bool,
+        normalized_ctx: NormalizedContext,
+    ) -> tuple[Any, ...]:
+        # Alles Hashable machen; raw mapping nicht verwenden.
+        return (
+            str(pauschale_code),
+            bool(tolerant_flag),
+            bool(normalized_ctx.use_icd),
+            normalized_ctx.icd_codes,
+            normalized_ctx.medication_codes,
+            normalized_ctx.lkn_codes,
+            normalized_ctx.geschlecht_lower,
+            normalized_ctx.seitigkeit_lower,
+            normalized_ctx.alter,
+            normalized_ctx.alter_bei_eintritt,
+            normalized_ctx.anzahl,
+        )
 
     def _get_tables_for_context_lkn(lkn_code: str) -> Set[str]:
         """Return cached service catalog tables for a context LKN code."""
@@ -2789,37 +2921,49 @@ def determine_applicable_pauschale(
 
     # LKN-Quellen für alle Kandidaten ermitteln, egal woher sie stammen.
     # Dies ist entscheidend für die Filterlogik in der Erklärungs-HTML.
-    for pc in potential_pauschale_codes:
-        for lkn_direct in pauschale_lp_index.get(pc, set()):
-            if lkn_direct in context_lkns_for_search:
-                candidate_lkn_sources[pc].append({
-                    "lkn": str(lkn_direct).upper(), "source": "direct", "table": None
-                })
-        for lkn_cond in pauschale_cond_lkn_index.get(pc, set()):
-            if lkn_cond in context_lkns_for_search:
-                candidate_lkn_sources[pc].append({
-                    "lkn": lkn_cond, "source": "direct", "table": None
-                })
-        for table_name in pauschale_cond_table_index.get(pc, set()):
-            table_norm = str(table_name).lower()
-            for lkn_ctx in context_lkns_for_search:
-                if table_norm in _get_tables_for_context_lkn(lkn_ctx):
+    if sources_required:
+        for pc in potential_pauschale_codes:
+            for lkn_direct in pauschale_lp_index.get(pc, set()):
+                if lkn_direct in context_lkns_for_search:
                     candidate_lkn_sources[pc].append({
-                        "lkn": lkn_ctx, "source": "table", "table": table_norm
+                        "lkn": str(lkn_direct).upper(), "source": "direct", "table": None
                     })
+            for lkn_cond in pauschale_cond_lkn_index.get(pc, set()):
+                if lkn_cond in context_lkns_for_search:
+                    candidate_lkn_sources[pc].append({
+                        "lkn": lkn_cond, "source": "direct", "table": None
+                    })
+            for table_name in pauschale_cond_table_index.get(pc, set()):
+                table_norm = str(table_name).lower()
+                for lkn_ctx in context_lkns_for_search:
+                    if table_norm in _get_tables_for_context_lkn(lkn_ctx):
+                        candidate_lkn_sources[pc].append({
+                            "lkn": lkn_ctx, "source": "table", "table": table_norm
+                        })
 
 
     if not potential_pauschale_codes:
         return {"type": "Error", "message": "Keine potenziellen Pauschalen für die erbrachten Leistungen und den Kontext gefunden.", "evaluated_pauschalen": []}
 
-    evaluated_candidates = []
-    strict_valid_candidates = []
+    evaluated_candidates: list[dict[str, Any]] = []
     selection_context: Mapping[str, Any] = context
     tolerant_mode_used = False
 
-    def _evaluate_candidate(code: str, ctx: Mapping[str, Any], tolerant_flag: bool) -> bool:
+    def _evaluate_candidate(
+        code: str,
+        ctx: Mapping[str, Any],
+        tolerant_flag: bool,
+        normalized_ctx: Optional[NormalizedContext] = None,
+    ) -> bool:
         try:
-            return evaluate_pauschale_logic_orchestrator(
+            normalized_to_use = normalized_ctx or build_normalized_context(ctx)
+            if request_eval_cache is not None:
+                key = _eval_cache_key(code, tolerant_flag, normalized_to_use)
+                cached = request_eval_cache.get(key)
+                if isinstance(cached, bool):
+                    return cached
+            result = bool(
+                evaluate_pauschale_logic_orchestrator(
                 pauschale_code=code,
                 context=ctx,
                 all_pauschale_bedingungen_data=pauschale_bedingungen_data,
@@ -2828,7 +2972,12 @@ def determine_applicable_pauschale(
                 debug=False,  # Performance: Disable debug logging in loop
                 prepared_structures=prepared_structures,
                 tolerant=tolerant_flag,
+                normalized_context=normalized_to_use,
+                )
             )
+            if request_eval_cache is not None:
+                request_eval_cache[_eval_cache_key(code, tolerant_flag, normalized_to_use)] = result
+            return result
         except Exception as e_eval:
             logger.error(
                 "FEHLER bei evaluate_structured_conditions für Pauschale %s: %s",
@@ -2838,11 +2987,44 @@ def determine_applicable_pauschale(
             traceback.print_exc()
             return False
 
-    for code in sorted(list(potential_pauschale_codes)): # Sortiert für konsistente Log-Reihenfolge
+    def _compute_matched_lkn_counts(candidate_code: str) -> Tuple[int, int]:
+        """Count distinct context LKN matches (total + "specific").
+
+        "Specific" counts only matches that are not explainable solely by broad tables
+        like OR/ELT/NONELT/ANAST (configurable via :func:`get_excluded_lkn_tables`).
+        This helps prefer procedure-specific Pauschalen when multiple candidates are
+        valid but differ mainly in broad-table overlap.
+        """
+        matches_total: set[str] = set()
+        matches_specific: set[str] = set()
+
+        required_lkns_raw = pauschale_cond_lkn_index.get(candidate_code, set()) or set()
+        required_lkns = {str(lkn).upper() for lkn in required_lkns_raw if lkn}
+        if required_lkns:
+            for lkn in context_lkns_for_search.intersection(required_lkns):
+                matches_total.add(lkn)
+                # Direkte LKN-Listen-Treffer sind per Definition spezifisch (auch wenn die LKN
+                # zusätzlich in Broad-Tabellen wie OR/NONELT vorkommt).
+                matches_specific.add(lkn)
+
+        required_tables_raw = pauschale_cond_table_index.get(candidate_code, set()) or set()
+        required_tables = {str(t).lower() for t in required_tables_raw if t}
+        if required_tables:
+            relevant_tables = required_tables - excluded_lkn_tables
+            for lkn_ctx in context_lkns_for_search:
+                tables_for_lkn = _get_tables_for_context_lkn(lkn_ctx)
+                if tables_for_lkn.intersection(required_tables):
+                    matches_total.add(lkn_ctx)
+                if relevant_tables and tables_for_lkn.intersection(relevant_tables):
+                    matches_specific.add(lkn_ctx)
+
+        return len(matches_total), len(matches_specific)
+
+    candidate_entry_by_code: Dict[str, Dict[str, Any]] = {}
+
+    for code in sorted(list(potential_pauschale_codes)):  # stable order for logging/UI
         if code not in pauschalen_dict:
             continue
-
-        is_pauschale_valid_structured = _evaluate_candidate(code, context, tolerant_flag=False)
 
         tp_raw = pauschalen_dict[code].get("Taxpunkte")
         try:
@@ -2855,136 +3037,211 @@ def determine_applicable_pauschale(
             code,
             pauschale_requires_icd(code, structure, pauschalen_dict),
         )
-        matched_lkn_count = count_matching_lkn_codes(
-            context, structure, tabellen_dict_by_table
-        )
 
-        # Removed: check_pauschale_conditions_structured call
-        # structured_cond = check_pauschale_conditions_structured(...)
-        structured_cond = None # Defer generation
+        unique_sources: list[Dict[str, Any]] = []
+        if include_candidate_sources:
+            sources = candidate_lkn_sources.get(code, [])
+            seen_signatures: set[tuple[Any, Any, Any]] = set()
+            for s in sources:
+                signature = (s["lkn"], s["source"], s["table"])
+                if signature not in seen_signatures:
+                    unique_sources.append(s)
+                    seen_signatures.add(signature)
 
-        sources = candidate_lkn_sources.get(code, [])
-        unique_sources = []
-        seen_signatures = set()
-        for s in sources:
-            signature = (s['lkn'], s['source'], s['table'])
-            if signature not in seen_signatures:
-                unique_sources.append(s)
-                seen_signatures.add(signature)
-
-        candidate_entry = {
+        candidate_entry: Dict[str, Any] = {
             "code": code,
             "details": pauschalen_dict[code],
-            "is_valid_structured": is_pauschale_valid_structured,
+            # Conditions are evaluated for all candidates (status visible in UI),
+            # but HTML rendering stays on-demand.
+            "is_valid_structured": False,
             "is_valid_structured_relaxed": False,
-            "evaluation_mode": "strict" if is_pauschale_valid_structured else "strict_failed",
-            "bedingungs_pruef_html": "", # Placeholder, generated later if needed
-            "conditions_structured": structured_cond,
+            "evaluation_mode": "strict_failed",
+            "bedingungs_pruef_html": "",  # generated later on-demand or for selected
+            "conditions_structured": None,
             "taxpunkte": tp_val,
             "requires_icd": requires_icd,
-            "matched_lkn_count": matched_lkn_count,
-            "lkn_match_sources": sorted(unique_sources, key=lambda x: (x['lkn'], x['source'], x['table'] or '')),
+            "matched_lkn_count": 0,
+            "matched_lkn_count_specific": 0,
+            "lkn_match_sources": (
+                sorted(unique_sources, key=lambda x: (x["lkn"], x["source"], x["table"] or ""))
+                if include_candidate_sources
+                else []
+            ),
         }
-
+        total_matches, specific_matches = _compute_matched_lkn_counts(code)
+        candidate_entry["matched_lkn_count"] = total_matches
+        candidate_entry["matched_lkn_count_specific"] = specific_matches
         evaluated_candidates.append(candidate_entry)
-        if is_pauschale_valid_structured:
-            strict_valid_candidates.append(candidate_entry)
+        candidate_entry_by_code[code] = candidate_entry
 
-    valid_candidates = list(strict_valid_candidates)
+    def _sort_key_score_suffix(candidate: Mapping[str, Any]) -> Tuple[int, int, int, float]:
+        code_str = str(candidate.get("code", ""))
+        match = re.search(r"([A-Z])$", code_str)
+        if match:
+            suffix_ord = ord(match.group(1))
+        else:
+            suffix_ord = ord("Z") + 1
+        matches_specific = int(candidate.get("matched_lkn_count_specific") or 0)
+        matches = int(candidate.get("matched_lkn_count") or 0)
+        score = float(candidate.get("taxpunkte") or 0.0)
+        return (suffix_ord, -matches_specific, -matches, -score)
 
+    def _mark_not_checked(candidate: Dict[str, Any]) -> None:
+        candidate["is_valid_structured"] = None
+        candidate["evaluation_mode"] = "not_checked"
+
+    strict_valid_candidates: list[Dict[str, Any]] = []
+    if fast_mode:
+        for cand in evaluated_candidates:
+            _mark_not_checked(cand)
+
+        # Evaluate in the same order as the selection prefers:
+        # 1) specific codes, sorted by match/suffix/score
+        # 2) fallback C9x, same sorting
+        specific_candidates = [c for c in evaluated_candidates if not str(c.get("code", "")).startswith("C9")]
+        fallback_candidates = [c for c in evaluated_candidates if str(c.get("code", "")).startswith("C9")]
+        specific_candidates.sort(key=_sort_key_score_suffix)
+        fallback_candidates.sort(key=_sort_key_score_suffix)
+
+        for cand in specific_candidates:
+            code = str(cand.get("code", ""))
+            if not code:
+                continue
+            ok = _evaluate_candidate(
+                code,
+                context,
+                tolerant_flag=False,
+                normalized_ctx=normalized_context_primary,
+            )
+            cand["is_valid_structured"] = bool(ok)
+            cand["evaluation_mode"] = "strict" if ok else "strict_failed"
+            if ok:
+                strict_valid_candidates.append(cand)
+                break
+
+        if not strict_valid_candidates:
+            for cand in fallback_candidates:
+                code = str(cand.get("code", ""))
+                if not code:
+                    continue
+                ok = _evaluate_candidate(
+                    code,
+                    context,
+                    tolerant_flag=False,
+                    normalized_ctx=normalized_context_primary,
+                )
+                cand["is_valid_structured"] = bool(ok)
+                cand["evaluation_mode"] = "strict" if ok else "strict_failed"
+                if ok:
+                    strict_valid_candidates.append(cand)
+                    break
+    else:
+        # Full evaluation so UI/tests can show complete strict status list.
+        for cand in evaluated_candidates:
+            code = str(cand.get("code", ""))
+            if not code:
+                continue
+            ok = _evaluate_candidate(
+                code,
+                context,
+                tolerant_flag=False,
+                normalized_ctx=normalized_context_primary,
+            )
+            cand["is_valid_structured"] = bool(ok)
+            cand["evaluation_mode"] = "strict" if ok else "strict_failed"
+            if ok:
+                strict_valid_candidates.append(cand)
+
+    valid_candidates: list[Dict[str, Any]] = list(strict_valid_candidates)
+
+    # Relaxed pass (tolerant mode) only if strict yielded no candidate.
     if not valid_candidates:
         relaxed_context = dict(context)
         if not normalized_context_primary.icd_codes and relaxed_context.get("useIcd", True):
             relaxed_context["useIcd"] = False
         tolerant_mode_used = True
-        relaxed_valid_candidates = []
+        selection_context = relaxed_context
+        normalized_context_relaxed = build_normalized_context(relaxed_context)
+
+        relaxed_valid_candidates: list[Dict[str, Any]] = []
         for cand in evaluated_candidates:
-            relaxed_ok = _evaluate_candidate(cand["code"], relaxed_context, tolerant_flag=True)
-            cand["is_valid_structured_relaxed"] = relaxed_ok
-            if relaxed_ok and not cand["is_valid_structured"]:
+            code = str(cand.get("code", ""))
+            if not code:
+                continue
+            relaxed_ok = _evaluate_candidate(
+                code,
+                relaxed_context,
+                tolerant_flag=True,
+                normalized_ctx=normalized_context_relaxed,
+            )
+            cand["is_valid_structured_relaxed"] = bool(relaxed_ok)
+            if relaxed_ok and not cand.get("is_valid_structured"):
                 cand["is_valid_structured"] = True
                 cand["evaluation_mode"] = "relaxed"
             if relaxed_ok:
                 relaxed_valid_candidates.append(cand)
+
         if relaxed_valid_candidates:
             logger.info("INFO: Strikte Prüfung ergab keinen Treffer, nutze toleranten Zweitversuch.")
             valid_candidates = relaxed_valid_candidates
-            selection_context = relaxed_context
+    normalized_context_for_selection = normalized_context_primary
+    if tolerant_mode_used:
+        try:
+            normalized_context_for_selection = normalized_context_relaxed  # type: ignore[name-defined]
+        except Exception:
+            normalized_context_for_selection = build_normalized_context(selection_context)
 
-    logger.info(
-        "DEBUG: Struktur-gültige Kandidaten nach Prüfung: %s",
-        [c["code"] for c in valid_candidates],
-    )
-
-    # Score pro gültigem Kandidaten berechnen (hier: Taxpunkte als Beispiel)
-    for cand in valid_candidates:
-        cand["score"] = cand.get("taxpunkte", 0)
-
-    selected_candidate_info = None
+    selected_candidate_info: Optional[Dict[str, Any]] = None
     if valid_candidates:
-        specific_valid_candidates = [c for c in valid_candidates if not str(c['code']).startswith('C9')]
-        fallback_valid_candidates = [c for c in valid_candidates if str(c['code']).startswith('C9')]
-        
-        chosen_list_for_selection = []
-        selection_type_message = ""
-
-        if specific_valid_candidates:
-            chosen_list_for_selection = specific_valid_candidates
-            selection_type_message = "spezifischen"
-        elif fallback_valid_candidates: # Nur wenn keine spezifischen gültig sind
-            chosen_list_for_selection = fallback_valid_candidates
-            selection_type_message = "Fallback (C9x)"
-        
-        if chosen_list_for_selection:
-            logger.info(
-                "INFO: Auswahl aus %s struktur-gültigen %s Kandidaten.",
-                len(chosen_list_for_selection),
-                selection_type_message,
-            )
-
-            # Score je Kandidat ermitteln (hier einfach Taxpunkte als Beispiel)
-            for cand in chosen_list_for_selection:
-                cand["score"] = cand.get("taxpunkte", 0)
-
-            # Sortierung: Höchster Score zuerst, bei Gleichstand entscheidet nur der Buchstabensuffix
-            def sort_key_score_suffix(candidate):
-                code_str = str(candidate['code'])
-                match = re.search(r"([A-Z])$", code_str)
-                if match:
-                    suffix_ord = ord(match.group(1))
-                else:
-                    suffix_ord = ord('Z') + 1
-                matches = candidate.get('matched_lkn_count', 0)
-                return (
-                    -matches,
-                    suffix_ord,
-                    -candidate.get("score", 0),
-                )
-
-            chosen_list_for_selection.sort(key=sort_key_score_suffix)
-            selected_candidate_info = chosen_list_for_selection[0]
-            logger.info(
-                "INFO: Gewählte Pauschale nach Score-Sortierung: %s",
-                selected_candidate_info["code"],
-            )
-            # print(f"   DEBUG: Sortierte Kandidatenliste ({selection_type_message}): {[c['code'] for c in chosen_list_for_selection]}")
+        if fast_mode:
+            # In fast_mode strict evaluation already followed the selection order.
+            selected_candidate_info = valid_candidates[0]
         else:
-             # Sollte nicht passieren, wenn valid_candidates nicht leer war, aber zur Sicherheit
-             return {"type": "Error", "message": "Interner Fehler bei der Pauschalenauswahl (Kategorisierung fehlgeschlagen).", "evaluated_pauschalen": evaluated_candidates}
-    else: # Keine valid_candidates (keine Pauschale hat die strukturierte Prüfung bestanden)
+            specific_valid_candidates = [c for c in valid_candidates if not str(c.get("code", "")).startswith("C9")]
+            fallback_valid_candidates = [c for c in valid_candidates if str(c.get("code", "")).startswith("C9")]
+
+            chosen_list_for_selection: list[Dict[str, Any]] = []
+            selection_type_message = ""
+            if specific_valid_candidates:
+                chosen_list_for_selection = specific_valid_candidates
+                selection_type_message = "spezifischen"
+            elif fallback_valid_candidates:
+                chosen_list_for_selection = fallback_valid_candidates
+                selection_type_message = "Fallback (C9x)"
+
+            if chosen_list_for_selection:
+                logger.info(
+                    "INFO: Auswahl aus %s struktur-gültigen %s Kandidaten.",
+                    len(chosen_list_for_selection),
+                    selection_type_message,
+                )
+                chosen_list_for_selection.sort(key=_sort_key_score_suffix)
+                selected_candidate_info = chosen_list_for_selection[0]
+
+    if selected_candidate_info is None:
         logger.info("INFO: Keine Pauschale erfüllt die strukturierten Bedingungen.")
-        # Erstelle eine informativere Nachricht, wenn potenzielle Kandidaten da waren
         if potential_pauschale_codes:
-            # Hole die Namen der geprüften, aber nicht validen Pauschalen
-            gepruefte_codes_namen = [f"{c['code']} ({get_lang_field(c['details'], PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A'})"
-                                     for c in evaluated_candidates if not c['is_valid_structured']]
+            gepruefte_codes_namen = [
+                f"{c['code']} ({get_lang_field(c['details'], PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A'})"
+                for c in evaluated_candidates
+                if c.get("is_valid_structured") is False
+            ]
             msg_details = ""
             if gepruefte_codes_namen:
-                msg_details = " Folgende potenziellen Pauschalen wurden geprüft, aber deren Bedingungen waren nicht erfüllt: " + ", ".join(gepruefte_codes_namen)
-
-            return {"type": "Error", "message": f"Keine der potenziellen Pauschalen erfüllte die detaillierten UND/ODER-Bedingungen.{msg_details}", "evaluated_pauschalen": evaluated_candidates}
-        else: # Sollte durch die Prüfung am Anfang von potential_pauschale_codes abgedeckt sein
-            return {"type": "Error", "message": "Keine passende Pauschale gefunden (keine potenziellen Kandidaten).", "evaluated_pauschalen": evaluated_candidates}
+                msg_details = (
+                    " Folgende potenziellen Pauschalen wurden geprüft, aber deren Bedingungen waren nicht erfüllt: "
+                    + ", ".join(gepruefte_codes_namen)
+                )
+            return {
+                "type": "Error",
+                "message": f"Keine der potenziellen Pauschalen erfüllte die detaillierten UND/ODER-Bedingungen.{msg_details}",
+                "evaluated_pauschalen": evaluated_candidates,
+            }
+        return {
+            "type": "Error",
+            "message": "Keine passende Pauschale gefunden (keine potenziellen Kandidaten).",
+            "evaluated_pauschalen": evaluated_candidates,
+        }
 
     if not selected_candidate_info: # Doppelte Sicherheit
         return {"type": "Error", "message": "Interner Fehler: Keine Pauschale nach Auswahlprozess selektiert.", "evaluated_pauschalen": evaluated_candidates}
@@ -2993,289 +3250,45 @@ def determine_applicable_pauschale(
     best_pauschale_details = selected_candidate_info["details"].copy() # Kopie für Modifikationen
     best_pauschale_details["evaluation_mode"] = selected_candidate_info.get("evaluation_mode", "strict" if not tolerant_mode_used else "relaxed")
 
-    # Filter Evaluationsliste auf nah verwandte Codes oder Fallback-C9x
+    # Für die UI-Erklärung kann eine gefilterte Ansicht sinnvoll sein, aber die API
+    # (und die Unit-Tests) erwarten die vollständige Liste aller evaluierten Kandidaten.
+    evaluated_candidates_for_explanation = evaluated_candidates
     related_codes = _filter_candidates_by_subchapter(
         {cand.get("code", "") for cand in evaluated_candidates if cand.get("code")},
         {best_pauschale_code},
     )
-    filtered_evaluated_candidates = []
+    filtered_evaluated_candidates: List[Dict[str, Any]] = []
     for cand in evaluated_candidates:
         cand_code = str(cand.get("code", ""))
         if not cand_code:
             continue
         if cand_code == best_pauschale_code or cand_code in related_codes:
             filtered_evaluated_candidates.append(cand)
-    evaluated_candidates = filtered_evaluated_candidates
+    evaluated_candidates_for_explanation = filtered_evaluated_candidates
 
-    # Generiere HTML für die Bedingungsprüfung der ausgewählten Pauschale
-    condition_errors_html_gen = [] # Initialize with an empty list
-    try:
-        condition_result_html_dict = check_pauschale_conditions(
-            best_pauschale_code,
-            selection_context,
-            pauschale_bedingungen_data,
-            tabellen_dict_by_table,
-            leistungskatalog_dict,
-            lang,
-            pauschalen_dict=pauschalen_dict,
-            prepared_structures=prepared_structures,
-            tolerant=tolerant_mode_used,
-        )
-        bedingungs_pruef_html_result = condition_result_html_dict.get("html", "<p class='error'>Fehler bei HTML-Generierung der Bedingungen.</p>")
-        # Errors from check_pauschale_conditions itself (if any were designed to be returned, currently it's an empty list)
-        condition_errors_html_gen.extend(condition_result_html_dict.get("errors", []))
-        
-        # Also generate structured conditions for the selected candidate (was skipped in loop)
-        structured_cond_result = check_pauschale_conditions_structured(
-            best_pauschale_code,
-            selection_context,
-            pauschale_bedingungen_data,
-            tabellen_dict_by_table,
-            lang,
-            pauschalen_dict=pauschalen_dict,
-            prepared_structures=prepared_structures,
-            tolerant=tolerant_mode_used,
-        )
-        # Update the selected candidate info in evaluated_candidates list so it has the details
-        # This is important if we return the full list of evaluated candidates
-        for cand in evaluated_candidates:
-            if cand['code'] == best_pauschale_code:
-                cand['bedingungs_pruef_html'] = bedingungs_pruef_html_result
-                cand['conditions_structured'] = structured_cond_result
-                break
-                
-    except Exception as e_html_gen:
-        logger.error(
-            "FEHLER bei Aufruf von check_pauschale_conditions (HTML-Generierung) für %s: %s",
-            best_pauschale_code,
-            e_html_gen,
-        )
-        traceback.print_exc()
-        bedingungs_pruef_html_result = (
-            f"<p class='error'>Schwerwiegender Fehler bei HTML-Generierung der Bedingungen: {escape(str(e_html_gen))}</p>"
-        )
-        condition_errors_html_gen = [f"Fehler HTML-Generierung: {e_html_gen}"]
-
-    # Erstelle die Erklärung für die Pauschalenauswahl
-    # Kontext-LKNs für die Erklärung (aus dem `context` Dictionary)
-    lkns_fuer_erklaerung = [str(lkn) for lkn in selection_context.get('LKN', []) if lkn]
-    if lang == 'fr':
-        pauschale_erklaerung_html = (
-            f"<p>Sur la base du contexte (p.ex. LKN : {escape(', '.join(lkns_fuer_erklaerung) or 'aucun')}, "
-            f"latéralité : {escape(str(selection_context.get('Seitigkeit')))}, nombre : {escape(str(selection_context.get('Anzahl')))}, "
-            f"vérification ICD active : {selection_context.get('useIcd', True)}) les forfaits suivants ont été vérifiés :</p>"
-        )
-    elif lang == 'it':
-        pauschale_erklaerung_html = (
-            f"<p>Sulla base del contesto (ad es. LKN: {escape(', '.join(lkns_fuer_erklaerung) or 'nessuna')}, "
-            f"lateralità: {escape(str(selection_context.get('Seitigkeit')))}, numero: {escape(str(selection_context.get('Anzahl')))}, "
-            f"verifica ICD attiva: {selection_context.get('useIcd', True)}) sono stati verificati i seguenti forfait:</p>"
-        )
-    else:
-        pauschale_erklaerung_html = (
-            f"<p>Basierend auf dem Kontext (u.a. LKNs: {escape(', '.join(lkns_fuer_erklaerung) or 'keine')}, "
-            f"Seitigkeit: {escape(str(selection_context.get('Seitigkeit')))}, Anzahl: {escape(str(selection_context.get('Anzahl')))}, "
-            f"ICD-Prüfung aktiv: {selection_context.get('useIcd', True)}) wurden folgende Pauschalen geprüft:</p>"
-        )
-
-    if tolerant_mode_used:
-        hint_text = {
-            "fr": "Évaluation effectuée en mode tolérant (conditions sans données patient complètes ne bloquent pas automatiquement).",
-            "it": "Valutazione eseguita in modalità più tollerante (condizioni senza dati completi del paziente non vengono bloccate).",
-            "de": "Bewertung erfolgte im toleranten Modus (fehlende Kontextwerte wie ICD/Anzahl blockieren nicht automatisch).",
-        }.get(lang, "Bewertung im toleranten Modus.")
-        pauschale_erklaerung_html += f"<p><i>{escape(hint_text)}</i></p>"
-    
-    # Liste aller potenziell geprüften Pauschalen (vor der Validierung)
-    pauschale_erklaerung_html += "<ul>"
-    for cand_eval in sorted(evaluated_candidates, key=lambda x: x['code']):
-        sources = cand_eval.get("lkn_match_sources") or []
-        
-        # Strikte LKN-basierte Filterung: Eine Pauschale wird in der Erklärung nur
-        # angezeigt, wenn sie mindestens einen relevanten LKN-Bezug zum Kontext hat.
-        # Kandidaten ohne LKN-Quellen (z.B. nur durch semantische Suche gefunden)
-        # werden somit ausgeblendet.
-        
-        # Prüfen, ob es überhaupt LKN-Quellen gibt.
-        if not sources:
-            continue
-
-        # Prüfen, ob mindestens eine dieser Quellen als "relevant" gilt.
-        found_relevant_source = False
-        for source in sources:
-            if source['source'] == 'direct':
-                lkn = source['lkn']
-                tables_for_lkn = _get_tables_for_context_lkn(lkn)
-                # Ein direkter Treffer ist relevant, wenn die LKN in keiner Tabelle ist
-                # oder in mindestens einer NICHT ausgeschlossenen Tabelle vorkommt.
-                if not tables_for_lkn or (tables_for_lkn - excluded_lkn_tables):
-                    found_relevant_source = True
-                    break
-            elif source['source'] == 'table':
-                # Ein Tabellen-Treffer ist relevant, wenn die Tabelle nicht ausgeschlossen ist.
-                if source['table'] and source['table'].lower() not in excluded_lkn_tables:
-                    found_relevant_source = True
-                    break
-        
-        # Wenn nach Prüfung aller Quellen keine relevante gefunden wurde, überspringen.
-        if not found_relevant_source:
-            # Ausnahme: C9x-Pauschalen (Fallbacks) werden nie aufgrund von LKN-Irrelevanz ausgeblendet.
-            if not is_pauschale_code_ge_c90(cand_eval.get('code')):
+    # Zwei-Phasen-Validierung: In fast_mode wurde bisher nach dem ersten Treffer abgebrochen.
+    # Für die Erklärung/UI evaluieren wir jetzt gezielt nur die "related" Kandidaten (gleiches Unterkapitel + C9x).
+    # Dadurch bleibt Phase A schnell, aber die Kapitel-Liste ist vollständig geprüft.
+    if fast_mode and evaluated_candidates_for_explanation:
+        for cand in evaluated_candidates_for_explanation:
+            code = str(cand.get("code", "")).strip()
+            if not code:
                 continue
-
-        # Alte Logik (jetzt ersetzt durch die obige, explizitere Prüfung)
-        all_sources_are_irrelevant = not found_relevant_source
-
-        # C9x Pauschalen sind generische Fallbacks und sollten nie ausgefiltert werden.
-        if is_pauschale_code_ge_c90(cand_eval.get('code')):
-            all_sources_are_irrelevant = False
-            
-        if all_sources_are_irrelevant:
-            continue
-
-        if cand_eval['is_valid_structured']:
-            status = translate('conditions_met', lang)
-            status_class = "condition-status condition-status-positive"
-        else:
-            status = translate('conditions_not_met', lang)
-            status_class = "condition-status condition-status-negative"
-        status_text = f"<span class=\"{status_class}\">{status}</span>"
-        code_str = escape(cand_eval['code'])
-        link = (
-            f"<a href='#' class='pauschale-exp-link info-link tag-code' "
-            f"data-code='{code_str}'>{code_str}</a>"
-        )
-        pauschale_erklaerung_html += (
-            f"<li><b>{link}</b> "
-            f"{escape(get_lang_field(cand_eval['details'], PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')} "
-            f"{status_text}</li>"
-        )
-    pauschale_erklaerung_html += "</ul>"
-
-    best_code_safe = escape(str(best_pauschale_code))
-    best_code_link = (
-        f"<a href='#' class='pauschale-exp-link info-link tag-code' "
-        f"data-code='{best_code_safe}'>{best_code_safe}</a>"
-    )
-    best_desc_safe = escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')
-
-    
-    if lang == 'fr':
-        pauschale_erklaerung_html += (
-            f"<p><b>Choix : {best_code_link}</b> "
-            f"({best_desc_safe}) - "
-            "comme forfait avec la lettre suffixe la plus basse (p. ex. A avant B) parmi les candidats valides "
-            "de la catégorie privilégiée (forfaits spécifiques avant forfaits de secours C9x).</p>"
-        )
-    elif lang == 'it':
-        pauschale_erklaerung_html += (
-            f"<p><b>Selezionato: {best_code_link}</b> "
-            f"({best_desc_safe}) - "
-            "come forfait con la lettera suffisso più bassa (es. A prima di B) tra i candidati validi "
-            "della categoria preferita (forfait specifici prima dei forfait di fallback C9x).</p>"
-        )
-    else:
-        pauschale_erklaerung_html += (
-            f"<p><b>Ausgewählt wurde: {best_code_link}</b> "
-            f"({best_desc_safe}) - "
-            f"als die Pauschale mit dem niedrigsten Suffix-Buchstaben (z.B. A vor B) unter den gültigen Kandidaten "
-            f"der bevorzugten Kategorie (spezifische Pauschalen vor Fallback-Pauschalen C9x).</p>"
-        )
-
-    # Vergleich mit anderen Pauschalen der gleichen Gruppe (Stamm)
-    match_stamm = re.match(r"([A-Z0-9.]+)([A-Z])$", str(best_pauschale_code))
-    pauschalen_stamm_code = match_stamm.group(1) if match_stamm else None
-    
-    if pauschalen_stamm_code:
-        # Finde andere *potenzielle* Pauschalen (aus evaluated_candidates) in derselben Gruppe
-        other_evaluated_codes_in_group = [
-            cand for cand in evaluated_candidates
-            if str(cand['code']).startswith(pauschalen_stamm_code) and str(cand['code']) != best_pauschale_code
-        ]
-        if other_evaluated_codes_in_group:
-            if lang == 'fr':
-                pauschale_erklaerung_html += f"<hr><p><b>Comparaison avec d'autres forfaits du groupe '{escape(pauschalen_stamm_code)}':</b></p>"
-            elif lang == 'it':
-                pauschale_erklaerung_html += f"<hr><p><b>Confronto con altri forfait del gruppo '{escape(pauschalen_stamm_code)}':</b></p>"
+            if cand.get("evaluation_mode") != "not_checked":
+                continue
+            ok = _evaluate_candidate(
+                code,
+                selection_context,
+                tolerant_flag=bool(tolerant_mode_used),
+                normalized_ctx=normalized_context_for_selection,
+            )
+            cand["is_valid_structured"] = bool(ok)
+            if ok and tolerant_mode_used:
+                cand["evaluation_mode"] = "relaxed"
             else:
-                pauschale_erklaerung_html += f"<hr><p><b>Vergleich mit anderen Pauschalen der Gruppe '{escape(pauschalen_stamm_code)}':</b></p>"
-            selected_conditions_repr_set = get_simplified_conditions(best_pauschale_code, pauschale_bedingungen_data)
+                cand["evaluation_mode"] = "strict" if ok else "strict_failed"
 
-            for other_cand in sorted(other_evaluated_codes_in_group, key=lambda x: x['code']):
-                other_code_str = str(other_cand['code'])
-                other_details_dict = other_cand['details']
-                other_was_valid_structured = other_cand['is_valid_structured']
-                if other_was_valid_structured:
-                    status = translate('conditions_also_met', lang)
-                    status_class = "condition-status condition-status-positive"
-                else:
-                    status = translate('conditions_not_met', lang)
-                    status_class = "condition-status condition-status-negative"
-                validity_info_html = f"<span class=\"{status_class}\">{status}</span>"
-
-                other_conditions_repr_set = get_simplified_conditions(other_code_str, pauschale_bedingungen_data)
-                additional_conditions_for_other = other_conditions_repr_set - selected_conditions_repr_set
-                missing_conditions_in_other = selected_conditions_repr_set - other_conditions_repr_set
-
-                diff_label = translate('diff_to', lang)
-                pauschale_erklaerung_html += (
-                    f"<details style='margin-left: 15px; font-size: 0.9em;'>"
-                    f"<summary>{diff_label} <b>{escape(other_code_str)}</b> ({escape(get_lang_field(other_details_dict, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')}) {validity_info_html}</summary>"
-                )
-
-                if additional_conditions_for_other:
-                    if lang == 'fr':
-                        pauschale_erklaerung_html += f"<p>Exigences supplémentaires / autres pour {escape(other_code_str)}:</p><ul>"
-                    elif lang == 'it':
-                        pauschale_erklaerung_html += f"<p>Requisiti supplementari / altri per {escape(other_code_str)}:</p><ul>"
-                    else:
-                        pauschale_erklaerung_html += f"<p>Zusätzliche/Andere Anforderungen für {escape(other_code_str)}:</p><ul>"
-                    for cond_tuple_item in sorted(list(additional_conditions_for_other)):
-                        condition_html_detail_item = generate_condition_detail_html(cond_tuple_item, leistungskatalog_dict, tabellen_dict_by_table, lang)
-                        pauschale_erklaerung_html += condition_html_detail_item
-                    pauschale_erklaerung_html += "</ul>"
-                  
-                if missing_conditions_in_other:
-                    if lang == 'fr':
-                        pauschale_erklaerung_html += f"<p>Les exigences suivantes de {escape(best_pauschale_code)} manquent pour {escape(other_code_str)}:</p><ul>"
-                    elif lang == 'it':
-                        pauschale_erklaerung_html += f"<p>I seguenti requisiti di {escape(best_pauschale_code)} mancano in {escape(other_code_str)}:</p><ul>"
-                    else:
-                        pauschale_erklaerung_html += f"<p>Folgende Anforderungen von {escape(best_pauschale_code)} fehlen bei {escape(other_code_str)}:</p><ul>"
-                    for cond_tuple_item in sorted(list(missing_conditions_in_other)):
-                        condition_html_detail_item = generate_condition_detail_html(cond_tuple_item, leistungskatalog_dict, tabellen_dict_by_table, lang)
-                        pauschale_erklaerung_html += condition_html_detail_item
-                    pauschale_erklaerung_html += "</ul>"
-
-                if not additional_conditions_for_other and not missing_conditions_in_other:
-                    if lang == 'fr':
-                        pauschale_erklaerung_html += "<p><i>Aucune différence de conditions essentielles trouvée (basé sur un contrôle simplifié type/valeur). Des différences détaillées peuvent exister au niveau du nombre ou de groupes logiques spécifiques.</i></p>"
-                    elif lang == 'it':
-                        pauschale_erklaerung_html += "<p><i>Nessuna differenza nelle condizioni principali trovata (basato su un confronto semplificato tipo/valore). Differenze dettagliate possibili nel numero o in gruppi logici specifici.</i></p>"
-                    else:
-                        pauschale_erklaerung_html += "<p><i>Keine unterschiedlichen Kernbedingungen gefunden (basierend auf vereinfachter Typ/Wert-Prüfung). Detaillierte Unterschiede können in der Anzahl oder spezifischen Logikgruppen liegen.</i></p>"
-                pauschale_erklaerung_html += "</details>"
-    
-    best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
-
-    # Potenzielle ICDs für die ausgewählte Pauschale sammeln
-    potential_icds_list = []
-    pauschale_conditions_for_selected = [
-        cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == best_pauschale_code
-    ]
-    for cond_item_icd in pauschale_conditions_for_selected:
-        if cond_item_icd.get(BED_TYP_KEY, "").upper() == "HAUPTDIAGNOSE IN TABELLE":
-            tabelle_ref_icd = cond_item_icd.get(BED_WERTE_KEY)
-            if tabelle_ref_icd:
-                icd_entries_list = get_table_content(tabelle_ref_icd, "icd", tabellen_dict_by_table, lang)
-                for entry_icd in icd_entries_list:
-                    code_icd = entry_icd.get('Code'); text_icd = entry_icd.get('Code_Text')
-                    if code_icd: potential_icds_list.append({"Code": code_icd, "Code_Text": text_icd or "N/A"})
-    
-    unique_icds_dict_result = {icd_item['Code']: icd_item for icd_item in potential_icds_list if icd_item.get('Code')}
-    best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted(unique_icds_dict_result.values(), key=lambda x: x['Code'])
-
-    # Try to attach structured conditions for the selected Pauschale, if available
+    # Compute structured conditions for the selected Pauschale (used by server-side rendering and on-demand UI).
     selected_structured = None
     try:
         if selected_candidate_info:
@@ -3292,20 +3305,267 @@ def determine_applicable_pauschale(
     except Exception:
         selected_structured = None
 
+    # Generiere HTML für die Bedingungsprüfung der ausgewählten Pauschale (optional).
+    bedingungs_pruef_html_result = ""
+    condition_errors_html_gen = []  # Initialize with an empty list
+    if include_selected_conditions_html:
+        try:
+            condition_result_html_dict = check_pauschale_conditions(
+                best_pauschale_code,
+                selection_context,
+                pauschale_bedingungen_data,
+                tabellen_dict_by_table,
+                leistungskatalog_dict,
+                lang,
+                pauschalen_dict=pauschalen_dict,
+                prepared_structures=prepared_structures,
+                tolerant=tolerant_mode_used,
+            )
+            bedingungs_pruef_html_result = condition_result_html_dict.get(
+                "html",
+                "<p class='error'>Fehler bei HTML-Generierung der Bedingungen.</p>",
+            )
+            condition_errors_html_gen.extend(condition_result_html_dict.get("errors", []))
+        except Exception as e_html_gen:
+            logger.error(
+                "FEHLER bei Aufruf von check_pauschale_conditions (HTML-Generierung) für %s: %s",
+                best_pauschale_code,
+                e_html_gen,
+            )
+            traceback.print_exc()
+            bedingungs_pruef_html_result = (
+                f"<p class='error'>Schwerwiegender Fehler bei HTML-Generierung der Bedingungen: {escape(str(e_html_gen))}</p>"
+            )
+            condition_errors_html_gen = [f"Fehler HTML-Generierung: {e_html_gen}"]
+
+    # Update the selected candidate entry inside evaluated_candidates.
+    for cand in evaluated_candidates:
+        if cand.get("code") != best_pauschale_code:
+            continue
+        if selected_structured:
+            cand["conditions_structured"] = selected_structured
+        if include_selected_conditions_html and bedingungs_pruef_html_result:
+            cand["bedingungs_pruef_html"] = bedingungs_pruef_html_result
+        break
+
+    # Erstelle die Erklärung für die Pauschalenauswahl (optional).
+    if include_explanation_html:
+        lkns_fuer_erklaerung = [str(lkn) for lkn in selection_context.get('LKN', []) if lkn]
+        if lang == 'fr':
+            pauschale_erklaerung_html = (
+                f"<p>Sur la base du contexte (p.ex. LKN : {escape(', '.join(lkns_fuer_erklaerung) or 'aucun')}, "
+                f"latéralité : {escape(str(selection_context.get('Seitigkeit')))}, nombre : {escape(str(selection_context.get('Anzahl')))}, "
+                f"vérification ICD active : {selection_context.get('useIcd', True)}) les forfaits suivants ont été vérifiés :</p>"
+            )
+        elif lang == 'it':
+            pauschale_erklaerung_html = (
+                f"<p>Sulla base del contesto (ad es. LKN: {escape(', '.join(lkns_fuer_erklaerung) or 'nessuna')}, "
+                f"lateralità: {escape(str(selection_context.get('Seitigkeit')))}, numero: {escape(str(selection_context.get('Anzahl')))}, "
+                f"verifica ICD attiva: {selection_context.get('useIcd', True)}) sono stati verificati i seguenti forfait:</p>"
+            )
+        else:
+            pauschale_erklaerung_html = (
+                f"<p>Basierend auf dem Kontext (u.a. LKNs: {escape(', '.join(lkns_fuer_erklaerung) or 'keine')}, "
+                f"Seitigkeit: {escape(str(selection_context.get('Seitigkeit')))}, Anzahl: {escape(str(selection_context.get('Anzahl')))}, "
+                f"ICD-Prüfung aktiv: {selection_context.get('useIcd', True)}) wurden folgende Pauschalen geprüft:</p>"
+            )
+
+        if tolerant_mode_used:
+            hint_text = {
+                "fr": "Évaluation effectuée en mode tolérant (conditions sans données patient complètes ne bloquent pas automatiquement).",
+                "it": "Valutazione eseguita in modalità più tollerante (condizioni senza dati completi del paziente non vengono bloccate).",
+                "de": "Bewertung erfolgte im toleranten Modus (fehlende Kontextwerte wie ICD/Anzahl blockieren nicht automatisch).",
+            }.get(lang, "Bewertung im toleranten Modus.")
+            pauschale_erklaerung_html += f"<p><i>{escape(hint_text)}</i></p>"
+
+        pauschale_erklaerung_html += "<ul>"
+        for cand_eval in sorted(evaluated_candidates_for_explanation, key=lambda x: x['code']):
+            sources = cand_eval.get("lkn_match_sources") or []
+            if not sources:
+                continue
+
+            found_relevant_source = False
+            for source in sources:
+                if source.get('source') == 'direct':
+                    lkn = source.get('lkn')
+                    tables_for_lkn = _get_tables_for_context_lkn(lkn)
+                    if not tables_for_lkn or (tables_for_lkn - excluded_lkn_tables):
+                        found_relevant_source = True
+                        break
+                elif source.get('source') == 'table':
+                    if source.get('table') and str(source.get('table')).lower() not in excluded_lkn_tables:
+                        found_relevant_source = True
+                        break
+
+            if not found_relevant_source and not is_pauschale_code_ge_c90(cand_eval.get('code')):
+                continue
+
+            validity = cand_eval.get('is_valid_structured')
+            if validity is True:
+                status = translate('conditions_met', lang)
+                status_class = "condition-status condition-status-positive"
+            elif validity is False:
+                status = translate('conditions_not_met', lang)
+                status_class = "condition-status condition-status-negative"
+            else:
+                status = translate('conditions_not_checked', lang)
+                status_class = "condition-status condition-status-neutral"
+            status_text = f"<span class=\"{status_class}\">{status}</span>"
+            code_str = escape(cand_eval['code'])
+            link = (
+                f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+                f"data-code='{code_str}'>{code_str}</a>"
+            )
+            pauschale_erklaerung_html += (
+                f"<li><b>{link}</b> "
+                f"{escape(get_lang_field(cand_eval['details'], PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')} "
+                f"{status_text}</li>"
+            )
+        pauschale_erklaerung_html += "</ul>"
+
+        best_code_safe = escape(str(best_pauschale_code))
+        best_code_link = (
+            f"<a href='#' class='pauschale-exp-link info-link tag-code' "
+            f"data-code='{best_code_safe}'>{best_code_safe}</a>"
+        )
+        best_desc_safe = escape(get_lang_field(best_pauschale_details, PAUSCHALE_TEXT_KEY_IN_PAUSCHALEN, lang) or 'N/A')
+
+        if lang == 'fr':
+            pauschale_erklaerung_html += (
+                f"<p><b>Choix : {best_code_link}</b> "
+                f"({best_desc_safe}) - "
+                "comme forfait avec la lettre suffixe la plus basse (p. ex. A avant B) parmi les candidats valides "
+                "de la catégorie privilégiée (forfaits spécifiques avant forfaits de secours C9x).</p>"
+            )
+        elif lang == 'it':
+            pauschale_erklaerung_html += (
+                f"<p><b>Selezionato: {best_code_link}</b> "
+                f"({best_desc_safe}) - "
+                "come forfait con la lettera suffisso più bassa (es. A prima di B) tra i candidati validi "
+                "della categoria preferita (forfait specifici prima dei forfait di fallback C9x).</p>"
+            )
+        else:
+            pauschale_erklaerung_html += (
+                f"<p><b>Ausgewählt wurde: {best_code_link}</b> "
+                f"({best_desc_safe}) - "
+                f"als die Pauschale mit dem niedrigsten Suffix-Buchstaben (z.B. A vor B) unter den gültigen Kandidaten "
+                f"der bevorzugten Kategorie (spezifische Pauschalen vor Fallback-Pauschalen C9x).</p>"
+            )
+
+        best_pauschale_details[PAUSCHALE_ERKLAERUNG_KEY] = pauschale_erklaerung_html
+    else:
+        best_pauschale_details.pop(PAUSCHALE_ERKLAERUNG_KEY, None)
+
+    if include_potential_icds:
+        # Potenzielle ICDs für die ausgewählte Pauschale sammeln
+        potential_icds_list = []
+        pauschale_conditions_for_selected = [
+            cond for cond in pauschale_bedingungen_data if cond.get(BED_PAUSCHALE_KEY) == best_pauschale_code
+        ]
+        for cond_item_icd in pauschale_conditions_for_selected:
+            if cond_item_icd.get(BED_TYP_KEY, "").upper() == "HAUPTDIAGNOSE IN TABELLE":
+                tabelle_ref_icd = cond_item_icd.get(BED_WERTE_KEY)
+                if tabelle_ref_icd:
+                    icd_entries_list = get_table_content(tabelle_ref_icd, "icd", tabellen_dict_by_table, lang)
+                    for entry_icd in icd_entries_list:
+                        code_icd = entry_icd.get('Code'); text_icd = entry_icd.get('Code_Text')
+                        if code_icd: potential_icds_list.append({"Code": code_icd, "Code_Text": text_icd or "N/A"})
+        
+        unique_icds_dict_result = {icd_item['Code']: icd_item for icd_item in potential_icds_list if icd_item.get('Code')}
+        best_pauschale_details[POTENTIAL_ICDS_KEY] = sorted(unique_icds_dict_result.values(), key=lambda x: x['Code'])
+    else:
+        best_pauschale_details.pop(POTENTIAL_ICDS_KEY, None)
+
+    # When the caller renders the explanation itself (server-side), keep the evaluated list small and fully evaluated:
+    # - all siblings within the same stem (e.g. C08.50A-Z)
+    # - plus any C90+ fallback candidates from the original candidate pool
+    # and evaluate all of them so the UI never shows "Bedingungen nicht geprüft".
+    if not include_explanation_html:
+        selected_code_upper = str(best_pauschale_code or "").strip().upper()
+        match_stamm = re.match(r"([A-Z0-9.]+)([A-Z])$", selected_code_upper)
+        stamm = match_stamm.group(1).upper() if match_stamm else None
+
+        sibling_codes: list[str] = []
+        if stamm:
+            sibling_re = re.compile(rf"^{re.escape(stamm)}[A-Z]$", re.IGNORECASE)
+            sibling_codes = sorted(
+                code.strip().upper()
+                for code in pauschalen_dict.keys()
+                if isinstance(code, str) and sibling_re.match(code.strip())
+            )
+
+        c90_codes = sorted(
+            {
+                str(code).strip().upper()
+                for code in potential_pauschale_codes
+                if is_pauschale_code_ge_c90(str(code))
+            }
+        )
+        explanation_codes = set(sibling_codes).union(c90_codes)
+        explanation_codes.add(selected_code_upper)
+
+        by_code: Dict[str, Dict[str, Any]] = {}
+        for entry in evaluated_candidates:
+            if not isinstance(entry, dict):
+                continue
+            code = str(entry.get("code") or "").strip().upper()
+            if not code:
+                continue
+            by_code[code] = entry
+
+        for code in sorted(explanation_codes):
+            if code not in pauschalen_dict:
+                continue
+            ok = _evaluate_candidate(
+                code,
+                selection_context,
+                tolerant_flag=tolerant_mode_used,
+                normalized_ctx=normalized_context_for_selection,
+            )
+            entry = by_code.get(code)
+            if entry is None:
+                tp_raw = pauschalen_dict.get(code, {}).get("Taxpunkte")
+                try:
+                    tp_val = float(tp_raw) if tp_raw is not None else 0.0
+                except (ValueError, TypeError):
+                    tp_val = 0.0
+                entry = {
+                    "code": code,
+                    "details": pauschalen_dict.get(code, {}),
+                    "is_valid_structured": bool(ok),
+                    "is_valid_structured_relaxed": False,
+                    "evaluation_mode": "relaxed" if tolerant_mode_used else ("strict" if ok else "strict_failed"),
+                    "bedingungs_pruef_html": "",
+                    "conditions_structured": None,
+                    "taxpunkte": tp_val,
+                    "requires_icd": False,
+                    "matched_lkn_count": 0,
+                    "matched_lkn_count_specific": 0,
+                    "lkn_match_sources": [],
+                }
+                by_code[code] = entry
+            else:
+                entry["is_valid_structured"] = bool(ok)
+                if tolerant_mode_used:
+                    entry["evaluation_mode"] = "relaxed" if ok else "strict_failed"
+                else:
+                    entry["evaluation_mode"] = "strict" if ok else "strict_failed"
+
+        rebuilt: list[Dict[str, Any]] = []
+        # siblings first (stable), then C90+ (stable)
+        for code in sibling_codes:
+            entry = by_code.get(code)
+            if entry:
+                rebuilt.append(entry)
+        for code in c90_codes:
+            entry = by_code.get(code)
+            if entry and entry not in rebuilt:
+                rebuilt.append(entry)
+        evaluated_candidates = rebuilt
+
     # HTML für nicht ausgewählte Kandidaten wird nicht mehr vorab erzeugt.
     # Die UI rendert die Bedingungen bei Bedarf über /api/pauschale-conditions-html,
     # sodass alle Pauschalen denselben on-demand Pfad nutzen.
-    for cand in evaluated_candidates:
-        code_str = str(cand.get("code"))
-
-        if code_str != str(best_pauschale_code):
-            continue
-
-        if selected_structured:
-            cand["conditions_structured"] = selected_structured
-        if not cand.get("bedingungs_pruef_html") and bedingungs_pruef_html_result:
-            cand["bedingungs_pruef_html"] = bedingungs_pruef_html_result
-        break
 
     # Die Logik zur Filterung der `evaluated_pauschalen` wurde entfernt, da die Unit-Tests
     # erwarten, die vollständige, ungefilterte Liste zu erhalten, um das Verhalten
@@ -3322,92 +3582,3 @@ def determine_applicable_pauschale(
         "evaluation_mode": "relaxed" if tolerant_mode_used else "strict",
     }
     return final_result_dict
-
-
-# --- HILFSFUNKTIONEN (auf Modulebene) ---
-def get_simplified_conditions(
-    pauschale_code: str,
-    bedingungen_data: list[dict[str, Any]],
-) -> set[tuple[Any, Any]]:
-    """
-    Wandelt Bedingungen in eine vereinfachte, vergleichbare Darstellung (Set von Tupeln) um.
-    Dies dient dazu, Unterschiede zwischen Pauschalen auf einer höheren Ebene zu identifizieren.
-    Die Logik hier muss nicht alle Details der `check_single_condition` abbilden,
-    sondern eher die Art und den Hauptwert der Bedingung.
-    """
-    simplified_set: set[tuple[Any, Any]] = set()
-    PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
-    BED_FELD_KEY = 'Feld'; BED_MIN_KEY = 'MinWert'; BED_MAX_KEY = 'MaxWert'
-    BED_VERGLEICHSOP_KEY = 'Vergleichsoperator' # Hinzugefügt
-    
-    pauschale_conditions = [cond for cond in bedingungen_data if cond.get(PAUSCHALE_KEY) == pauschale_code]
-
-    for cond in pauschale_conditions:
-        typ_original = cond.get(BED_TYP_KEY, "").upper()
-        wert = str(cond.get(BED_WERTE_KEY, "")).strip() # String und strip
-        feld = str(cond.get(BED_FELD_KEY, "")).strip()
-        vergleichsop = str(cond.get(BED_VERGLEICHSOP_KEY, "=")).strip() # Default '='
-        
-        condition_tuple: Optional[tuple[Any, Any]] = None
-        # Normalisiere Typen für den Vergleich
-        # Ziel ist es, semantisch ähnliche Bedingungen gleich zu behandeln
-        
-        final_cond_type_for_comparison = typ_original # Default
-
-        if typ_original in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE", "LKN IN TABELLE"]:
-            final_cond_type_for_comparison = 'LKN_TABLE'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([t.strip().lower() for t in wert.split(',') if t.strip()]))) # Tabellennamen als sortiertes Tuple
-        elif typ_original in ["HAUPTDIAGNOSE IN TABELLE", "ICD IN TABELLE"]:
-            final_cond_type_for_comparison = 'ICD_TABLE'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([t.strip().lower() for t in wert.split(',') if t.strip()])))
-        elif typ_original in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-            final_cond_type_for_comparison = 'LKN_LIST'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([lkn.strip().upper() for lkn in wert.split(',') if lkn.strip()]))) # LKNs als sortiertes Tuple
-        elif typ_original in ["HAUPTDIAGNOSE IN LISTE", "ICD"]:
-            final_cond_type_for_comparison = 'ICD_LIST'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([icd.strip().upper() for icd in wert.split(',') if icd.strip()])))
-        elif typ_original in ["MEDIKAMENTE IN LISTE", "GTIN"]:
-            final_cond_type_for_comparison = 'MEDICATION_LIST'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([med.strip().upper() for med in wert.split(',') if med.strip()])))
-        elif typ_original == "PATIENTENBEDINGUNG" and feld:
-            final_cond_type_for_comparison = f'PATIENT_{feld.upper()}' # z.B. PATIENT_ALTER
-            # Für Alter mit Min/Max eine normalisierte Darstellung
-            if feld.lower() == "alter":
-                min_w = cond.get(BED_MIN_KEY)
-                max_w = cond.get(BED_MAX_KEY)
-                if min_w is not None or max_w is not None:
-                    wert_repr = f"min:{min_w or '-'}_max:{max_w or '-'}"
-                else:
-                    wert_repr = f"exact:{wert}"
-                condition_tuple = (final_cond_type_for_comparison, wert_repr)
-            else: # Für andere Patientenbedingungen (z.B. Geschlecht)
-                condition_tuple = (final_cond_type_for_comparison, wert.lower())
-        elif typ_original == "ALTER IN JAHREN BEI EINTRITT":
-            final_cond_type_for_comparison = 'PATIENT_ALTER_EINTRITT'
-            condition_tuple = (final_cond_type_for_comparison, f"{vergleichsop}{wert}")
-        elif typ_original == "ANZAHL":
-            final_cond_type_for_comparison = 'ANZAHL_CHECK'
-            condition_tuple = (final_cond_type_for_comparison, f"{vergleichsop}{wert}")
-        elif typ_original == "SEITIGKEIT":
-            final_cond_type_for_comparison = 'SEITIGKEIT_CHECK'
-            # Normalisiere den Regelwert für den Vergleich (z.B. 'B' -> 'beidseits')
-            norm_regel_wert = wert.strip().replace("'", "").lower()
-            if norm_regel_wert == 'b': norm_regel_wert = 'beidseits'
-            elif norm_regel_wert == 'e': norm_regel_wert = 'einseitig' # Vereinfachung für Vergleich
-            condition_tuple = (final_cond_type_for_comparison, f"{vergleichsop}{norm_regel_wert}")
-        elif typ_original == "GESCHLECHT IN LISTE": # Bereits oben durch PATIENT_GESCHLECHT abgedeckt, wenn Feld gesetzt ist
-            final_cond_type_for_comparison = 'GESCHLECHT_LIST_CHECK'
-            condition_tuple = (final_cond_type_for_comparison, tuple(sorted([g.strip().lower() for g in wert.split(',') if g.strip()])))
-        else:
-            # Fallback für unbekannte oder nicht spezifisch behandelte Typen
-            # print(f"  WARNUNG: get_simplified_conditions: Unbehandelter Typ '{typ_original}' für Pauschale {pauschale_code}. Verwende Originaltyp und Wert.")
-            condition_tuple = (typ_original, wert) # Als Fallback
-            
-        if condition_tuple:
-            simplified_set.add(condition_tuple)
-        # else:
-            # print(f"  WARNUNG: get_simplified_conditions konnte für Pauschale {pauschale_code} Typ '{typ_original}' mit Wert '{wert}' kein Tupel erzeugen.")
-            
-    return simplified_set
-
-

@@ -2,7 +2,8 @@
 
 Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistenten ausprobieren möchten. Sie zeigt die typischen Arbeitsschritte, gibt Hinweise zur iterativen Nutzung und beschreibt die Grenzen des Systems.
 
-Hinweis Version 4.4
+Hinweis Version 4.6
+- CHF-Betrag wird nun direkt aus den hinterlegten Taxpunktwerten je Kanton und Sozialversicherungsbereich berechnet und im UI ausgewiesen.
 - Suche & Trefferqualität: Stage 1 kombiniert direkte LKN-Erkennung, gewichtete Schlüsselwortsuche und Embedding-Ranking. Alter/Geschlecht werden automatisch aus dem Freitext erkannt und fließen in die Kandidatenliste ein; Zuschläge für Kinder oder geschlechtsspezifische Leistungen werden dadurch zuverlässiger gefunden.
 - Ergebnisdetails: Die LLM-Details zeigen eine gerankte Kandidatenliste, Kontextzeilen enthalten Demografie-Hinweise zu TARDOC-Positionen.
 - Geschwindigkeit & QS: Pauschalen-Checks laufen schneller durch vorindizierte Regeln. Die Qualitätskontrolle zeigt Laufzeiten/Token (Ø/Median/p95/Max) und umfasst zusätzliche Referenzfälle.

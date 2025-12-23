@@ -20,9 +20,9 @@ import traceback # für detaillierte Fehlermeldungen
 from pathlib import Path
 # Use explicit module alias to avoid any name shadowing or analysis confusion
 import datetime as dt
-from functools import lru_cache
+from functools import lru_cache, wraps
 from importlib import import_module
-from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple, Mapping, Protocol, Callable, DefaultDict
+from typing import Any, TYPE_CHECKING, Optional, Dict, List, Set, Union, cast, TypedDict, Tuple, Mapping, Protocol, Callable, DefaultDict, Sequence
 
 # Always initialize optional third-party helpers to a known value so static analyzers
 # see a bound name even if the optional dependency is missing.
@@ -137,6 +137,22 @@ from utils import (
     escape as html_escape,
 )
 import html
+
+
+def _with_table_content_cache(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Ensure request-scope table caching is active while the function runs."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = activate_table_content_cache()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            deactivate_table_content_cache(token)
+
+    return wrapper
+
+
 try:
     import bleach  # type: ignore
 except Exception:  # pragma: no cover - optional dependency fallback
@@ -1070,6 +1086,11 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
                 cond_type = str(cond.get('type', 'N/A'))
                 cond_type_display = translate_condition_type(cond_type, lang)
                 value_html = _render_condition_value_html(cond, lang)
+                context_match_html = _render_context_match_info_html(
+                    cond,
+                    display_matched=display_matched,
+                    lang=lang,
+                )
 
                 html_parts.append(
                     """
@@ -1078,13 +1099,14 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
                             <svg viewBox="0 0 24 24"><use xlink:href="{icon_svg_path}"></use></svg>
                         </span>
                         <span class="condition-type-display">{cond_type_display}:</span>
-                        <span class="condition-text-wrapper">{value_html}</span>
+                        <span class="condition-text-wrapper">{value_html} {context_match_html}</span>
                     </div>
                     """.format(
                         icon_class=icon_class,
                         icon_svg_path=icon_svg_path,
                         cond_type_display=html_escape(cond_type_display),
                         value_html=value_html,
+                        context_match_html=context_match_html,
                     )
                 )
 
@@ -1168,7 +1190,16 @@ def _render_condition_value_html(cond: dict[str, Any], lang: str = 'de') -> str:
             if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
                 table_names = tokens  # Treat as literal table name (e.g., "OR")
             else:
-                table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
+                table_names: list[str] = []
+                for t in tokens:
+                    t_norm = str(t).lower()
+                    # If a table exists with this name (e.g. "OR"), keep it.
+                    if t_norm in tabellen_dict_by_table:
+                        table_names.append(t)
+                        continue
+                    if t.upper() in ("ODER", "OR", "UND", "AND"):
+                        continue
+                    table_names.append(t)
             parts: list[str] = []
             for tn in table_names:
                 entries = get_table_content(tn, 'service_catalog', tabellen_dict_by_table, lang)
@@ -1182,7 +1213,15 @@ def _render_condition_value_html(cond: dict[str, Any], lang: str = 'de') -> str:
             if len(tokens) == 1 and tokens[0].upper() in ("ODER", "OR", "UND", "AND"):
                 table_names = tokens
             else:
-                table_names = [t for t in tokens if t.upper() not in ("ODER", "OR", "UND", "AND")]
+                table_names = []
+                for t in tokens:
+                    t_norm = str(t).lower()
+                    if t_norm in tabellen_dict_by_table:
+                        table_names.append(t)
+                        continue
+                    if t.upper() in ("ODER", "OR", "UND", "AND"):
+                        continue
+                    table_names.append(t)
             parts: list[str] = []
             for tn in table_names:
                 entries = get_table_content(tn, 'icd', tabellen_dict_by_table, lang)
@@ -1214,6 +1253,72 @@ def _render_condition_value_html(cond: dict[str, Any], lang: str = 'de') -> str:
         return html_escape(raw_values)
 
 
+def _render_context_match_info_html(
+    cond: dict[str, Any],
+    display_matched: bool,
+    lang: str = "de",
+) -> str:
+    """Render additional context hints like 'erfüllt durch LKN ...' for structured conditions."""
+    if not display_matched:
+        return ""
+
+    ctype = str(cond.get("type", "")).upper()
+    matched_lkns = cond.get("matched_lkns") or []
+    matched_icds = cond.get("matched_icds") or []
+
+    lkn_types = {
+        "LEISTUNGSPOSITIONEN IN LISTE",
+        "LKN",
+        "LKN IN LISTE",
+        "LEISTUNGSPOSITIONEN IN TABELLE",
+        "LKN IN TABELLE",
+        "TARIFPOSITIONEN IN TABELLE",
+    }
+    icd_types = {
+        "ICD",
+        "ICD IN LISTE",
+        "HAUPTDIAGNOSE IN LISTE",
+        "ICD IN TABELLE",
+        "HAUPTDIAGNOSE IN TABELLE",
+    }
+
+    info_parts: list[str] = []
+
+    if ctype in lkn_types:
+        if matched_lkns:
+            linked: list[str] = []
+            for code in matched_lkns:
+                code_norm = str(code).upper()
+                desc = (
+                    get_lang_field(leistungskatalog_dict.get(code_norm, {}), "Beschreibung", lang)
+                    or code_norm
+                )
+                display_text = html_escape(f"{code_norm} ({desc})")
+                linked.append(create_html_info_link(code_norm, "lkn", display_text))
+            info_parts.append(
+                translate("fulfilled_by_lkn", lang, lkn_code_link=", ".join(linked))
+            )
+        else:
+            info_parts.append(html_escape(translate("condition_met_context_generic", lang)))
+
+    elif ctype in icd_types:
+        if matched_icds:
+            linked = [
+                create_html_info_link(str(code).upper(), "diagnosis", html_escape(str(code).upper()))
+                for code in matched_icds
+            ]
+            info_parts.append(
+                translate("fulfilled_by_icd", lang, icd_code_link=", ".join(linked))
+            )
+        else:
+            info_parts.append(html_escape(translate("condition_met_context_generic", lang)))
+
+    if not info_parts:
+        return ""
+
+    return f"<span class=\"context-match-info fulfilled\">{'; '.join(info_parts)}</span>"
+
+
 def render_pauschale_explanation_html(selected: dict[str, Any] | None,
                                       evaluated: list[dict[str, Any]] | None,
                                       lang: str = 'de') -> str:
@@ -1223,11 +1328,41 @@ def render_pauschale_explanation_html(selected: dict[str, Any] | None,
     - If a selection is given, adds a short header line
     """
     try:
+        def _filter_candidates_for_explanation(
+            selected_code: str, candidates: list[dict[str, Any]]
+        ) -> list[dict[str, Any]]:
+            """Keep only same subchapter (Cxx.xx) and C90+ fallbacks."""
+            code_norm = str(selected_code or "").strip().upper()
+            if not code_norm:
+                return candidates
+            stem_re = re.compile(r"^([A-Z]\d{2}\.\d{2})", re.IGNORECASE)
+            match = stem_re.match(code_norm)
+            stem = match.group(1).upper() if match else None
+
+            filtered: list[dict[str, Any]] = []
+            for cand in candidates:
+                cand_code = str(cand.get("code") or "").strip().upper()
+                if not cand_code:
+                    continue
+                if cand_code == code_norm:
+                    filtered.append(cand)
+                    continue
+                if is_pauschale_code_ge_c90(cand_code):
+                    filtered.append(cand)
+                    continue
+                if stem:
+                    cand_match = stem_re.match(cand_code)
+                    if cand_match and cand_match.group(1).upper() == stem:
+                        filtered.append(cand)
+            return filtered
+
         html_parts: list[str] = []
+        selected_code_norm = ""
         if selected and selected.get('details'):
             sel_code = str(selected.get('code') or selected.get('details', {}).get('Pauschale') or '')
             sel_text = get_lang_field(selected.get('details', {}), 'Pauschale_Text', lang) or ''
             if sel_code:
+                selected_code_norm = str(sel_code).strip().upper()
                 sel_code_disp = html_escape(sel_code)
                 sel_link = (
                     f"<a href='#' class='pauschale-exp-link info-link tag-code' "
@@ -1237,14 +1372,26 @@ def render_pauschale_explanation_html(selected: dict[str, Any] | None,
                     f"<p><b>{sel_link}</b> {html_escape(sel_text)}</p>"
                 )
         if evaluated:
+            evaluated_filtered = (
+                _filter_candidates_for_explanation(selected_code_norm, evaluated)
+                if selected_code_norm
+                else evaluated
+            )
             html_parts.append("<ul>")
-            for cand in evaluated:
+            for cand in evaluated_filtered:
                 code = str(cand.get('code') or '')
                 details = cand.get('details') or {}
                 text = get_lang_field(details, 'Pauschale_Text', lang) or ''
-                valid = bool(cand.get('is_valid_structured'))
-                status = translate('conditions_met' if valid else 'conditions_not_met', lang)
-                status_class = "condition-status condition-status-positive" if valid else "condition-status condition-status-negative"
+                valid_raw = cand.get('is_valid_structured')
+                if valid_raw is True:
+                    status = translate('conditions_met', lang)
+                    status_class = "condition-status condition-status-positive"
+                elif valid_raw is False:
+                    status = translate('conditions_not_met', lang)
+                    status_class = "condition-status condition-status-negative"
+                else:
+                    status = translate('conditions_not_checked', lang)
+                    status_class = "condition-status condition-status-neutral"
                 status_html = f"<span class=\"{status_class}\">{html_escape(status)}</span>"
                 code_disp = html_escape(code)
                 link = (
@@ -1345,6 +1492,7 @@ TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
 BEISPIELE_PATH = DATA_DIR / "beispiele.json"
 CHOP_PATH = DATA_DIR / "CHOP_Katalog.json"
+TPW_PATH = DATA_DIR / "tpw.json"
 
 # OpenAI-kompatible API-Settings (Apertus, OpenAI, Ollama-OAI)
 try:
@@ -1375,6 +1523,7 @@ CONTEXT_INCLUDE_MED_INTERPRETATION = config.getint('CONTEXT', 'include_med_inter
 CONTEXT_INCLUDE_TYP = config.getint('CONTEXT', 'include_typ', fallback=1) == 1
 CONTEXT_INCLUDE_BESCHREIBUNG = config.getint('CONTEXT', 'include_beschreibung', fallback=1) == 1
 try:
+    # Anzahl *zusätzlicher* Kontextpositionen (0 = nur direkte Treffer).
     CONTEXT_MAX_ITEMS = max(0, config.getint('CONTEXT', 'max_context_items', fallback=0))
 except Exception:
     CONTEXT_MAX_ITEMS = 0
@@ -1393,7 +1542,10 @@ try:
 except Exception:
     GEMINI_BACKOFF_SECONDS = 1.0
 # Einheitlicher Timeout für Gemini-API-Aufrufe (in Sekunden)
-GEMINI_TIMEOUT = 120
+try:
+    GEMINI_TIMEOUT = max(1, config.getint('GEMINI', 'timeout', fallback=120))
+except Exception:
+    GEMINI_TIMEOUT = 120
 
 # --- Typ-Aliase für Klarheit ---
 # Optionales Prompt-Trimmen für Gemini konfigurierbar machen
@@ -1409,14 +1561,35 @@ try:
     GEMINI_TRIM_MIN_CONTEXT_CHARS = config.getint('GEMINI', 'trim_min_context_chars', fallback=1000)
 except Exception:
     GEMINI_TRIM_MIN_CONTEXT_CHARS = 1000
+try:
+    GEMINI_PROMPT_STYLE = config.get('GEMINI', 'prompt_style', fallback='auto').strip().lower()
+except Exception:
+    GEMINI_PROMPT_STYLE = 'auto'
+
+try:
+    GEMINI_STAGE1_MAX_OUTPUT_TOKENS = max(256, config.getint('GEMINI', 'stage1_max_output_tokens', fallback=8192))
+except Exception:
+    GEMINI_STAGE1_MAX_OUTPUT_TOKENS = 8192
 
 # --- Stage-1 Kontextaufbau: Feintuning-Konstanten ---
 # Anzahl alternativer Query-Varianten (z.B. Synonyme), die wir bei der Kontexterstellung berücksichtigen.
-MAX_QUERY_VARIANTS = 80
-# Höchstzahl zusätzlicher Tokens, die Varianten pro Suchlauf beitragen dürfen (begrenzt Streuung).
-MAX_TOKEN_VARIANT_ADDITIONS = 24
+try:
+    MAX_QUERY_VARIANTS = max(10, config.getint('CONTEXT', 'max_query_variants', fallback=80))
+except Exception:
+    MAX_QUERY_VARIANTS = 80
+# Höchstzahl zusätzlicher Token-Synonym-Varianten, die pro Suchlauf beitragen dürfen (begrenzt Streuung).
+try:
+    MAX_TOKEN_VARIANT_ADDITIONS = max(0, config.getint('CONTEXT', 'max_token_variant_additions', fallback=32))
+except Exception:
+    MAX_TOKEN_VARIANT_ADDITIONS = 32
 # Maximale Zeichenlänge einzelner Variantenbeschreibungen, um ausufernde Texte zu vermeiden.
 MAX_VARIANT_LENGTH = 120
+# Anzahl "direkter Treffer" (Top-Kandidaten), die immer in den LLM-Kontext übernommen werden.
+# ``[CONTEXT] max_context_items`` steuert nur die *zusätzlichen* Kontextpositionen darüber hinaus.
+try:
+    DIRECT_CONTEXT_CODE_LIMIT = max(0, config.getint('CONTEXT', 'direct_context_code_limit', fallback=30))
+except Exception:
+    DIRECT_CONTEXT_CODE_LIMIT = 30
 # Mindestanzahl an Keyword-basierten Treffern, bevor Zusatzvarianten gesucht werden.
 MIN_KEYWORD_RESULTS = 40
 # Zielgröße für eindeutig gerankte LKN-Kodes im Kontextblock.
@@ -1426,9 +1599,15 @@ EXTRA_VARIANT_SEARCH_LIMIT = 6
 # Maximale Anzahl Katalogtreffer, die pro Zusatzvariante übernommen werden.
 EXTRA_VARIANT_RESULT_LIMIT = 40
 # Untere Token-Schwelle des Kontextblocks; fällt der Wert darunter, hängen wir medizinische Interpretationen an.
-MIN_CONTEXT_TOKEN_THRESHOLD = 6000
+try:
+    MIN_CONTEXT_TOKEN_THRESHOLD = max(0, config.getint('CONTEXT', 'min_context_token_threshold', fallback=6000))
+except Exception:
+    MIN_CONTEXT_TOKEN_THRESHOLD = 6000
 # Maximalzahl an Fallback-Zeilen mit medizinischer Interpretation, die ergänzt werden dürfen.
-MAX_FALLBACK_MED_LINES = 40
+try:
+    MAX_FALLBACK_MED_LINES = max(0, config.getint('CONTEXT', 'max_fallback_med_lines', fallback=40))
+except Exception:
+    MAX_FALLBACK_MED_LINES = 40
 # Anzahl Seed-Ergebnisse aus der initialen Keyword-Suche für Variantenbildung.
 SEED_KEYWORD_RESULT_LIMIT = 10
 # Anzahl Top-Keyword-Treffer, die bevorzugt (mit Score) in die Rangliste eingehen.
@@ -1438,9 +1617,11 @@ KEYWORD_VARIANT_DESCRIPTION_LIMIT = 3
 # Zahl direkter Synonym-Kodes, die wir als Rangierhinweise einschieben.
 MAX_DIRECT_SYNONYM_RANK_HINTS = 4
 # Limit für explizit in den Prompt aufgenommenen Synonymbezeichnungen.
-MAX_PROMPT_SYNONYMS = 12
+try:
+    MAX_PROMPT_SYNONYMS = max(0, config.getint('CONTEXT', 'max_prompt_synonyms', fallback=16))
+except Exception:
+    MAX_PROMPT_SYNONYMS = 16
 
-EvaluateStructuredConditionsType = Callable[[str, Dict[Any, Any], List[Dict[Any, Any]], Dict[str, List[Dict[Any, Any]]]], bool]
 CheckPauschaleConditionsType = Callable[
     [
         str,
@@ -1454,11 +1635,6 @@ CheckPauschaleConditionsType = Callable[
         bool,
     ],
     Dict[str, Any]
-]
-GetSimplifiedConditionsType = Callable[[str, List[Dict[Any, Any]]], Set[Any]]
-GenerateConditionDetailHtmlType = Callable[
-    [Tuple[Any, ...], Dict[Any, Any], Dict[Any, Any], str],
-    str,
 ]
 class DetermineApplicablePauschaleType(Protocol):
     def __call__(
@@ -1480,22 +1656,17 @@ class DetermineApplicablePauschaleType(Protocol):
         potential_pauschale_broad_input: Optional[Set[str]] = ...,
         lang: str = ...,
         prepared_structures: Optional[Dict[str, Any]] = ...,
+        fast_mode: bool = ...,
+        include_explanation_html: bool = ...,
+        include_selected_conditions_html: bool = ...,
+        include_candidate_sources: bool = ...,
+        include_potential_icds: bool = ...,
     ) -> Dict[str, Any]:
         """Signatur für Pauschalen-Auswahlfunktionen."""
         ...
 PrepareTardocAbrechnungType = Callable[[List[Dict[Any,Any]], Dict[str, Dict[Any,Any]], str], Dict[str,Any]]
 
 # --- Standard-Fallbacks für Funktionen aus regelpruefer_pauschale ---
-def default_evaluate_fallback( # Matches: evaluate_structured_conditions(pauschale_code: str, context: Dict, pauschale_bedingungen_data: List[Dict], tabellen_dict_by_table: Dict[str, List[Dict]]) -> bool
-    pauschale_code: str,
-    context: Dict[Any, Any],
-    pauschale_bedingungen_data: List[Dict[Any, Any]],
-    tabellen_dict_by_table: Dict[str, List[Dict[Any, Any]]]
-) -> bool:
-    """Fallback, falls der Pauschalen-Regelprüfer nicht geladen werden konnte."""
-    logger.warning("Fallback für 'evaluate_structured_conditions' aktiv.")
-    return False
-
 def default_check_html_fallback(
     pauschale_code: str,
     context: Dict[Any, Any],
@@ -1518,24 +1689,6 @@ def default_check_html_fallback(
         "prueflogik_pretty": "",
     }
 
-def default_get_simplified_conditions_fallback( # Matches: get_simplified_conditions(pauschale_code: str, bedingungen_data: list[dict]) -> set
-    pauschale_code: str,
-    bedingungen_data: List[Dict[Any, Any]]
-) -> Set[Any]:
-    """Fallback für vereinfachte Bedingungsliste, wenn Regelprüfer fehlt."""
-    logger.warning("Fallback für 'get_simplified_conditions' aktiv.")
-    return set()
-
-def default_generate_condition_detail_html_fallback(
-    condition_tuple: Tuple[Any, ...],
-    leistungskatalog_dict: Dict[Any, Any],
-    tabellen_dict_by_table: Dict[Any, Any],
-    lang: str = 'de',
-) -> str:
-    """Fallback für Detail-HTML einer Bedingung, wenn Generator fehlt."""
-    logger.warning("Fallback für 'generate_condition_detail_html' aktiv.")
-    return "<li>Detail-Generierung fehlgeschlagen (Fallback)</li>"
-
 def default_determine_applicable_pauschale_fallback(
     user_input: str,
     rule_checked_leistungen: List[Dict[str, Any]],
@@ -1554,6 +1707,11 @@ def default_determine_applicable_pauschale_fallback(
     potential_pauschale_broad_input: Optional[Set[str]] = None,
     lang: str = 'de',
     prepared_structures: Optional[Dict[str, Any]] = None,
+    fast_mode: bool = False,
+    include_explanation_html: bool = True,
+    include_selected_conditions_html: bool = True,
+    include_candidate_sources: bool = True,
+    include_potential_icds: bool = True,
 ) -> Dict[str, Any]:
     """Fallback für Hauptprüfung der Pauschalen-Logik."""
     logger.warning("Fallback für 'determine_applicable_pauschale' aktiv.")
@@ -1578,11 +1736,18 @@ def is_pauschale_code_ge_c90(code: Optional[str]) -> bool:
     except Exception:
         return False
 
+
+def _same_subchapter(code_a: str, code_b: str) -> bool:
+    if not code_a or not code_b:
+        return False
+    match_a = re.match(r"^([A-Z]\\d{2}\\.\\d{2})", str(code_a))
+    match_b = re.match(r"^([A-Z]\\d{2}\\.\\d{2})", str(code_b))
+    if match_a and match_b:
+        return match_a.group(1).upper() == match_b.group(1).upper()
+    return str(code_a)[:4].upper() == str(code_b)[:4].upper()
+
 # --- Initialisiere Funktionsvariablen mit Fallbacks ---
-evaluate_structured_conditions: EvaluateStructuredConditionsType = default_evaluate_fallback
 check_pauschale_conditions: CheckPauschaleConditionsType = default_check_html_fallback
-get_simplified_conditions: GetSimplifiedConditionsType = default_get_simplified_conditions_fallback
-generate_condition_detail_html: GenerateConditionDetailHtmlType = default_generate_condition_detail_html_fallback
 determine_applicable_pauschale_func: DetermineApplicablePauschaleType = default_determine_applicable_pauschale_fallback
 prepare_tardoc_abrechnung_func: PrepareTardocAbrechnungType = prepare_tardoc_abrechnung_fallback
 
@@ -1616,30 +1781,11 @@ try:
     logger.debug("DEBUG: Inhalt von rpp_module: %s", dir(rpp_module))
     logger.info("✓ Regelprüfer Pauschalen (regelpruefer_pauschale.py) Modul geladen.")
 
-    # if rpp_module and hasattr(rpp_module, 'evaluate_structured_conditions'):
-    #    evaluate_structured_conditions = rpp_module.evaluate_structured_conditions
-    # else:
-    #    logger.error("FEHLER: 'evaluate_structured_conditions' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv.")
-
     if rpp_module and hasattr(rpp_module, 'check_pauschale_conditions'):
         check_pauschale_conditions = rpp_module.check_pauschale_conditions  # type: ignore[attr-defined]
     else:
         logger.error(
             "FEHLER: 'check_pauschale_conditions' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv."
-        )
-
-    if rpp_module and hasattr(rpp_module, 'get_simplified_conditions'):
-        get_simplified_conditions = rpp_module.get_simplified_conditions  # type: ignore[attr-defined]
-    else:
-        logger.error(
-            "FEHLER: 'get_simplified_conditions' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv."
-        )
-
-    if rpp_module and hasattr(rpp_module, 'generate_condition_detail_html'):
-        generate_condition_detail_html = rpp_module.generate_condition_detail_html  # type: ignore[attr-defined]
-    else:
-        logger.error(
-            "FEHLER: 'generate_condition_detail_html' nicht in regelpruefer_pauschale.py (oder Modul nicht geladen)! Fallback aktiv."
         )
 
     if rpp_module and hasattr(rpp_module, 'determine_applicable_pauschale'):
@@ -1706,9 +1852,12 @@ baseline_results: dict[str, dict] = {}
 examples_data: list[dict] = []
 token_doc_freq: dict[str, int] = {}
 chop_data: list[dict] = []
+tpw_data: Dict[str, Any] = {}
 full_catalog_token_count: int = 0
 catalog_description_lookup: Set[str] = set()
 prepared_structures: Dict[str, Any] = {}
+pauschalen_search_tokens_by_code: Dict[str, Set[str]] = {}
+pauschalen_search_blob_by_code: Dict[str, str] = {}
 
 def create_app() -> FlaskType:
     """
@@ -1863,7 +2012,13 @@ def resolve_medication_inputs(raw_inputs: List[str]) -> tuple[List[str], List[st
 
 
 _QUANTITY_TIME_UNITS_RE = re.compile(
-    r"\b(min|minute|minuten|minuti|minutes|minutos|heures|heure|ore|ora|stunden|stunde|std|h)\b",
+    r"\b("
+    r"min|minute|minuten|minuti|minutes|minutos|heures|heure|ore|ora|stunden|stunde|std|h|"
+    r"jahr|jahre|jahren|jaehrig|jährig|year|years|yr|yrs|anni|anno|ans|"
+    r"tag|tage|tagen|day|days|jour|jours|giorno|giorni|"
+    r"woche|wochen|week|weeks|semaine|semaines|settimana|settimane|"
+    r"cm|mm|ml|l|dl|cl|mg|g|kg|mcg|ug|cc"
+    r")\b",
     re.IGNORECASE,
 )
 _QUANTITY_WORD_MAP = {
@@ -1888,11 +2043,12 @@ def _extract_quantity_hint(text: str) -> Optional[int]:
     # Explizite Ziffern (ohne Minuten/Stunden-Bezug)
     for match in re.finditer(r"\b(\d{1,2})\b", lowered):
         value = int(match.group(1))
+        if value <= 0 or value > 20:
+            continue
         window = lowered[max(0, match.start() - 12): match.end() + 12]
         if _QUANTITY_TIME_UNITS_RE.search(window):
             continue
-        if value > 0:
-            return value
+        return value
     # Zahlwörter
     for word, value in _QUANTITY_WORD_MAP.items():
         pattern = rf"\b{re.escape(word)}\b"
@@ -1908,11 +2064,241 @@ def _extract_quantity_hint(text: str) -> Optional[int]:
     return None
 
 
+_LLM_CONTEXT_LKN_RE = re.compile(r"\bLKN:\s*([A-Z0-9.]+)\b")
+
+
+def _extract_lkn_codes_from_llm_context(katalog_context: str, limit: int = 80) -> List[str]:
+    """Extrahiert LKN-Codes aus dem durch ``_build_context_for_llm`` erzeugten Kontextstring."""
+    if not katalog_context:
+        return []
+    limit = max(0, int(limit or 0))
+    seen: Set[str] = set()
+    result: List[str] = []
+    for line in str(katalog_context).splitlines():
+        match = _LLM_CONTEXT_LKN_RE.search(line)
+        if not match:
+            continue
+        code = match.group(1).strip().upper()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        result.append(code)
+        if limit and len(result) >= limit:
+            break
+    return result
+
+
+def _is_pauschale_relevant_lkn(code: str) -> bool:
+    """Heuristik: Nur Codes behalten, die überhaupt Pauschalen-Kandidaten triggern können."""
+    if not isinstance(code, str):
+        return False
+    normalized = code.strip().upper()
+    if not normalized:
+        return False
+    if normalized in pauschale_lp_index_by_lkn:
+        return True
+    if normalized in pauschale_cond_lkn_index_by_lkn:
+        return True
+    if normalized in lkn_to_tables_index:
+        return True
+    if normalized in lkn_to_tables_index_precise or normalized in lkn_to_tables_index_broad:
+        return True
+    return False
+
+
+def _select_pauschale_hint_lkns(
+    katalog_context_str: str,
+    user_input: str,
+    lang: str,
+    *,
+    context_limit: int = 80,
+    max_codes: int = 20,
+) -> List[str]:
+    """Wählt eine kleine, robuste Menge an LKN-Hinweisen aus dem Katalog-Kontext.
+
+    Ziel: fehlende, aber im Text klar erwähnte Codes (z.B. "lavage", "biopsie") ergänzen,
+    ohne generische Codes (z.B. nur aus Broad-Tabellen) unnötig zu verstärken.
+    """
+    context_limit = max(0, int(context_limit or 0))
+    max_codes = max(0, int(max_codes or 0))
+    if not katalog_context_str or max_codes <= 0:
+        return []
+
+    raw_tokens = extract_keywords(user_input or "")
+    if not raw_tokens:
+        return []
+    # Filter sehr häufige Tokens (z.B. "avec", "patient") – die erzeugen viele Fehl-Hits.
+    max_df = 150
+    query_tokens = {
+        tok
+        for tok in raw_tokens
+        if (token_doc_freq.get(tok, 0) or 0) <= max_df
+    } or raw_tokens
+    # Kleine, gezielte Normalisierung für mehrdeutige Umgangsbegriffe:
+    # "Nagelung" wird im klinischen Alltag oft für perkutane Draht-/Kirschner-Fixationen verwendet.
+    # Ohne diese Erweiterung landet die Hint-Auswahl zu oft bei "Schiene" statt "Draht".
+    if lang == "de" and "nagelung" in query_tokens:
+        query_tokens.update({"draht", "perkutan"})
+    if not query_tokens:
+        return []
+
+    context_codes = _extract_lkn_codes_from_llm_context(katalog_context_str, limit=context_limit)
+    if not context_codes:
+        return []
+
+    code_scores: Dict[str, int] = {}
+    for code in context_codes:
+        if not _is_pauschale_relevant_lkn(code):
+            continue
+        details = leistungskatalog_dict.get(code)
+        if not isinstance(details, dict):
+            continue
+        desc = get_localized_text(details, "Beschreibung", lang) or ""
+        desc_lower = desc.lower()
+        overlap = sum(1 for tok in query_tokens if tok and tok in desc_lower)
+        if overlap > 0:
+            code_scores[code] = overlap
+
+    if not code_scores:
+        return []
+
+    max_score = max(code_scores.values())
+
+    selected: List[str] = []
+    selected_set: Set[str] = set()
+
+    # 1) Bei sehr eindeutigen Matches (>=3 Token-Überlappung): nur die besten Treffer übernehmen.
+    if max_score >= 3:
+        for code in context_codes:
+            if code_scores.get(code, 0) == max_score:
+                selected.append(code)
+                selected_set.add(code)
+                if len(selected) >= max_codes:
+                    break
+        return selected
+
+    # 2) Bei mittlerer Eindeutigkeit: Codes mit maximaler Überlappung bevorzugen.
+    if max_score >= 2:
+        for code in context_codes:
+            if code_scores.get(code, 0) == max_score:
+                selected.append(code)
+                selected_set.add(code)
+                if len(selected) >= max_codes:
+                    break
+
+    # 3) Token-Abdeckung: Tokens in Textreihenfolge abdecken und dabei fachlich konsistent bleiben.
+    # Ohne diese Ankerung kommen bei mehrdeutigen Tokens (z.B. "lavage"/"enclouage") schnell
+    # thematisch falsche Codes aus anderen Körperregionen ins Hint-Set und dominieren die Pauschalenwahl.
+    lowered_input = str(user_input or "").lower()
+
+    def _token_pos(tok: str) -> int:
+        try:
+            idx = lowered_input.find(tok)
+        except Exception:
+            idx = -1
+        return idx if idx >= 0 else 10**9
+
+    def _code_prefix(code: str) -> str:
+        parts = str(code or "").strip().upper().split(".")
+        if len(parts) >= 2:
+            return f"{parts[0]}.{parts[1]}"
+        return parts[0] if parts else ""
+
+    tokens_in_order = sorted(
+        query_tokens,
+        key=lambda t: (_token_pos(t), token_doc_freq.get(t, len(leistungskatalog_dict)), t),
+    )
+
+    anchor_prefix: Optional[str] = _code_prefix(selected[0]) if selected else None
+    covered_tokens: Set[str] = set()
+
+    def _update_covered_tokens(code: str) -> None:
+        details = leistungskatalog_dict.get(code)
+        if not isinstance(details, dict):
+            return
+        desc = (get_localized_text(details, "Beschreibung", lang) or "").lower()
+        if not desc:
+            return
+        for tok in query_tokens:
+            if tok and tok in desc:
+                covered_tokens.add(tok)
+
+    def _type_rank(code: str) -> int:
+        """Prefer base procedure codes (Typ=P) over add-ons (PZ) for hint anchoring."""
+        details = leistungskatalog_dict.get(code)
+        typ = str(details.get("Typ", "")).upper() if isinstance(details, dict) else ""
+        if typ == "P":
+            return 0
+        if typ == "PZ":
+            return 1
+        if typ in {"EZ", "E"}:
+            return 2
+        return 3
+
+    for code in selected:
+        _update_covered_tokens(code)
+
+    for token in tokens_in_order:
+        if len(selected) >= max_codes:
+            break
+        if token in covered_tokens:
+            continue
+
+        candidate_codes: List[str] = []
+        for code in context_codes:
+            if code in selected_set:
+                continue
+            if code_scores.get(code, 0) <= 0:
+                continue
+            details = leistungskatalog_dict.get(code)
+            if not isinstance(details, dict):
+                continue
+            desc = get_localized_text(details, "Beschreibung", lang) or ""
+            if token not in desc.lower():
+                continue
+            candidate_codes.append(code)
+
+        if not candidate_codes:
+            continue
+
+        if anchor_prefix is None:
+            prefix_counts: Dict[str, int] = {}
+            for code in candidate_codes:
+                prefix = _code_prefix(code)
+                if not prefix:
+                    continue
+                prefix_counts[prefix] = prefix_counts.get(prefix, 0) + 1
+            if prefix_counts:
+                anchor_prefix = max(prefix_counts.items(), key=lambda item: (item[1], item[0]))[0]
+
+        chosen: Optional[str] = None
+        best_key: Optional[Tuple[int, int, str]] = None
+        if anchor_prefix:
+            for idx, code in enumerate(candidate_codes):
+                if _code_prefix(code) != anchor_prefix:
+                    continue
+                key = (_type_rank(code), idx, code)
+                if best_key is None or key < best_key:
+                    best_key = key
+                    chosen = code
+
+        # Konservativ: wenn der Token nur fachfremde Prefixe liefert, lieber keinen zusätzlichen Hint.
+        if chosen is None:
+            continue
+
+        selected.append(chosen)
+        selected_set.add(chosen)
+        _update_covered_tokens(chosen)
+
+    return selected
+
+
 # --- Daten laden Hilfsfunktionen ---
 def _reset_data_containers() -> None:
     leistungskatalog_data.clear(); leistungskatalog_dict.clear(); regelwerk_dict.clear(); tardoc_tarif_dict.clear(); tardoc_interp_dict.clear()
     pauschale_lp_data.clear(); pauschalen_data.clear(); pauschalen_dict.clear(); pauschale_bedingungen_data.clear(); pauschale_bedingungen_indexed.clear(); tabellen_data.clear()
     tabellen_dict_by_table.clear()
+    pauschalen_search_tokens_by_code.clear(); pauschalen_search_blob_by_code.clear()
     lkn_to_tables_index.clear()
     lkn_to_tables_index_precise.clear(); lkn_to_tables_index_broad.clear()
     precomputed_table_map_precise.clear(); precomputed_table_map_broad.clear()
@@ -1929,6 +2315,29 @@ def _reset_data_containers() -> None:
     pauschale_cond_table_index_by_table_precise.clear(); pauschale_cond_table_index_by_table_broad.clear()
     token_doc_freq.clear()
     chop_data.clear()
+    tpw_data.clear()
+
+
+def _build_pauschalen_search_cache() -> None:
+    """Precompute token sets/blobs for ``search_pauschalen`` to avoid per-request tokenization."""
+    pauschalen_search_tokens_by_code.clear()
+    pauschalen_search_blob_by_code.clear()
+    if not pauschalen_dict:
+        return
+    for code, data in pauschalen_dict.items():
+        if not isinstance(code, str):
+            continue
+        if not isinstance(data, dict):
+            continue
+        text_de = str(data.get("Pauschale_Text", "") or "")
+        text_fr = str(data.get("Pauschale_Text_f", "") or "")
+        text_it = str(data.get("Pauschale_Text_i", "") or "")
+        searchable_blob = " ".join(part for part in [code, text_de, text_fr, text_it] if part)
+        blob_lower = searchable_blob.lower()
+        pauschalen_search_blob_by_code[code] = blob_lower
+        pauschalen_search_tokens_by_code[code] = {
+            t for t in re.findall(r"\\w+", blob_lower) if t
+        }
 
 
 def _load_precomputed_pauschalen_indices() -> None:
@@ -2189,6 +2598,20 @@ def _load_optional_datasets() -> None:
     except Exception as e:
         logger.warning("  WARNUNG: Beispiel-Daten konnten nicht geladen werden: %s", e)
         examples_data = []
+    try:
+        global tpw_data
+        with open(TPW_PATH, 'r', encoding='utf-8') as f:
+            tpw_data = json.load(f)
+        # Für Transparenz: wie viele Kantone pro Scope
+        kantone_counts = {}
+        if isinstance(tpw_data, dict):
+            for scope, payload in tpw_data.items():
+                if isinstance(payload, dict):
+                    kantone_counts[scope] = len((payload.get("kantone") or {}).keys())
+        logger.info("  Taxpunktwerte geladen (%s).", kantone_counts or "keine Kantone gefunden")
+    except Exception as e:
+        logger.warning("  WARNUNG: Taxpunktwerte konnten nicht geladen werden: %s", e)
+        tpw_data = {}
 
 
 def _load_rules() -> bool:
@@ -2350,6 +2773,7 @@ def _build_indices(all_loaded_successfully: bool) -> bool:
             len(pauschale_cond_table_index),
         )
     _populate_pauschale_table_splits()
+    _build_pauschalen_search_cache()
 
     return all_loaded_successfully
 
@@ -2736,9 +3160,24 @@ def _prepare_stage1_prompt(
     lang: str,
     query_variants: Optional[List[str]],
     provider_label: str,
+    model_name: Optional[str] = None,
 ) -> tuple[str, int]:
     """Erzeugt Stage-1-Prompt inkl. Kürzung/Tokenzählung für alle Provider."""
-    prompt = get_stage1_prompt(user_input, katalog_context, lang, query_variants=query_variants)
+    style = "full"
+    if provider_label.lower() == "gemini":
+        style_cfg = GEMINI_PROMPT_STYLE
+        if style_cfg in {"compact", "balanced", "full"}:
+            style = style_cfg
+        elif style_cfg == "auto":
+            if model_name and "flash" in str(model_name).lower():
+                style = "balanced"
+    prompt = get_stage1_prompt(
+        user_input,
+        katalog_context,
+        lang,
+        query_variants=query_variants,
+        style=style,
+    )
     prompt_tokens = count_tokens(prompt)
     token_budget = GEMINI_TOKEN_BUDGET
     if prompt_tokens > token_budget:
@@ -2748,7 +3187,13 @@ def _prepare_stage1_prompt(
                 ratio = max(0.2, token_budget / max(1.0, float(prompt_tokens)))
                 new_len = max(GEMINI_TRIM_MIN_CONTEXT_CHARS, int(len(katalog_context) * ratio))
                 trimmed_context = katalog_context[:new_len]
-                prompt = get_stage1_prompt(user_input, trimmed_context, lang, query_variants=query_variants)
+                prompt = get_stage1_prompt(
+                    user_input,
+                    trimmed_context,
+                    lang,
+                    query_variants=query_variants,
+                    style=style,
+                )
                 trimmed_prompt_tokens = count_tokens(prompt)
                 logger.warning(
                     "LLM Stufe 1: Prompt zu lang (%s Tokens). Kontext auf %s Zeichen gekürzt (jetzt %s Tokens).",
@@ -2778,6 +3223,11 @@ def _prepare_stage1_prompt(
 
 def _should_retry_request(exc: RequestException) -> bool:
     """Bestimmt, ob bei HTTP-Fehlern erneut versucht werden soll (429/5xx)."""
+    try:
+        if isinstance(exc, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+            return True
+    except Exception:
+        pass
     resp_obj = getattr(exc, "response", None)
     status = getattr(resp_obj, "status_code", None)
     return isinstance(status, int) and (status == 429 or status >= 500)
@@ -2791,14 +3241,16 @@ def _post_with_retries(
     backoff_seconds: float,
     logger_prefix: str,
     before_request: Optional[Callable[[], None]] = None,
+    on_retry: Optional[Callable[[int, RequestException], Optional[Dict[str, Any]]]] = None,
 ) -> Any:
     """Führt POST-Anfrage mit Retry-Logik (429/5xx) und optionalem Hook vor Request aus."""
     last_error: RequestException | None = None
+    current_payload = payload
     for attempt in range(max_retries):
         try:
             if before_request:
                 before_request()
-            response = requests.post(url, json=payload, timeout=timeout)
+            response = requests.post(url, json=current_payload, timeout=timeout)
             logger.info("%s Antwort Status Code: %s", logger_prefix, response.status_code)
             if response.status_code == 429:
                 raise HTTPError(response=response)
@@ -2807,6 +3259,13 @@ def _post_with_retries(
         except RequestException as exc:
             last_error = exc
             if attempt < max_retries - 1 and _should_retry_request(exc):
+                if on_retry:
+                    try:
+                        updated_payload = on_retry(attempt, exc)
+                        if updated_payload is not None:
+                            current_payload = updated_payload
+                    except Exception:
+                        pass
                 resp_obj = getattr(exc, "response", None)
                 status = getattr(resp_obj, "status_code", None)
                 wait_time = backoff_seconds * (2 ** attempt)
@@ -2842,8 +3301,14 @@ def call_gemini_stage1(
             },
             {"input_tokens": 0, "output_tokens": 0},
         )
+    katalog_context_local = katalog_context
     prompt, prompt_tokens = _prepare_stage1_prompt(
-        user_input, katalog_context, lang, query_variants, provider_label="Gemini"
+        user_input,
+        katalog_context_local,
+        lang,
+        query_variants,
+        provider_label="Gemini",
+        model_name=model,
     )
 
     response_tokens = 0
@@ -2858,8 +3323,11 @@ def call_gemini_stage1(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
     generation_config: Dict[str, Any] = {
+        # Beides setzen: snake_case (historisch) + camelCase (offizielle REST-API).
         "response_mime_type": "application/json",
-        "maxOutputTokens": 65536,
+        "responseMimeType": "application/json",
+        # Für Stage-1 reicht i.d.R. deutlich weniger; senkt Latenz und Timeout-Risiko.
+        "maxOutputTokens": GEMINI_STAGE1_MAX_OUTPUT_TOKENS,
     }
     if STAGE1_TEMPERATURE is not None:
         generation_config["temperature"] = STAGE1_TEMPERATURE
@@ -2871,15 +3339,48 @@ def call_gemini_stage1(
     logger.info("Sende Anfrage Stufe 1 an Gemini Model: %s...", model)
     if LOG_LLM_INPUT:
         detail_logger.debug(f"LLM_S1_REQUEST_PAYLOAD: {json.dumps(payload, ensure_ascii=False)}")
+
+    def _stage1_retry_hook(attempt: int, exc: RequestException) -> Optional[Dict[str, Any]]:
+        nonlocal katalog_context_local, prompt, prompt_tokens, payload
+        if not isinstance(exc, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+            return None
+        min_chars = 5000
+        shrink_factor = 0.65 if attempt == 0 else 0.5
+        new_len = max(min_chars, int(len(katalog_context_local) * shrink_factor))
+        if new_len >= len(katalog_context_local):
+            return None
+        katalog_context_local = katalog_context_local[:new_len]
+        prompt, prompt_tokens = _prepare_stage1_prompt(
+            user_input,
+            katalog_context_local,
+            lang,
+            query_variants,
+            provider_label="Gemini",
+            model_name=model,
+        )
+        try:
+            payload["contents"][0]["parts"][0]["text"] = prompt
+        except Exception:
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": generation_config,
+            }
+        logger.warning(
+            "Gemini Stufe 1 Retry: Kontext gekürzt auf %s Zeichen (Prompt Tokens ~%s).",
+            new_len,
+            prompt_tokens,
+        )
+        return payload
     try:
         response = _post_with_retries(
             gemini_url,
             payload,
-            timeout=90,
+            timeout=GEMINI_TIMEOUT,
             max_retries=GEMINI_MAX_RETRIES,
             backoff_seconds=GEMINI_BACKOFF_SECONDS,
             logger_prefix="Gemini Stufe 1",
             before_request=enforce_llm_min_interval,
+            on_retry=_stage1_retry_hook,
         )
         gemini_data = response.json()
         if LOG_LLM_OUTPUT:
@@ -3031,7 +3532,12 @@ def call_openai_stage1(
     if not base_url.rstrip("/").endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
     prompt, prompt_tokens = _prepare_stage1_prompt(
-        user_input, katalog_context, lang, query_variants, provider_label=provider
+        user_input,
+        katalog_context,
+        lang,
+        query_variants,
+        provider_label=provider,
+        model_name=model,
     )
 
     response_tokens = 0
@@ -3190,6 +3696,134 @@ def call_openai_stage1(
         )
     return data, {"input_tokens": prompt_tokens, "output_tokens": response_tokens}
 
+_STAGE2_MAPPING_MAX_CANDIDATE_TEXT_CHARS = 15000
+_STAGE2_MAPPING_MAX_CANDIDATE_DESC_CHARS = 220
+_STAGE2_MAPPING_MAX_PROMPT_CANDIDATES = 250
+_DEFAULT_STAGE2_MAPPING_MAX_CALLS = 2
+_ANESTHESIA_RE = re.compile(r"an[äa]sthes|anesth", re.IGNORECASE)
+_STAGE2_TOKEN_RE = re.compile(r"[A-Za-zÄÖÜäöü0-9]+")
+
+_ANESTHESIA_NEGATION_RE = re.compile(
+    r"\b(ohne|kein|keine|keinen|sans|without|senza)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_anesthesia_hint(text: str) -> bool:
+    """True wenn Text auf Anästhesie hindeutet (ohne einfache Negationen)."""
+    if not isinstance(text, str) or not text.strip():
+        return False
+    for match in _ANESTHESIA_RE.finditer(text):
+        start = max(0, match.start() - 30)
+        prefix = text[start:match.start()]
+        if _ANESTHESIA_NEGATION_RE.search(prefix):
+            continue
+        return True
+    return False
+
+
+def _normalize_stage2_candidate_desc(value: Any, max_len: int = _STAGE2_MAPPING_MAX_CANDIDATE_DESC_CHARS) -> str:
+    text = " ".join(str(value or "").split())
+    if max_len and len(text) > max_len:
+        return text[: max_len - 1].rstrip() + "…"
+    return text
+
+
+def _build_stage2_candidates_text(
+    candidate_pauschal_lkns: Mapping[str, str],
+    max_chars: int = _STAGE2_MAPPING_MAX_CANDIDATE_TEXT_CHARS,
+    max_desc_chars: int = _STAGE2_MAPPING_MAX_CANDIDATE_DESC_CHARS,
+) -> tuple[str, int, int]:
+    total_candidates = len(candidate_pauschal_lkns or {})
+    if not candidate_pauschal_lkns or total_candidates == 0:
+        return "", 0, 0
+
+    lines: List[str] = []
+    used_chars = 0
+    included = 0
+    for lkn, desc in candidate_pauschal_lkns.items():
+        normalized_desc = _normalize_stage2_candidate_desc(desc, max_desc_chars)
+        line = f"- {str(lkn).strip()}: {normalized_desc}"
+        projected = used_chars + len(line) + 1  # newline
+        if max_chars and projected > max_chars:
+            break
+        lines.append(line)
+        used_chars = projected
+        included += 1
+
+    if included == 0:
+        first_lkn, first_desc = next(iter(candidate_pauschal_lkns.items()))
+        normalized_desc = _normalize_stage2_candidate_desc(first_desc, max_desc_chars)
+        lines.append(f"- {str(first_lkn).strip()}: {normalized_desc}")
+        included = 1
+
+    return "\n".join(lines), included, total_candidates
+
+
+def _stage2_tokens(text: str) -> Set[str]:
+    tokens = {t.lower() for t in _STAGE2_TOKEN_RE.findall(text or "")}
+    return {t for t in tokens if len(t) > 1 and t not in STOPWORDS}
+
+
+def _rank_stage2_mapping_candidates(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidates: Mapping[str, str],
+) -> List[Tuple[str, int]]:
+    query_tokens = _stage2_tokens(tardoc_desc)
+    query_tokens.update(part.lower() for part in str(tardoc_lkn).split('.') if part)
+
+    scored: List[Tuple[str, int]] = []
+    for code, desc in candidates.items():
+        cand_tokens = _stage2_tokens(str(desc))
+        cand_tokens.update(part.lower() for part in str(code).split('.') if part)
+        score = len(query_tokens.intersection(cand_tokens))
+        if score > 0:
+            scored.append((str(code).strip().upper(), score))
+    scored.sort(key=lambda item: (-item[1], item[0]))
+    return scored
+
+
+def _select_stage2_mapping_candidates_for_prompt(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidates: Mapping[str, str],
+    max_candidates: int = _STAGE2_MAPPING_MAX_PROMPT_CANDIDATES,
+) -> Dict[str, str]:
+    if not candidates:
+        return {}
+    if max_candidates <= 0 or len(candidates) <= max_candidates:
+        return dict(candidates)
+
+    ranked = _rank_stage2_mapping_candidates(tardoc_lkn, tardoc_desc, candidates)
+    selected_keys: List[str] = [code for code, _score in ranked[:max_candidates]]
+    if not selected_keys:
+        selected_keys = list(dict.fromkeys(str(k).strip().upper() for k in list(candidates.keys())[:max_candidates]))
+
+    result: Dict[str, str] = {}
+    for key in selected_keys:
+        if key in candidates:
+            result[key] = candidates[key]
+    return result
+
+
+def _try_local_stage2_mapping_shortcut(
+    tardoc_lkn: str,
+    tardoc_desc: str,
+    candidates: Mapping[str, str],
+) -> Optional[str]:
+    ranked = _rank_stage2_mapping_candidates(tardoc_lkn, tardoc_desc, candidates)
+    if not ranked:
+        return None
+    if len(ranked) == 1:
+        return ranked[0][0]
+    top_code, top_score = ranked[0]
+    second_score = ranked[1][1]
+    if top_score >= 4 and top_score >= second_score + 2:
+        return top_code
+    return None
+
+
 def call_gemini_stage2_mapping(
     tardoc_lkn: str,
     tardoc_desc: str,
@@ -3205,14 +3839,14 @@ def call_gemini_stage2_mapping(
         logger.warning("Keine Kandidaten-LKNs für Mapping von %s übergeben.", tardoc_lkn)
         return None, {"input_tokens": 0, "output_tokens": 0}
 
-    candidates_text = "\n".join([f"- {lkn}: {desc}" for lkn, desc in candidate_pauschal_lkns.items()])
-    if len(candidates_text) > 15000:  # Limit Kontextlänge (Anpassen nach Bedarf)
+    candidates_text, included_candidates, total_candidates = _build_stage2_candidates_text(candidate_pauschal_lkns)
+    if included_candidates < total_candidates:
         logger.warning(
-            "Kandidatenliste für %s zu lang (%s Zeichen), wird gekürzt.",
+            "Kandidatenliste für %s zu lang, wird gekürzt (%s/%s Kandidaten).",
             tardoc_lkn,
-            len(candidates_text),
+            included_candidates,
+            total_candidates,
         )
-        candidates_text = candidates_text[:15000] + "\n..."  # Einfache Kürzung
 
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
     prompt_tokens = count_tokens(prompt)
@@ -3264,7 +3898,9 @@ def call_gemini_stage2_mapping(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
     generation_config: Dict[str, Any] = {
+        # Beides setzen: snake_case (historisch) + camelCase (offizielle REST-API).
         "response_mime_type": "application/json", # Beibehalten, da Gemini manchmal JSON sendet
+        "responseMimeType": "application/json",
         "maxOutputTokens": 512, # Fuer eine kurze Liste von Codes sollte das reichen
     }
     if STAGE2_MAPPING_TEMPERATURE is not None:
@@ -3389,11 +4025,7 @@ def call_openai_stage2_mapping(
     if not candidate_pauschal_lkns:
         logger.warning("Keine Kandidaten-LKNs für Mapping von %s übergeben.", tardoc_lkn)
         return None, {"input_tokens": 0, "output_tokens": 0}
-    candidates_text = "\n".join(
-        [f"- {lkn}: {desc}" for lkn, desc in candidate_pauschal_lkns.items()]
-    )
-    if len(candidates_text) > 15000:
-        candidates_text = candidates_text[:15000] + "\n..."
+    candidates_text, _included_candidates, _total_candidates = _build_stage2_candidates_text(candidate_pauschal_lkns)
     prompt = get_stage2_mapping_prompt(tardoc_lkn, tardoc_desc, candidates_text, lang)
     prompt_tokens = count_tokens(prompt)
     # Proaktives Kürzen sehr langer Prompts auf Basis des konfigurierten Budgets
@@ -3574,6 +4206,8 @@ def call_gemini_stage2_ranking(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     )
     generation_config: Dict[str, Any] = {
+        "response_mime_type": "application/json",
+        "responseMimeType": "application/json",
         "maxOutputTokens": 500,
     }
     if STAGE2_RANKING_TEMPERATURE is not None:
@@ -3934,35 +4568,70 @@ def call_llm_stage2_ranking(
 # prepare_tardoc_abrechnung wird jetzt über prepare_tardoc_abrechnung_func aufgerufen,
 # die entweder die echte Funktion aus regelpruefer_einzelleistungen.py oder einen Fallback enthält.
 
+@_with_table_content_cache
 def get_LKNs_from_pauschalen_conditions(
     potential_pauschale_codes: Set[str],
     pauschale_bedingungen_data_list: List[Dict[str, Any]], # Umbenannt
     tabellen_dict: Dict[str, List[Dict[str, Any]]], # Umbenannt
-    leistungskatalog: Dict[str, Dict[str, Any]] # Umbenannt
+    leistungskatalog: Dict[str, Dict[str, Any]], # Umbenannt
+    *,
+    lang: str = "de",
+    bedingungen_indexed: Optional[Mapping[str, Sequence[Mapping[str, Any]]]] = None,
+    skip_table_names: Optional[Set[str]] = None,
 ) -> Dict[str, str]:
     """Aggregiert alle LKN-Codes, die in den Bedingungen der übergebenen Pauschalen referenziert werden."""
     # print(f"--- DEBUG: Start get_LKNs_from_pauschalen_conditions für {potential_pauschale_codes} ---")
+    if not potential_pauschale_codes:
+        return {}
     condition_lkns_with_desc: Dict[str, str] = {}
     processed_lkn_codes: Set[str] = set()
+    processed_table_names: Set[str] = set()
     BED_PAUSCHALE_KEY = 'Pauschale'; BED_TYP_KEY = 'Bedingungstyp'; BED_WERTE_KEY = 'Werte'
 
-    relevant_conditions = [
-        cond for cond in pauschale_bedingungen_data_list # Verwende umbenannt
-        if cond.get(BED_PAUSCHALE_KEY) in potential_pauschale_codes and
-           cond.get(BED_TYP_KEY, "").upper() in [
-               "LEISTUNGSPOSITIONEN IN LISTE", "LKN",
-               "LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"
-           ]]
+    allowed_types = {
+        "LEISTUNGSPOSITIONEN IN LISTE",
+        "LKN",
+        "LKN IN LISTE",
+        "LEISTUNGSPOSITIONEN IN TABELLE",
+        "LKN IN TABELLE",
+    }
+    # Default: broad tables (OR/NONELT/ELT) can explode candidate sets massively; keep ANAST because relevant for mapping.
+    if skip_table_names is None:
+        skip_table_names = {t for t in broad_table_names if t != "anast"}
+
+    relevant_conditions: List[Mapping[str, Any]] = []
+    if bedingungen_indexed:
+        for pauschale_code in potential_pauschale_codes:
+            conditions_for_code = bedingungen_indexed.get(str(pauschale_code))
+            if not conditions_for_code:
+                continue
+            for cond in conditions_for_code:
+                if str(cond.get(BED_TYP_KEY, "")).upper() in allowed_types:
+                    relevant_conditions.append(cond)
+    else:
+        relevant_conditions = [
+            cond for cond in pauschale_bedingungen_data_list # Verwende umbenannt
+            if cond.get(BED_PAUSCHALE_KEY) in potential_pauschale_codes and
+               str(cond.get(BED_TYP_KEY, "")).upper() in allowed_types
+        ]
     # print(f"  Anzahl LKN-relevanter Bedingungen: {len(relevant_conditions)}")
     for cond in relevant_conditions:
-        typ = cond.get(BED_TYP_KEY, "").upper(); wert = cond.get(BED_WERTE_KEY, "")
+        typ = str(cond.get(BED_TYP_KEY, "")).upper(); wert = cond.get(BED_WERTE_KEY, "")
         if not wert: continue
         current_lkns_to_add: Set[str] = set()
-        if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
+        if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN", "LKN IN LISTE"]:
             current_lkns_to_add.update(lkn.strip().upper() for lkn in str(wert).split(',') if lkn.strip()) # str(wert)
-        elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
+        elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "LKN IN TABELLE"]:
             for table_name in (t.strip() for t in str(wert).split(',') if t.strip()): # str(wert)
-                content = get_table_content(table_name, "service_catalog", tabellen_dict) # Verwende umbenannt
+                normalized_table_name = str(table_name).strip().lower()
+                if not normalized_table_name:
+                    continue
+                if skip_table_names and normalized_table_name in skip_table_names:
+                    continue
+                if normalized_table_name in processed_table_names:
+                    continue
+                processed_table_names.add(normalized_table_name)
+                content = get_table_content(table_name, "service_catalog", tabellen_dict, lang=lang) # Verwende umbenannt
                 for item in content:
                     lkn_code = item.get('Code')
                     if lkn_code:
@@ -3995,14 +4664,19 @@ def get_LKNs_from_pauschalen_conditions(
 # Falls sie eine andere Logik hatte (z.B. alle Pauschalen durchsucht, nicht nur die potenziellen),
 # müsste sie wiederhergestellt und angepasst werden.
 
-def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
-    """Suche in den Pauschalen nach dem Stichwort und liefere Code + LKNs."""
+def search_pauschalen(
+    keyword: str,
+    *,
+    include_lkns: bool = False,
+    limit: int = 80,
+) -> List[Dict[str, Any]]:
+    """Suche in den Pauschalen nach Stichworten (mehrsprachig) und liefere Code + Text.
+
+    ``include_lkns`` ist optional, weil das Sammeln aller referenzierten LKNs pro Treffer
+    deutlich teurer ist und in der Fallback-Ranking-Pipeline nicht benötigt wird.
+    """
     if not keyword:
         return []
-
-    def _tokenize(text: str) -> Set[str]:
-        """Zerlegt Text in Kleinschreib-Tokens ohne Sonderzeichen."""
-        return {t for t in re.findall(r"\w+", text.lower()) if t}
 
     normalized_query = " ".join(str(keyword).split())
     query_tokens = extract_keywords(normalized_query)
@@ -4020,60 +4694,59 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
                 if isinstance(variant, str):
                     expanded_query_tokens.add(variant.lower())
 
-    matches: List[Tuple[int, Dict[str, Any], Set[str]]] = []
+    matches: List[Tuple[int, str, Set[str]]] = []
 
     for code, data in pauschalen_dict.items():
-        text_de = str(data.get("Pauschale_Text", "") or "")
-        text_fr = str(data.get("Pauschale_Text_f", "") or "")
-        text_it = str(data.get("Pauschale_Text_i", "") or "")
-        searchable_blob = " ".join(part for part in [code, text_de, text_fr, text_it] if part)
-        text_tokens = _tokenize(searchable_blob)
-        matched_tokens: Set[str] = set()
+        if not isinstance(code, str) or not isinstance(data, dict):
+            continue
+        blob_lower = pauschalen_search_blob_by_code.get(code)
+        text_tokens = pauschalen_search_tokens_by_code.get(code)
+        if blob_lower is None or text_tokens is None:
+            text_de = str(data.get("Pauschale_Text", "") or "")
+            text_fr = str(data.get("Pauschale_Text_f", "") or "")
+            text_it = str(data.get("Pauschale_Text_i", "") or "")
+            searchable_blob = " ".join(part for part in [code, text_de, text_fr, text_it] if part)
+            blob_lower = searchable_blob.lower()
+            text_tokens = {t for t in re.findall(r"\w+", blob_lower) if t}
 
+        matched_tokens: Set[str] = set()
         for token in expanded_query_tokens:
             if not token:
                 continue
             if token in text_tokens:
                 matched_tokens.add(token)
                 continue
-            if any(token in candidate for candidate in text_tokens if len(token) >= 3):
+            if len(token) >= 4 and token in blob_lower:
                 matched_tokens.add(token)
-                continue
-            if token in searchable_blob.lower():
-                matched_tokens.add(token)
-
         if not matched_tokens:
             continue
 
-        lkns: Set[str] = set()
-        for cond in pauschale_bedingungen_data:
-            if cond.get("Pauschale") != code:
-                continue
-            typ = str(cond.get("Bedingungstyp", "")).upper()
-            werte = cond.get("Werte", "")
-            if not werte:
-                continue
-            if typ in ["LEISTUNGSPOSITIONEN IN LISTE", "LKN"]:
-                lkns.update(l.strip().upper() for l in str(werte).split(',') if l.strip())
-            elif typ in ["LEISTUNGSPOSITIONEN IN TABELLE", "TARIFPOSITIONEN IN TABELLE"]:
-                for table_name in (t.strip() for t in str(werte).split(',') if t.strip()):
+        matches.append((len(matched_tokens), code, matched_tokens))
+
+    matches.sort(key=lambda item: (-item[0], item[1]))
+
+    results: List[Dict[str, Any]] = []
+    for score, code, matched_tokens in matches[: max(0, int(limit or 0))]:
+        data = pauschalen_dict.get(code, {})
+        entry: Dict[str, Any] = {
+            "code": code,
+            "text": str(data.get("Pauschale_Text", "") or ""),
+        }
+        if include_lkns:
+            lkns: Set[str] = set()
+            try:
+                lkns.update(pauschale_lp_index.get(code, set()))
+                lkns.update(pauschale_cond_lkn_index.get(code, set()))
+                for table_name in pauschale_cond_table_index.get(code, set()):
                     for item in get_table_content(table_name, "service_catalog", tabellen_dict_by_table):
                         code_item = item.get('Code')
                         if code_item:
                             lkns.add(str(code_item).upper())
+            except Exception:
+                lkns = set()
+            entry["lkns"] = sorted(lkns)
 
-        entry = {
-            "code": code,
-            "text": text_de,
-            "lkns": sorted(lkns),
-        }
-        matches.append((len(matched_tokens), entry, matched_tokens))
-
-    matches.sort(key=lambda item: (-item[0], item[1]["code"]))
-
-    results: List[Dict[str, Any]] = []
-    for score, entry, matched_tokens in matches:
-        if entry["code"] == "C08.43A":
+        if code == "C08.43A":
             logger.info(
                 "Suchbegriff \"%s\" liefert Pauschale C08.43A (Tokens: %s, Score: %d)",
                 normalized_query,
@@ -4083,7 +4756,7 @@ def search_pauschalen(keyword: str) -> List[Dict[str, Any]]:
         elif logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "search_pauschalen Treffer %s (Score: %d, Tokens: %s) für Query '%s'",
-                entry["code"],
+                code,
                 score,
                 sorted(matched_tokens),
                 normalized_query,
@@ -4373,12 +5046,36 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
                 token_doc_freq,
                 limit=SEED_KEYWORD_RESULT_LIMIT,
                 return_scores=True,
+                include_medical_interpretation=False,
             ),
         )
         seed_top_codes = [
             code for _, code in seed_keyword_results[:KEYWORD_VARIANT_DESCRIPTION_LIMIT]
         ]
         if seed_top_codes:
+            # Nur wirklich passende Beschreibungen als Such-Varianten übernehmen.
+            # Sonst driften kurze, aber thematisch falsche Top-Treffer (z.B. "lavage" -> Peritoneallavage)
+            # in die Keyword-Suche und verdrängen die korrekten Kandidaten.
+            seed_tokens = {
+                tok
+                for tok in base_keyword_tokens
+                if (token_doc_freq.get(tok, 0) or 0) <= 150
+            } or set(base_keyword_tokens)
+            seed_min_overlap = 1 if len(seed_tokens) <= 1 else 2
+
+            def _seed_overlap(desc: str) -> int:
+                desc_lower = str(desc or "").lower()
+                count = 0
+                for tok in seed_tokens:
+                    if not tok:
+                        continue
+                    if tok in desc_lower:
+                        count += 1
+                        continue
+                    if len(tok) >= 5 and tok[:5] in desc_lower:
+                        count += 1
+                return count
+
             lang_desc_field_map = {
                 "de": "Beschreibung",
                 "fr": "Beschreibung_f",
@@ -4395,6 +5092,8 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
                         continue
                     cleaned = " ".join(value.split())
                     if not cleaned or len(cleaned) > MAX_VARIANT_LENGTH:
+                        continue
+                    if _seed_overlap(cleaned) < seed_min_overlap:
                         continue
                     query_variants.append(cleaned)
                     catalog_description_variant_keys.add(cleaned.lower())
@@ -4474,6 +5173,36 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             if isinstance(variant, str)
         }
         token_candidate_order: List[str] = []
+        base_keyword_tokens_lower = {
+            str(tok).lower()
+            for tok in (base_keyword_tokens or set())
+            if isinstance(tok, str) and tok
+        }
+
+        def _variant_relevance_score(variant: str, token: str) -> int:
+            """Heuristische Relevanzbewertung für Token-Synonyme.
+
+            Problem: sehr generische Tokens (z.B. "fracture") erzeugen im Synonym-Katalog
+            viele fachfremde Varianten (z.B. Unterkiefer-Osteotomie), die die Kandidatensuche
+            stark verwässern. Für mehrteilige Eingaben akzeptieren wir Token-Varianten daher
+            nur, wenn sie zusätzlich mindestens ein anderes Basis-Token (oder dessen Prefix)
+            enthalten.
+            """
+            if not isinstance(variant, str):
+                return 0
+            if len(base_keyword_tokens_lower) <= 1:
+                return 1
+            variant_lower = variant.lower()
+            token_lower = str(token).lower()
+            score = 0
+            for other in base_keyword_tokens_lower:
+                if not other or other == token_lower:
+                    continue
+                if other in variant_lower:
+                    score += 2
+                elif len(other) >= 5 and other[:5] in variant_lower:
+                    score += 1
+            return score
 
         def _extend_token_candidates(source: str) -> None:
             """Fügt Keyword-Tokens aus einer Quelle für spätere Synonymerkennung hinzu."""
@@ -4496,6 +5225,11 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
                 break
             if not isinstance(token, str) or len(token) < 4:
                 continue
+            # Verhindere, dass sehr häufige Tokens eine große Menge irrelevanter
+            # Synonyme einspeisen (z.B. "fracture" in FR/IT).
+            df = token_doc_freq.get(token.lower(), 0) or 0
+            if df > 150:
+                continue
             try:
                 token_variants = expand_query(token, synonym_catalog, lang=lang)
             except Exception as exp_err:
@@ -4512,12 +5246,8 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             if not has_additional_variant:
                 continue
 
+            scored_variants: List[Tuple[int, str]] = []
             for variant in token_variants:
-                if (
-                    token_variant_budget <= 0
-                    or len(query_variants) >= MAX_QUERY_VARIANTS
-                ):
-                    break
                 if not isinstance(variant, str):
                     continue
                 normalized_variant = variant.strip()
@@ -4529,13 +5259,29 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
                 key = normalized_variant.lower()
                 if key in lower_seen_variants or key == token.lower():
                     continue
+                score = _variant_relevance_score(normalized_variant, token)
+                if score <= 0:
+                    continue
+                scored_variants.append((score, normalized_variant))
+
+            if not scored_variants:
+                continue
+
+            scored_variants.sort(key=lambda item: (-item[0], len(item[1]), item[1].lower()))
+            for _score, normalized_variant in scored_variants:
+                if (
+                    token_variant_budget <= 0
+                    or len(query_variants) >= MAX_QUERY_VARIANTS
+                ):
+                    break
+                key = normalized_variant.lower()
+                if key in lower_seen_variants or key == token.lower():
+                    continue
                 query_variants.append(normalized_variant)
                 lower_seen_variants[key] = normalized_variant
                 if key not in catalog_description_variant_keys:
                     _register_prompt_synonym(normalized_variant)
                 token_variant_budget -= 1
-                if token_variant_budget <= 0:
-                    break
 
         query_variants = _normalize_query_variants(
             query_variants[0] if query_variants else synonym_seed_input,
@@ -4594,6 +5340,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             token_doc_freq,
             limit=100,
             return_scores=True,
+            include_medical_interpretation=False,
         ),
     )
     keyword_codes = [code for _, code in keyword_results]
@@ -4679,6 +5426,7 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
                     token_doc_freq,
                     limit=EXTRA_VARIANT_RESULT_LIMIT,
                     return_scores=True,
+                    include_medical_interpretation=False,
                 ),
             )
             for _, code in variant_results:
@@ -4798,11 +5546,17 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
             )
             top_ranking_results = filtered_results
 
+    # Für den Kontext verwenden wir die vollständige (gefilterte) Rangliste, nicht nur die Top‑5.
+    # So bleiben starke Keyword-Treffer erhalten, auch wenn viele Synonym-Hints existieren.
+    context_ranked_results = top_ranking_results
     top_ranking_results = top_ranking_results[:5]
 
-    # Baue den Kontext: erzwungene Codes zuerst, dann restliche Kandidaten, optional begrenzt
+    # Baue den Kontext: erzwungene Codes zuerst, dann gerankte Kandidaten.
+    # ``CONTEXT_MAX_ITEMS`` beschreibt zusätzliche Kontextpositionen über die "direkten Treffer" hinaus.
     included: set[str] = set()
     med_info_candidates: List[str] = []
+    context_budget = max(0, int(DIRECT_CONTEXT_CODE_LIMIT)) + max(0, int(CONTEXT_MAX_ITEMS))
+    remaining_budget = context_budget
 
     def _shorten_text(value: str, max_length: int = 220) -> str:
         """Kürzt Beschreibungen auf eine kompakte Ein-Zeilen-Darstellung."""
@@ -4835,28 +5589,38 @@ def _build_context_for_llm(user_input: str, lang: str) -> tuple[str, list[tuple[
         included.add(code)
 
     # 1) Erzwinge bestimmte Codes
-    for forced in CONTEXT_FORCE_INCLUDE_CODES:
-        if forced in leistungskatalog_dict and forced not in included:
-            _add_line_for(forced)
-            if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
+    local_force_include_codes = list(CONTEXT_FORCE_INCLUDE_CODES)
+    if _has_anesthesia_hint(user_input):
+        # Mindestens ein ANAST-Repräsentant in den Kontext aufnehmen, damit Pauschalen
+        # mit ANAST-Tabellenbedingung (z.B. C08.50A) überhaupt matchen können.
+        for candidate in ("WA.10.0020", "WA.10.0030", "WA.10.0040", "WA.10.0010", "WA.10.0050"):
+            if candidate in leistungskatalog_dict and candidate not in local_force_include_codes:
+                local_force_include_codes.append(candidate)
                 break
 
-    # 2) Fülle mit gerankten Kandidaten auf
-    if not (CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS):
-        for lkn_code in ranked_codes:
+    for forced in local_force_include_codes:
+        if forced in leistungskatalog_dict and forced not in included:
+            _add_line_for(forced)
+
+    # 2) Fülle mit gerankten Kandidaten auf (mit Budgetlimit)
+    if remaining_budget > 0:
+        for _score, lkn_code in context_ranked_results:
+            if remaining_budget <= 0:
+                break
             if lkn_code in included:
                 continue
             if lkn_code not in leistungskatalog_dict:
                 continue
             _add_line_for(lkn_code)
-            if CONTEXT_MAX_ITEMS and len(katalog_context_parts) >= CONTEXT_MAX_ITEMS:
-                break
+            remaining_budget -= 1
     katalog_context_str = "\n".join(katalog_context_parts)
     current_token_count = count_tokens(katalog_context_str)
     if (
         not CONTEXT_INCLUDE_MED_INTERPRETATION
         and med_info_candidates
         and current_token_count < MIN_CONTEXT_TOKEN_THRESHOLD
+        # Bei ``max_context_items = 0`` sollen keine zusätzlichen (Token-lastigen) Interpretationen ergänzt werden.
+        and CONTEXT_MAX_ITEMS > 0
     ):
         katalog_context_parts.extend(med_info_candidates[:MAX_FALLBACK_MED_LINES])
         katalog_context_str = "\n".join(katalog_context_parts)
@@ -5101,11 +5865,40 @@ def find_potential_pauschalen_split(lkn_codes: Set[str]) -> tuple[Set[str], Set[
     )
 
 
-def find_potential_pauschalen(lkn_codes: Set[str]) -> Set[str]:
-    """Liefert Pauschalen-Kandidaten basierend auf LKN- und Tabellen-Indizes."""
-    precise, broad = find_potential_pauschalen_split(lkn_codes)
-    return precise.union(broad)
+def _build_pauschale_pruef_kontext(
+    *,
+    icd_input: Any,
+    medication_atcs: Any,
+    alter_context_val: Any,
+    alter_operator: Any,
+    alter_context_source: Any,
+    geschlecht_context_val: Any,
+    geschlecht_source: Any,
+    use_icd_flag: Any,
+    lkn_list: List[str],
+    seitigkeit_context_val: Any,
+    anzahl_fuer_pauschale_context: Any,
+    pauschale_eval_cache: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "ICD": icd_input,
+        "Medikamente": medication_atcs,
+        "GTIN": medication_atcs,
+        "Alter": alter_context_val,
+        "AlterOperator": alter_operator,
+        "AlterBeiEintritt": alter_context_val,
+        "AlterSource": alter_context_source,
+        "Geschlecht": geschlecht_context_val or "unbekannt",
+        "GeschlechtSource": geschlecht_source,
+        "useIcd": use_icd_flag,
+        "LKN": lkn_list,
+        "Seitigkeit": seitigkeit_context_val,
+        "Anzahl": anzahl_fuer_pauschale_context,
+        "__pauschale_eval_cache": pauschale_eval_cache,
+    }
 
+
+@_with_table_content_cache
 def _determine_final_billing(
     rule_checked_leistungen_list: List[Dict[str, Any]],
     regel_ergebnisse_details_list: List[Dict[str, Any]],
@@ -5122,10 +5915,27 @@ def _determine_final_billing(
     Zusatzdaten aus der Mapping-Stufe für die Detailanzeige im Frontend.
     """
     llm_stage2_mapping_results: Dict[str, Any] = {"mapping_results": []}
+    # Request-scope Cache für Pauschalen-Validierung (wird in regelpruefer_pauschale genutzt).
+    context.setdefault("__pauschale_eval_cache", {})
 
     # Kandidaten aus Indizes (auch wenn keine P/PZ LKNs explizit vorhanden sind)
     regelkonforme_lkn_codes_fuer_suche = {str(l.get('lkn')).upper() for l in rule_checked_leistungen_list if l.get('lkn')}
-    potential_pauschale_precise_set, potential_pauschale_broad_set = find_potential_pauschalen_split(regelkonforme_lkn_codes_fuer_suche)
+    llm_validated_lkns_for_suche = {
+        str(code).strip().upper()
+        for code in (context.get("llm_validated_lkns") or [])
+        if isinstance(code, str) and str(code).strip()
+    }
+    llm_validated_lkns_strict = {
+        str(code).strip().upper()
+        for code in (context.get("llm_validated_lkns_strict") or [])
+        if isinstance(code, str) and str(code).strip()
+    }
+    if not llm_validated_lkns_strict:
+        llm_validated_lkns_strict = set(llm_validated_lkns_for_suche)
+    hint_lkns_for_suche = llm_validated_lkns_for_suche.difference(llm_validated_lkns_strict)
+    strict_lkn_search_space = regelkonforme_lkn_codes_fuer_suche.union(llm_validated_lkns_strict)
+    initial_lkn_search_space = regelkonforme_lkn_codes_fuer_suche.union(llm_validated_lkns_for_suche)
+    potential_pauschale_precise_set, potential_pauschale_broad_set = find_potential_pauschalen_split(initial_lkn_search_space)
 
     if potential_pauschale_precise_set or potential_pauschale_broad_set:
         logger.info(
@@ -5147,14 +5957,222 @@ def _determine_final_billing(
         finale_abrechnung_obj = prepare_tardoc_abrechnung_func(regel_ergebnisse_details_list, leistungskatalog_dict, lang)
         return finale_abrechnung_obj, llm_stage2_mapping_results
 
+    def _run_pauschalen_pruefung(
+        lkn_context_list: List[str],
+        precise_candidates: Set[str],
+        broad_candidates: Set[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Evaluiert Pauschalen-Kandidaten mit gegebenem LKN-Kontext (ohne zusätzliches Mapping)."""
+        pauschale_haupt_pruef_kontext = _build_pauschale_pruef_kontext(
+            icd_input=context.get("icd_input"),
+            medication_atcs=context.get("medication_atcs"),
+            alter_context_val=context.get("alter_context_val"),
+            alter_operator=context.get("alter_operator_context"),
+            alter_context_source=context.get("alter_source_context"),
+            geschlecht_context_val=context.get("geschlecht_context_val"),
+            geschlecht_source=context.get("geschlecht_source_context"),
+            use_icd_flag=context.get("use_icd_flag"),
+            lkn_list=lkn_context_list,
+            seitigkeit_context_val=context.get("seitigkeit_context_val"),
+            anzahl_fuer_pauschale_context=context.get("anzahl_fuer_pauschale_context"),
+            pauschale_eval_cache=context.get("__pauschale_eval_cache"),
+        )
+        context["pauschale_haupt_pruef_kontext"] = pauschale_haupt_pruef_kontext
+
+        finale_abrechnung_obj = None
+        try:
+            eval_precise_set = set(precise_candidates)
+            eval_broad_additional = set(broad_candidates).difference(eval_precise_set)
+            any_ag_code_local = any(
+                str(code).strip().upper().startswith("AG.")
+                for code in (lkn_context_list or [])
+                if isinstance(code, str)
+            )
+            any_wa_code_local = any(
+                str(code).strip().upper().startswith("WA.")
+                for code in (lkn_context_list or [])
+                if isinstance(code, str)
+            )
+            anesthesia_context = bool(_ANESTHESIA_RE.search(user_input or "")) or any_ag_code_local or any_wa_code_local
+            # Broad-Kandidaten weiter eingrenzen: nur gleiche Stämme wie präzise oder C9x
+            if eval_precise_set and eval_broad_additional:
+                filtered_broad = set()
+                for code in eval_broad_additional:
+                    if is_pauschale_code_ge_c90(code):
+                        filtered_broad.add(code)
+                    elif any(_same_subchapter(code, ref) for ref in eval_precise_set):
+                        filtered_broad.add(code)
+                eval_broad_additional = filtered_broad
+            # Wenn (mit) Anästhesie im Spiel ist, sind Broad-Kandidaten aus OR/NONELT oft riesig.
+            # Falls vorhanden, fokussiere auf Broad-Kandidaten mit ANAST-Referenz.
+            if anesthesia_context and eval_broad_additional:
+                anast_filtered = {
+                    pc
+                    for pc in eval_broad_additional
+                    if "anast" in {t.lower() for t in precomputed_pauschale_cond_table_broad.get(str(pc), [])}
+                }
+                if anast_filtered:
+                    logger.info(
+                        "Broad-Kandidaten via Anästhesie eingegrenzt (%s -> %s).",
+                        len(eval_broad_additional),
+                        len(anast_filtered),
+                    )
+                    eval_broad_additional = anast_filtered
+            if eval_precise_set:
+                logger.info(
+                    "Starte Pauschalen-Hauptprüfung (präzise Kandidaten: %s, useIcd=%s)...",
+                    len(eval_precise_set),
+                    context.get("use_icd_flag"),
+                )
+                finale_abrechnung_obj = determine_applicable_pauschale_func(
+                    user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
+                    pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                    leistungskatalog_dict, tabellen_dict_by_table,
+                    pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
+                    eval_precise_set,
+                    potential_pauschale_precise_input=eval_precise_set,
+                    potential_pauschale_broad_input=set(),
+                    lang=lang,
+                    prepared_structures=prepared_structures,
+                    fast_mode=True,
+                    include_explanation_html=False,
+                    include_selected_conditions_html=not RENDER_SERVER_SIDE_CONDITIONS,
+                    include_candidate_sources=False,
+                    include_potential_icds=True,
+                )
+            if (not finale_abrechnung_obj or finale_abrechnung_obj.get("type") != "Pauschale") and eval_broad_additional:
+                logger.info(
+                    "Keine anwendbare Pauschale aus präzisem Satz. Starte Broad-Fallback (zusätzlich %s Kandidaten).",
+                    len(eval_broad_additional),
+                )
+                finale_abrechnung_obj = determine_applicable_pauschale_func(
+                    user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
+                    pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
+                    leistungskatalog_dict, tabellen_dict_by_table,
+                    pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
+                    eval_precise_set.union(eval_broad_additional),
+                    potential_pauschale_precise_input=eval_precise_set,
+                    potential_pauschale_broad_input=eval_broad_additional,
+                    lang=lang,
+                    prepared_structures=prepared_structures,
+                    fast_mode=True,
+                    include_explanation_html=False,
+                    include_selected_conditions_html=not RENDER_SERVER_SIDE_CONDITIONS,
+                    include_candidate_sources=False,
+                    include_potential_icds=True,
+                )
+            if finale_abrechnung_obj and finale_abrechnung_obj.get("type") == "Pauschale":
+                logger.info(
+                    "Anwendbare Pauschale gefunden: %s",
+                    finale_abrechnung_obj.get('details', {}).get('Pauschale'),
+                )
+            else:
+                logger.info(
+                    "Keine anwendbare Pauschale. Grund: %s",
+                    (finale_abrechnung_obj or {}).get('message', 'Unbekannt'),
+                )
+        except Exception as e_pauschale_main:
+            logger.error("Fehler bei Pauschalen-Hauptprüfung: %s", e_pauschale_main)
+            traceback.print_exc()
+            finale_abrechnung_obj = {"type": "Error", "message": f"Interner Fehler bei Pauschalen-Hauptprüfung: {e_pauschale_main}"}
+        return finale_abrechnung_obj
+
+    # Performance: Wenn bereits ohne Mapping eine passende Pauschale gefunden wird, Stage‑2 Mapping überspringen.
+    preliminary_lkn_context = sorted(strict_lkn_search_space)
+    preliminary_abrechnung = _run_pauschalen_pruefung(
+        preliminary_lkn_context,
+        potential_pauschale_precise_set,
+        potential_pauschale_broad_set,
+    )
+    if (not preliminary_abrechnung or preliminary_abrechnung.get("type") != "Pauschale") and hint_lkns_for_suche:
+        preliminary_lkn_context = sorted(initial_lkn_search_space)
+        logger.info(
+            "Keine Pauschale mit strikt validierten LKNs; versuche Kontext-Hinweise (%s).",
+            len(hint_lkns_for_suche),
+        )
+        preliminary_abrechnung = _run_pauschalen_pruefung(
+            preliminary_lkn_context,
+            potential_pauschale_precise_set,
+            potential_pauschale_broad_set,
+        )
+    if preliminary_abrechnung and preliminary_abrechnung.get("type") == "Pauschale":
+        # Vorsicht: Mapping kann v.a. bei Anästhesie-/WA-Kontext die passende Variante (z.B. ...A) erst ermöglichen.
+        # Deshalb nur überspringen, wenn keine mapping-sensitiven E/EZ-Codes (AG./WA.) oder Anästhesie-Hinweise vorliegen.
+        mapping_sensitive = False
+        for item in rule_checked_leistungen_list:
+            if not isinstance(item, dict):
+                continue
+            if item.get("typ") not in {"E", "EZ"}:
+                continue
+            code = str(item.get("lkn") or "").strip().upper()
+            if code.startswith(("AG.", "WA.")):
+                mapping_sensitive = True
+                break
+        anesthesia_context = bool(_ANESTHESIA_RE.search(user_input or "")) or any(
+            str(code).strip().upper().startswith(("AG.", "WA."))
+            for code in preliminary_lkn_context
+            if isinstance(code, str)
+        )
+        if not mapping_sensitive and not anesthesia_context:
+            logger.info("Pauschale ohne LKN-Mapping gefunden; überspringe Stage‑2 Mapping.")
+            return preliminary_abrechnung, llm_stage2_mapping_results
+
+    mapping_pauschale_codes_set: Set[str] = set(potential_pauschale_precise_set)
+    if potential_pauschale_broad_set:
+        if potential_pauschale_precise_set:
+            mapping_pauschale_codes_set.update(
+                pc
+                for pc in potential_pauschale_broad_set
+                if is_pauschale_code_ge_c90(pc)
+                or any(_same_subchapter(pc, ref) for ref in potential_pauschale_precise_set)
+            )
+        else:
+            # Ohne präzise Referenz kann die Broad-Menge riesig werden; für Mapping-Kandidaten begrenzen.
+            mapping_pauschale_codes_set.update(sorted(potential_pauschale_broad_set)[:50])
+
     mapping_candidate_lkns_dict = get_LKNs_from_pauschalen_conditions(
-        potential_pauschale_precise_set, pauschale_bedingungen_data,
-        tabellen_dict_by_table, leistungskatalog_dict)
+        mapping_pauschale_codes_set,
+        pauschale_bedingungen_data,
+        tabellen_dict_by_table,
+        leistungskatalog_dict,
+        lang=lang,
+        bedingungen_indexed=pauschale_bedingungen_indexed,
+    )
 
     tardoc_lkns_to_map_list = [l for l in rule_checked_leistungen_list if l.get('typ') in ['E', 'EZ']]
     mapped_lkn_codes_set: Set[str] = set()
     wa_codes_replaced_by_sa: Set[str] = set()
     mapping_process_had_connection_error = False
+    try:
+        stage2_mapping_max_calls = max(
+            0,
+            config.getint("LLM1UND2", "stage2_mapping_max_calls", fallback=_DEFAULT_STAGE2_MAPPING_MAX_CALLS),
+        )
+    except Exception:
+        stage2_mapping_max_calls = _DEFAULT_STAGE2_MAPPING_MAX_CALLS
+    stage2_mapping_calls_used = 0
+    any_ag_code = any(
+        isinstance(item, dict) and isinstance(item.get("lkn"), str) and item.get("lkn", "").startswith("AG.")
+        for item in tardoc_lkns_to_map_list
+    )
+    anast_table_content_codes: Set[str] = set()
+    if any_ag_code:
+        anast_table_content_codes = {
+            str(item['Code']).upper()
+            for item in get_table_content("ANAST", "service_catalog", tabellen_dict_by_table, lang=lang)
+            if item.get('Code')
+        }
+
+    def _mapping_priority(entry: Dict[str, Any]) -> Tuple[int, str]:
+        code = entry.get("lkn")
+        code_str = str(code or "").strip().upper()
+        if code_str.startswith("AG."):
+            return (0, code_str)
+        if code_str.startswith("WA."):
+            return (1, code_str)
+        return (2, code_str)
+
+    tardoc_lkns_to_map_list.sort(key=_mapping_priority)
 
     if tardoc_lkns_to_map_list and mapping_candidate_lkns_dict:
         for tardoc_leistung_map_obj in tardoc_lkns_to_map_list:
@@ -5162,9 +6180,6 @@ def _determine_final_billing(
             t_lkn_desc = tardoc_leistung_map_obj.get('beschreibung')
             current_candidates_for_llm = mapping_candidate_lkns_dict
             if isinstance(t_lkn_code, str) and t_lkn_code.startswith('AG.'):
-                anast_table_content_codes = {
-                    str(item['Code']).upper() for item in get_table_content("ANAST", "service_catalog", tabellen_dict_by_table) if item.get('Code')
-                }
                 filtered_anast_candidates = {
                     k: v for k, v in mapping_candidate_lkns_dict.items()
                     if k.startswith('WA.') or k in anast_table_content_codes
@@ -5199,9 +6214,46 @@ def _determine_final_billing(
                 })
                 continue
 
-            if t_lkn_code and t_lkn_desc and current_candidates_for_llm:
+            selected_candidates_for_llm = _select_stage2_mapping_candidates_for_prompt(
+                str(t_lkn_code or ""),
+                str(t_lkn_desc or ""),
+                current_candidates_for_llm,
+            )
+            local_mapped_code = _try_local_stage2_mapping_shortcut(
+                str(t_lkn_code or ""),
+                str(t_lkn_desc or ""),
+                selected_candidates_for_llm,
+            )
+            if local_mapped_code:
+                mapped_lkn_codes_set.add(local_mapped_code)
+                llm_stage2_mapping_results["mapping_results"].append({
+                    "tardoc_lkn": t_lkn_code,
+                    "tardoc_desc": t_lkn_desc,
+                    "mapped_lkn": local_mapped_code,
+                    "candidates_considered_count": len(selected_candidates_for_llm),
+                    "info": "Direktzuordnung (lokales Ranking, ohne LLM)"
+                })
+                continue
+
+            if stage2_mapping_calls_used >= stage2_mapping_max_calls:
+                llm_stage2_mapping_results["mapping_results"].append({
+                    "tardoc_lkn": t_lkn_code or "N/A",
+                    "tardoc_desc": t_lkn_desc or "N/A",
+                    "mapped_lkn": None,
+                    "info": f"Mapping übersprungen (Call-Limit {stage2_mapping_max_calls})",
+                    "candidates_considered_count": len(selected_candidates_for_llm),
+                })
+                continue
+
+            if t_lkn_code and t_lkn_desc and selected_candidates_for_llm:
                 try:
-                    mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(str(t_lkn_code), str(t_lkn_desc), current_candidates_for_llm, lang)
+                    stage2_mapping_calls_used += 1
+                    mapped_target_lkn_code, map_tokens = call_llm_stage2_mapping(
+                        str(t_lkn_code),
+                        str(t_lkn_desc),
+                        selected_candidates_for_llm,
+                        lang,
+                    )
                     token_usage["llm_stage2"]["input_tokens"] += map_tokens.get("input_tokens", 0)
                     token_usage["llm_stage2"]["output_tokens"] += map_tokens.get("output_tokens", 0)
                     if mapped_target_lkn_code:
@@ -5215,7 +6267,7 @@ def _determine_final_billing(
                     llm_stage2_mapping_results["mapping_results"].append({
                         "tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc,
                         "mapped_lkn": mapped_target_lkn_code,
-                        "candidates_considered_count": len(current_candidates_for_llm)
+                        "candidates_considered_count": len(selected_candidates_for_llm)
                     })
                 except ConnectionError as e_conn_map:
                     logger.error("Verbindung zu LLM Stufe 2 (Mapping) für %s fehlgeschlagen: %s", t_lkn_code, e_conn_map)
@@ -5225,9 +6277,9 @@ def _determine_final_billing(
                 except Exception as e_map_call:
                     logger.error("Fehler bei Aufruf von LLM Stufe 2 (Mapping) für %s: %s", t_lkn_code, e_map_call)
                     traceback.print_exc()
-                    llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc, "mapped_lkn": None, "error": str(e_map_call), "candidates_considered_count": len(current_candidates_for_llm)})
+                    llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code, "tardoc_desc": t_lkn_desc, "mapped_lkn": None, "error": str(e_map_call), "candidates_considered_count": len(selected_candidates_for_llm)})
             else:
-                llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code or "N/A", "tardoc_desc": t_lkn_desc or "N/A", "mapped_lkn": None, "info": "Mapping übersprungen", "candidates_considered_count": len(current_candidates_for_llm) if current_candidates_for_llm else 0})
+                llm_stage2_mapping_results["mapping_results"].append({"tardoc_lkn": t_lkn_code or "N/A", "tardoc_desc": t_lkn_desc or "N/A", "mapped_lkn": None, "info": "Mapping übersprungen", "candidates_considered_count": len(selected_candidates_for_llm) if selected_candidates_for_llm else 0})
     else:
         logger.info("Überspringe LKN-Mapping (keine E/EZ LKNs oder keine Mapping-Kandidaten).")
 
@@ -5246,28 +6298,28 @@ def _determine_final_billing(
             final_lkn_context_for_pauschale_set.add(normalized_code)
 
     llm_validated_codes_for_context: Set[str] = set()
-    for code in context.get("llm_validated_lkns", []):
+    for code in context.get("llm_validated_lkns_strict", context.get("llm_validated_lkns", [])):
         if not isinstance(code, str):
             continue
         normalized_code = code.strip().upper()
         if normalized_code:
             llm_validated_codes_for_context.add(normalized_code)
+    hint_codes_for_context = {
+        str(code).strip().upper()
+        for code in (context.get("llm_validated_lkns") or [])
+        if isinstance(code, str) and str(code).strip()
+    }.difference(llm_validated_codes_for_context)
     final_lkn_context_for_pauschale_set.update(mapped_lkn_codes_set)
     final_lkn_context_for_pauschale_set.update(llm_validated_codes_for_context)
     contains_sa_code = any(".SA." in code for code in final_lkn_context_for_pauschale_set)
-    if contains_sa_code:
-        wa_codes_to_remove = set(wa_codes_replaced_by_sa)
-        wa_codes_to_remove.update(
+    # WA.* signalisiert Anästhesie und ist für Varianten wie C08.50A relevant.
+    # Deshalb WA.* nur entfernen, wenn sie explizit durch ein Mapping auf ".SA." ersetzt wurden.
+    if contains_sa_code and wa_codes_replaced_by_sa:
+        final_lkn_context_for_pauschale_set = {
             code
             for code in final_lkn_context_for_pauschale_set
-            if code.startswith("WA.") and code in llm_validated_codes_for_context
-        )
-        if wa_codes_to_remove:
-            final_lkn_context_for_pauschale_set = {
-                code
-                for code in final_lkn_context_for_pauschale_set
-                if code not in wa_codes_to_remove
-            }
+            if code not in wa_codes_replaced_by_sa
+        }
     final_lkn_context_list_for_pauschale = list(final_lkn_context_for_pauschale_set)
     logger.info(
         "Finaler LKN-Kontext für Pauschalen-Hauptprüfung (%s LKNs): %s",
@@ -5291,85 +6343,25 @@ def _determine_final_billing(
         potential_pauschale_codes_set,
     )
 
-    pauschale_haupt_pruef_kontext = {
-        "ICD": context.get("icd_input"),
-        "Medikamente": context.get("medication_atcs"),
-        "GTIN": context.get("medication_atcs"),
-        "Alter": context.get("alter_context_val"),
-        "AlterOperator": context.get("alter_operator_context"),
-        "AlterBeiEintritt": context.get("alter_context_val"),
-        "AlterSource": context.get("alter_source_context"),
-        "Geschlecht": context.get("geschlecht_context_val") or "unbekannt",
-        "GeschlechtSource": context.get("geschlecht_source_context"),
-        "useIcd": context.get("use_icd_flag"),
-        "LKN": final_lkn_context_list_for_pauschale,
-        "Seitigkeit": context.get("seitigkeit_context_val"),
-        "Anzahl": context.get("anzahl_fuer_pauschale_context"),
-    }
-    context["pauschale_haupt_pruef_kontext"] = pauschale_haupt_pruef_kontext
-    finale_abrechnung_obj = None
-    try:
-        eval_precise_set = set(potential_pauschale_precise_set)
-        eval_broad_additional = potential_pauschale_broad_set.difference(eval_precise_set)
-        # Broad-Kandidaten weiter eingrenzen: nur gleiche Stämme wie präzise oder C9x
-        def _same_subchapter(code_a: str, code_b: str) -> bool:
-            if not code_a or not code_b:
-                return False
-            match_a = re.match(r"^([A-Z]\d{2}\.\d{2})", str(code_a))
-            match_b = re.match(r"^([A-Z]\d{2}\.\d{2})", str(code_b))
-            if match_a and match_b:
-                return match_a.group(1).upper() == match_b.group(1).upper()
-            return str(code_a)[:4].upper() == str(code_b)[:4].upper()
-
-        if eval_precise_set and eval_broad_additional:
-            filtered_broad = set()
-            for code in eval_broad_additional:
-                if is_pauschale_code_ge_c90(code):
-                    filtered_broad.add(code)
-                elif any(_same_subchapter(code, ref) for ref in eval_precise_set):
-                    filtered_broad.add(code)
-            eval_broad_additional = filtered_broad
-        if eval_precise_set:
-            logger.info(
-                "Starte Pauschalen-Hauptprüfung (präzise Kandidaten: %s, useIcd=%s)...",
-                len(eval_precise_set),
-                context.get("use_icd_flag"),
-            )
-            finale_abrechnung_obj = determine_applicable_pauschale_func(
-                user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
-                pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
-                leistungskatalog_dict, tabellen_dict_by_table,
-                pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
-                eval_precise_set,
-                potential_pauschale_precise_input=eval_precise_set,
-                potential_pauschale_broad_input=set(),
-                lang=lang,
-                prepared_structures=prepared_structures # Pass pre-computed structures
-            )
-        if (not finale_abrechnung_obj or finale_abrechnung_obj.get("type") != "Pauschale") and eval_broad_additional:
-            logger.info(
-                "Keine anwendbare Pauschale aus präzisem Satz. Starte Broad-Fallback (zusätzlich %s Kandidaten).",
-                len(eval_broad_additional),
-            )
-            finale_abrechnung_obj = determine_applicable_pauschale_func(
-                user_input, rule_checked_leistungen_list, pauschale_haupt_pruef_kontext,
-                pauschale_lp_data, pauschale_bedingungen_data, pauschalen_dict,
-                leistungskatalog_dict, tabellen_dict_by_table,
-                pauschale_lp_index, pauschale_cond_lkn_index, pauschale_cond_table_index, lkn_to_tables_index,
-                eval_precise_set.union(eval_broad_additional),
-                potential_pauschale_precise_input=eval_precise_set,
-                potential_pauschale_broad_input=eval_broad_additional,
-                lang=lang,
-                prepared_structures=prepared_structures # Pass pre-computed structures
-            )
-        if finale_abrechnung_obj and finale_abrechnung_obj.get("type") == "Pauschale":
-            logger.info("Anwendbare Pauschale gefunden: %s", finale_abrechnung_obj.get('details', {}).get('Pauschale'))
-        else:
-            logger.info("Keine anwendbare Pauschale. Grund: %s", (finale_abrechnung_obj or {}).get('message', 'Unbekannt'))
-    except Exception as e_pauschale_main:
-        logger.error("Fehler bei Pauschalen-Hauptprüfung: %s", e_pauschale_main)
-        traceback.print_exc()
-        finale_abrechnung_obj = {"type": "Error", "message": f"Interner Fehler bei Pauschalen-Hauptprüfung: {e_pauschale_main}"}
+    finale_abrechnung_obj = _run_pauschalen_pruefung(
+        final_lkn_context_list_for_pauschale,
+        potential_pauschale_precise_set,
+        potential_pauschale_broad_set,
+    )
+    if (
+        (finale_abrechnung_obj is None or finale_abrechnung_obj.get("type") != "Pauschale")
+        and hint_codes_for_context
+    ):
+        hinted_context_list = list(final_lkn_context_for_pauschale_set.union(hint_codes_for_context))
+        logger.info(
+            "Keine Pauschale mit strikt validierten LKNs; versuche Kontext-Hinweise (%s).",
+            len(hint_codes_for_context),
+        )
+        finale_abrechnung_obj = _run_pauschalen_pruefung(
+            hinted_context_list,
+            potential_pauschale_precise_set,
+            potential_pauschale_broad_set,
+        )
 
     if finale_abrechnung_obj is None or finale_abrechnung_obj.get("type") != "Pauschale":
         logger.info("Keine gültige Pauschale ausgewählt oder Prüfung übersprungen. Bereite TARDOC-Abrechnung vor.")
@@ -5430,6 +6422,8 @@ def analyze_billing():
         )
 
     token_usage = {"llm_stage1": {"input_tokens": 0, "output_tokens": 0}, "llm_stage2": {"input_tokens": 0, "output_tokens": 0}}
+    # Request-scope Cache für Pauschalen-Validierung (wird in regelpruefer_pauschale genutzt).
+    pauschale_eval_cache: dict = {}
 
     if not daten_geladen:
         logger.error("Daten nicht geladen. App-Start fehlgeschlagen?")
@@ -5510,8 +6504,73 @@ def analyze_billing():
         if normalized_code:
             stage1_validated_code_list.append(normalized_code)
 
+    if _has_anesthesia_hint(user_input):
+        has_anast_code = any(code.startswith("WA.10.") for code in stage1_validated_code_list)
+        if not has_anast_code:
+            for candidate in ("WA.10.0020", "WA.10.0030", "WA.10.0040", "WA.10.0010", "WA.10.0050"):
+                if candidate in leistungskatalog_dict:
+                    stage1_validated_code_list.append(candidate)
+                    logger.info("Anästhesie-Hinweis erkannt; füge %s als Kontext-Hinweis hinzu.", candidate)
+                    break
+
+    strict_stage1_code_list = list(stage1_validated_code_list)
+
     candidate_codes = [code for _, code in top_ranking_results if (len(top_ranking_results) <= 1 or not final_validated_llm_leistungen or (top_ranking_results[0][0] / (top_ranking_results[1][0] or 1)) <= 1.5)]
     llm_stage1_result["ranking_candidates"] = candidate_codes
+    hint_codes: List[str] = []
+    if candidate_codes or final_validated_llm_leistungen:
+        stage1_prefixes: Set[str] = set()
+        for code in stage1_validated_code_list:
+            parts = code.split(".")
+            if len(parts) >= 2:
+                stage1_prefixes.add(f"{parts[0]}.{parts[1]}")
+            elif len(code) >= 4:
+                stage1_prefixes.add(code[:4])
+
+        ranking_hint_codes: List[str] = []
+        for code in candidate_codes:
+            if not isinstance(code, str):
+                continue
+            normalized = code.strip().upper()
+            if not normalized or normalized in stage1_validated_code_list:
+                continue
+            if normalized not in pauschale_lp_index_by_lkn and normalized not in pauschale_cond_lkn_index_by_lkn:
+                continue
+            if stage1_prefixes:
+                parts = normalized.split(".")
+                prefix = f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else normalized[:4]
+                if prefix not in stage1_prefixes:
+                    continue
+            ranking_hint_codes.append(normalized)
+
+        context_hint_codes: List[str] = []
+        if final_validated_llm_leistungen:
+            context_hint_codes = _select_pauschale_hint_lkns(
+                katalog_context_str,
+                user_input,
+                lang,
+                context_limit=80,
+                max_codes=20,
+            )
+            if stage1_prefixes:
+                filtered_context_hints = []
+                for code in context_hint_codes:
+                    parts = str(code).strip().upper().split(".")
+                    prefix = f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else str(code).strip().upper()[:4]
+                    if prefix in stage1_prefixes:
+                        filtered_context_hints.append(str(code).strip().upper())
+                context_hint_codes = filtered_context_hints
+
+        for code in ranking_hint_codes + context_hint_codes:
+            if code and code not in stage1_validated_code_list and code not in hint_codes:
+                hint_codes.append(code)
+
+        if hint_codes:
+            stage1_validated_code_list.extend(hint_codes)
+            logger.info(
+                "Pauschalen-Hinweis-LKNs ergänzt: %s",
+                hint_codes,
+            )
 
     seitigkeit_context_val = extracted_info_llm.get("seitigkeit") or "unbekannt"
     def _to_int(value: Any) -> Optional[int]:
@@ -5528,15 +6587,12 @@ def analyze_billing():
     # 1) explizit extrahierte Anzahl (anzahl_prozeduren)
     # 2) generische Menge aus LLM (menge_allgemein)
     # 3) Summe der Mengen aller identifizierten Leistungen (falls > 0)
+    qty_hint = _extract_quantity_hint(user_input)
     anzahl_fuer_pauschale_context = anzahl_prozeduren_val
     if anzahl_fuer_pauschale_context is None:
         menge_allgemein_val = _to_int(extracted_info_llm.get("menge_allgemein"))
         if isinstance(menge_allgemein_val, int):
             anzahl_fuer_pauschale_context = menge_allgemein_val
-    if anzahl_fuer_pauschale_context is None:
-        qty_hint = _extract_quantity_hint(user_input)
-        if qty_hint is not None:
-            anzahl_fuer_pauschale_context = qty_hint
     if anzahl_fuer_pauschale_context is None:
         sum_mengen = 0
         for l in final_validated_llm_leistungen:
@@ -5548,6 +6604,11 @@ def analyze_billing():
                 continue
         if sum_mengen > 0:
             anzahl_fuer_pauschale_context = sum_mengen
+    # Explizite Mengenhinweise im Text (z.B. "drei Muskeln") sollen Unterzählungen aus LLM/Mengen-Summen korrigieren.
+    if qty_hint is not None and (
+        anzahl_fuer_pauschale_context is None or qty_hint > anzahl_fuer_pauschale_context
+    ):
+        anzahl_fuer_pauschale_context = qty_hint
     if seitigkeit_context_val.lower() == 'beidseits' and anzahl_fuer_pauschale_context is None:
         if len(final_validated_llm_leistungen) == 1 and final_validated_llm_leistungen[0].get('menge') == 1:
             anzahl_fuer_pauschale_context = 2
@@ -5555,36 +6616,72 @@ def analyze_billing():
             anzahl_fuer_pauschale_context = 2
 
     fallback_pauschale_search = not final_validated_llm_leistungen
+    if hint_codes and final_validated_llm_leistungen:
+        existing_codes = {
+            item.get("lkn", "").strip().upper()
+            for item in final_validated_llm_leistungen
+            if isinstance(item, dict) and isinstance(item.get("lkn"), str)
+        }
+        added_hints: List[str] = []
+        for code in hint_codes:
+            if code in existing_codes:
+                continue
+            details = leistungskatalog_dict.get(code)
+            if not isinstance(details, dict):
+                continue
+            final_validated_llm_leistungen.append(
+                {
+                    "lkn": code,
+                    "typ": details.get("Typ", "N/A"),
+                    "beschreibung": details.get("Beschreibung", "N/A"),
+                    "menge": 1,
+                }
+            )
+            existing_codes.add(code)
+            added_hints.append(code)
+        if added_hints:
+            logger.info(
+                "Ranking-Hinweise in LLM-Identifikation übernommen: %s",
+                added_hints,
+            )
     pauschale_context_used: Optional[Dict[str, Any]] = None
     if fallback_pauschale_search:
-        try:
-            kandidaten_liste = search_pauschalen(user_input)
-            kandidaten_text = "\n".join(f"{k['code']}: {k['text']}" for k in kandidaten_liste)
-            ranking_codes, rank_tokens = call_llm_stage2_ranking(user_input, kandidaten_text, lang)
-            token_usage["llm_stage2"]["input_tokens"] += rank_tokens.get("input_tokens", 0)
-            token_usage["llm_stage2"]["output_tokens"] += rank_tokens.get("output_tokens", 0)
-        except Exception as e:
-            logger.error(f"Fehler beim Fallback-Ranking [{request_id}]: {e}", exc_info=True)
-            ranking_codes = []
-
-        potential_pauschale_codes_set = set(ranking_codes)
-        if potential_pauschale_codes_set:
+        llm_stage2_mapping_results = {}
+        finale_abrechnung_obj = None
+        heuristische_lkns = _select_pauschale_hint_lkns(
+            katalog_context_str,
+            user_input,
+            lang,
+            context_limit=80,
+            max_codes=20,
+        )
+        if not heuristische_lkns:
             heuristische_lkns = [code for _, code in top_ranking_results]
-            pruef_kontext = {
-                "ICD": icd_input,
-                "Medikamente": medication_atcs,
-                "GTIN": medication_atcs,
-                "Alter": alter_context_val,
-                "AlterOperator": alter_operator,
-                "AlterBeiEintritt": alter_context_val,
-                "AlterSource": alter_context_source,
-                "Geschlecht": geschlecht_context_val or "unbekannt",
-                "GeschlechtSource": geschlecht_source,
-                "useIcd": use_icd_flag,
-                "LKN": heuristische_lkns,
-                "Seitigkeit": seitigkeit_context_val,
-                "Anzahl": anzahl_fuer_pauschale_context,
-            }
+
+        # 1) Schneller Fallback ohne zusätzliches LLM-Ranking: Kandidaten direkt aus LKN-Indizes ableiten.
+        potential_pauschale_codes_set: Set[str] = set()
+        if heuristische_lkns:
+            try:
+                prec, broad = find_potential_pauschalen_split(set(heuristische_lkns))
+                potential_pauschale_codes_set = prec.union(broad)
+            except Exception:
+                potential_pauschale_codes_set = set()
+
+        if potential_pauschale_codes_set:
+            pruef_kontext = _build_pauschale_pruef_kontext(
+                icd_input=icd_input,
+                medication_atcs=medication_atcs,
+                alter_context_val=alter_context_val,
+                alter_operator=alter_operator,
+                alter_context_source=alter_context_source,
+                geschlecht_context_val=geschlecht_context_val,
+                geschlecht_source=geschlecht_source,
+                use_icd_flag=use_icd_flag,
+                lkn_list=heuristische_lkns,
+                seitigkeit_context_val=seitigkeit_context_val,
+                anzahl_fuer_pauschale_context=anzahl_fuer_pauschale_context,
+                pauschale_eval_cache=pauschale_eval_cache,
+            )
             pauschale_context_used = pruef_kontext
             try:
                 finale_abrechnung_obj = determine_applicable_pauschale_func(
@@ -5602,13 +6699,74 @@ def analyze_billing():
                     lkn_to_tables_index,
                     potential_pauschale_codes_set,
                     lang=lang,
-                    prepared_structures=None,
+                    prepared_structures=prepared_structures,
+                    fast_mode=True,
+                    include_explanation_html=False,
+                    include_selected_conditions_html=not RENDER_SERVER_SIDE_CONDITIONS,
+                    include_candidate_sources=False,
+                    include_potential_icds=True,
                 )
             except Exception as e:
-                logger.error(f"Fehler bei Pauschalen-Fallback-Prüfung [{request_id}]: {e}", exc_info=True)
+                logger.error(f"Fehler bei Pauschalen-Fallback-Prüfung (lokal) [{request_id}]: {e}", exc_info=True)
                 finale_abrechnung_obj = None
-        else:
-            finale_abrechnung_obj = None
+
+        # 2) Wenn lokal kein Treffer: Kandidaten via Pauschalen-Textsuche + LLM-Ranking eingrenzen.
+        if not finale_abrechnung_obj or finale_abrechnung_obj.get("type") != "Pauschale":
+            try:
+                kandidaten_liste = search_pauschalen(user_input)
+                kandidaten_text = "\n".join(f"{k['code']}: {k['text']}" for k in kandidaten_liste)
+                ranking_codes, rank_tokens = call_llm_stage2_ranking(user_input, kandidaten_text, lang)
+                token_usage["llm_stage2"]["input_tokens"] += rank_tokens.get("input_tokens", 0)
+                token_usage["llm_stage2"]["output_tokens"] += rank_tokens.get("output_tokens", 0)
+            except Exception as e:
+                logger.error(f"Fehler beim Fallback-Ranking [{request_id}]: {e}", exc_info=True)
+                ranking_codes = []
+
+            potential_pauschale_codes_set = set(ranking_codes)
+            if potential_pauschale_codes_set and heuristische_lkns:
+                pruef_kontext = _build_pauschale_pruef_kontext(
+                    icd_input=icd_input,
+                    medication_atcs=medication_atcs,
+                    alter_context_val=alter_context_val,
+                    alter_operator=alter_operator,
+                    alter_context_source=alter_context_source,
+                    geschlecht_context_val=geschlecht_context_val,
+                    geschlecht_source=geschlecht_source,
+                    use_icd_flag=use_icd_flag,
+                    lkn_list=heuristische_lkns,
+                    seitigkeit_context_val=seitigkeit_context_val,
+                    anzahl_fuer_pauschale_context=anzahl_fuer_pauschale_context,
+                    pauschale_eval_cache=pauschale_eval_cache,
+                )
+                pauschale_context_used = pruef_kontext
+                try:
+                    finale_abrechnung_obj = determine_applicable_pauschale_func(
+                        user_input,
+                        [],
+                        pruef_kontext,
+                        pauschale_lp_data,
+                        pauschale_bedingungen_data,
+                        pauschalen_dict,
+                        leistungskatalog_dict,
+                        tabellen_dict_by_table,
+                        pauschale_lp_index,
+                        pauschale_cond_lkn_index,
+                        pauschale_cond_table_index,
+                        lkn_to_tables_index,
+                        potential_pauschale_codes_set,
+                        lang=lang,
+                        prepared_structures=prepared_structures,
+                        fast_mode=True,
+                        include_explanation_html=False,
+                        include_selected_conditions_html=not RENDER_SERVER_SIDE_CONDITIONS,
+                        include_candidate_sources=False,
+                        include_potential_icds=True,
+                    )
+                except Exception as e:
+                    logger.error(f"Fehler bei Pauschalen-Fallback-Prüfung (Ranking) [{request_id}]: {e}", exc_info=True)
+                    finale_abrechnung_obj = None
+            else:
+                finale_abrechnung_obj = None
         llm_stage2_mapping_results = {}
     else:
         billing_context = {
@@ -5624,7 +6782,9 @@ def analyze_billing():
             "seitigkeit_context_val": seitigkeit_context_val,
             "anzahl_fuer_pauschale_context": anzahl_fuer_pauschale_context,
             "llm_validated_lkns": stage1_validated_code_list,
+            "llm_validated_lkns_strict": strict_stage1_code_list,
             "demographics_heuristic": heuristic_demo,
+            "__pauschale_eval_cache": pauschale_eval_cache,
         }
         finale_abrechnung_obj, llm_stage2_mapping_results = _determine_final_billing(rule_checked_leistungen_list, regel_ergebnisse_details_list, user_input, lang, billing_context, token_usage)
         pauschale_context_used = billing_context.get("pauschale_haupt_pruef_kontext")
@@ -5681,6 +6841,15 @@ def analyze_billing():
     except Exception:
         sanitized_evaluated_list = safe_abrechnung_obj.get('evaluated_pauschalen', []) or []
 
+    # Interne Request-Caches dürfen nicht im JSON-Response landen (nicht serialisierbar, nur intern).
+    pauschale_context_response = pauschale_context_used
+    try:
+        if isinstance(pauschale_context_used, dict) and "__pauschale_eval_cache" in pauschale_context_used:
+            pauschale_context_response = dict(pauschale_context_used)
+            pauschale_context_response.pop("__pauschale_eval_cache", None)
+    except Exception:
+        pauschale_context_response = pauschale_context_used
+
     final_response_payload = {
         "llm_ergebnis_stufe1": llm_stage1_result,
         "regel_ergebnisse_details": regel_ergebnisse_details_list,
@@ -5689,7 +6858,7 @@ def analyze_billing():
         "evaluated_pauschalen": sanitized_evaluated_list,
         "token_usage": token_usage,
         "fallback_pauschale_search": fallback_pauschale_search,
-        "pauschale_context": pauschale_context_used,
+        "pauschale_context": pauschale_context_response,
     }
 
     total_time = time.time() - start_time
@@ -5718,6 +6887,30 @@ def pauschale_conditions_html() -> Any:
         context = {}
 
     try:
+        # Also compute overall validity on demand so the UI can display LOGIK ERFÜLLT/NICHT ERFÜLLT
+        is_valid_structured = None
+        try:
+            from regelpruefer_pauschale import (
+                evaluate_pauschale_logic_orchestrator,
+                build_normalized_context,
+            )
+            normalized_ctx = build_normalized_context(context)
+            is_valid_structured = bool(
+                evaluate_pauschale_logic_orchestrator(
+                    pauschale_code=pauschale_code,
+                    context=context,
+                    all_pauschale_bedingungen_data=pauschale_bedingungen_data,
+                    tabellen_dict_by_table=tabellen_dict_by_table,
+                    pauschalen_dict=pauschalen_dict,
+                    debug=False,
+                    prepared_structures=prepared_structures,
+                    tolerant=False,
+                    normalized_context=normalized_ctx,
+                )
+            )
+        except Exception:
+            is_valid_structured = None
+
         result = check_pauschale_conditions(
             pauschale_code,
             context,
@@ -5737,6 +6930,7 @@ def pauschale_conditions_html() -> Any:
             "prueflogik_expr": result.get("prueflogik_expr"),
             "prueflogik_pretty": result.get("prueflogik_pretty"),
             "group_logic_terms": result.get("group_logic_terms"),
+            "is_valid_structured": is_valid_structured,
         }
         return jsonify(response_payload)
     except Exception as exc:
@@ -5810,6 +7004,19 @@ def icd_lookup() -> Any:
     results = search_icd(term, lang=lang, offset=offset, limit=limit)
     return jsonify(results)
 
+@app.route('/api/tpw')
+def get_taxpunktwerte() -> Any:
+    """Stellt Taxpunktwerte (TPW) nach Kanton/Bereich bereit."""
+    if not daten_geladen:
+        return jsonify({"error": "Server data not loaded."}), 503
+    if not tpw_data:
+        return jsonify({"error": "Taxpunktwerte nicht geladen"}), 503
+    payload = {
+        "data": tpw_data,
+        "generated_at": dt.datetime.utcnow().isoformat() + "Z",
+    }
+    return jsonify(payload)
+
 @app.route('/api/quality', methods=['POST'])
 def quality_endpoint():
     """Simple quality check endpoint returning baseline comparison."""
@@ -5831,7 +7038,18 @@ def test_example():
     if not daten_geladen:
         logger.error("Daten nicht geladen im /api/test-example Endpunkt. Dies sollte nicht passieren, da create_app() die Daten laden sollte.")
         return jsonify({'error': 'Server data not loaded. Please try again later or contact an administrator.'}), 503
-    baseline_entry = baseline_results.get(example_id)
+    # Baseline on-demand laden, damit Frontend (statische Datei) und Backend-Checks
+    # auch nach Dateiänderungen konsistent bleiben (Debug/Reload ist nicht immer zuverlässig).
+    baseline_source = baseline_results
+    try:
+        with open(BASELINE_RESULTS_PATH, 'r', encoding='utf-8') as f:
+            loaded = json.load(f)
+            if isinstance(loaded, dict):
+                baseline_source = loaded
+    except Exception:
+        baseline_source = baseline_results
+
+    baseline_entry = baseline_source.get(example_id) if isinstance(baseline_source, dict) else None
     if not baseline_entry:
         return jsonify({'error': 'Baseline not found'}), 404
 
@@ -6089,6 +7307,54 @@ _CUSTOM_MIME_TYPES: Dict[str, str] = {
     "quality.js": "application/javascript; charset=utf-8",
     "translations.json": "application/json; charset=utf-8",
 }
+_STATIC_ALLOWED_FILES: Set[str] = {
+    "calculator.js",
+    "quality.js",
+    "quality.html",
+    "translations.json",
+    "favicon.ico",
+    "favicon-32.png",
+    "favicon-512.png",
+    "robots.txt",
+}
+_STATIC_ALLOWED_DIRS: Set[str] = {"data"}
+_STATIC_ALLOWED_TEXT_FILES: Set[str] = {"robots.txt"}
+_STATIC_BLOCKED_SUFFIXES: Set[str] = {".py", ".env"}
+_STATIC_SUFFIX_MIME_TYPES: Dict[str, str] = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".mjs": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+}
+
+
+def _is_static_request_blocked(filename: str, file_path: Path) -> bool:
+    """Return True if the static path should be denied outright."""
+    suffix = file_path.suffix
+    if any(part.startswith(".") for part in file_path.parts):
+        return True
+    if suffix in _STATIC_BLOCKED_SUFFIXES:
+        return True
+    if suffix == ".txt" and filename not in _STATIC_ALLOWED_TEXT_FILES:
+        return True
+    return False
+
+
+def _is_static_request_allowed(filename: str, file_path: Path) -> bool:
+    """Return True if the static path is explicitly allowed."""
+    if filename in _STATIC_ALLOWED_FILES:
+        return True
+    if file_path.parts and file_path.parts[0] in _STATIC_ALLOWED_DIRS:
+        return True
+    return False
+
+
+def _resolve_static_mimetype(filename: str, file_path: Path) -> str | None:
+    """Return the MIME type for known static files and extensions."""
+    explicit = _CUSTOM_MIME_TYPES.get(filename)
+    if explicit:
+        return explicit
+    return _STATIC_SUFFIX_MIME_TYPES.get(file_path.suffix.lower())
 
 
 def _apply_no_cache_headers(response: Any) -> Any:
@@ -6153,22 +7419,10 @@ def _serve_brick_asset(filename: str) -> Any:
     if any(part.startswith(".") or part.startswith("..") for part in safe_path.parts):
         abort(404)
     allowed_suffixes = {
-        ".css",
         ".js",
-        ".json",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".svg",
-        ".gif",
-        ".webp",
-        ".wav",
-        ".mp3",
-        ".ogg",
-        ".txt",
         ".html",
     }
-    if safe_path.suffix and safe_path.suffix.lower() not in allowed_suffixes:
+    if safe_path.suffix.lower() not in allowed_suffixes:
         abort(404)
     return _send_brick_static(filename)
 
@@ -6185,42 +7439,21 @@ def favicon_png():
 @app.route("/<path:filename>")
 def serve_static(filename: str):
     """Erlaubt den direkten Abruf definierter statischer Dateien per HTTP."""
-    allowed_files = {
-        'calculator.js',
-        'quality.js',
-        'quality.html',
-        'translations.json',
-        'favicon.ico',
-        'favicon-32.png',
-        'favicon-512.png',
-        'robots.txt',
-    }
-    allowed_dirs = {'data'} # Erlaube Zugriff auf data-Ordner
     file_path = Path(filename)
 
     # Verhindere Zugriff auf Python-Dateien, .env, versteckte Dateien/Ordner
-    if (file_path.suffix in ['.py', '.txt', '.env'] or \
-        any(part.startswith('.') for part in file_path.parts)):
-         logger.warning("Zugriff verweigert (sensible Datei): %s", filename)
-         abort(404)
+    if _is_static_request_blocked(filename, file_path):
+        logger.warning("Zugriff verweigert (sensible Datei): %s", filename)
+        abort(404)
 
     # Erlaube JS-Datei oder Dateien im data-Verzeichnis (und Unterverzeichnisse)
-    if filename in allowed_files or (file_path.parts and file_path.parts[0] in allowed_dirs):
-        # print(f"INFO: Sende statische Datei: {filename}")
-        mimetype = _CUSTOM_MIME_TYPES.get(filename)
-        if mimetype is None:
-            suffix = file_path.suffix.lower()
-            if suffix == '.html':
-                mimetype = 'text/html; charset=utf-8'
-            elif suffix in {'.js', '.mjs'}:
-                mimetype = 'application/javascript; charset=utf-8'
-            elif suffix == '.json':
-                
-                mimetype = 'application/json; charset=utf-8'
-        return _send_static(filename, mimetype=mimetype)
-    else:
+    if not _is_static_request_allowed(filename, file_path):
         logger.warning("Zugriff verweigert (nicht erlaubt): %s", filename)
         abort(404)
+
+    # print(f"INFO: Sende statische Datei: {filename}")
+    mimetype = _resolve_static_mimetype(filename, file_path)
+    return _send_static(filename, mimetype=mimetype)
 
 def _run_local() -> None:
     """Lokaler Debug-Server (wird von Render **nicht** aufgerufen)."""

@@ -62,6 +62,20 @@ _LANG_RESOURCES = {
 *   **Validierung:** Nur LKNs verwenden, die **exakt** im Kontext stehen.
 *   **Kontext-Extraktion:** `dauer_minuten`, `alter`, `geschlecht`, `seitigkeit` nur wenn explizit/implizit im Text.
 *   **JSON-Generierung:** Sammle alle validierten LKNs.""",
+        "steps_compact": """**Kurzregeln (strikt):**
+1) Verwende ausschliesslich LKNs aus dem Kontext (exakt).
+2) Zerlege den Behandlungstext in einzelne Tätigkeiten; jede Tätigkeit → passende LKN.
+3) Mengen:
+   - Standard `menge=1`
+   - Explizite Anzahl/Zahlwörter/X-mal → entsprechende Menge
+   - Vage Pluralwörter (mehrere/verschiedene/einige/paar) → mindestens 2
+   - Beidseits/bilateral → `menge=2` (wenn einseitig gemeint)
+4) Zeit:
+   - Konsultation AA/CA: Basis für 5 Min (`AA.00.0010`/`CA.00.0010`) + 1x Zusatz je weitere Minute (`AA.00.0020`/`CA.00.0020`).
+   - Hausarzt → Kapitel `CA`, sonst `AA`. Einmal `CA` → alles `CA`.
+   - Separate Beratung → `CA.00.0030`.
+5) Anästhesie durch Anästhesist → WA.10.* aus Kontext (ohne Dauer: `WA.10.0010`).
+6) Output: Nur JSON (keine Markdown), keine zusätzlichen Keys.""",
         "json_begruendung": "<Kurze, praezise Begruendung basierend auf den Regeln>",
         "user_input_start": "--- Start der Benutzereingabe ---",
         "user_input_end": "--- Ende der Benutzereingabe ---",
@@ -118,6 +132,13 @@ _LANG_RESOURCES = {
 *   **Validazione:** Utilisez uniquement des LKN existant **exactement** dans le contexte.
 *   **Extraction Contexte :** `dauer_minuten`, `alter`, `geschlecht`, `seitigkeit` uniquement si explicite/implicite.
 *   **Génération JSON :** Rassemblez tous les LKN validés.""",
+        "steps_compact": """**Règles courtes (strictes) :**
+1) Utiliser uniquement des LKN présents dans le contexte (exactement).
+2) Découper le texte en activités; chaque activité → 1 LKN.
+3) Quantités: défaut 1; nombres explicites/x fois/mots-nombres → quantité; pluriels vagues → min 2; bilatéral → 2.
+4) Temps: consultation AA/CA = base 5 min (`AA.00.0010`/`CA.00.0010`) + 1x supplément par minute supplémentaire (`AA.00.0020`/`CA.00.0020`). Médecin de famille → `CA`.
+5) Anesthésie par anesthésiste → WA.10.* du contexte (sans durée: `WA.10.0010`).
+6) Sortie: JSON uniquement, sans Markdown, sans clés supplémentaires.""",
         "json_begruendung": "<Justification courte et précise basée sur les règles>",
         "user_input_start": "--- Début de l'entrée utilisateur ---",
         "user_input_end": "--- Fin de l'entrée utilisateur ---",
@@ -174,6 +195,13 @@ _LANG_RESOURCES = {
 *   **Validazione:** Usa solo LKN che esistono **esattamente** nel contesto.
 *   **Estrazione Contesto:** `dauer_minuten`, `alter`, `geschlecht`, `seitigkeit` solo se esplicito/implicito.
 *   **Generazione JSON:** Raccogli tutti gli LKN validati.""",
+        "steps_compact": """**Regole brevi (rigorose):**
+1) Usa solo LKN presenti nel contesto (esatti).
+2) Dividi il testo in attività; ogni attività → 1 LKN.
+3) Quantità: default 1; numeri/x volte/parole numeriche → quantità; plurali vaghi → min 2; bilaterale → 2.
+4) Tempo: consultazione AA/CA = base 5 min (`AA.00.0010`/`CA.00.0010`) + 1x supplemento per ogni minuto extra (`AA.00.0020`/`CA.00.0020`). Medico di base → `CA`.
+5) Anestesia da anestesista → WA.10.* dal contesto (senza durata: `WA.10.0010`).
+6) Output: solo JSON, niente Markdown, niente chiavi extra.""",
         "json_begruendung": "<Motivazione breve e precisa basata sulle regole>",
         "user_input_start": "--- Inizio input utente ---",
         "user_input_end": "--- Fine input utente ---",
@@ -182,7 +210,13 @@ _LANG_RESOURCES = {
 }
 
 
-def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_variants: Optional[List[str]] = None) -> str:
+def get_stage1_prompt(
+    user_input: str,
+    katalog_context: str,
+    lang: str,
+    query_variants: Optional[List[str]] = None,
+    style: str = "full",
+) -> str:
     """Gibt den Stage-1-Prompt in der gewünschten Sprache zurück (optimiert)."""
     
     # Fallback auf Deutsch, falls Sprache nicht unterstützt
@@ -193,6 +227,74 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
     if query_variants and len(query_variants) > 1:
         synonym_list = ", ".join(f"'{v}'" for v in query_variants)
         synonym_block = f"\n{res['synonym_intro']} {synonym_list}."
+
+    style_norm = str(style).lower()
+    is_compact = style_norm == "compact"
+    is_balanced = style_norm == "balanced"
+    steps_key = "steps_compact" if (is_compact or is_balanced) else "steps"
+    steps = res.get(steps_key) or res["steps"]
+
+    # Compact: weniger Overhead + kleinere Output-Spezifikation (Server setzt Defaults).
+    if is_compact:
+        return f"""{res['role']} | {res['response_lang']}
+{res['task']}{synonym_block}
+SICHERHEIT: {res['safety_instruction']}
+
+KONTEXT (Leistungskatalog-Auszug):
+--- Leistungskatalog Start ---
+{katalog_context}
+--- Leistungskatalog Ende ---
+
+REGELN:
+{steps}
+7) Gib max. 25 Einträge in identified_leistungen aus.
+8) extracted_info: nur bekannte Werte setzen; unbekannte Keys weglassen (Server ergänzt Defaults).
+
+OUTPUT: NUR JSON (kein Markdown, keine Zusatztexte), exakt dieses Objekt:
+{{"identified_leistungen":[{{"lkn":"LKN_CODE","typ":"TYP","menge":1}}],"extracted_info":{{}},"begruendung_llm":"{res['json_begruendung']}"}}
+
+{res['user_input_start']}
+{user_input}
+{res['user_input_end']}
+
+{res['json_response_label']}"""
+
+    # Balanced: etwas mehr Guidance/Schema als compact, aber deutlich kürzer als full.
+    if is_balanced:
+        return f"""**Rolle:** {res['role']}  (**Sprache:** {res['response_lang']})
+**Aufgabe:** {res['task']}{synonym_block}
+**SICHERHEIT:** {res['safety_instruction']}
+
+**Kontext: Leistungskatalog-Auszug**
+--- Leistungskatalog Start ---
+{katalog_context}
+--- Leistungskatalog Ende ---
+
+{steps}
+7) Gib max. 40 Einträge in identified_leistungen aus.
+
+**Output:** Nur JSON, keine Zusatztexte.
+{{
+  "identified_leistungen": [
+    {{"lkn":"LKN_CODE","typ":"TYP","menge":1}}
+  ],
+  "extracted_info": {{
+    "dauer_minuten": null,
+    "menge_allgemein": null,
+    "alter": null,
+    "alter_operator": null,
+    "geschlecht": null,
+    "seitigkeit": "unbekannt",
+    "anzahl_prozeduren": null
+  }},
+  "begruendung_llm": "{res['json_begruendung']}"
+}}
+
+{res['user_input_start']}
+{user_input}
+{res['user_input_end']}
+
+{res['json_response_label']}"""
 
     return f"""**Rolle:** {res['role']}
 **Sprache:** {res['response_lang']}
@@ -207,7 +309,7 @@ def get_stage1_prompt(user_input: str, katalog_context: str, lang: str, query_va
 {katalog_context}
 --- Leistungskatalog Ende ---
 
-{res['steps']}
+{steps}
 
 **Format:**
 {{

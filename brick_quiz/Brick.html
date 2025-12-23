@@ -343,13 +343,21 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
       gap: 12px;
     }
 
     #quizFeedback {
       font-weight: 700;
       min-height: 20px;
+      flex: 1;
+    }
+
+    .quiz-footer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-left: auto;
+      justify-content: flex-end;
     }
 
     #quizFeedback.correct {
@@ -439,21 +447,11 @@
         <h3>Spielprinzip</h3>
         <ul>
           <li>Halte den Ball mit dem Paddle im Spiel und räume alle farbigen Steine ab.</li>
-          <li>Power-Ups, Laser und Schild helfen dir, während '?'-Steine das Quiz starten.</li>
-          <li>Im HUD siehst du Level, Punkte, Leben sowie die Anzahl korrekt beantworteter Fragen.</li>
+          <li>Power-Ups, Laser und Schild helfen dir; '?'-Steine sammeln Quiz-Chips. Fragen erscheinen erst in Spielpausen (nach Levelabschluss, nach Lebensverlust oder bei Pause).</li>
+          <li>Zuoberst siehst du Level, Punkte, Leben sowie die Anzahl korrekt beantworteter Fragen.</li>
           <li>Du kannst das Quiz jederzeit über den „Quiz ✓/✗“-Button deaktivieren oder reaktivieren.</li>
         </ul>
-        <h3>questions.js erstellen</h3>
-        <ol>
-          <li>Pflege den Fragenkatalog in <code>Neuer_Arzttarif_Frage_Antwort_Spiel.xlsx</code> (Stichwort, Frage,
-            Antwort_1‑3, Korrekte_Antwort).</li>
-          <li>Führe im Projektverzeichnis <code>python excel_to_json.py</code> aus (Python 3 mit <code>pandas</code> und
-            <code>openpyxl</code> erforderlich).</li>
-          <li>Das Skript erzeugt bzw. aktualisiert <code>questions.js</code>, das Brick.html beim Laden automatisch
-            einliest.</li>
-        </ol>
-        <p style="margin:0">Ohne gültige <code>questions.js</code> bleiben '?'-Steine deaktiviert; mit einem Klick auf
-          „Quiz ✓“ kannst du das Feature steuernd ein- oder ausschalten.</p>
+        <p style="margin:0">Mit einem Klick auf „Quiz ✓“ kannst du das Feature steuernd ein- oder ausschalten.</p>
       </div>
       <div class="row" id="resultStats">
         <div class="pill pill-result">
@@ -479,7 +477,10 @@
       <div id="quizAnswers"></div>
       <div class="quiz-footer">
         <div id="quizFeedback"></div>
-        <button id="quizContinue" disabled>Weiter spielen</button>
+        <div class="quiz-footer-actions">
+          <button id="quizLater" class="secondary" type="button">Später</button>
+          <button id="quizContinue" type="button" disabled>Weiter spielen</button>
+        </div>
       </div>
     </div>
   </div>
@@ -498,11 +499,11 @@
             titles: { menu: 'Neon <span>Brick Breaker</span>', paused: 'Spiel pausiert', gameover: 'Game Over' },
             description: 'Zerstöre alle Steine, sammle Power-Ups und meistere die Level. Multipliziere deine Bälle, aktiviere Laser oder vergrößere das Paddel – und achte auf unzerstörbare Steine!',
             controlsLabel: 'Steuerung:',
-            controlsInfo: 'Maus/Touch | Pfeiltasten/A,D | Space: Start/Pause',
+            controlsInfo: 'Maus/Touch | Pfeiltasten/A,D | Space: Ball lösen/Pause',
             buttons: { start: 'Start', resume: 'Fortsetzen', restart: 'Neustart' },
             hint: 'Tipp: Halte die Maus auf der linken/rechten Seite, um Touch-Steuerung zu nutzen.'
           },
-          footer: 'Pausieren: Space · Paddel: Maus/Touch oder Pfeiltasten · Laser: Klicken/Tippen',
+          footer: 'Space: Ball lösen/Pause · Paddel: Maus/Touch oder Pfeiltasten · Laser: Klicken/Tippen',
           gameHints: { paused: 'Pausiert', resume: 'Drücke Space zum Fortsetzen', start: 'Drücke Start' },
           messages: {
             expand: 'Paddel vergrößert!',
@@ -525,11 +526,11 @@
             titles: { menu: 'Neon <span>Brick Breaker</span>', paused: 'Jeu en pause', gameover: 'Fin de partie' },
             description: 'Détruis toutes les briques, ramasse des bonus et maîtrise les niveaux. Multiplie les balles, active les lasers ou agrandis la raquette – attention aux briques indestructibles !',
             controlsLabel: 'Commandes :',
-            controlsInfo: 'Souris/Tactile | Flèches/A,D | Espace : démarrer/pause',
+            controlsInfo: 'Souris/Tactile | Flèches/A,D | Espace : lancer/pause',
             buttons: { start: 'Démarrer', resume: 'Reprendre', restart: 'Recommencer' },
             hint: 'Astuce : maintiens la souris à gauche/droite pour utiliser le contrôle tactile.'
           },
-          footer: 'Pause : Espace · Raquette : Souris/Tactile ou Flèches · Laser : Cliquer/Toucher',
+          footer: 'Espace : lancer/pause · Raquette : Souris/Tactile ou Flèches · Laser : Cliquer/Toucher',
           gameHints: { paused: 'En pause', resume: 'Appuie sur Espace pour continuer', start: 'Appuie sur Démarrer' },
           messages: {
             expand: 'Raquette agrandie !',
@@ -552,11 +553,11 @@
             titles: { menu: 'Neon <span>Brick Breaker</span>', paused: 'Gioco in pausa', gameover: 'Partita finita' },
             description: 'Distruggi tutti i mattoni, raccogli i power-up e supera i livelli. Moltiplica le palline, attiva i laser o allarga la racchetta – attenzione ai mattoni indistruttibili!',
             controlsLabel: 'Comandi:',
-            controlsInfo: 'Mouse/Touch | Frecce/A,D | Spazio: Start/Pausa',
+            controlsInfo: 'Mouse/Touch | Frecce/A,D | Spazio: lancia/pausa',
             buttons: { start: 'Avvia', resume: 'Riprendi', restart: 'Ricomincia' },
             hint: 'Suggerimento: tieni il mouse a sinistra/destra per usare il controllo touch.'
           },
-          footer: 'Pausa: Spazio · Racchetta: Mouse/Touch o Frecce · Laser: Clic/Tap',
+          footer: 'Spazio: lancia/pausa · Racchetta: Mouse/Touch o Frecce · Laser: Clic/Tap',
           gameHints: { paused: 'In pausa', resume: 'Premi Spazio per continuare', start: 'Premi Avvia' },
           messages: {
             expand: 'Racchetta ingrandita!',
@@ -616,6 +617,7 @@
       const quizAnswersEl = document.getElementById('quizAnswers');
       const quizFeedbackEl = document.getElementById('quizFeedback');
       const quizContinueBtn = document.getElementById('quizContinue');
+      const quizLaterBtn = document.getElementById('quizLater');
 
       /* ---------- Logische Weltgröße (fixed) ---------- */
       const WORLD = { w: 1000, h: 600 };
@@ -647,7 +649,10 @@
         selected: 0,
         answered: false,
         total: 0,
-        correct: 0
+        correct: 0,
+        tokens: 0,
+        pendingOffer: false,
+        returnState: null
       };
 
       /* ---------- Paddle ---------- */
@@ -757,6 +762,9 @@
         if (!quizEnabled && quizState.active) exitQuizModal({ resume: true });
         if (!quizEnabled) {
           quizState.queue = [];
+          quizState.tokens = 0;
+          quizState.pendingOffer = false;
+          quizState.returnState = null;
         } else if (!previousState && quizEnabled) {
           resetQuizState();
         } else if (quizState.queue.length === 0) {
@@ -788,6 +796,9 @@
         quizState.answered = false;
         quizState.total = 0;
         quizState.correct = 0;
+        quizState.tokens = 0;
+        quizState.pendingOffer = false;
+        quizState.returnState = null;
         updateQuizHUD();
         updateResultStats();
         exitQuizModal({ resume: false });
@@ -798,6 +809,11 @@
         const totalValue = quizEnabled ? quizState.total : '–';
         if (quizCorrectEl) quizCorrectEl.textContent = correctValue;
         if (quizTotalEl) quizTotalEl.textContent = totalValue;
+        if (quizLabelEl) {
+          quizLabelEl.textContent = quizEnabled
+            ? (quizState.tokens > 0 ? `Quiz ✓ (${quizState.tokens})` : 'Quiz ✓')
+            : 'Quiz ✗';
+        }
       }
 
       function updateResultStats() {
@@ -821,16 +837,19 @@
         return null;
       }
 
-      function triggerQuizQuestion() {
-        if (!questionBank.length || quizState.active || !quizEnabled) return;
+      function offerQuizFromTokens({ returnState = null } = {}) {
+        if (!questionBank.length || quizState.active || !quizEnabled) return false;
+        if (quizState.tokens <= 0) return false;
         const question = drawNextQuizQuestion();
-        if (!question) return;
+        if (!question) return false;
         quizState.current = question;
         quizState.active = true;
         quizState.selected = 0;
         quizState.answered = false;
+        quizState.returnState = returnState !== null ? returnState : game.state;
         renderQuizQuestion(question);
         game.state = STATE.QUIZ;
+        return true;
       }
 
       function renderQuizQuestion(question) {
@@ -857,7 +876,10 @@
           quizFeedbackEl.textContent = '';
           quizFeedbackEl.className = '';
         }
-        if (quizContinueBtn) quizContinueBtn.disabled = true;
+        if (quizContinueBtn) {
+          quizContinueBtn.disabled = true;
+          quizContinueBtn.textContent = 'Weiter spielen';
+        }
         setQuizSelection(0);
       }
 
@@ -888,6 +910,7 @@
           question.correct_answer_index ?? question.correctIndex ?? question.correct_answer ?? 0
         );
         if (!Number.isFinite(correctIndex)) correctIndex = 0;
+        quizState.tokens = Math.max(0, quizState.tokens - 1);
         quizState.total += 1;
         const isCorrect = index === correctIndex;
         if (isCorrect) quizState.correct += 1;
@@ -906,28 +929,53 @@
         }
         if (quizContinueBtn) {
           quizContinueBtn.disabled = false;
+          quizContinueBtn.textContent = (quizEnabled && questionBank.length && quizState.tokens > 0) ? 'Nächste Frage' : 'Weiter spielen';
           quizContinueBtn.focus();
         }
       }
 
+      function continueQuizFlow() {
+        if (!quizState.active || !quizState.answered) return;
+        const moreQuestions = quizEnabled && questionBank.length && quizState.tokens > 0;
+        if (moreQuestions) {
+          const returnState = quizState.returnState || STATE.PLAYING;
+          exitQuizModal({ resume: false });
+          offerQuizFromTokens({ returnState });
+          return;
+        }
+        exitQuizModal();
+      }
+
       function exitQuizModal({ resume = true } = {}) {
         if (quizModal) quizModal.classList.remove('visible');
+        const current = quizState.current;
+        const wasAnswered = quizState.answered;
+        const returnState = quizState.returnState;
+        if (current && !wasAnswered && quizEnabled) {
+          const idx = current.index;
+          if (Number.isInteger(idx) && !quizState.queue.includes(idx)) quizState.queue.push(idx);
+        }
         quizState.active = false;
         quizState.current = null;
         quizState.selected = 0;
         quizState.answered = false;
+        quizState.returnState = null;
         if (quizAnswersEl) quizAnswersEl.innerHTML = '';
         if (quizFeedbackEl) {
           quizFeedbackEl.textContent = '';
           quizFeedbackEl.className = '';
         }
         if (resume && game.state !== STATE.GAMEOVER) {
-          game.state = STATE.PLAYING;
+          game.state = returnState || STATE.PLAYING;
         }
       }
 
       function handleQuizKey(e) {
         if (!quizState.active) return false;
+        if (e.code === 'Escape') {
+          exitQuizModal();
+          return true;
+        }
         if (e.code === 'ArrowDown') {
           setQuizSelection(quizState.selected + 1);
           return true;
@@ -938,7 +986,7 @@
         }
         if (e.code === 'Enter' || e.code === 'Space') {
           if (!quizState.answered) submitQuizAnswer(quizState.selected);
-          else exitQuizModal();
+          else continueQuizFlow();
           return true;
         }
         return false;
@@ -946,6 +994,12 @@
       if (quizContinueBtn) {
         quizContinueBtn.addEventListener('click', () => {
           if (!quizState.active || !quizState.answered) return;
+          continueQuizFlow();
+        });
+      }
+      if (quizLaterBtn) {
+        quizLaterBtn.addEventListener('click', () => {
+          if (!quizState.active) return;
           exitQuizModal();
         });
       }
@@ -1366,10 +1420,11 @@
         spawnBallOnPaddle();
       }
 
-      function pauseGame() {
+      function pauseGame({ auto = false } = {}) {
         if (game.state === STATE.PLAYING) {
           game.state = STATE.PAUSED;
           showOverlay('paused');
+          if (!auto) offerQuizFromTokens({ returnState: STATE.PAUSED });
         }
       }
       function resumeGame() {
@@ -1449,10 +1504,11 @@
         ensureReachableBricks(grid, rows, cols);
       }
 
-      function spawnBallOnPaddle() {
+      function spawnBallOnPaddle({ stuck = true } = {}) {
         const angle = -Math.PI / 2 + rand(-0.3, 0.3);
         const b = new Ball(paddle.x + paddle.w / 2, paddle.y - BALL.radius - 1, angle, BALL.speed);
         game.balls.push(b);
+        if (stuck) stickBallToPaddle(b, paddle);
       }
 
       function spawnPowerUp(x, y) {
@@ -1470,8 +1526,11 @@
         brick.dead = true;
         game.score += brick.scoreValue;
         spawnParticles(brick.x + brick.w / 2, brick.y + brick.h / 2, 18, '#f8e287');
+        if (quizEnabled && questionBank.length) {
+          quizState.tokens += 1;
+          addMessage('Quiz-Chip gesammelt', '#f8e287');
+        }
         updateHUD();
-        if (quizEnabled) triggerQuizQuestion();
       }
 
       function applyPowerUp(pu) {
@@ -1725,6 +1784,7 @@
             addMessage(locale.messages.lifeLost, '#e74c3c');
             soundManager.playLifeLost(); // <‑ Klang
             spawnBallOnPaddle();
+            quizState.pendingOffer = quizEnabled && quizState.tokens > 0;
           }
         }
 
@@ -1746,6 +1806,7 @@
           game.shield.hits = 0;
           game.balls = [];
           spawnBallOnPaddle();
+          quizState.pendingOffer = quizEnabled && quizState.tokens > 0;
         }
       }
 
@@ -1878,7 +1939,7 @@
       /* ---------- Input‑Events ---------- */
       window.addEventListener('resize', resizeCanvas);
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden && game.state === STATE.PLAYING) pauseGame();
+        if (document.hidden && game.state === STATE.PLAYING) pauseGame({ auto: true });
       });
 
       window.addEventListener('keydown', (e) => {
@@ -1890,6 +1951,11 @@
         }
         if (e.code === 'Space' && game.state === STATE.PLAYING && hasStuckBalls()) {
           e.preventDefault();
+          if (quizEnabled && quizState.pendingOffer && quizState.tokens > 0) {
+            quizState.pendingOffer = false;
+            offerQuizFromTokens({ returnState: STATE.PLAYING });
+            return;
+          }
           releaseStuckBalls();
           return;
         }
@@ -1923,6 +1989,11 @@
         input.pointerX = x; input.pointerY = y;
         input.pointerSide = x < WORLD.w * 0.5 ? 'left' : 'right';
         if (input.pointerSide === 'left' && game.state === STATE.PLAYING && hasStuckBalls()) {
+          if (quizEnabled && quizState.pendingOffer && quizState.tokens > 0) {
+            quizState.pendingOffer = false;
+            offerQuizFromTokens({ returnState: STATE.PLAYING });
+            return;
+          }
           releaseStuckBalls();
         }
         if (input.pointerSide === 'right' && game.state === STATE.PLAYING && paddle.laserUntil > game.time && input.clickLaserCooldown <= 0) {

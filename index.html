@@ -28,6 +28,16 @@
             --chip-border-hover: rgba(39, 64, 122, 0.52);
             --chip-text: #1d2f5c;
             --chip-text-hover: #0f2f68;
+            --tpw-control-height: 44px;
+            --tpw-control-padding-y: 10px;
+            --form-width: 760px;
+            --content-max: calc(100vw - 26px);
+            --surface: rgba(255, 255, 255, 0.95);
+            --surface-strong: #f7f9ff;
+            --text-muted: #4a5a73;
+            --shadow-flat: 0 1px 2px rgba(15, 36, 84, 0.08);
+            --shadow-card: 0 18px 32px rgba(15, 36, 84, 0.14);
+            --focus-ring: 0 0 0 3px rgba(0, 94, 184, 0.28), 0 12px 20px rgba(23, 45, 96, 0.16);
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -126,6 +136,87 @@
             filter: none;
             background: var(--primary-light);
             color: var(--primary-strong);
+        }
+        .tpw-panel {
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            background: linear-gradient(180deg, var(--surface-strong, #f7f9ff) 0%, rgba(255,255,255,0.97) 100%);
+            border-radius: 11px;
+            padding: 5px 8px;
+            margin: 5px 0 7px 0;
+            /* Less prominent than main cards */
+            box-shadow: 0 6px 12px rgba(15, 36, 84, 0.07);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            /* Compact controls only inside this panel */
+            --tpw-control-height: 32px;
+            --tpw-control-padding-y: 5px;
+            /* Unify text size to smallest within the block */
+            font-size: 0.9rem;
+        }
+        .tpw-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .tpw-title { font-weight: 700; color: var(--primary-strong); font-size: inherit; }
+        .tpw-subtitle { color: #444; font-size: inherit; }
+        .tpw-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 5px 7px;
+            align-items: stretch;
+        }
+        .tpw-grid-summary {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .tpw-field label { margin-bottom: 2px; display: block; font-weight: 600; }
+        .tpw-value-box {
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: var(--tpw-control-padding-y) 10px;
+            background: linear-gradient(180deg, rgba(232, 240, 255, 0.96) 0%, rgba(223, 231, 255, 0.94) 100%);
+            box-sizing: border-box;
+            height: var(--tpw-control-height);
+            min-height: var(--tpw-control-height);
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+        }
+        .tpw-amount { color: var(--primary); font-size: inherit; }
+        .tpw-total { font-size: inherit; color: #222; }
+        .tpw-panel select, .tpw-panel input[type="number"] {
+            width: 100%;
+            height: var(--tpw-control-height);
+            min-height: var(--tpw-control-height);
+            padding: var(--tpw-control-padding-y) 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            box-shadow: var(--shadow-flat, 0 1px 2px rgba(0,0,0,0.08));
+            background: #fff;
+            box-sizing: border-box;
+            line-height: 1.35;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+        }
+        .tpw-panel input[type="number"] {
+            padding-right: 2.6rem; /* Platz für Stepper ohne Überstand */
+            overflow: hidden; /* Spinner sauber im Radius halten */
+        }
+        .tpw-panel input[type="number"]::-webkit-inner-spin-button,
+        .tpw-panel input[type="number"]::-webkit-outer-spin-button {
+            margin: 0;
+            height: calc(var(--tpw-control-height) - 8px);
+        }
+        .tpw-panel input[type="number"]::-webkit-inner-spin-button {
+            transform: scale(0.9);
+        }
+        .tpw-panel select:focus, .tpw-panel input[type="number"]:focus {
+            border-color: rgba(0, 94, 184, 0.45);
+            box-shadow: 0 15px 26px rgba(0, 94, 184, 0.18);
+            outline: none;
+            transform: translateY(-1px);
         }
         body.pdf-export-active {
             background: #fff;
@@ -1130,7 +1221,7 @@
         .chop-option:hover { background: var(--primary-light); }
         .icd-option { padding: 2px 4px; cursor: pointer; }
         .icd-option:hover { background: var(--primary-light); }
-        /* Dezenter, kleiner ICDâ€‘Toggle im Appâ€‘Farbschema */
+        /* Dezenter, kleiner ICD-Toggle im App-Farbschema */
         .icd-toggle-btn {
             font-size: 0.78em;               /* etwas kleiner */
             padding: 3px 8px;                /* kompakter */
@@ -1154,16 +1245,12 @@
             background: linear-gradient(to bottom, #2f77c7, var(--primary));
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
         }
-        /* entfernt: separate Caret-Buttons, wir nutzen wieder Hintergrundâ€‘Pfeile */
+        /* Entfernt: separate Caret-Buttons, wir nutzen wieder Hintergrund-Pfeile */
         /* --- Modernized overrides --- */
-        :root {
-            --form-width: 760px;
-            --content-max: calc(100vw - 26px);
-        }
         body {
             margin: 0;
             min-height: 100vh;
-            padding: 28px 22px 24px;
+            padding: 22px 18px 18px;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -1182,7 +1269,7 @@
             width: 100%;
             max-width: var(--content-max);
             margin: 0;
-            padding: 0 20px 24px;
+            padding: 0 16px 18px;
             box-sizing: border-box;
         }
         h1 {
@@ -1319,14 +1406,14 @@
             grid-template-columns: auto 1fr auto;
             grid-template-areas: "left title right";
             align-items: center;
-            gap: 12px;
-            padding: 9px 18px;
+            gap: 10px;
+            padding: 8px 14px;
             border-radius: 18px;
             background: rgba(255, 255, 255, 0.78);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.7);
             box-shadow: 0 22px 38px rgba(15, 36, 84, 0.16);
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             width: 100%;
             max-width: var(--content-max);
             box-sizing: border-box;
@@ -1723,6 +1810,13 @@
             top: 40%;
             animation: doctorFlight 20s linear infinite;
             display: none;
+            transform-origin: center;
+            will-change: transform, opacity;
+        }
+        .flying-doctor.is-wandering {
+            animation: none;
+            left: 0;
+            top: 0;
         }
         #flyingDoctorLayer.is-active .flying-doctor.is-active {
             display: block;
@@ -1734,6 +1828,17 @@
             height: 100%;
             filter: drop-shadow(4px 8px 4px rgba(0,0,0,0.2));
             overflow: visible;
+            transform-origin: center;
+            transform-box: fill-box;
+        }
+        .flying-doctor.is-flipping svg {
+            animation: doctorFlip 0.9s cubic-bezier(0.3, 0.7, 0.2, 1) 1;
+        }
+        .flying-doctor.is-wiggling svg {
+            animation: doctorWiggle 0.7s ease-in-out 1;
+        }
+        .flying-doctor.is-boosting svg {
+            animation: doctorBoost 0.6s ease-in-out 1;
         }
         .flying-doctor .body-group {
             animation: doctorHover 2s ease-in-out infinite alternate;
@@ -1773,6 +1878,23 @@
         @keyframes doctorHair {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(10deg) translateY(-2px); }
+        }
+        @keyframes doctorFlip {
+            0% { transform: rotate(0deg) scale(1); }
+            60% { transform: rotate(220deg) scale(1.05); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        @keyframes doctorWiggle {
+            0% { transform: rotate(0deg); }
+            20% { transform: rotate(8deg); }
+            50% { transform: rotate(-7deg); }
+            80% { transform: rotate(6deg); }
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes doctorBoost {
+            0% { transform: scale(1) rotate(0deg); }
+            45% { transform: scale(1.08) rotate(4deg); }
+            100% { transform: scale(1) rotate(0deg); }
         }
         @media (max-width: 640px) {
             .flying-doctor {
@@ -2150,39 +2272,55 @@
    /* --- Optimierungen für Single Screen (index_v2) --- */
         @media (min-width: 1024px) {
             body {
-                overflow: hidden; /* Prevent body scroll, handle in panels */
-                padding-bottom: 0;
+                overflow-y: auto; /* allow normal page scroll */
+                overflow-x: hidden;
+                padding: 0;
             }
             .app-shell {
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
+                height: auto;
+                display: block;
                 padding-bottom: 0;
                 max-width: 100vw; /* Full width */
             }
+            .tpw-panel {
+                flex: none;
+                min-height: auto;
+            }
             .content-wrapper {
                 display: grid;
-                grid-template-columns: 450px 1fr;
+                grid-template-columns: clamp(360px, 30vw, 480px) 1fr;
                 gap: 20px;
                 align-items: start;
-                flex: 1;
-                overflow: hidden;
+                flex: none;
+                overflow: visible;
                 padding-bottom: 10px;
+                min-height: auto;
             }
             .left-panel {
-                overflow-y: auto;
+                overflow: visible;
                 padding-right: 5px;
                 padding-bottom: 12px;
-                height: 100%;
+                height: auto;
+                min-height: auto;
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
             }
+            .left-panel .action-buttons {
+                position: static;
+                z-index: auto;
+                margin-top: 0;
+                padding: 8px 0 10px;
+                background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(255, 255, 255, 0.92));
+                border-bottom: 1px solid rgba(0, 94, 184, 0.12);
+                backdrop-filter: blur(6px);
+            }
             #output {
-                height: 100%;
-                overflow-y: auto;
+                height: auto;
+                overflow: visible;
                 margin-top: 0;
                 margin-bottom: 0;
+                min-height: 0;
             }
 
             /* Header kompakter */
@@ -2399,8 +2537,8 @@
      <button class="nav-pill-button" id="openBrickQuizButton" style="display:none;" type="button">
       Brick-Quiz starten
      </button>
-    </div>
-    <div class="top-info-right">
+   </div>
+   <div class="top-info-right">
      <div class="version-line">
       <span id="versionSpan">
        V?
@@ -2428,11 +2566,47 @@
       </span>
       <span id="tarifVersionSpan">
       </span>
+    </div>
+   </div>
+   <h1 id="mainHeader">
+    Neuer Arzttarif Schweiz: TARDOC und Pauschalen
+   </h1>
+  </div>
+  <div class="tpw-panel" id="tpwPanel">
+   <div class="tpw-header">
+    <div class="tpw-title" id="tpwTitle">Taxpunktwert &amp; Betrag</div>
+   </div>
+   <div class="tpw-grid tpw-grid-top">
+    <div class="tpw-field">
+     <label for="tpwKantonSelect" id="tpwKantonLabel">Kanton</label>
+     <select id="tpwKantonSelect">
+      </select>
+     </div>
+     <div class="tpw-field">
+      <label for="tpwBereichSelect" id="tpwBereichLabel">Sozialversicherungsbereich</label>
+      <select id="tpwBereichSelect">
+      </select>
+     </div>
+     <div class="tpw-field">
+      <label for="tpwPeriodSelect" id="tpwGueltigLabel">Gültigkeitsfenster</label>
+     <select id="tpwPeriodSelect">
+      </select>
+     </div>
+     <div class="tpw-field">
+      <label for="tpwValueInput" id="tpwValueLabel">Taxpunktwert (CHF)</label>
+      <input id="tpwValueInput" inputmode="decimal" step="0.01" type="number"/>
+     </div>
+   </div>
+   <div class="tpw-grid tpw-grid-summary">
+     <div class="tpw-field">
+      <label id="tpwTotalLabel">Total Taxpunkte</label>
+      <div class="tpw-value-box tpw-total" id="tpwTotalValue">–</div>
+     </div>
+     <div class="tpw-field">
+      <label id="tpwAmountLabel">Betrag</label>
+      <div class="tpw-value-box tpw-amount" id="tpwAmountValue">–</div>
      </div>
     </div>
-    <h1 id="mainHeader">
-     Neuer Arzttarif Schweiz: TARDOC und Pauschalen
-    </h1>
    </div>
    <p id="intro">
     Die KI unterstützt bei der Analyse von TARDOC-Einzelleistungen und Pauschalen. ICD-, Medikamenten- und CHOP-Suchen sind möglich. Bitte keine persönlichen Daten eingeben.
@@ -2619,112 +2793,174 @@
             });
         }
 
+        function isArrowZoneClick(input, event) {
+            const rect = input.getBoundingClientRect();
+            return event.clientX > rect.right - 30;
+        }
+
+        function setupPagedDropdown(config) {
+            const input = document.getElementById(config.inputId);
+            const dropdown = document.getElementById(config.dropdownId);
+            if (!input || !dropdown) return null;
+
+            const caretHitbox = config.caretHitboxId
+                ? document.getElementById(config.caretHitboxId)
+                : null;
+            let start = 0;
+            let end = 0;
+            let term = '';
+            let query = '';
+            let loading = false;
+            let moreAfter = false;
+            const limit = config.limit;
+
+            function hideDropdown() {
+                dropdown.classList.add('hidden');
+            }
+
+            async function loadResults(startOffset, {reset = false, prepend = false} = {}) {
+                if (loading) return;
+                loading = true;
+                try {
+                    const results = await config.fetchResults(term, startOffset);
+                    if (reset) {
+                        dropdown.innerHTML = '';
+                        start = startOffset;
+                        end = startOffset;
+                    }
+                    if (prepend) {
+                        const prevHeight = dropdown.scrollHeight;
+                        results.forEach((item) => {
+                            dropdown.insertBefore(
+                                config.renderItem(item, {input, hideDropdown}),
+                                dropdown.firstChild
+                            );
+                        });
+                        start = startOffset;
+                        dropdown.scrollTop += dropdown.scrollHeight - prevHeight;
+                    } else {
+                        results.forEach((item) => {
+                            dropdown.appendChild(config.renderItem(item, {input, hideDropdown}));
+                        });
+                        end = startOffset + results.length;
+                    }
+                    moreAfter = results.length === limit;
+                    dropdown.classList.toggle('hidden', dropdown.children.length === 0);
+                } catch (err) {
+                    if (typeof config.onError === 'function') {
+                        config.onError(err, dropdown);
+                    } else {
+                        console.error('[Dropdown] Laden der Vorschläge fehlgeschlagen:', err);
+                        dropdown.classList.add('hidden');
+                    }
+                } finally {
+                    loading = false;
+                }
+            }
+
+            async function openDropdown() {
+                term = query;
+                start = 0;
+                end = 0;
+                await loadResults(0, {reset: true});
+            }
+
+            async function handleInput(e) {
+                query = e.target.value.trim();
+                term = query;
+                start = 0;
+                end = 0;
+                await loadResults(0, {reset: true});
+            }
+
+            async function handleFocus() {
+                if (config.arrowFlagName && window[config.arrowFlagName]) {
+                    window[config.arrowFlagName] = false;
+                    return;
+                }
+                await openDropdown();
+            }
+
+            async function handleScroll(e) {
+                const dd = e.target;
+                if (moreAfter && dd.scrollTop + dd.clientHeight >= dd.scrollHeight - 5) {
+                    await loadResults(end, {reset: false});
+                } else if (dd.scrollTop <= 5 && start > 0) {
+                    const nextStart = Math.max(0, start - limit);
+                    await loadResults(nextStart, {prepend: true});
+                }
+            }
+
+            function handleArrowClick(e) {
+                if (!isArrowZoneClick(input, e)) return;
+                e.preventDefault();
+                if (dropdown.classList.contains('hidden')) {
+                    if (config.arrowFlagName) window[config.arrowFlagName] = false;
+                    openDropdown();
+                } else {
+                    hideDropdown();
+                }
+            }
+
+            function handleBlur() {
+                if (typeof config.onBlur === 'function') {
+                    config.onBlur({input, dropdown, hideDropdown});
+                } else {
+                    setTimeout(hideDropdown, 100);
+                }
+            }
+
+            input.addEventListener('input', handleInput);
+            input.addEventListener('blur', handleBlur);
+            input.addEventListener('focus', handleFocus);
+            input.addEventListener('mousedown', (e) => {
+                if (config.arrowFlagName) {
+                    window[config.arrowFlagName] = isArrowZoneClick(input, e);
+                }
+            });
+            input.addEventListener('click', handleArrowClick);
+            dropdown.addEventListener('scroll', handleScroll);
+
+            if (caretHitbox) {
+                caretHitbox.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (dropdown.classList.contains('hidden')) {
+                        openDropdown();
+                        input.focus();
+                    } else {
+                        hideDropdown();
+                    }
+                });
+                caretHitbox.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        caretHitbox.click();
+                    }
+                });
+            }
+
+            return {
+                hideDropdown,
+                openDropdown,
+                refreshIfOpen() {
+                    if (dropdown && !dropdown.classList.contains('hidden')) {
+                        term = query;
+                        start = 0;
+                        end = 0;
+                        loadResults(0, {reset: true});
+                    }
+                }
+            };
+        }
+
+        const CHOP_LIMIT = 20;
+        const ICD_LIMIT = 20;
+
         async function fetchChop(term, offset = 0){
             const url = `/api/chop?q=${encodeURIComponent(term)}&offset=${offset}`;
             const resp = await fetch(url);
             if(!resp.ok) return [];
             return await resp.json();
-        }
-
-        const CHOP_LIMIT = 20;
-        let chopStart = 0;
-        let chopEnd = 0;
-        let chopTerm = '';
-        let chopQuery = '';
-        let chopLoading = false;
-        let chopMoreAfter = false;
-
-        function createChopDiv(r){
-            const div = document.createElement('div');
-            div.textContent = `${r.code} - ${r.description_de}`;
-            div.className = 'chop-option';
-            div.addEventListener('mousedown', () => {
-                document.getElementById('chopInput').value = div.textContent;
-                hideChopDropdown();
-            });
-            return div;
-        }
-
-        async function loadChopResults(startOffset, {reset=false, prepend=false} = {}){
-            if(chopLoading) return;
-            chopLoading = true;
-            const results = await fetchChop(chopTerm, startOffset);
-            const dropdown = document.getElementById('chopDropdown');
-            if(reset){
-                dropdown.innerHTML = '';
-                chopStart = startOffset;
-                chopEnd = startOffset;
-            }
-            if(prepend){
-                const prevHeight = dropdown.scrollHeight;
-                results.forEach(r => dropdown.insertBefore(createChopDiv(r), dropdown.firstChild));
-                chopStart = startOffset;
-                dropdown.scrollTop += dropdown.scrollHeight - prevHeight;
-            } else {
-                results.forEach(r => dropdown.appendChild(createChopDiv(r)));
-                chopEnd = startOffset + results.length;
-            }
-            chopMoreAfter = results.length === CHOP_LIMIT;
-            dropdown.classList.toggle('hidden', dropdown.children.length === 0);
-            chopLoading = false;
-        }
-
-        function hideChopDropdown(){
-            const dd = document.getElementById('chopDropdown');
-            dd.classList.add('hidden');
-        }
-
-        async function onChopInput(e){
-            chopQuery = e.target.value.trim();
-            chopTerm = chopQuery;
-            chopStart = 0;
-            chopEnd = 0;
-            await loadChopResults(0, {reset:true});
-        }
-
-        async function openChopDropdown(){
-            chopTerm = chopQuery;
-            chopStart = 0;
-            chopEnd = 0;
-            await loadChopResults(0, {reset:true});
-        }
-
-        async function onChopFocus(e){
-            if (window.__lastChopPointerInArrowZone) { window.__lastChopPointerInArrowZone = false; return; }
-            await openChopDropdown();
-        }
-
-        async function onChopScroll(e){
-            const dd = e.target;
-            if(chopMoreAfter && dd.scrollTop + dd.clientHeight >= dd.scrollHeight - 5){
-                await loadChopResults(chopEnd, {reset:false});
-            } else if(dd.scrollTop <= 5 && chopStart > 0){
-                const start = Math.max(0, chopStart - CHOP_LIMIT);
-                await loadChopResults(start, {prepend:true});
-            }
-        }
-
-        function onChopBlur(){
-            const inputVal = document.getElementById('chopInput').value.trim();
-            if(inputVal){
-                document.getElementById('userInput').value = inputVal;
-            }
-            setTimeout(hideChopDropdown, 100);
-        }
-
-        function onChopArrow(e){
-            const input = e.target;
-            const rect = input.getBoundingClientRect();
-            if(e.clientX > rect.right - 30){
-                e.preventDefault();
-                const dd = document.getElementById('chopDropdown');
-                if (dd.classList.contains('hidden')) {
-                    window.__lastChopPointerInArrowZone = false; // explizites Öffnen über Caret
-                    openChopDropdown();
-                } else {
-                    hideChopDropdown();
-                }
-            }
         }
 
         async function fetchIcd(term, lang, offset = 0){
@@ -2746,110 +2982,68 @@
             return await resp.json();
         }
 
-        const ICD_LIMIT = 20;
-        let icdStart = 0;
-        let icdEnd = 0;
-        let icdTerm = '';
-        let icdQuery = '';
-        let icdLoading = false;
-        let icdMoreAfter = false;
-
-        function createIcdDiv(r){
-            const div = document.createElement('div');
-            div.textContent = `${r.code} - ${r.text}`;
-            div.className = 'icd-option';
-            div.addEventListener('mousedown', () => {
-                document.getElementById('icdInput').value = r.code;
-                hideIcdDropdown();
-            });
-            return div;
-        }
-
-        async function loadIcdResults(startOffset, {reset=false, prepend=false} = {}){
-            if(icdLoading) return;
-            icdLoading = true;
-            const dropdown = document.getElementById('icdDropdown');
-            try {
-                const results = await fetchIcd(icdTerm, currentLang, startOffset);
-                if(reset){
-                    dropdown.innerHTML = '';
-                    icdStart = startOffset;
-                    icdEnd = startOffset;
+        const chopController = setupPagedDropdown({
+            inputId: 'chopInput',
+            dropdownId: 'chopDropdown',
+            caretHitboxId: 'chopCaretHitbox',
+            limit: CHOP_LIMIT,
+            arrowFlagName: '__lastChopPointerInArrowZone',
+            fetchResults: fetchChop,
+            renderItem: (r, {input, hideDropdown}) => {
+                const div = document.createElement('div');
+                div.textContent = `${r.code} - ${r.description_de}`;
+                div.className = 'chop-option';
+                div.addEventListener('mousedown', () => {
+                    input.value = div.textContent;
+                    hideDropdown();
+                });
+                return div;
+            },
+            onBlur: ({input, hideDropdown}) => {
+                const inputVal = input.value.trim();
+                if (inputVal) {
+                    const userInput = document.getElementById('userInput');
+                    if (userInput) userInput.value = inputVal;
                 }
-                if(prepend){
-                    const prevHeight = dropdown.scrollHeight;
-                    results.forEach(r => dropdown.insertBefore(createIcdDiv(r), dropdown.firstChild));
-                    icdStart = startOffset;
-                    dropdown.scrollTop += dropdown.scrollHeight - prevHeight;
-                } else {
-                    results.forEach(r => dropdown.appendChild(createIcdDiv(r)));
-                    icdEnd = startOffset + results.length;
-                }
-                icdMoreAfter = results.length === ICD_LIMIT;
-                dropdown.classList.toggle('hidden', dropdown.children.length === 0);
-            } catch (err) {
-                console.error('[ICD] Laden der Vorschläge fehlgeschlagen:', err);
-                dropdown.classList.add('hidden');
-            } finally {
-                icdLoading = false;
+                setTimeout(hideDropdown, 100);
             }
+        });
+
+        const icdController = setupPagedDropdown({
+            inputId: 'icdInput',
+            dropdownId: 'icdDropdown',
+            caretHitboxId: 'icdCaretHitbox',
+            limit: ICD_LIMIT,
+            arrowFlagName: '__lastIcdPointerInArrowZone',
+            fetchResults: (term, offset) => fetchIcd(term, currentLang, offset),
+            renderItem: (r, {input, hideDropdown}) => {
+                const div = document.createElement('div');
+                div.textContent = `${r.code} - ${r.text}`;
+                div.className = 'icd-option';
+                div.addEventListener('mousedown', () => {
+                    input.value = r.code;
+                    hideDropdown();
+                });
+                return div;
+            },
+            onBlur: ({dropdown, hideDropdown}) => {
+                setTimeout(() => {
+                    if (dropdown && dropdown.matches(':hover')) return;
+                    hideDropdown();
+                }, 100);
+            },
+            onError: (err, dropdown) => {
+                console.error('[ICD] Laden der Vorschläge fehlgeschlagen:', err);
+                if (dropdown) dropdown.classList.add('hidden');
+            }
+        });
+
+        function hideChopDropdown(){
+            if (chopController) chopController.hideDropdown();
         }
 
         function hideIcdDropdown(){
-            document.getElementById('icdDropdown').classList.add('hidden');
-        }
-
-        async function onIcdInput(e){
-            icdQuery = e.target.value.trim();
-            icdTerm = icdQuery;
-            icdStart = 0;
-            icdEnd = 0;
-            await loadIcdResults(0, {reset:true});
-        }
-
-        async function openIcdDropdown(){
-            icdTerm = icdQuery;
-            icdStart = 0;
-            icdEnd = 0;
-            await loadIcdResults(0, {reset:true});
-        }
-
-        async function onIcdFocus(){
-            if (window.__lastIcdPointerInArrowZone) { window.__lastIcdPointerInArrowZone = false; return; }
-            await openIcdDropdown();
-        }
-
-        async function onIcdScroll(e){
-            const dd = e.target;
-            if(icdMoreAfter && dd.scrollTop + dd.clientHeight >= dd.scrollHeight - 5){
-                await loadIcdResults(icdEnd, {reset:false});
-            } else if(dd.scrollTop <= 5 && icdStart > 0){
-                const start = Math.max(0, icdStart - ICD_LIMIT);
-                await loadIcdResults(start, {prepend:true});
-            }
-        }
-
-        function onIcdBlur(){
-            const dd = document.getElementById('icdDropdown');
-            setTimeout(()=>{
-                if(dd && dd.matches(':hover')) return;
-                hideIcdDropdown();
-            }, 100);
-        }
-
-        function onIcdArrow(e){
-            const input = e.target;
-            const rect = input.getBoundingClientRect();
-            if(e.clientX > rect.right - 30){
-                e.preventDefault();
-                const dd = document.getElementById('icdDropdown');
-                if (dd.classList.contains('hidden')) {
-                    window.__lastIcdPointerInArrowZone = false; // explizites Öffnen über Caret
-                    openIcdDropdown();
-                } else {
-                    hideIcdDropdown();
-                }
-            }
+            if (icdController) icdController.hideDropdown();
         }
 
         // ICD-Umschalter: Click-Handler wird zentral in calculator.js gesetzt, 
@@ -2876,7 +3070,25 @@
             document.getElementById('chopLabel').textContent = t('chopLabel', lang);
             document.getElementById('chopInput').placeholder = t('chopPlaceholder', lang);
             document.getElementById('useIcdLabel').textContent = t('useIcd', lang);
-            const icdBtn = $('icdFilterToggle');
+            const tpwTitle = document.getElementById('tpwTitle');
+            if (tpwTitle) tpwTitle.textContent = t('tpwTitle', lang);
+            const tpwSubtitle = document.getElementById('tpwSubtitle');
+            if (tpwSubtitle) tpwSubtitle.textContent = t('tpwSubtitle', lang);
+            const tpwKantonLabel = document.getElementById('tpwKantonLabel');
+            if (tpwKantonLabel) tpwKantonLabel.textContent = t('tpwKantonLabel', lang);
+            const tpwBereichLabel = document.getElementById('tpwBereichLabel');
+            if (tpwBereichLabel) tpwBereichLabel.textContent = t('tpwBereichLabel', lang);
+            const tpwGueltigLabel = document.getElementById('tpwGueltigLabel');
+            if (tpwGueltigLabel) tpwGueltigLabel.textContent = t('tpwGueltigLabel', lang);
+            const tpwValueLabel = document.getElementById('tpwValueLabel');
+            if (tpwValueLabel) tpwValueLabel.textContent = t('tpwValueLabel', lang);
+            const tpwValueInput = document.getElementById('tpwValueInput');
+            if (tpwValueInput) tpwValueInput.placeholder = t('tpwNoValue', lang);
+            const tpwTotalLabel = document.getElementById('tpwTotalLabel');
+            if (tpwTotalLabel) tpwTotalLabel.textContent = t('tpwTotalLabel', lang);
+            const tpwAmountLabel = document.getElementById('tpwAmountLabel');
+            if (tpwAmountLabel) tpwAmountLabel.textContent = t('tpwAmountLabel', lang);
+            const icdBtn = document.getElementById('icdFilterToggle');
             if (icdBtn){
                 icdBtn.textContent = t('icdToggleMatching', lang);
                 icdBtn.setAttribute('aria-pressed', window.icdFilterMode === 'pauschale' ? 'true' : 'false');
@@ -2923,6 +3135,12 @@
             if(infoDetail) infoDetail.textContent = t('infoTitle', lang);
             const infoNested = document.getElementById('infoModalNestedTitle');
             if(infoNested) infoNested.textContent = t('infoTitle', lang);
+            if (typeof rebuildTpwSelectors === 'function') {
+                rebuildTpwSelectors();
+            }
+            if (typeof refreshTpwSummary === 'function') {
+                refreshTpwSummary();
+            }
             const out = document.getElementById('output');
             if(out){
                 const content = out.innerHTML.trim();
@@ -3043,50 +3261,6 @@
         document.getElementById('fbCancelButton').addEventListener('click',toggleFeedback);
         document.getElementById('feedbackModalClose').addEventListener('click',toggleFeedback);
         document.getElementById('feedbackModalOverlay').addEventListener('click',e=>{if(e.target.id==='feedbackModalOverlay'&&!isResizing)toggleFeedback();});
-        document.getElementById('chopInput').addEventListener('input', onChopInput);
-        document.getElementById('chopInput').addEventListener('blur', onChopBlur);
-        document.getElementById('chopInput').addEventListener('mousedown', (e)=>{
-            const rect = e.currentTarget.getBoundingClientRect();
-            window.__lastChopPointerInArrowZone = (e.clientX > rect.right - 30);
-        });
-        document.getElementById('chopInput').addEventListener('focus', onChopFocus);
-        // Klick im rechten Bereich des Eingabefeldes öffnet die Liste (wie ein Selectâ€‘Caret)
-        document.getElementById('chopInput').addEventListener('click', onChopArrow);
-        document.getElementById('chopDropdown').addEventListener('scroll', onChopScroll);
-        // Caret-Hitboxen: Finger-Cursor + Toggle-Verhalten wie bei Pfeilzone
-        const chopHit = document.getElementById('chopCaretHitbox');
-        if (chopHit) {
-            chopHit.addEventListener('click', (e)=>{
-                e.preventDefault();
-                const dd = document.getElementById('chopDropdown');
-                if (dd.classList.contains('hidden')) { openChopDropdown(); document.getElementById('chopInput').focus(); }
-                else { hideChopDropdown(); }
-            });
-            chopHit.addEventListener('keydown', (e)=>{
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chopHit.click(); }
-            });
-        }
-        document.getElementById('icdInput').addEventListener('input', onIcdInput);
-        document.getElementById('icdInput').addEventListener('blur', onIcdBlur);
-        document.getElementById('icdInput').addEventListener('mousedown', (e)=>{
-            const rect = e.currentTarget.getBoundingClientRect();
-            window.__lastIcdPointerInArrowZone = (e.clientX > rect.right - 30);
-        });
-        document.getElementById('icdInput').addEventListener('focus', onIcdFocus);
-        document.getElementById('icdInput').addEventListener('click', onIcdArrow);
-        document.getElementById('icdDropdown').addEventListener('scroll', onIcdScroll);
-        const icdHit = document.getElementById('icdCaretHitbox');
-        if (icdHit) {
-            icdHit.addEventListener('click', (e)=>{
-                e.preventDefault();
-                const dd = document.getElementById('icdDropdown');
-                if (dd.classList.contains('hidden')) { openIcdDropdown(); document.getElementById('icdInput').focus(); }
-                else { hideIcdDropdown(); }
-            });
-            icdHit.addEventListener('keydown', (e)=>{
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); icdHit.click(); }
-            });
-        }
         document.addEventListener('DOMContentLoaded',()=>{
             loadTranslations().then(initLanguage);
         });
@@ -3096,10 +3270,8 @@
 
         // Hilfsfunktion: nur aktualisieren, wenn Dropdown sichtbar
         window.refreshIcdIfOpen = function(){
-            const dd = document.getElementById('icdDropdown');
-            if (dd && !dd.classList.contains('hidden')) {
-                icdStart = 0; icdEnd = 0; icdTerm = icdQuery; // beibehaltene Suche
-                loadIcdResults(0, {reset:true});
+            if (icdController) {
+                icdController.refreshIfOpen();
             }
         };
 
