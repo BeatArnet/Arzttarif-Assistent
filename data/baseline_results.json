@@ -21,7 +21,8 @@
       "16",
       "17",
       "18",
-      "19"
+      "19",
+      "20"
     ]
   },
   "_grouped_by_result": {
@@ -103,6 +104,10 @@
       {
         "id": "19",
         "de": "Schieloperation an drei Augenmuskeln"
+      },
+      {
+        "id": "20",
+        "de": "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit äusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna"
       }
     ]
   },
@@ -446,6 +451,25 @@
         "qty": 1
       },
       "einzelleistungen": []
+    },
+    "current": {}
+  },
+  "20": {
+    "query": {
+      "de": "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit äusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna",
+      "fr": "Traitement d'une fracture et/ou luxation, réduction fermée avec attelle externe, poignet/os du carpe/radius distal/ulna distale",
+      "it": "Trattamento di frattura e/o lussazione, riduzione chiusa con steccatura esterna, polso/ossa del carpo/radio distale/ulna distale"
+    },
+    "baseline": {
+      "pauschale": {
+        "code": "C08.50C",
+        "qty": 1
+      },
+      "einzelleistungen": [],
+      "analogie": {
+        "analogie_code": "C08.FA.0030",
+        "reserve_code": "C00.YY.0010"
+      }
     },
     "current": {}
   }

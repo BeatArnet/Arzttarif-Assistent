@@ -269,10 +269,20 @@ const DYN_TEXT = {
         resultFor: 'Ergebnis für',
         billingPauschale: 'Abrechnung als Pauschale.',
         billingTardoc: 'Abrechnung als TARDOC-Einzelleistung(en).',
+        billingAnalogie: 'Abrechnung als Analogieposition (mit Reservecode).',
         billingError: 'Abrechnung nicht möglich oder Fehler aufgetreten.',
         billingUnknown: 'Unbekannter Abrechnungstyp vom Server.',
         noTardoc: 'Keine TARDOC-Positionen zur Abrechnung übermittelt.',
         errorPauschaleMissing: 'Fehler: Pauschalendetails fehlen.',
+        analogieTitle: 'Analogieposition gemäss OAAT',
+        analogieServiceLabel: 'Leistung (OAAT)',
+        analogieCodeLabel: 'Analogieposition',
+        reserveCodeLabel: 'Reservecode (nur Dokumentation)',
+        reserveNote: 'Reservecode dient ausschliesslich der Dokumentation und hat keinen Leistungsbezug.',
+        analogieValidityLabel: 'Gültigkeit',
+        analogieSourceLabel: 'Quelle',
+        analogieLkaatLabel: 'LKAAT-Beschreibung',
+        analogieHintLabel: 'Hinweis',
         tardocDetails: 'Details TARDOC Abrechnung',
         tardocRule: 'TARDOC-Regel:',
         thLkn: 'LKN', thLeistung: 'Leistung', thAl: 'AL', thIpl: 'IPL',
@@ -353,10 +363,20 @@ const DYN_TEXT = {
         resultFor: 'Résultat pour',
         billingPauschale: 'Facturation comme forfait.',
         billingTardoc: 'Facturation comme prestation TARDOC.',
+        billingAnalogie: 'Facturation via position d\'analogie (avec code de réserve).',
         billingError: 'Facturation impossible ou erreur survenue.',
         billingUnknown: 'Type de facturation inconnu du serveur.',
         noTardoc: 'Aucune position TARDOC à facturer.',
         errorPauschaleMissing: 'Erreur : détails du forfait manquants.',
+        analogieTitle: 'Position d\'analogie selon l\'OAAT',
+        analogieServiceLabel: 'Prestation (OAAT)',
+        analogieCodeLabel: 'Position d\'analogie',
+        reserveCodeLabel: 'Code de réserve (documentation uniquement)',
+        reserveNote: 'Le code de réserve sert uniquement à la documentation et n\'a pas de lien de prestation.',
+        analogieValidityLabel: 'Validité',
+        analogieSourceLabel: 'Source',
+        analogieLkaatLabel: 'Description LKAAT',
+        analogieHintLabel: 'Remarque',
         tardocDetails: 'Détails facturation TARDOC',
         tardocRule: 'Règle TARDOC :',
         thLkn: 'NPL', thLeistung: 'Prestation', thAl: 'AL', thIpl: 'IPL',
@@ -437,10 +457,20 @@ const DYN_TEXT = {
         resultFor: 'Risultato per',
         billingPauschale: 'Fatturazione come forfait.',
         billingTardoc: 'Fatturazione come prestazione TARDOC.',
+        billingAnalogie: 'Fatturazione con posizione analogica (con codice di riserva).',
         billingError: 'Fatturazione non possibile o errore.',
         billingUnknown: 'Tipo di fatturazione sconosciuto dal server.',
         noTardoc: 'Nessuna posizione TARDOC da fatturare.',
         errorPauschaleMissing: 'Errore: dettagli forfait mancanti.',
+        analogieTitle: 'Posizione analogica secondo OAAT',
+        analogieServiceLabel: 'Prestazione (OAAT)',
+        analogieCodeLabel: 'Posizione analogica',
+        reserveCodeLabel: 'Codice di riserva (solo documentazione)',
+        reserveNote: 'Il codice di riserva serve esclusivamente alla documentazione e non ha riferimento prestazionale.',
+        analogieValidityLabel: 'Validità',
+        analogieSourceLabel: 'Fonte',
+        analogieLkaatLabel: 'Descrizione LKAAT',
+        analogieHintLabel: 'Nota',
         tardocDetails: 'Dettagli fatturazione TARDOC',
         tardocRule: 'Regola TARDOC:',
         thLkn: 'NPL', thLeistung: 'Prestazione', thAl: 'AL', thIpl: 'IPL',
@@ -3581,6 +3611,15 @@ async function getBillingAnalysis() {
                     setIcdFilterMode('all');
                 }
                 break;
+            case "Analogie":
+                console.log("[getBillingAnalysis] Abrechnungstyp: Analogie", abrechnung.details?.analogie_code);
+                finalResultHeader = `<p class="final-result-header success"><b>${tDyn('billingAnalogie')}</b></p>`;
+                finalResultDetailsHtml = displayAnalogie(abrechnung);
+                updateSelectedPauschaleDetails(null);
+                evaluatedPauschalenList = [];
+                showIcdToggle(false);
+                setIcdFilterMode('all');
+                break;
             case "TARDOC":
                  console.log("[getBillingAnalysis] Abrechnungstyp: TARDOC");
                  finalResultHeader = `<p class="final-result-header success"><b>${tDyn('billingTardoc')}</b></p>`;
@@ -3638,6 +3677,55 @@ async function getBillingAnalysis() {
 }
 
 // ─── 4 · Hilfsfunktionen zur ANZEIGE ────────────────────────────────────────
+
+function formatDateRange(from, to) {
+    const f = (from && String(from).trim()) ? String(from).trim() : '';
+    const t = (to && String(to).trim()) ? String(to).trim() : '';
+    if (f && t) return `${f} – ${t}`;
+    return f || t || '';
+}
+
+function displayAnalogie(abrechnung) {
+    const details = (abrechnung && typeof abrechnung === 'object' && abrechnung.details && typeof abrechnung.details === 'object')
+        ? abrechnung.details
+        : {};
+    const analogieCode = details.analogie_code || '';
+    const reserveCode = details.reserve_code || '';
+    const analogieDesc = details.analogie_beschreibung || details.beschreibung || '';
+    const hint = abrechnung?.hinweis || details.hinweis || tDyn('reserveNote');
+    const validity = formatDateRange(details.gueltig_ab, details.gueltig_bis);
+    const source = details.quelle || '';
+    const sourceDate = details.quelle_datum || '';
+    const lkaatDesc = details.lkaat_beschreibung || (analogieCode ? beschreibungZuLKN(analogieCode) : '');
+    const reserveDesc = details.reserve_beschreibung || (reserveCode ? beschreibungZuLKN(reserveCode) : '');
+
+    let html = `<details open><summary>${tDyn('analogieTitle')}</summary><div>`;
+    if (analogieDesc) {
+        html += `<p><b>${tDyn('analogieServiceLabel')}:</b> ${escapeHtml(analogieDesc)}</p>`;
+    }
+    if (analogieCode) {
+        html += `<p><b>${tDyn('analogieCodeLabel')}:</b> ${createInfoLink(analogieCode, 'lkn')}</p>`;
+    }
+    if (reserveCode) {
+        const reserveExtra = reserveDesc ? ` – ${escapeHtml(reserveDesc)}` : '';
+        html += `<p><b>${tDyn('reserveCodeLabel')}:</b> ${createInfoLink(reserveCode, 'lkn')}${reserveExtra}</p>`;
+    }
+    if (hint) {
+        html += `<p><b>${tDyn('analogieHintLabel')}:</b> ${escapeHtml(hint)}</p>`;
+    }
+    if (validity) {
+        html += `<p><b>${tDyn('analogieValidityLabel')}:</b> ${escapeHtml(validity)}</p>`;
+    }
+    if (source) {
+        const sourceSuffix = sourceDate ? ` (${escapeHtml(sourceDate)})` : '';
+        html += `<p><b>${tDyn('analogieSourceLabel')}:</b> ${escapeHtml(source)}${sourceSuffix}</p>`;
+    }
+    if (lkaatDesc && (!analogieDesc || lkaatDesc !== analogieDesc)) {
+        html += `<details><summary>${tDyn('analogieLkaatLabel')}</summary><p>${escapeHtml(lkaatDesc)}</p></details>`;
+    }
+    html += `</div></details>`;
+    return html;
+}
 
 // Funktion zum Speichern/Laden des Checkbox-Status
 function saveIcdCheckboxState() {
@@ -3857,6 +3945,19 @@ function displayPauschale(abrechnungsObjekt) {
             <section class="info-section info-section-status">
                 <h3>${escapeHtml(statusHeading)}</h3>
                 <ul class="info-hint-list">${listItems}</ul>
+            </section>
+        `);
+    }
+    const analogieDetails = pauschaleDetails.analogie;
+    if (analogieDetails && typeof analogieDetails === 'object') {
+        const analogieObj = {
+            type: 'Analogie',
+            details: analogieDetails,
+            hinweis: analogieDetails.hinweis || ''
+        };
+        extraSections.push(`
+            <section class="info-section info-section-analogie">
+                ${displayAnalogie(analogieObj)}
             </section>
         `);
     }

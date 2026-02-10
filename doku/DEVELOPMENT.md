@@ -45,10 +45,29 @@ gestartet werden. Die Tests liegen im Verzeichnis `tests/` und basieren auf der 
 Weitere nützliche Aufrufe
 - Einzelne Datei: `python -m pytest tests/test_pauschale_logic.py -q`
 - Einzelner Test: `python -m pytest tests/test_pauschale_logic.py::test_kumuliert_korrekt -q`
+- Pauschalen-Qualitätskontrolle (pytest): `python -m pytest tests/test_pauschalen_quality_control.py -q`
 - Filtern per Ausdruck: `python -m pytest -k "synonyms and not connectivity" -q`
 - Mehr Ausgabe/Logs: `python -m pytest -vv -s`
 - Nur Synonym‑Tests: `python -m pytest tests -k synonyms -q`
 - LLM‑Konnektivitätstests auslassen: `python -m pytest -k "not llm_connectivity" -q`
+
+### Harte Daten-Qualitätskontrolle (kanonische Pauschalenlogik)
+
+Für die strukturierte Qualitätsprüfung der Datei `data/PAUSCHALEN_Logic.json`:
+
+```bash
+python run_pauschalen_quality_control.py
+```
+
+Ergebnisse:
+- `quality_reports/pauschalen_quality_report.json` (maschinell, CI-freundlich)
+- `quality_reports/pauschalen_quality_report.html` (visuelle Auswertung im Browser)
+
+Standardmäßig endet das Skript bei Verstößen mit Exit-Code `1`. Nur Report erzeugen:
+
+```bash
+python run_pauschalen_quality_control.py --no-strict
+```
 
 ## Dateicodierung
 
@@ -67,7 +86,7 @@ LLM‑Konnektivität aktivieren (optional)
 
 ## Versionierung und Changelog
 
-- Aktuelle Version: 4.6 (08.12.2025) – siehe `config.ini` oder Endpoint `/api/version`.
+- Aktuelle Version: 4.9 (10.02.2026) – siehe `config.ini` oder Endpoint `/api/version`.
 - Ausführliche Änderungen und Migrationshinweise: `CHANGELOG.md`.
 - Größere Featurebereiche seit 3.1: granulare Logging-Flags (`[LOGGING]`), getrennte Temperaturen für Stage‑2 (`stage2_mapping_temperature`, `stage2_ranking_temperature`).
 

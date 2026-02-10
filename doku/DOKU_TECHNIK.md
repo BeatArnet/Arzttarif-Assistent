@@ -8,6 +8,7 @@ flowchart LR
   B -->|/api/analyze-billing| S[Flask Backend<br/>server.py]
   B -->|/api/icd| S
   B -->|/api/chop| S
+  B -->|/api/test-example| S
   B -->|/api/quality| S
   S -->|Stage 1 Prompt<br/>get_stage1_prompt| L1[LLM Provider]
   S -->|Synonym Expand| SY[synonyms/expander]
@@ -158,14 +159,14 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 #### 2.4.1 LKN‑Mapping
 - Nur für regelkonforme LKN des Typs `E`/`EZ` relevant.
 - Funktionen: `call_gemini_stage2_mapping` bzw. `call_openai_stage2_mapping`.
-- Kandidaten stammen aus `PAUSCHALEN_Leistungspositionen.json`, Bedingungen (`PAUSCHALEN_Bedingungen.json`) und Tabellen (`PAUSCHALEN_Tabellen.json`).
+- Kandidaten stammen aus voraggregierten LP- und Tabellen-Indizes (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`, `lkn_to_tables_*`, `PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`) sowie aus der kanonischen Logik (`PAUSCHALEN_Logic.json`) bzw. dem Legacy-Fallback (`PAUSCHALEN_Bedingungen.json`).
 - Ziel: Mapping auf Pauschalen‑LKN, deren Bedingungen erfüllt sein könnten.
 
 #### 2.4.2 Kandidatensuche & Ranking
 - Potentielle Pauschalencodes werden aus LKN‑Zuordnungen und Regelbedingungen gesammelt.
 - LLM‑Stufe 2 Ranking: `call_gemini_stage2_ranking` bzw. `call_openai_stage2_ranking` kann Kandidaten gewichten und sortieren.
 - Ergebnis: Liste `ranked_codes` (beste Pauschalen zuerst, dedupliziert).
-- Zweistufige Suche: Präzise Quellen (direkte LKN/Tabellen) werden zuerst geprüft; breite Tabellen (z. B. OR/NONELT/ANAST) kommen nur noch als Fallback zum Zug. Vorberechnete Splits (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`) werden automatisch geladen, ansonsten zur Laufzeit erzeugt.
+- Zweistufige Suche: Präzise Quellen (direkte LKN/Tabellen) werden zuerst geprüft; breite Tabellen (z. B. OR/NONELT/ANAST) kommen nur noch als Fallback zum Zug. Vorberechnete Splits und Reverse-Indizes (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `lkn_to_pauschalen_*`, `pauschale_to_lkn_*`) werden automatisch geladen, ansonsten zur Laufzeit erzeugt.
 
 #### 2.4.3 Strukturierte Bedingungen & Hauptprüfung
 - Hauptlogik in `regelpruefer_pauschale`:
@@ -220,13 +221,15 @@ Hinweise: `count_tokens` ist eine Regex‑Heuristik; tatsächliche Modell‑Toke
 
 - `create_app()` – Initialisiert die Flask‑Instanz und lädt die JSON‑Daten einmalig.
 - `load_data()` – orchestriert den Datenimport, ruft intern `_reset_data_containers()`, `_load_catalogs()`, `_load_optional_datasets()`, `_load_rules()`, `_build_indices()` auf.
+- `_load_catalogs()` – lädt Kern-JSONs und nutzt bei vorhandenen precomputed LP-Indizes (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`) den schnellen Pfad ohne vollständiges Einlesen von `PAUSCHALEN_Leistungspositionen.json`.
+- `_load_pauschale_bedingungen_data()` – bevorzugt `PAUSCHALEN_Logic.json`, konvertiert die kanonische Struktur ins Legacy-Zeilenformat und nutzt `PAUSCHALEN_Bedingungen.json` nur als Fallback.
 - `call_stage1()` (anbieterspezifisch) – Kommuniziert mit dem konfigurierten LLM‑Provider (u. a. Gemini, OpenAI, Apertus) und liefert LKN‑Vorschläge und Kontext.
 - API‑Endpoints:
   - `/api/analyze-billing` – Hauptendpunkt zur Analyse eines Freitexts.
   - `/api/chop` – Suchfunktion für CHOP‑Codes.
   - `/api/icd` – ICD‑Lookup.
-  - `/api/quality` – Vergleich von Beispielrechnungen mit Baseline‑Ergebnissen.
-  - `/api/test-example` – führt einen Beispieltest gegen `baseline_results.json` aus.
+  - `/api/test-example` – führt einen Beispieltest gegen `baseline_results.json` aus (von `quality.html` verwendet).
+  - `/api/quality` – einfacher Vergleichs-/Echo-Endpunkt für QS-Experimente.
   - `/api/submit-feedback` – Speichert Feedback lokal oder erstellt GitHub‑Issues.
   - Optional: `/api/synonyms/*` – Blueprint für künftige Synonym‑Operationen.
 
@@ -300,11 +303,11 @@ gegenüberstellen lassen.
 
 ## 5. Frontend
 
-`calculator.js` und `index.html` bilden die Hauptoberfläche. Die Texte der Benutzeroberfläche werden aus `translations.json` geladen. Über `/api/analyze-billing` wird die Berechnung gestartet. `quality.js` bedient die Testseite `quality.html` und ruft `/api/quality` auf.
+`calculator.js` und `index.html` bilden die Hauptoberfläche. Die Texte der Benutzeroberfläche werden aus `translations.json` geladen. Über `/api/analyze-billing` wird die Berechnung gestartet. `quality.js` bedient die Testseite `quality.html` und ruft primär `/api/test-example` auf (zusätzlich existiert `/api/quality` als einfacher Vergleichs-Endpunkt).
 
 ## 6. Tests und Qualitätssicherung
 
-Die wichtigsten Tests liegen im Verzeichnis `tests/` und prüfen sowohl API‑Endpunkte als auch die Pauschalenlogik. Zusätzlich existiert `run_quality_tests.py`, das Beispieltexte gegen erwartete Baseline‑Ergebnisse vergleicht. Die Tests können mit
+Die wichtigsten Tests liegen im Verzeichnis `tests/` und prüfen sowohl API‑Endpunkte als auch die Pauschalenlogik. Zusätzlich existieren `run_quality_tests.py` (Baseline-Beispiele) und `run_pauschalen_quality_control.py` (harte Checks für die kanonische Pauschalenlogik inkl. HTML/JSON-Report). Die Tests können mit
 
 ```bash
 pytest
@@ -349,6 +352,10 @@ Seit Version 1.1 tragen viele JSON-Dateien neue Namen. Die wichtigsten Änderun
 | `tblTabellen.json`                 | `PAUSCHALEN_Tabellen.json`          |
 | `TARDOCGesamt_optimiert_Tarifpositionen.json` | `TARDOC_Tarifpositionen.json` und `TARDOC_Interpretationen.json` |
 
+Zusatz seit Logikschema 2.0:
+- Kanonische Quelle der Pauschalenlogik ist `PAUSCHALEN_Logic.json`.
+- `PAUSCHALEN_Bedingungen.json` bleibt als Legacy-Fallback für den Loader erhalten.
+
 ## 8. Dateien (Python/JS/HTML)
 
 ### Backend (Python)
@@ -361,6 +368,8 @@ Seit Version 1.1 tragen viele JSON-Dateien neue Namen. Die wichtigsten Änderun
 - `generate_embeddings.py` – Erzeugt `data/leistungskatalog_embeddings.json` für den RAG‑Modus (benötigt `sentence-transformers`).
 - `llm_vergleich.py` – Vergleicht Provider/Modelle anhand `llm_vergleich_results.json` und `data/baseline_results.json` (Korrektheit/Laufzeit/Tokenverbrauch).
 - `run_quality_tests.py` – Führt QS‑Beispiele gegen Baseline durch und zeigt Tokenverbrauch an.
+- `run_pauschalen_quality_control.py` – Führt harte Datenchecks auf `PAUSCHALEN_Logic.json` aus und erzeugt `quality_reports/pauschalen_quality_report.{json,html}`.
+- `quality_control/pauschalen_quality_control.py` – Kernmodule für referenzielle/semantische Checks der kanonischen Pauschalenlogik.
 - `clean_json.py` – Entfernt Steuerzeichen aus JSON‑Dateien und schreibt `*.clean.json` (Import‑Helfer).
   
 Hinweis: Das frühere Hilfsskript `update_prompts.py` (einmaliges Text‑Patchen für Prompts) wurde entfernt, da die Änderungen dauerhaft in `prompts.py` übernommen sind.
@@ -369,7 +378,7 @@ Hinweis: Das frühere Hilfsskript `update_prompts.py` (einmaliges Text‑Patchen
 - `index.html` – Haupt‑UI (Formulareingabe, Sprache, ICD/CHOP/GTIN, Ergebnisdarstellung, Feedback‑Button).
 - `calculator.js` – Frontend‑Steuerung der Analyse, UI‑Interaktionen, API‑Aufrufe (`/api/analyze-billing`, ICD/CHOP).
 - `quality.html` – UI für Qualitätstests mit Beispielen.
-- `quality.js` – Steuert `quality.html`, lädt Testfälle und ruft `/api/quality` auf.
+- `quality.js` – Steuert `quality.html`, lädt Testfälle und ruft `/api/test-example` auf.
 
 ### Synonyms‑Paket (Python/GUI)
 - `synonyms/__main__.py` – Startpunkt `python -m synonyms`: Tkinter‑GUI für Generierung, Kuration, Vergleich, Embeddings‑Export.
@@ -388,8 +397,10 @@ Hinweis: Das frühere Hilfsskript `update_prompts.py` (einmaliges Text‑Patchen
 - `tests/test_server.py` – Tests für Analyse‑Endpoint, LKN‑Parsing, Internationalisierung des Kontexts, Feedback‑Fallback, `/api/version`.
 - `tests/test_chop_endpoint.py` – Tests für `/api/chop`.
 - `tests/test_icd_endpoint.py` – Tests für `/api/icd`.
-- `tests/test_truncate_text.py` – Tests für Texthandling/Trunkierung (Kontextbeschränkung).
+- `tests/test_stage1_context.py` – Tests für Kontextaufbau und Prompt-Kontextgrenzen.
+- `tests/test_patient_demographics.py` – Tests für Alter/Geschlecht-Normalisierung und Quellenpriorität.
 - `tests/test_pauschale_logic.py` – Logische Prüfung der Pauschalenbedingungen.
+- `tests/test_pauschalen_quality_control.py` – Harte Qualitätschecks für `PAUSCHALEN_Logic.json` inkl. Referenzfälle.
 - `tests/test_pauschale_search.py` – Suche/Matching für Pauschalen (tokenbasiert/Keywords).
 - `tests/test_pauschale_selection.py` – Auswahl der anwendbaren Pauschale aus Kandidaten.
 - `tests/test_regelpruefer_einzelleistungen.py` – Einzelleistungs‑Regelwerk (Mengen/Kumulationen etc.).

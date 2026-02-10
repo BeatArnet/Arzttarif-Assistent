@@ -53,12 +53,49 @@ MOCK_LLM_RESPONSE_FR_MUSCLE = {
     "begruendung_llm": "FR test response.",
 }
 
+MOCK_ANALOGIE_CANDIDATE = {
+    "id": "OAAT-2026-C08.FA.0030",
+    "analogie_code": "C08.FA.0030",
+    "reserve_code": "C00.YY.0010",
+    "beschreibung": "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit aeusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna",
+    "beschreibung_fr": "Traitement d'une fracture et/ou luxation, reduction fermee avec attelle externe, poignet/os du carpe/radius distal/ulna distale",
+    "beschreibung_it": "Trattamento di frattura e/o lussazione, riduzione chiusa con steccatura esterna, polso/ossa del carpo/radio distale/ulna distale",
+    "hinweis": "Reservecode dient ausschliesslich der Dokumentation und hat keinen Leistungsbezug.",
+    "gueltig_ab": "2026-01-01",
+    "gueltig_bis": "2026-12-31",
+    "quelle": "OAAT Bulletin",
+}
+
 def test_parse_llm_json_response_with_trailing_text():
     raw = json.dumps(MOCK_LLM_RESPONSE) + " Hinweis"
     parsed = server.parse_llm_json_response(raw)
     # Help type checkers: this test expects a dict response
     assert isinstance(parsed, dict)
     assert parsed["identified_leistungen"][0]["lkn"] == "CA.00.0010"
+
+
+def test_validate_stage1_result_with_list_of_lkn_dicts():
+    raw = [
+        {"lkn": "ca.00.0010", "menge": "2"},
+        {"code": "AA.00.0020", "qty": 1},
+    ]
+    parsed = server.validate_stage1_result(raw, provider_label="TEST_S1")
+    assert [item["lkn"] for item in parsed["identified_leistungen"]] == ["CA.00.0010", "AA.00.0020"]
+    assert parsed["identified_leistungen"][0]["menge"] == 2
+    assert parsed["identified_leistungen"][1]["menge"] == 1
+
+
+def test_validate_stage1_result_with_list_of_codes():
+    parsed = server.validate_stage1_result(["ca.00.0010", "AA.00.0020"], provider_label="TEST_S1")
+    assert [item["lkn"] for item in parsed["identified_leistungen"]] == ["CA.00.0010", "AA.00.0020"]
+    assert all(item["menge"] == 1 for item in parsed["identified_leistungen"])
+
+
+def test_validate_stage1_result_with_unstructured_list_fallbacks_to_empty():
+    parsed = server.validate_stage1_result(["keine verwertbare liste", None, 0], provider_label="TEST_S1")
+    assert parsed["identified_leistungen"] == []
+    assert parsed["extracted_info"]["seitigkeit"] == "unbekannt"
+
 
 def test_analyze_billing_with_mocked_llm():
     """
@@ -173,3 +210,50 @@ def test_version_endpoint():
         data = resp.get_json()
         assert data.get('version') == server.APP_VERSION
         assert data.get('tarif_version') == server.TARIF_VERSION
+
+
+def test_find_analogie_match_short_wrist_phrase():
+    match = server._find_analogie_match("Handgelenk, Fraktur, geschlossene Reposition", "de")
+    assert match is not None
+    assert match.get("analogie_code") == "C08.FA.0030"
+
+
+def test_analogie_is_attached_to_pauschale_even_without_stage1_lkn_match():
+    stage1_result = {
+        "identified_leistungen": [
+            {"lkn": "C08.AA.0010", "typ": "E", "menge": 1, "beschreibung": "Dummy"},
+        ],
+        "extracted_info": {
+            "dauer_minuten": None,
+            "menge_allgemein": None,
+            "alter": None,
+            "geschlecht": None,
+            "seitigkeit": "unbekannt",
+            "anzahl_prozeduren": None,
+        },
+        "begruendung_llm": "test",
+    }
+    mapped_rule_checked = [{"lkn": "C08.AA.0010", "typ": "E", "menge": 1, "beschreibung": "Dummy"}]
+    pauschale_response = {
+        "type": "Pauschale",
+        "details": {
+            "Pauschale": "C08.50C",
+            "Taxpunkte": "100",
+        },
+    }
+    with patch("server.call_llm_stage1", MagicMock(return_value=(stage1_result, {"input_tokens": 1, "output_tokens": 1}))):
+        with patch("server._build_context_for_llm", MagicMock(return_value=("", [], []))):
+            with patch("server._validate_and_apply_rules", MagicMock(return_value=(mapped_rule_checked, []))):
+                with patch("server._find_analogie_match", MagicMock(return_value=dict(MOCK_ANALOGIE_CANDIDATE))):
+                    with patch("server._determine_final_billing", MagicMock(return_value=(dict(pauschale_response), {}))):
+                        with server.app.test_client() as client:
+                            resp = client.post('/api/analyze-billing', json={'inputText': 'Dummy Input', 'lang': 'de'})
+                            assert resp.status_code == 200
+                            data = resp.get_json() or {}
+                            abrechnung = data.get("abrechnung", {})
+                            details = abrechnung.get("details", {})
+                            analogie = details.get("analogie", {})
+                            assert abrechnung.get("type") == "Pauschale"
+                            assert details.get("Pauschale") == "C08.50C"
+                            assert analogie.get("analogie_code") == "C08.FA.0030"
+                            assert analogie.get("reserve_code") == "C00.YY.0010"

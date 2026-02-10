@@ -2,7 +2,7 @@
 
 Diese Kurzanleitung richtet sich an alle Nutzenden, die den Arzttarif-Assistenten ausprobieren möchten. Sie zeigt die typischen Arbeitsschritte, gibt Hinweise zur iterativen Nutzung und beschreibt die Grenzen des Systems.
 
-Hinweis Version 4.6
+Hinweis Version 4.9
 - CHF-Betrag wird nun direkt aus den hinterlegten Taxpunktwerten je Kanton und Sozialversicherungsbereich berechnet und im UI ausgewiesen.
 - Suche & Trefferqualität: Stage 1 kombiniert direkte LKN-Erkennung, gewichtete Schlüsselwortsuche und Embedding-Ranking. Alter/Geschlecht werden automatisch aus dem Freitext erkannt und fließen in die Kandidatenliste ein; Zuschläge für Kinder oder geschlechtsspezifische Leistungen werden dadurch zuverlässiger gefunden.
 - Ergebnisdetails: Die LLM-Details zeigen eine gerankte Kandidatenliste, Kontextzeilen enthalten Demografie-Hinweise zu TARDOC-Positionen.
@@ -34,6 +34,11 @@ Der Assistent verwendet ein konfigurierbares KI‑Modell (z. B. Gemini, OpenAI
 2. **Weitere Details hinzufügen:** Fügen Sie bei Bedarf Angaben zu Zeitdauer, Körperregion, Material oder Diagnosen hinzu. Wiederholen Sie die Analyse und vergleichen Sie die Resultate.
 3. **Synonyme ausprobieren:** Verschiedene Formulierungen oder ein geänderter Satzbau können andere LKNs oder Pauschalen hervorbringen.
 4. **Qualitätskontrolle nutzen:** Unter dem Link "Qualitätskontrolle" (bzw. `quality.html`) finden Sie vordefinierte Beispiele, mit denen Sie das System testen können.
+5. **Datenqualität prüfen (optional, lokal):** Für die kanonische Pauschalenlogik kann zusätzlich ein detaillierter Report erzeugt werden:
+   ```bash
+   python run_pauschalen_quality_control.py
+   ```
+   Der visuelle Report liegt danach unter `quality_reports/pauschalen_quality_report.html`.
 
 Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gewünschten Effekt haben.
 
@@ -52,6 +57,7 @@ Durch dieses iterative Vorgehen können Sie herausfinden, welche Angaben den gew
 * **Patientenkontext nutzen:** Alter oder Geschlecht können im Freitext oder in den Formularfeldern stehen – die App erkennt beides und priorisiert alters-/geschlechtsspezifische Zuschläge automatisch.
 * **CHOP- und ICD-Suche:** Über die Felder für CHOP-Code und ICD können Sie direkt nach Eingriffen bzw. Diagnosen suchen und diese in die Analyse einbeziehen.
 * **Ergebnisse nachvollziehen:** Der Assistent zeigt bei Pauschalen die geprüften Bedingungen an. Bei TARDOC-Einzelleistungen werden die relevanten Regeln mitgeliefert. Nutzen Sie diese Informationen, um die Entscheidung nachzuvollziehen.
+* **Analogiepositionen/Reservecodes:** Falls OAAT-Analogiepositionen gelten, wird die Analogieposition zusammen mit dem Reservecode ausgegeben. Ist zusätzlich eine Pauschale anwendbar (z.B. über die Analogie-LKN), wird diese ermittelt und die Analogie-/Reserve-Informationen als Dokumentation ergänzt. Der Reservecode dient nur der Dokumentation und hat keinen Leistungsbezug.
 * **Feedback-Funktion:** Falls Sie Verbesserungswünsche haben, können Sie über den Button "Feedback geben" eine kurze Nachricht senden.
 
 ## 6. Synonymverwaltung
@@ -83,4 +89,3 @@ Abschnitt `[RAG]` gesteuert.
 ---
 
 Mit dieser Anleitung sollten sowohl Einsteiger als auch versierte User den Arzttarif-Assistenten effizient nutzen können. Beachten Sie stets die genannten Grenzen und ziehen Sie bei Unsicherheiten die offiziellen Quellen zu Rate.
-

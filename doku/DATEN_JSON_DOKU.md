@@ -33,7 +33,7 @@ Dieses Dokument beschreibt alle JSON-Dateien unter `data/`, ihren Inhalt, die je
 - **Embeddings & FAISS-Index:**  
   Ein separates RAG-Build-Skript (`generate_embeddings.py` im Hauptprojekt) lädt `data/LKAAT_Leistungskatalog.json` und `data/synonyms.json`, erstellt Sentence-Transformer-Embeddings (`leistungskatalog_embeddings.json`), schreibt die Code-Reihenfolge (`vektor_index_codes.json`) und baut daraus `vektor_index.faiss`. Die drei Dateien müssen immer gemeinsam aktualisiert werden.
 - **Qualitätsreferenzen:**  
-  `baseline_results.json` sowie `beispiele.json` werden im Rahmen der manuellen und automatisierten Tests gepflegt. `run_quality_tests.py`, die Weboberfläche `quality.html` und API-Endpunkte `/api/test-example` sowie `/api/quality` konsumieren diese Artefakte.
+  `baseline_results.json` sowie `beispiele.json` werden im Rahmen der manuellen und automatisierten Tests gepflegt. `run_quality_tests.py`, die Weboberfläche `quality.html` und API-Endpunkte `/api/test-example` sowie `/api/quality` konsumieren diese Artefakte. Für harte Datenchecks der Pauschalenlogik erzeugt `run_pauschalen_quality_control.py` zusätzliche Reports unter `quality_reports/`.
 - **Verteilte Builds:**  
   Das Verzeichnis `dist/` enthält unabhängige Exporte (z. B. `dist/CHOP-Katalog.json`) für externe Nutzung; sie werden aus denselben Quellskripten gespeist.
 
@@ -41,26 +41,31 @@ Dieses Dokument beschreibt alle JSON-Dateien unter `data/`, ihren Inhalt, die je
 
 | Datei | Struktur | Einträge | Primärer Bezug | Hauptzweck |
 | --- | --- | --- | --- | --- |
-| `LKAAT_Leistungskatalog.json` | Liste von Objekten | 3 253 | `LKN` | Stammdaten aller Einzelleistungen inkl. mehrsprachiger Beschreibungen |
-| `TARDOC_Tarifpositionen.json` | Liste von Objekten | 1 388 | `LKN` | Vollständige TARDOC-Tarifpositionen mit Regeln, Zeiten, Dignitäten sowie Min/Max-Alter und Geschlechtsvorgaben für Demografie-Matching |
+| `LKAAT_Leistungskatalog.json` | Liste von Objekten | 3 251 | `LKN` | Stammdaten aller Einzelleistungen inkl. mehrsprachiger Beschreibungen |
+| `TARDOC_Tarifpositionen.json` | Liste von Objekten | 1 373 | `LKN` | Vollständige TARDOC-Tarifpositionen mit Regeln, Zeiten, Dignitäten sowie Min/Max-Alter und Geschlechtsvorgaben für Demografie-Matching |
 | `TARDOC_Interpretationen.json` | Wörterbuch -> Listen | 3 Listen | `KNR` / `Nr` | Allgemeine & kapitelspezifische Interpretationen |
 | `DIGNITAETEN.json` | Liste von Objekten | 157 | `DignitaetCode` | Qualitative Dignitäten (DE/FR/IT) |
 | `PAUSCHALEN_Pauschalen.json` | Liste von Objekten | 314 | `Pauschale` | Metadaten zu Pauschalen inkl. Prüflogik und Taxpunkten |
-| `PAUSCHALEN_Leistungspositionen.json` | Liste von Objekten | 11 323 | `ID` | Zuordnung von Einzelleistungen zu Pauschalen |
-| `PAUSCHALEN_Bedingungen.json` | Liste von Objekten | 2 538 | `BedingungsID` | Bedingungslogik pro Pauschale |
-| `PAUSCHALEN_Tabellen.json` | Liste von Objekten | 19 603 | `Tabelle` + `Code` | Nachschlagetabellen für ICD-, Medikament- und Leistungslisten |
-| `PAUSCHALEN_Tabellen_precise_map.json` | Dict: Tabelle → Liste Pauschalen | variabel | `Tabelle` | Vorberechneter Index nicht-breiter Tabellen auf Pauschalen |
-| `PAUSCHALEN_Tabellen_broad_map.json` | Dict: Tabelle → Liste Pauschalen | variabel | `Tabelle` | Vorberechneter Index breiter Tabellen (z. B. OR/ELT/NONELT) |
-| `Pauschale_cond_table_precise.json` | Dict: Pauschale → Tabellen | variabel | `Pauschale` | Split der Tabellen-Bedingungen (präzise) pro Pauschale |
-| `Pauschale_cond_table_broad.json` | Dict: Pauschale → Tabellen | variabel | `Pauschale` | Split der Tabellen-Bedingungen (breit) pro Pauschale |
-| `lkn_to_tables_precise.json` | Dict: LKN → Tabellen | variabel | `LKN` | LKN‑→Tabellen-Mapping (nicht-breit) |
-| `lkn_to_tables_broad.json` | Dict: LKN → Tabellen | variabel | `LKN` | LKN‑→Tabellen-Mapping (breit, z. B. OR/NONELT) |
-| `pauschalen_indices_meta.json` | Objekt | 1 | - | Meta (Broad-Liste, Counts, Generator-Version) für vorberechnete Pauschalen-Indizes |
+| `PAUSCHALEN_Leistungspositionen.json` | Liste von Objekten | 285 749 | `ID` | Zuordnung von Einzelleistungen zu Pauschalen |
+| `PAUSCHALEN_Logic.json` | Objekt mit `pauschalen[]` | 314 Pauschalen | `pauschale` | Kanonische, strukturierte Pauschalenlogik (Schema 2.0) |
+| `PAUSCHALEN_Bedingungen.json` | Liste von Objekten | 2 543 | `BedingungsID` | Legacy-Zeilenformat für Bedingungslogik pro Pauschale |
+| `PAUSCHALEN_Tabellen.json` | Liste von Objekten | 19 907 | `Tabelle` + `Code` | Nachschlagetabellen für ICD-, Medikament- und Leistungslisten |
+| `PAUSCHALEN_Tabellen_precise_map.json` | Dict: Tabelle → Liste Pauschalen | 495 Tabellen | `Tabelle` | Vorberechneter Index nicht-breiter Tabellen auf Pauschalen |
+| `PAUSCHALEN_Tabellen_broad_map.json` | Dict: Tabelle → Liste Pauschalen | 3 Tabellen | `Tabelle` | Vorberechneter Index breiter Tabellen (z. B. OR/ELT/NONELT) |
+| `Pauschale_cond_table_precise.json` | Dict: Pauschale → Tabellen | 311 Pauschalen | `Pauschale` | Split der Tabellen-Bedingungen (präzise) pro Pauschale |
+| `Pauschale_cond_table_broad.json` | Dict: Pauschale → Tabellen | 246 Pauschalen | `Pauschale` | Split der Tabellen-Bedingungen (breit) pro Pauschale |
+| `lkn_to_tables_precise.json` | Dict: LKN → Tabellen | 1 940 LKNs | `LKN` | LKN‑→Tabellen-Mapping (nicht-breit) |
+| `lkn_to_tables_broad.json` | Dict: LKN → Tabellen | 1 454 LKNs | `LKN` | LKN‑→Tabellen-Mapping (breit, z. B. OR/NONELT) |
+| `lkn_to_pauschalen_precise.json` | Dict: LKN → Pauschalen | 1 945 LKNs | `LKN` | Direkter Reverse-Index von LKN auf präzise Pauschalenkandidaten |
+| `lkn_to_pauschalen_broad.json` | Dict: LKN → Pauschalen | 1 454 LKNs | `LKN` | Direkter Reverse-Index von LKN auf breite Pauschalenkandidaten |
+| `pauschale_to_lkn_precise.json` | Dict: Pauschale → LKNs | 311 Pauschalen | `Pauschale` | Präzise LP-Zuordnungen pro Pauschale |
+| `pauschale_to_lkn_broad.json` | Dict: Pauschale → LKNs | 246 Pauschalen | `Pauschale` | Breite LP-Zuordnungen pro Pauschale |
+| `pauschalen_indices_meta.json` | Objekt | 4 Schlüssel | - | Meta (Broad-Liste, Counts, Generator-Version) für vorberechnete Pauschalen-Indizes |
 | `synonyms.json` | Wörterbuch -> Objekte | 3 201 | Freitext | Synonyme & Komponenten für LKN-Codes |
 | `leistungskatalog_embeddings.json` | Wörterbuch mit Listen | 2 Schlüssel | - | Vorberechnete Vektor-Embeddings für LKN-Kontext |
 | `vektor_index_codes.json` | Liste | 3 253 | Reihenindex | Reihenfolge der LKN-Codes im FAISS-Index |
-| `baseline_results.json` | Wörterbuch -> Objekte | 21 | Beispiel-ID | Referenzresultate für Qualitätstests |
-| `beispiele.json` | Liste von Objekten | 17 | - | Ausformulierte Prompts (DE/FR/IT) für Tests & Demo |
+| `baseline_results.json` | Wörterbuch -> Objekte | 22 | Beispiel-ID | Referenzresultate für Qualitätstests (inkl. Metafelder) |
+| `beispiele.json` | Liste von Objekten | 20 | - | Ausformulierte Prompts (DE/FR/IT) für Tests & Demo |
 | `CHOP_Katalog.json` | Liste von Objekten | 13 599 | `code` | CHOP-Prozedurenkatalog (DE) für Suchfunktion |
 
 ## Beziehungsübersicht (ERD)
@@ -136,6 +141,7 @@ erDiagram
 ```
 
 *Hinweis: Die Felder `CodesJson` und `EmbeddingsJson` stehen stellvertretend für die Listenstrukturen; im JSON liegen die Werte jeweils als Arrays vor.*
+*Hinweis 2: Für die Pauschalenlogik ist `PAUSCHALEN_Logic.json` die kanonische Quelle; `PAUSCHALEN_Bedingungen.json` bleibt als kompatibles Zeilenformat bestehen.*
 
 ## Detailbeschreibungen
 
@@ -179,37 +185,45 @@ erDiagram
 - **Format & Umfang:** 314 Pauschalen.
 - **Felder:** `Pauschale` (Code), `Pauschale_Text` (DE/FR/IT), `Prüflogik` (vertextlichte Bedingung), `Taxpunkte`, `Dignitaeten` (Pipe-getrennte qualitative Codes) sowie `Implantate_inbegriffen`.
 - **Verwendung:** Der Server lädt die Daten in `pauschalen_dict` und liefert sie für Vorschlag, Prüfung und Ergebnisdarstellung. Die Texte dienen sowohl Backend als auch Frontend.
-- **Beziehungen:** Verweist auf Bedingungen (`PAUSCHALEN_Bedingungen.json`), Tabellen (`PAUSCHALEN_Tabellen.json`), Leistungspositionen (`PAUSCHALEN_Leistungspositionen.json`) und Dignitäten.
+- **Beziehungen:** Verweist auf die kanonische Logik (`PAUSCHALEN_Logic.json`), das Legacy-Bedingungsformat (`PAUSCHALEN_Bedingungen.json`), Tabellen (`PAUSCHALEN_Tabellen.json`), Leistungspositionen (`PAUSCHALEN_Leistungspositionen.json`) und Dignitäten.
 
 ### PAUSCHALEN_Leistungspositionen.json
 
 - **Quelle & Erstellung:** Direktexport aus `tblPauschaleLeistungsposition` in `Pauschalen.accdb`. Die Zuordnungen werden fachlich in Access gepflegt und mit der begleitenden Excel-Datei `Excel_Data/tblPauschaleLeistungsposition.xlsx` abgestimmt; `7_Erstelle_JSON_Dateien.py` übernimmt die Daten unverändert.
-- **Format & Umfang:** 11 323 Zuordnungen.
+- **Format & Umfang:** 285 749 Zuordnungen.
 - **Felder:** `ID`, `Pauschale`, `Leistungsposition`, `Tabelle`.
-- **Verwendung:** Liefert dem Regelwerk, welche TARDOC-Codes (oder Listen) zu einer Pauschale gehören. Der Server nutzt diese Liste in `determine_applicable_pauschale` und für UI-Anreicherungen.
+- **Verwendung:** Liefert dem Regelwerk, welche TARDOC-Codes (oder Listen) zu einer Pauschale gehören. Im aktuellen Backend dient die Datei primär als Fallback-Quelle; bei vorhandenen precomputed LP-Indizes (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`) kann `server.py` das vollständige Laden dieser großen Datei überspringen.
 - **Beziehungen:** `Pauschale` verweist auf `PAUSCHALEN_Pauschalen.json`; `Leistungsposition` referenziert LKN-Codes aus `LKAAT_Leistungskatalog.json`. `Tabelle` verlinkt optional auf `PAUSCHALEN_Tabellen.json`.
+
+### PAUSCHALEN_Logic.json
+
+- **Quelle & Erstellung:** Export aus `7_Erstelle_JSON_Dateien.py` (über `pauschalen_logic.py`) als kanonische Logikstruktur pro Pauschale.
+- **Format & Umfang:** Top-Level-Objekt mit Metadaten (`logic_schema_version`, `generated_at`, `legacy_compatibility`) und `pauschalen[]` (314 Einträge).
+- **Wichtige Felder pro Pauschale:** `groups`, `conditions`, `connectors`, `logic_tree`, `variants`.
+- **Verwendung:** `server.py` nutzt diese Datei bevorzugt für die Pauschalenlogik und konvertiert sie beim Laden in das vom bestehenden Regelprüfer verwendete Zeilenformat.
+- **Beziehungen:** Referenziert Gruppenknoten intern (`group_id`, `parent_group_id`, `source_group_id`, `target_group_id`) und nutzt Tabellen-/Listenwerte, die in `PAUSCHALEN_Tabellen.json` aufgelöst werden.
 
 ### PAUSCHALEN_Bedingungen.json
 
 - **Quelle & Erstellung:** Ergebnis von `2_tblBedingungen_Fuellen.py`, das die textuelle Prüflogik aus `tblPauschalen` in strukturierte Zeilen übertraegt. Optional kann `4_tblPauschaleBedingungen_optimieren.py` redundante Einträge entfernen; exportiert wird standardmäßig die optimierte Sicht.
-- **Format & Umfang:** 2 538 Bedingungsknoten.
+- **Format & Umfang:** 2 543 Bedingungsknoten (Legacy-Zeilenformat).
 - **Wichtige Felder:** `Pauschale`, `Gruppe`/`GruppenOperator` (logische Klammerung), `Bedingungstyp` (z. B. `LEISTUNGSPOSITIONEN IN TABELLE`, `MEDIKAMENTE IN LISTE`, `ANZAHL`, `SEITIGKEIT`), `Operator`, `Werte`, `Ebene`, `ConnectorTarget` (Verknüpfung im Baum), optionale JSON-Felder für komplexe Varianten.
-- **Verwendung:** Wird vom Regelprüfer eingelesen (`regelpruefer_pauschale.py`) und in strukturierte Logik überführt. Der Server erzeugt daraus HTML-Beschreibungen, validiert Patientendaten (Alter, Geschlecht) und checkt Leistungslisten.
+- **Verwendung:** Fallback-Datenquelle, wenn `PAUSCHALEN_Logic.json` fehlt oder ungültig ist. Der Regelprüfer verarbeitet weiterhin dieses Zeilenformat intern.
 - **Beziehungen:** Verweist auf Pauschalen (`Pauschale`). Tabellennamen in `Werte` oder `Spezialbedingung` verknüpfen zu `PAUSCHALEN_Tabellen.json`. Leistungspositionen und Medikamente referenzieren LKN- bzw. pharmazeutische Codes, die ebenfalls in den Tabellen gepflegt sind.
 
 ### PAUSCHALEN_Tabellen.json
 
 - **Quelle & Erstellung:** Exporte aus `tblTabellen` in `Pauschalen.accdb`. Rohdaten stammen aus dem Entscheidungsbaum (`system_ambP_*.json`, importiert durch Skript 1); `3_FindeFehlendetblTabellenWerte.py` ergänzt Bezeichnungen per API, ICD-Excel und SQL-Join gegen `tblLeistungskatalog`. Die Excel-Datei `Excel_Data/tblTabellen.xlsx` dient als Review-Werkzeug.
-- **Format & Umfang:** 19 603 Zeilen.
+- **Format & Umfang:** 19 907 Zeilen.
 - **Felder:** `Tabelle` (Name), `Tabelle_Typ` (`service_catalog`, `icd`, `402`), `Code`, `Code_Text` (DE/FR/IT).
 - **Verwendung:** Nachschlagebasis für Bedingungen (`Leistungspositionen in Tabelle`, `Hauptdiagnose in Tabelle`, Medikamentenlisten). Der Server gruppiert die Daten nach `Tabelle` für schnelle Zugriffe und baut ein Medikamenten-Lookup.
 - **Beziehungen:** Tabellennamen werden von Pauschalbedingungen und Pauschal-Leistungspositionen referenziert. ICD-Codes werden für Diagnosen verwendet.
 
 ### Vorberechnete Pauschalen-Indizes (optional)
 
-- **Dateien:** `PAUSCHALEN_Tabellen_precise_map.json`, `PAUSCHALEN_Tabellen_broad_map.json`, `Pauschale_cond_table_precise.json`, `Pauschale_cond_table_broad.json`, `lkn_to_tables_precise.json`, `lkn_to_tables_broad.json`, `pauschalen_indices_meta.json`.
-- **Inhalt:** Splits der Tabellen-Bedingungen in präzise vs. breite Tabellen (z. B. OR/ELT/NONELT/ANAST), vorgerechnete Reverse-Indizes Tabelle→Pauschale sowie LKN→Tabellen, plus Meta (Broad-Liste, Zählungen).
-- **Verwendung:** `server.py` lädt diese Dateien beim Start, um die Kandidatensuche für Pauschalen ohne Laufzeit-Splitting zu betreiben und Broad-Tabellen erst als Fallback zu prüfen. Fehlen die Dateien, werden die Splits zur Laufzeit aus den Basistabellen erzeugt.
+- **Dateien:** `PAUSCHALEN_Tabellen_precise_map.json`, `PAUSCHALEN_Tabellen_broad_map.json`, `Pauschale_cond_table_precise.json`, `Pauschale_cond_table_broad.json`, `lkn_to_tables_precise.json`, `lkn_to_tables_broad.json`, `lkn_to_pauschalen_precise.json`, `lkn_to_pauschalen_broad.json`, `pauschale_to_lkn_precise.json`, `pauschale_to_lkn_broad.json`, `pauschalen_indices_meta.json`.
+- **Inhalt:** Splits der Tabellen-Bedingungen in präzise vs. breite Tabellen (z. B. OR/ELT/NONELT/ANAST), vorgerechnete Reverse-Indizes Tabelle→Pauschale, LKN→Tabellen sowie LKN↔Pauschale, plus Meta (Broad-Liste, Zählungen).
+- **Verwendung:** `server.py` lädt diese Dateien beim Start, um die Kandidatensuche für Pauschalen ohne Laufzeit-Splitting zu betreiben und Broad-Tabellen erst als Fallback zu prüfen. Sind die LP-Maps vorhanden (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`), wird zusätzlich der teure Vollimport von `PAUSCHALEN_Leistungspositionen.json` übersprungen. Fehlen die Dateien, werden die Splits zur Laufzeit aus den Basistabellen erzeugt.
 
 ### synonyms.json
 
@@ -237,8 +251,8 @@ erDiagram
 ### baseline_results.json
 
 - **Quelle & Erstellung:** Manuell gepflegte Referenzfälle, gepflegt zusammen mit `beispiele.json`. Neue Modellstände werden mit `run_quality_tests.py` gegen die Baseline geprüft; nach akzeptierter Änderung werden die `baseline`-Werte aktualisiert.
-- **Format & Umfang:** Wörterbuch mit 21 Testfällen (`"1"`, `"2"` ...).
-- **Felder:** `query` (DE/FR/IT Prompttexte), `baseline` (Referenzergebnis mit `pauschale` und/oder `einzelleistungen`), `current` (Platz für aktuelle Testergebnisse).
+- **Format & Umfang:** Wörterbuch mit 22 Schlüsseln (20 Testfälle plus Metafelder wie `_groups`).
+- **Felder:** `query` (DE/FR/IT Prompttexte), `baseline` (Referenzergebnis mit `pauschale`, `einzelleistungen` und optional `analogie`), `current` (Platz für aktuelle Testergebnisse).
 - **Verwendung:** Backend-Endpunkte `/api/test-example` und `/api/quality` lesen die Referenzwerte (`server.py`). Das Frontend `quality.html` vergleicht Live-Ergebnisse mit den Baselines; Skripte `run_quality_tests.py` und `llm_vergleich.py` nutzen dieselbe Quelle.
 - **Beziehungen:** IDs korrespondieren zu Einträgen in `beispiele.json`.
 - **Pflege:** Nach Modell- oder Regeländerungen Testlauf starten und Ergebnisse prüfen/aktualisieren.
@@ -246,7 +260,7 @@ erDiagram
 ### beispiele.json
 
 - **Quelle & Erstellung:** Wird gemeinsam mit `baseline_results.json` gepflegt. Ausgangsbasis sind echte Support-Fälle und interne Tests, die in DE/FR/IT ausformuliert werden.
-- **Format & Umfang:** Liste mit 17 Beispielen.
+- **Format & Umfang:** Liste mit 20 Beispielen.
 - **Felder:** `label` (Kurzname), `value_*` und `extendedValue_*` für DE/FR/IT (Kurz- bzw. Langtext).
 - **Verwendung:** Dient UI-Dropdowns und Qualitätstests (`quality.js`). Die Texte speisen Prompts und verweisen indirekt auf die Baseline-Erwartungen.
 - **Beziehungen:** Index in der Liste entspricht den IDs in `baseline_results.json`.
@@ -268,6 +282,7 @@ erDiagram
 - **Synonymänderungen:** Nach manueller Anpassung die Embeddings aktualisieren, damit der RAG-Index konsistent bleibt.
 - **Pauschalen-Logik:** Änderungen an `PAUSCHALEN_*` sollten per `regelpruefer_pauschale.py`-Tests oder geeigneten Endpunkten validiert werden.
 - **Qualitätstests:** `baseline_results.json` und `beispiele.json` immer gemeinsam pflegen. Nach Backend-Änderungen `python run_quality_tests.py` und Web-Testseite (`quality.html`) verwenden.
+- **Harte Datenchecks Pauschalen:** Nach Änderungen an `PAUSCHALEN_Logic.json`, `PAUSCHALEN_Bedingungen.json` oder `PAUSCHALEN_Tabellen.json` zusätzlich `python run_pauschalen_quality_control.py` ausführen und `quality_reports/pauschalen_quality_report.html` prüfen.
 - **FAISS/RAG:** `leistungskatalog_embeddings.json`, `vektor_index_codes.json` und `vektor_index.faiss` bilden eine Einheit. Einen Neuaufbau nur komplett durchführen.
 - **Access-Importe:** Bei strukturellen Änderungen der offiziellen Quellen zuerst Skript 1 (Import), dann Skript 2 (Bedingungen) und bei Bedarf Skript 3/4 laufen lassen, bevor Skript 7 neue JSONs exportiert.
 

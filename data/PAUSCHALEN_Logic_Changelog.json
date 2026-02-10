@@ -1,0 +1,2269 @@
+{
+    "logic_schema_version": "2.0.0",
+    "generated_at": "2026-02-10T09:35:14.088103Z",
+    "changes": [
+        {
+            "pauschale": "C00.10A",
+            "bedingungs_id": 1,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10A",
+            "bedingungs_id": 16,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10A",
+            "bedingungs_id": 18,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10A",
+            "bedingungs_id": 19,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10B",
+            "bedingungs_id": 21,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10B",
+            "bedingungs_id": 34,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10B",
+            "bedingungs_id": 35,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10B",
+            "bedingungs_id": 36,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10C",
+            "bedingungs_id": 37,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10C",
+            "bedingungs_id": 51,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10C",
+            "bedingungs_id": 52,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10C",
+            "bedingungs_id": 53,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10D",
+            "bedingungs_id": 55,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10D",
+            "bedingungs_id": 72,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10D",
+            "bedingungs_id": 73,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.10D",
+            "bedingungs_id": 74,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10D",
+            "bedingungs_id": 75,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10E",
+            "bedingungs_id": 77,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10E",
+            "bedingungs_id": 91,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10E",
+            "bedingungs_id": 92,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10E",
+            "bedingungs_id": 93,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10F",
+            "bedingungs_id": 95,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10F",
+            "bedingungs_id": 109,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10F",
+            "bedingungs_id": 110,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10F",
+            "bedingungs_id": 111,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 113,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 128,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 129,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 130,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 131,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.10G",
+            "bedingungs_id": 132,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=5, ConnectorTarget=6, chosen=5"
+        },
+        {
+            "pauschale": "C00.20A",
+            "bedingungs_id": 133,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.20A",
+            "bedingungs_id": 149,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.20A",
+            "bedingungs_id": 150,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.20A",
+            "bedingungs_id": 151,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.20A",
+            "bedingungs_id": 152,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 154,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 173,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 174,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 175,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 6: Spezialbedingung=7, ConnectorTarget=6, chosen=7"
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 176,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.20B",
+            "bedingungs_id": 177,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 179,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 201,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 202,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 206,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 207,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.20C",
+            "bedingungs_id": 208,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=5, ConnectorTarget=6, chosen=5"
+        },
+        {
+            "pauschale": "C00.20D",
+            "bedingungs_id": 209,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.20D",
+            "bedingungs_id": 225,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.20D",
+            "bedingungs_id": 226,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.20D",
+            "bedingungs_id": 227,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.20D",
+            "bedingungs_id": 228,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 230,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 245,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 246,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 247,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 248,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.20E",
+            "bedingungs_id": 249,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=5, ConnectorTarget=6, chosen=5"
+        },
+        {
+            "pauschale": "C00.30A",
+            "bedingungs_id": 250,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.30A",
+            "bedingungs_id": 266,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.30A",
+            "bedingungs_id": 267,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.30A",
+            "bedingungs_id": 268,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.30A",
+            "bedingungs_id": 269,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.30B",
+            "bedingungs_id": 271,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.30B",
+            "bedingungs_id": 286,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.30B",
+            "bedingungs_id": 287,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.30B",
+            "bedingungs_id": 288,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.30C",
+            "bedingungs_id": 290,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.30C",
+            "bedingungs_id": 304,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.30C",
+            "bedingungs_id": 305,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.30C",
+            "bedingungs_id": 306,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.30D",
+            "bedingungs_id": 308,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.30D",
+            "bedingungs_id": 324,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.30D",
+            "bedingungs_id": 325,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.30D",
+            "bedingungs_id": 326,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.30D",
+            "bedingungs_id": 327,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.30E",
+            "bedingungs_id": 329,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.30E",
+            "bedingungs_id": 342,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.30E",
+            "bedingungs_id": 343,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.30E",
+            "bedingungs_id": 344,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.40A",
+            "bedingungs_id": 345,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.40A",
+            "bedingungs_id": 362,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.40A",
+            "bedingungs_id": 363,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.40A",
+            "bedingungs_id": 364,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.40A",
+            "bedingungs_id": 365,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 367,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 398,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 405,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 395,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=4, chosen=3"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 404,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=4, chosen=3"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 397,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=1, chosen=5"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 396,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 401,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=6, chosen=9"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 407,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=6, chosen=9"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 382,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 400,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 7: Spezialbedingung=8, ConnectorTarget=5, chosen=8"
+        },
+        {
+            "pauschale": "C00.40B",
+            "bedingungs_id": 406,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 7: Spezialbedingung=8, ConnectorTarget=5, chosen=8"
+        },
+        {
+            "pauschale": "C00.40C",
+            "bedingungs_id": 408,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.40C",
+            "bedingungs_id": 422,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.40C",
+            "bedingungs_id": 423,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.40C",
+            "bedingungs_id": 424,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.40D",
+            "bedingungs_id": 426,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.40D",
+            "bedingungs_id": 439,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.40D",
+            "bedingungs_id": 440,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.40D",
+            "bedingungs_id": 441,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.50A",
+            "bedingungs_id": 442,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.50A",
+            "bedingungs_id": 459,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.50A",
+            "bedingungs_id": 460,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.50A",
+            "bedingungs_id": 461,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.50A",
+            "bedingungs_id": 462,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.50B",
+            "bedingungs_id": 464,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.50B",
+            "bedingungs_id": 480,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.50B",
+            "bedingungs_id": 481,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.50B",
+            "bedingungs_id": 482,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.50B",
+            "bedingungs_id": 483,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 485,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 500,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 501,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=5, chosen=6"
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 502,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 503,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.50C",
+            "bedingungs_id": 504,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=5, ConnectorTarget=6, chosen=5"
+        },
+        {
+            "pauschale": "C00.61A",
+            "bedingungs_id": 505,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.61A",
+            "bedingungs_id": 518,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.61A",
+            "bedingungs_id": 519,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.61A",
+            "bedingungs_id": 520,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.61B",
+            "bedingungs_id": 521,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.61B",
+            "bedingungs_id": 535,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.61B",
+            "bedingungs_id": 536,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.61B",
+            "bedingungs_id": 537,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.61C",
+            "bedingungs_id": 539,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.61C",
+            "bedingungs_id": 552,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.61C",
+            "bedingungs_id": 553,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.61C",
+            "bedingungs_id": 554,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.61D",
+            "bedingungs_id": 555,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.61D",
+            "bedingungs_id": 568,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.61D",
+            "bedingungs_id": 569,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.61D",
+            "bedingungs_id": 570,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.63Z",
+            "bedingungs_id": 571,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.63Z",
+            "bedingungs_id": 584,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.63Z",
+            "bedingungs_id": 585,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.63Z",
+            "bedingungs_id": 586,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.80A",
+            "bedingungs_id": 587,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.80A",
+            "bedingungs_id": 601,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.80A",
+            "bedingungs_id": 602,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.80A",
+            "bedingungs_id": 603,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.80B",
+            "bedingungs_id": 604,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.80B",
+            "bedingungs_id": 618,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.80B",
+            "bedingungs_id": 619,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.80B",
+            "bedingungs_id": 620,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.80C",
+            "bedingungs_id": 621,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.80C",
+            "bedingungs_id": 634,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.80C",
+            "bedingungs_id": 635,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.80C",
+            "bedingungs_id": 636,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.80D",
+            "bedingungs_id": 637,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.80D",
+            "bedingungs_id": 650,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.80D",
+            "bedingungs_id": 651,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.80D",
+            "bedingungs_id": 652,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.82A",
+            "bedingungs_id": 653,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.82A",
+            "bedingungs_id": 667,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.82A",
+            "bedingungs_id": 668,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.82A",
+            "bedingungs_id": 669,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C00.82B",
+            "bedingungs_id": 670,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C00.82B",
+            "bedingungs_id": 683,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C00.82B",
+            "bedingungs_id": 684,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=1, ConnectorTarget=4, chosen=1"
+        },
+        {
+            "pauschale": "C00.82B",
+            "bedingungs_id": 685,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C01.05B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C01.05B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C01.05B",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C01.15C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C01.50A",
+            "bedingungs_id": 735,
+            "change": "condition_type_normalized",
+            "details": "Condition type normalized to TARIFPOSITIONEN IN TABELLE based on tariff table type (M09AX07)."
+        },
+        {
+            "pauschale": "C02.02A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.02C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.02D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.05A",
+            "bedingungs_id": 784,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C02.05A",
+            "bedingungs_id": 788,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C02.05A",
+            "bedingungs_id": 787,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C02.05A",
+            "bedingungs_id": 786,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=2, chosen=5"
+        },
+        {
+            "pauschale": "C02.05A",
+            "bedingungs_id": 790,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=2, chosen=5"
+        },
+        {
+            "pauschale": "C02.05A",
+            "group_id": "6",
+            "change": "parent_group_normalized",
+            "details": "Parent group 9 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.05B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.20A",
+            "bedingungs_id": 819,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C02.20A",
+            "bedingungs_id": 822,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C02.30A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C02.30B",
+            "bedingungs_id": 861,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C02.30B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.05Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.20Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.26D",
+            "bedingungs_id": 960,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C03.26D",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.31C",
+            "bedingungs_id": 990,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C03.31C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.32Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35A",
+            "bedingungs_id": 1009,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C03.35A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35C",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C03.35D",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C04.60A",
+            "bedingungs_id": 1103,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C04.60A",
+            "bedingungs_id": 1105,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C05.04A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C05.10A",
+            "bedingungs_id": 1136,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.10A",
+            "bedingungs_id": 1138,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C05.11B",
+            "bedingungs_id": 1156,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.20A",
+            "bedingungs_id": 1188,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C05.20A",
+            "bedingungs_id": 1189,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.20B",
+            "bedingungs_id": 1196,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.20B",
+            "bedingungs_id": 1198,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C05.25B",
+            "bedingungs_id": 1211,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C05.25B",
+            "bedingungs_id": 1214,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.25C",
+            "bedingungs_id": 1222,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.25C",
+            "bedingungs_id": 1224,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=4, chosen=2"
+        },
+        {
+            "pauschale": "C05.25C",
+            "bedingungs_id": 1225,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C05.25D",
+            "bedingungs_id": 1232,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C05.30A",
+            "bedingungs_id": 1263,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C05.30C",
+            "bedingungs_id": 1289,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C05.30C",
+            "bedingungs_id": 1288,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C05.30C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.00A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.00A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.00B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.00B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.05B",
+            "bedingungs_id": 1345,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C06.05B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C06.10A",
+            "bedingungs_id": 1362,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C06.10A",
+            "bedingungs_id": 1364,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=2, chosen=5"
+        },
+        {
+            "pauschale": "C06.10A",
+            "bedingungs_id": 1366,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=2, chosen=5"
+        },
+        {
+            "pauschale": "C07.60A",
+            "bedingungs_id": 1397,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C07.60A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60B",
+            "bedingungs_id": 1403,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1421,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1427,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1420,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1424,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 6: Spezialbedingung=7, ConnectorTarget=4, chosen=7"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1423,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1428,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1426,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=5, chosen=9"
+        },
+        {
+            "pauschale": "C07.60C",
+            "bedingungs_id": 1429,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=5, chosen=9"
+        },
+        {
+            "pauschale": "C07.60C",
+            "group_id": "7",
+            "change": "parent_group_normalized",
+            "details": "Parent group 11 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60C",
+            "group_id": "8",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60C",
+            "group_id": "9",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1447,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1455,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1446,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1450,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 6: Spezialbedingung=7, ConnectorTarget=4, chosen=7"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1449,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1456,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=3, chosen=6"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1453,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 9: Spezialbedingung=10, ConnectorTarget=6, chosen=10"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1452,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=5, chosen=9"
+        },
+        {
+            "pauschale": "C07.60D",
+            "bedingungs_id": 1457,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 8: Spezialbedingung=9, ConnectorTarget=5, chosen=9"
+        },
+        {
+            "pauschale": "C07.60D",
+            "group_id": "8",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60D",
+            "group_id": "9",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60D",
+            "group_id": "10",
+            "change": "parent_group_normalized",
+            "details": "Parent group 16 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60D",
+            "group_id": "11",
+            "change": "parent_group_normalized",
+            "details": "Parent group 16 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C07.60E",
+            "bedingungs_id": 1466,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C07.60E",
+            "bedingungs_id": 1471,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=5, ConnectorTarget=4, chosen=5"
+        },
+        {
+            "pauschale": "C07.60F",
+            "bedingungs_id": 1479,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C07.60F",
+            "bedingungs_id": 1483,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C07.60G",
+            "bedingungs_id": 1491,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C07.60G",
+            "bedingungs_id": 1495,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C07.60H",
+            "bedingungs_id": 1502,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C07.60H",
+            "bedingungs_id": 1506,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=4, ConnectorTarget=3, chosen=4"
+        },
+        {
+            "pauschale": "C08.02Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.05B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.08Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.08Z",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.10B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.20A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.20C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21C",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 9 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 11 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "5",
+            "change": "parent_group_normalized",
+            "details": "Parent group 15 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "6",
+            "change": "parent_group_normalized",
+            "details": "Parent group 17 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.21D",
+            "group_id": "7",
+            "change": "parent_group_normalized",
+            "details": "Parent group 19 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.22A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.22A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.22B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.25B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.30C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.30E",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.30F",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.30F",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.33B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.33D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.35A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.35C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.35E",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.40A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.40B",
+            "bedingungs_id": 1847,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C08.40C",
+            "bedingungs_id": 1866,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=1, chosen=4"
+        },
+        {
+            "pauschale": "C08.40C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.40C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.40G",
+            "bedingungs_id": 1894,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C08.40G",
+            "bedingungs_id": 1896,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C08.50A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.50A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.50B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.50E",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.80A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C08.80B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 12 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 14 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "5",
+            "change": "parent_group_normalized",
+            "details": "Parent group 16 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "6",
+            "change": "parent_group_normalized",
+            "details": "Parent group 18 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "7",
+            "change": "parent_group_normalized",
+            "details": "Parent group 20 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12B",
+            "group_id": "8",
+            "change": "parent_group_normalized",
+            "details": "Parent group 22 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12C",
+            "bedingungs_id": 2022,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=1, chosen=5"
+        },
+        {
+            "pauschale": "C09.12C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12C",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12D",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 9 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12D",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 11 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12D",
+            "group_id": "5",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12E",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12F",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.12F",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C09.49Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.10B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.49Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.49Z",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.50B",
+            "bedingungs_id": 2166,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C11.51B",
+            "bedingungs_id": 2195,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=2, chosen=4"
+        },
+        {
+            "pauschale": "C11.51B",
+            "bedingungs_id": 2194,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C11.51B",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.51D",
+            "bedingungs_id": 2211,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=1, chosen=4"
+        },
+        {
+            "pauschale": "C11.51D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.51D",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.55Z",
+            "bedingungs_id": 2225,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=2, chosen=5"
+        },
+        {
+            "pauschale": "C11.55Z",
+            "bedingungs_id": 2224,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=1, chosen=4"
+        },
+        {
+            "pauschale": "C11.55Z",
+            "group_id": "5",
+            "change": "parent_group_normalized",
+            "details": "Parent group 9 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.65A",
+            "bedingungs_id": 2247,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 4: Spezialbedingung=5, ConnectorTarget=3, chosen=5"
+        },
+        {
+            "pauschale": "C11.65A",
+            "bedingungs_id": 2246,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=1, chosen=4"
+        },
+        {
+            "pauschale": "C11.65A",
+            "bedingungs_id": 2248,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 5: Spezialbedingung=6, ConnectorTarget=2, chosen=6"
+        },
+        {
+            "pauschale": "C11.65A",
+            "group_id": "7",
+            "change": "parent_group_normalized",
+            "details": "Parent group 11 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.65B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C11.65C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.01Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.03A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.03A",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 9 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.03A",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 11 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.03A",
+            "group_id": "5",
+            "change": "parent_group_normalized",
+            "details": "Parent group 13 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.09Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.09Z",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.09Z",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.10B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.19Z",
+            "bedingungs_id": 2344,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=1, chosen=3"
+        },
+        {
+            "pauschale": "C12.19Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.50A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.50B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.65Z",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C12.70B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C13.10C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C13.10C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 8 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C13.10C",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 10 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C13.20C",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 5 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C13.20C",
+            "group_id": "3",
+            "change": "parent_group_normalized",
+            "details": "Parent group 7 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C14.10D",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C14.20A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C14.20B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C14.40B",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C22.00A",
+            "group_id": "2",
+            "change": "parent_group_normalized",
+            "details": "Parent group 4 does not exist and was normalized to 0."
+        },
+        {
+            "pauschale": "C23.90B",
+            "bedingungs_id": 2523,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 2: Spezialbedingung=3, ConnectorTarget=2, chosen=3"
+        },
+        {
+            "pauschale": "C23.90B",
+            "bedingungs_id": 2525,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 0: Spezialbedingung=2, ConnectorTarget=3, chosen=2"
+        },
+        {
+            "pauschale": "C99.80Z",
+            "bedingungs_id": 2543,
+            "change": "connector_target_resolved",
+            "details": "Connector target mismatch resolved for source 3: Spezialbedingung=4, ConnectorTarget=1, chosen=4"
+        },
+        {
+            "pauschale": "C99.80Z",
+            "group_id": "4",
+            "change": "parent_group_normalized",
+            "details": "Parent group 6 does not exist and was normalized to 0."
+        }
+    ],
+    "build_issues": []
+}

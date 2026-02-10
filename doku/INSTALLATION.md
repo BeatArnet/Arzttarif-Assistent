@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt die Einrichtung, das Deployment und den Betrieb des "Arzttarif-Assistenten", sowohl für die lokale Entwicklung als auch für den produktiven Einsatz auf einer Plattform wie Render.com.
 
-Aktuelle Version: 4.6 (08.12.2025) – siehe `config.ini` oder Endpoint `/api/version`.
+Aktuelle Version: 4.9 (10.02.2026) – siehe `config.ini` oder Endpoint `/api/version`.
 Ausführliche Änderungen: siehe `CHANGELOG.md`.
 
 **Inhaltsverzeichnis:**
@@ -150,6 +150,18 @@ Nach dem Erstellen des Services deployt Render automatisch. Die öffentliche URL
 *   **Datenaktualisierung:**
     *   Die JSON-Dateien im `./data`-Verzeichnis werden direkt in Git verwaltet.
     *   Um die Daten zu aktualisieren, committe und pushe einfach die geänderten JSON-Dateien. Render.com wird automatisch ein neues Deployment mit den neuen Daten starten.
+    *   Für Pauschalenlogik gilt im Backend: `PAUSCHALEN_Logic.json` ist die bevorzugte Quelle; bei Fehler/Fehlen fällt der Server auf `PAUSCHALEN_Bedingungen.json` zurück.
+    *   Für schnelle Startzeiten sollten die voraggregierten Pauschalen-Indizes (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`, `lkn_to_tables_*`, `PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`) mitdeployt werden; dann kann der Server den Vollimport von `PAUSCHALEN_Leistungspositionen.json` vermeiden.
+*   **Qualitätskontrolle Pauschalenlogik:**
+    *   Nach Änderungen an `PAUSCHALEN_Logic.json`, `PAUSCHALEN_Bedingungen.json` oder `PAUSCHALEN_Tabellen.json` ausführen:
+      ```bash
+      python run_pauschalen_quality_control.py
+      ```
+    *   Artefakte: `quality_reports/pauschalen_quality_report.json` und `quality_reports/pauschalen_quality_report.html`.
+    *   Optional nur Report ohne Fehlercode:
+      ```bash
+      python run_pauschalen_quality_control.py --no-strict
+      ```
 *   **Log-Überwachung:** Überprüfe die Logs auf der Render.com-Plattform, um Fehler zu diagnostizieren.
 *   **Abhängigkeiten:** Halte `requirements.txt` aktuell.
 
