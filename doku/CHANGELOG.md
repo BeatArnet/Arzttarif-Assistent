@@ -4,7 +4,17 @@ Alle nennenswerten Änderungen dieses Projekts.
 
 ## Versionsübersicht
 
-### V4.6 (2025-12-08, aktuell)
+### V4.9 (2026-02-10, aktuell)
+- Pauschalen-Datenpfad im Backend erweitert: `server.py` lädt bevorzugt die kanonische Datei `data/PAUSCHALEN_Logic.json` und konvertiert sie intern in das bestehende Zeilenformat; bei Fehler/Fehlen erfolgt Fallback auf `data/PAUSCHALEN_Bedingungen.json`.
+- Performance-Pfad für Pauschalenkandidaten optimiert: `server.py` nutzt bei vorhandenen precomputed LP-Indizes (`lkn_to_pauschalen_*`, `pauschale_to_lkn_*`) den schnellen Aufbau von `pauschale_lp_index`/`pauschale_lp_index_by_lkn` und kann den Vollimport von `data/PAUSCHALEN_Leistungspositionen.json` überspringen.
+- Neue harte Qualitätskontrolle für Pauschalenlogik:
+  - `quality_control/pauschalen_quality_control.py` (Check-Engine)
+  - `run_pauschalen_quality_control.py` (Runner mit Exit-Code für CI)
+  - `tests/test_pauschalen_quality_control.py` (pytest-Suite)
+  - Report-Artefakte unter `quality_reports/` (JSON + HTML).
+- Dokumentation konsolidiert und um den neuen Qualitätsworkflow ergänzt (`README.md`, `doku/*.md`, `scripts/README.md`).
+
+### V4.6 (2025-12-08)
 - Betrag wird jetzt automatisch aus den hinterlegten Taxpunktwerten pro Kanton und Sozialversicherungsbereich berechnet und in der Oberfläche angezeigt.
 
 ### V4.5 (2025-12-10)

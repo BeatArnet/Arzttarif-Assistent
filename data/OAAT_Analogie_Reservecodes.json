@@ -1,0 +1,17 @@
+[
+  {
+    "id": "OAAT-2026-C08.FA.0030",
+    "beschreibung": "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit aeusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna",
+    "beschreibung_fr": "Traitement d'une fracture et/ou luxation, réduction fermée avec attelle externe, poignet/os du carpe/radius distal/ulna distale",
+    "beschreibung_it": "Trattamento di frattura e/o lussazione, riduzione chiusa con steccatura esterna, polso/ossa del carpo/radio distale/ulna distale",
+    "beschreibung_varianten": [
+      "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit äusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna"
+    ],
+    "analogie_code": "C08.FA.0030",
+    "reserve_code": "C00.YY.0010",
+    "gueltig_ab": "2026-01-01",
+    "gueltig_bis": "2026-12-31",
+    "quelle": "OAAT Bulletin (Analogie- und Reservecodes, Stand Monatsende)",
+    "hinweis": "Reservecode dient ausschliesslich der Dokumentation und hat keinen Leistungsbezug."
+  }
+]

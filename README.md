@@ -19,7 +19,7 @@ Dies ist ein Prototyp einer Webanwendung zur Unterstützung bei der Abrechnung m
 *   **Tarifbasis:** OAAT‑OTMA AG, Tarifversion 1.1c vom 08.08.2025.
 
 ## Versionsübersicht
-Aktuelle Version: 4.6 (08.12.2025) – Betrag wird aus den hinterlegten Taxpunktwerten pro Kanton/Sozialversicherungsbereich berechnet und angezeigt.  
+Aktuelle Version: 4.9 (10.02.2026) – Erweiterte Pauschalenlogik mit konsolidierter Qualitätskontrolle und aktualisierter Datenbasis.  
 Die vollständige Versionshistorie befindet sich in `doku/CHANGELOG.md`.
 
 ## Mehrsprachigkeit
@@ -48,8 +48,9 @@ Alle Beschriftungen und Meldungen der Benutzeroberfläche liegen zentral in der 
 
 3.  **Daten (`./data` Verzeichnis):**
     *   Die JSON-Datendateien (`LKAAT_Leistungskatalog.json`, `PAUSCHALEN_*.json`, `TARDOC_*.json` etc.) dienen als lokale Wissensbasis.
+    *   Für Pauschalenlogik gilt: Der Server nutzt bevorzugt die kanonische Datei `PAUSCHALEN_Logic.json` und konvertiert sie intern in das Legacy-Zeilenformat. Falls die Datei fehlt oder ungültig ist, wird auf `PAUSCHALEN_Bedingungen.json` zurückgefallen.
     *   **Wichtiger Hinweis:** Die JSON-Dateien werden direkt und ohne Umwege in diesem GitHub-Repository gespeichert und versioniert. Für grosse Dateien wird Git LFS verwendet.
-    *   Optional vorberechnete Pauschalen-Splits (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `pauschalen_indices_meta.json`) beschleunigen die Kandidatensuche; der Server lädt sie automatisch, sonst werden die Splits zur Laufzeit erzeugt.
+    *   Optional vorberechnete Pauschalen-Indizes (`PAUSCHALEN_Tabellen_*_map.json`, `Pauschale_cond_table_*`, `lkn_to_tables_*`, `lkn_to_pauschalen_*`, `pauschale_to_lkn_*`, `pauschalen_indices_meta.json`) beschleunigen die Kandidatensuche; der Server lädt sie automatisch, baut Fallback-Indizes zur Laufzeit und kann bei vorhandenen LP-Maps das Laden von `PAUSCHALEN_Leistungspositionen.json` überspringen.
 
 ## Technologie-Stack
 
@@ -119,9 +120,26 @@ Im Render-Dashboard kann man die Server-Logs einsehen. Rufe den entsprechenden S
 
 ## Qualitätstests
 
-Die Datei `data/beispiele.json` enthält Testfälle. Mit `run_quality_tests.py` können diese gegen die erwarteten Ergebnisse in `data/baseline_results.json` geprüft werden:
+Die Datei `data/beispiele.json` enthält Testfälle. Mit `run_quality_tests.py` können diese gegen die erwarteten Ergebnisse in `data/baseline_results.json` geprüft werden (inkl. Pauschale, Einzelleistungen und optional Analogie/Reservecode):
 ```bash
 python run_quality_tests.py
+```
+
+Für die harte Daten-Qualitätskontrolle der kanonischen Pauschalenlogik steht zusätzlich ein separater Runner bereit:
+```bash
+python run_pauschalen_quality_control.py
+```
+Er erzeugt zwei Artefakte:
+- `quality_reports/pauschalen_quality_report.json` (maschinell auswertbar)
+- `quality_reports/pauschalen_quality_report.html` (grafische Übersicht im Browser)
+
+Bei Fehlern liefert der Runner Exit-Code `1` (CI-tauglich). Für reinen Report-Lauf ohne Abbruch:
+```bash
+python run_pauschalen_quality_control.py --no-strict
+```
+Zusätzlich kann die Qualitätskontrolle als Test-Suite ausgeführt werden:
+```bash
+python -m pytest tests/test_pauschalen_quality_control.py -q
 ```
 
 ## Feedback
@@ -269,6 +287,7 @@ Die Python-Tests liegen im Verzeichnis `tests/`. Empfohlene Ausführung:
 
 Beispiele
 - Einzelne Datei: `python -m pytest tests/test_server.py -q`
+- Qualitätskontrolle Pauschalen: `python -m pytest tests/test_pauschalen_quality_control.py -q`
 - Einzelner Test: `python -m pytest tests/test_server.py::test_version_endpoint -q`
 - Filter: `python -m pytest -k "synonyms and not connectivity" -q`
 
@@ -286,5 +305,3 @@ beat.arnet@arkons.ch
 P: +41 31 911 32 36
 M: +41 79 321 89 36
 [www.arkons.ch](https://www.arkons.ch)
-
-

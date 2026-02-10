@@ -169,5 +169,14 @@
     "extendedValue_FR": "Opérations sur trois muscles oculaires droits",
     "value_IT": "Interventi a tre muscoli retti dell'occhio",
     "extendedValue_IT": "Interventi a tre muscoli retti dell'occhio"
+  },
+  {
+    "label": "Analogie: Fraktur/Luxation Handgelenk, geschlossene Reposition",
+    "value_DE": "Fraktur/Luxation Handgelenk, geschlossene Reposition mit äusserer Schienung",
+    "extendedValue_DE": "Versorgung einer Fraktur u/o Luxation, geschlossene Reposition mit äusserer Schienung, Handgelenk/Handwurzelknochen/distaler Radius/distale Ulna",
+    "value_FR": "Fracture/luxation poignet, réduction fermée avec attelle externe",
+    "extendedValue_FR": "Traitement d'une fracture et/ou luxation, réduction fermée avec attelle externe, poignet/os du carpe/radius distal/ulna distale",
+    "value_IT": "Frattura/lussazione polso, riduzione chiusa con steccatura esterna",
+    "extendedValue_IT": "Trattamento di frattura e/o lussazione, riduzione chiusa con steccatura esterna, polso/ossa del carpo/radio distale/ulna distale"
   }
 ]

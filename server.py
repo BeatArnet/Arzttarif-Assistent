@@ -935,6 +935,7 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
     try:
         groups = structured.get('groups') or []
         inter_ops = structured.get('inter_group_ops') or []
+        group_logic_terms = structured.get('group_logic_terms') or []
 
         def _normalize_identifier(value: Any) -> Any:
             """Normalisiert Gruppen-IDs auf int oder bereinigte Strings."""
@@ -964,6 +965,41 @@ def render_condition_groups_html(structured: dict[str, Any], lang: str = 'de') -
             group['normalized_id'] = gid_norm
             if gid_norm is not None:
                 group_index_map[gid_norm] = idx
+
+        # Prefer Prüflogik-derived group operators when available.
+        if group_logic_terms and len(groups) > 1:
+            term_sets: list[set[Any]] = []
+            for term in group_logic_terms:
+                term_groups: set[Any] = set()
+                for entry in term.get('groups') or []:
+                    gid = _normalize_identifier(entry.get('group_id'))
+                    if gid is not None:
+                        term_groups.add(gid)
+                if term_groups:
+                    term_sets.append(term_groups)
+            if term_sets:
+                derived_ops: list[str] = []
+                for idx in range(len(groups) - 1):
+                    gid_left = groups[idx].get('normalized_id')
+                    gid_right = groups[idx + 1].get('normalized_id')
+                    op_val: Optional[str] = None
+                    if gid_left is not None and gid_right is not None:
+                        has_pair = any(
+                            gid_left in term and gid_right in term for term in term_sets
+                        )
+                        if has_pair:
+                            op_val = "UND"
+                        elif any(
+                            gid_left in term or gid_right in term for term in term_sets
+                        ):
+                            op_val = "ODER"
+                    if not op_val:
+                        if idx < len(inter_ops):
+                            fallback = str(inter_ops[idx] or "").upper()
+                            if fallback in ("UND", "ODER"):
+                                op_val = fallback
+                    derived_ops.append(op_val or "")
+                inter_ops = derived_ops
 
         parent_link: dict[Any, tuple[Any, str]] = {}
         for parent_gid, children in normalized_children.items():
@@ -1425,6 +1461,43 @@ except Exception:
 # Configure synonym support
 SYNONYMS_ENABLED = config.getint('SYNONYMS', 'enabled', fallback=0) == 1
 
+# Configure OAAT Analogie-/Reservecode matching
+ANALOGIE_ENABLED = config.getint('ANALOGIE', 'enabled', fallback=0) == 1
+ANALOGIE_DATA_FILENAME = config.get('ANALOGIE', 'data_filename', fallback='OAAT_Analogie_Reservecodes.json')
+try:
+    ANALOGIE_MIN_SCORE = float(config.get('ANALOGIE', 'min_score', fallback='4.0'))
+except Exception:
+    ANALOGIE_MIN_SCORE = 4.0
+try:
+    ANALOGIE_MIN_MATCH_TOKENS = int(config.get('ANALOGIE', 'min_match_tokens', fallback='3'))
+except Exception:
+    ANALOGIE_MIN_MATCH_TOKENS = 3
+try:
+    ANALOGIE_MIN_MATCH_RATIO = float(config.get('ANALOGIE', 'min_match_ratio', fallback='0.2'))
+except Exception:
+    ANALOGIE_MIN_MATCH_RATIO = 0.2
+try:
+    ANALOGIE_MIN_MATCH_RATIO_DISTINCTIVE = float(
+        config.get('ANALOGIE', 'min_match_ratio_distinctive', fallback=str(ANALOGIE_MIN_MATCH_RATIO))
+    )
+except Exception:
+    ANALOGIE_MIN_MATCH_RATIO_DISTINCTIVE = ANALOGIE_MIN_MATCH_RATIO
+try:
+    ANALOGIE_MIN_SCORE_RATIO = float(config.get('ANALOGIE', 'min_score_ratio', fallback='1.2'))
+except Exception:
+    ANALOGIE_MIN_SCORE_RATIO = 1.2
+try:
+    ANALOGIE_DISTINCTIVE_TOKENS = int(config.get('ANALOGIE', 'distinctive_tokens', fallback='6'))
+except Exception:
+    ANALOGIE_DISTINCTIVE_TOKENS = 6
+try:
+    ANALOGIE_MIN_DISTINCTIVE_OVERLAP = int(config.get('ANALOGIE', 'min_distinctive_overlap', fallback='1'))
+except Exception:
+    ANALOGIE_MIN_DISTINCTIVE_OVERLAP = 1
+ANALOGIE_STRICT_VALIDITY = config.getint('ANALOGIE', 'strict_validity', fallback=1) == 1
+# Analogie-/Reservecode-Datenpfad
+ANALOGIE_DATA_PATH = DATA_DIR / ANALOGIE_DATA_FILENAME
+
 # Determine path to the synonym catalogue. Prefer explicit catalog_path for
 # backwards compatibility, otherwise build the path from the configured
 # filename inside DATA_DIR.
@@ -1486,7 +1559,12 @@ PAUSCHALEN_COND_TABLE_PRECISE_PATH = DATA_DIR / "Pauschale_cond_table_precise.js
 PAUSCHALEN_COND_TABLE_BROAD_PATH = DATA_DIR / "Pauschale_cond_table_broad.json"
 LKN_TO_TABLES_PRECISE_PATH = DATA_DIR / "lkn_to_tables_precise.json"
 LKN_TO_TABLES_BROAD_PATH = DATA_DIR / "lkn_to_tables_broad.json"
+LKN_TO_PAUSCHALEN_PRECISE_PATH = DATA_DIR / "lkn_to_pauschalen_precise.json"
+LKN_TO_PAUSCHALEN_BROAD_PATH = DATA_DIR / "lkn_to_pauschalen_broad.json"
+PAUSCHALE_TO_LKN_PRECISE_PATH = DATA_DIR / "pauschale_to_lkn_precise.json"
+PAUSCHALE_TO_LKN_BROAD_PATH = DATA_DIR / "pauschale_to_lkn_broad.json"
 PAUSCHALEN_INDICES_META_PATH = DATA_DIR / "pauschalen_indices_meta.json"
+PAUSCHALEN_LOGIC_PATH = DATA_DIR / "PAUSCHALEN_Logic.json"
 PAUSCHALE_BED_PATH = DATA_DIR / "PAUSCHALEN_Bedingungen.json"
 TABELLEN_PATH = DATA_DIR / "PAUSCHALEN_Tabellen.json"
 BASELINE_RESULTS_PATH = DATA_DIR / "baseline_results.json"
@@ -1826,6 +1904,10 @@ precomputed_pauschale_cond_table_precise: Dict[str, List[str]] = {}
 precomputed_pauschale_cond_table_broad: Dict[str, List[str]] = {}
 precomputed_lkn_tables_precise: Dict[str, List[str]] = {}
 precomputed_lkn_tables_broad: Dict[str, List[str]] = {}
+precomputed_lkn_pauschalen_precise: Dict[str, List[str]] = {}
+precomputed_lkn_pauschalen_broad: Dict[str, List[str]] = {}
+precomputed_pauschale_lkn_precise: Dict[str, List[str]] = {}
+precomputed_pauschale_lkn_broad: Dict[str, List[str]] = {}
 pauschale_lp_data: list[dict] = []
 pauschale_lp_index: DefaultDict[str, Set[str]] = defaultdict(set)  # Pauschale -> LKNs (LP-Zuordnung)
 pauschale_lp_index_by_lkn: DefaultDict[str, Set[str]] = defaultdict(set)  # LKN -> Pauschalen (abgeleitet)
@@ -1858,6 +1940,11 @@ catalog_description_lookup: Set[str] = set()
 prepared_structures: Dict[str, Any] = {}
 pauschalen_search_tokens_by_code: Dict[str, Set[str]] = {}
 pauschalen_search_blob_by_code: Dict[str, str] = {}
+analogie_entries: list[dict] = []
+analogie_entries_by_id: dict[str, dict] = {}
+analogie_index: dict[str, dict] = {}
+analogie_token_doc_freq: dict[str, int] = {}
+analogie_tokens_by_id: dict[str, Set[str]] = {}
 
 def create_app() -> FlaskType:
     """
@@ -1938,6 +2025,7 @@ def create_app() -> FlaskType:
     return app
 
 MEDICATION_KEY_CLEAN_RE = re.compile(r'[^0-9A-Z]+')
+PAUSCHALE_SEARCH_TOKEN_RE = re.compile(r"\w+")
 
 
 def _normalize_medication_key(value: str) -> str:
@@ -2304,6 +2392,8 @@ def _reset_data_containers() -> None:
     precomputed_table_map_precise.clear(); precomputed_table_map_broad.clear()
     precomputed_pauschale_cond_table_precise.clear(); precomputed_pauschale_cond_table_broad.clear()
     precomputed_lkn_tables_precise.clear(); precomputed_lkn_tables_broad.clear()
+    precomputed_lkn_pauschalen_precise.clear(); precomputed_lkn_pauschalen_broad.clear()
+    precomputed_pauschale_lkn_precise.clear(); precomputed_pauschale_lkn_broad.clear()
     broad_table_names.clear(); broad_table_names.update(BROAD_TABLES_DEFAULT)
     pauschale_lp_index.clear()
     pauschale_lp_index_by_lkn.clear()
@@ -2316,6 +2406,11 @@ def _reset_data_containers() -> None:
     token_doc_freq.clear()
     chop_data.clear()
     tpw_data.clear()
+    analogie_entries.clear()
+    analogie_entries_by_id.clear()
+    analogie_index.clear()
+    analogie_token_doc_freq.clear()
+    analogie_tokens_by_id.clear()
 
 
 def _build_pauschalen_search_cache() -> None:
@@ -2336,7 +2431,7 @@ def _build_pauschalen_search_cache() -> None:
         blob_lower = searchable_blob.lower()
         pauschalen_search_blob_by_code[code] = blob_lower
         pauschalen_search_tokens_by_code[code] = {
-            t for t in re.findall(r"\\w+", blob_lower) if t
+            t for t in PAUSCHALE_SEARCH_TOKEN_RE.findall(blob_lower) if t
         }
 
 
@@ -2377,6 +2472,35 @@ def _load_precomputed_pauschalen_indices() -> None:
     precomputed_pauschale_cond_table_broad.update(_load_json_map(PAUSCHALEN_COND_TABLE_BROAD_PATH, "Pauschale->Tabellen (breit)"))
     precomputed_lkn_tables_precise.update(_load_json_map(LKN_TO_TABLES_PRECISE_PATH, "LKN->Tabellen (präzise)"))
     precomputed_lkn_tables_broad.update(_load_json_map(LKN_TO_TABLES_BROAD_PATH, "LKN->Tabellen (breit)"))
+    precomputed_lkn_pauschalen_precise.update(_load_json_map(LKN_TO_PAUSCHALEN_PRECISE_PATH, "LKN->Pauschalen (präzise)"))
+    precomputed_lkn_pauschalen_broad.update(_load_json_map(LKN_TO_PAUSCHALEN_BROAD_PATH, "LKN->Pauschalen (breit)"))
+    precomputed_pauschale_lkn_precise.update(_load_json_map(PAUSCHALE_TO_LKN_PRECISE_PATH, "Pauschale->LKN (präzise)"))
+    precomputed_pauschale_lkn_broad.update(_load_json_map(PAUSCHALE_TO_LKN_BROAD_PATH, "Pauschale->LKN (breit)"))
+
+
+def _has_precomputed_lp_index_maps() -> bool:
+    """Return True if LP<->Pauschale precomputed maps are available."""
+    return bool(
+        precomputed_lkn_pauschalen_precise
+        or precomputed_lkn_pauschalen_broad
+        or precomputed_pauschale_lkn_precise
+        or precomputed_pauschale_lkn_broad
+    )
+
+
+def _rebuild_combined_lkn_to_tables_index() -> None:
+    """Build legacy combined LKN->Tabelle map from precise+broad splits."""
+    lkn_to_tables_index.clear()
+    for split_map in (lkn_to_tables_index_precise, lkn_to_tables_index_broad):
+        for lkn, tables in split_map.items():
+            norm_lkn = str(lkn).strip().upper()
+            if not norm_lkn:
+                continue
+            target = lkn_to_tables_index[norm_lkn]
+            for table_name in tables:
+                norm_table = str(table_name).strip().lower()
+                if norm_table and norm_table not in target:
+                    target.append(norm_table)
 
 
 def _populate_lkn_table_splits() -> None:
@@ -2400,6 +2524,7 @@ def _populate_lkn_table_splits() -> None:
             len(lkn_to_tables_index_precise),
             len(lkn_to_tables_index_broad),
         )
+        _rebuild_combined_lkn_to_tables_index()
         return
 
     for lkn, tables in lkn_to_tables_index.items():
@@ -2418,6 +2543,7 @@ def _populate_lkn_table_splits() -> None:
             len(lkn_to_tables_index_precise),
             len(lkn_to_tables_index_broad),
         )
+        _rebuild_combined_lkn_to_tables_index()
 
 
 def _populate_pauschale_table_splits() -> None:
@@ -2477,20 +2603,267 @@ def _populate_pauschale_table_splits() -> None:
             len(pauschale_cond_table_index_broad),
         )
 
+
+def _normalize_logic_operator(value: Any, default: str = "") -> str:
+    """Map canonical AND/OR tokens to legacy UND/ODER labels."""
+    if value is None:
+        return default
+    token = str(value).strip().upper()
+    if token in {"AND", "UND"}:
+        return "UND"
+    if token in {"OR", "ODER"}:
+        return "ODER"
+    return token if token else default
+
+
+def _coerce_group_identifier(value: Any) -> Any:
+    """Normalize group identifiers to int when possible, otherwise trimmed str."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    if re.fullmatch(r"-?\d+", text):
+        try:
+            return int(text)
+        except ValueError:
+            return text
+    return text
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    """Best-effort integer conversion for sort/index fields."""
+    if isinstance(value, int):
+        return value
+    if value is None:
+        return default
+    try:
+        text = str(value).strip()
+        return int(text) if text else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _serialize_condition_values(values: Any) -> str:
+    """Convert canonical condition values to the legacy comma-separated format."""
+    if values is None:
+        return ""
+    if isinstance(values, list):
+        tokens = [str(item).strip() for item in values if str(item).strip()]
+        return ", ".join(tokens)
+    if isinstance(values, tuple):
+        tokens = [str(item).strip() for item in values if str(item).strip()]
+        return ", ".join(tokens)
+    if isinstance(values, set):
+        tokens = sorted(str(item).strip() for item in values if str(item).strip())
+        return ", ".join(tokens)
+    if isinstance(values, dict):
+        return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+    return str(values).strip()
+
+
+def _convert_canonical_logic_to_legacy_conditions(payload: Any) -> List[Dict[str, Any]]:
+    """Transform ``PAUSCHALEN_Logic.json`` payload to legacy Bedingungszeilen."""
+    if not isinstance(payload, dict):
+        raise ValueError("PAUSCHALEN_Logic.json must be a JSON object.")
+    pauschalen_items = payload.get("pauschalen")
+    if not isinstance(pauschalen_items, list):
+        raise ValueError("PAUSCHALEN_Logic.json does not contain a 'pauschalen' list.")
+
+    converted_rows: List[Dict[str, Any]] = []
+    for pauschale_item in pauschalen_items:
+        if not isinstance(pauschale_item, dict):
+            continue
+        pauschale_code = str(pauschale_item.get("pauschale") or "").strip()
+        if not pauschale_code:
+            continue
+
+        groups_raw = pauschale_item.get("groups")
+        groups = groups_raw if isinstance(groups_raw, list) else []
+        group_meta: Dict[Any, Dict[str, Any]] = {}
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            gid = _coerce_group_identifier(group.get("group_id"))
+            if gid is None:
+                continue
+            group_meta[gid] = {
+                "ParentGroup": _coerce_group_identifier(group.get("parent_group_id")),
+                "GruppenOperator": _normalize_logic_operator(group.get("group_operator"), default=""),
+                "GroupNegated": bool(group.get("negated")),
+                "GruppeSortIndex": _coerce_int(group.get("group_sort_index"), default=0),
+            }
+
+        conditions_raw = pauschale_item.get("conditions")
+        conditions = conditions_raw if isinstance(conditions_raw, list) else []
+        sorted_conditions = sorted(
+            (cond for cond in conditions if isinstance(cond, dict)),
+            key=lambda cond: (
+                _coerce_int(group_meta.get(_coerce_group_identifier(cond.get("group_id")), {}).get("GruppeSortIndex"), default=0),
+                _coerce_int(cond.get("condition_sort_index"), default=0),
+                _coerce_int(cond.get("condition_id"), default=0),
+            ),
+        )
+
+        used_bedingungs_ids: Set[int] = set()
+        max_seen_bedingungs_id = 0
+        for condition in sorted_conditions:
+            group_id = _coerce_group_identifier(condition.get("group_id"))
+            meta = group_meta.get(group_id, {})
+            condition_id = _coerce_int(condition.get("condition_id"), default=0)
+            if condition_id <= 0:
+                condition_id = max_seen_bedingungs_id + 1
+            max_seen_bedingungs_id = max(max_seen_bedingungs_id, condition_id)
+            used_bedingungs_ids.add(condition_id)
+
+            row: Dict[str, Any] = {
+                "Pauschale": pauschale_code,
+                "BedingungsID": condition_id,
+                "BedingungSortIndex": _coerce_int(condition.get("condition_sort_index"), default=condition_id),
+                "Bedingungstyp": str(condition.get("condition_type") or "").strip(),
+                "Werte": _serialize_condition_values(condition.get("values")),
+                "Vergleichsoperator": str(condition.get("comparison_operator") or "").strip(),
+                "Gruppe": group_id,
+                "GruppeSortIndex": _coerce_int(meta.get("GruppeSortIndex"), default=0),
+                "ParentGroup": meta.get("ParentGroup"),
+                "GruppenOperator": meta.get("GruppenOperator", ""),
+                "GroupNegated": bool(meta.get("GroupNegated")),
+                "Ebene": _coerce_int(condition.get("level"), default=1),
+                "Operator": _normalize_logic_operator(condition.get("operator"), default="UND"),
+            }
+            filters = condition.get("filters")
+            if filters not in (None, "", [], {}):
+                row["FiltersJSON"] = json.dumps(filters, ensure_ascii=False, separators=(",", ":"))
+            converted_rows.append(row)
+
+        connectors_raw = pauschale_item.get("connectors")
+        connectors = connectors_raw if isinstance(connectors_raw, list) else []
+        sorted_connectors = sorted(
+            (connector for connector in connectors if isinstance(connector, dict)),
+            key=lambda connector: (
+                _coerce_int(connector.get("connector_sort_index"), default=0),
+                str(connector.get("source_group_id") or ""),
+                str(connector.get("target_group_id") or ""),
+            ),
+        )
+        next_synthetic_id = max_seen_bedingungs_id + 1
+        for index, connector in enumerate(sorted_connectors, start=1):
+            source_group_id = _coerce_group_identifier(connector.get("source_group_id"))
+            target_group_id = _coerce_group_identifier(connector.get("target_group_id"))
+            if source_group_id is None or target_group_id is None:
+                continue
+            connector_sort_index = _coerce_int(connector.get("connector_sort_index"), default=index)
+            connector_bed_id = connector_sort_index
+            if connector_bed_id <= 0 or connector_bed_id in used_bedingungs_ids:
+                while next_synthetic_id in used_bedingungs_ids:
+                    next_synthetic_id += 1
+                connector_bed_id = next_synthetic_id
+                next_synthetic_id += 1
+            used_bedingungs_ids.add(connector_bed_id)
+
+            source_meta = group_meta.get(source_group_id, {})
+            op_label = _normalize_logic_operator(connector.get("operator"), default="ODER")
+            converted_rows.append(
+                {
+                    "Pauschale": pauschale_code,
+                    "BedingungsID": connector_bed_id,
+                    "BedingungSortIndex": connector_sort_index,
+                    "Bedingungstyp": "AST VERBINDUNGSOPERATOR",
+                    "Gruppe": source_group_id,
+                    "GruppeSortIndex": _coerce_int(source_meta.get("GruppeSortIndex"), default=0),
+                    "ParentGroup": source_meta.get("ParentGroup"),
+                    "GruppenOperator": source_meta.get("GruppenOperator", ""),
+                    "GroupNegated": bool(source_meta.get("GroupNegated")),
+                    "Spezialbedingung": target_group_id,
+                    "ConnectorTarget": target_group_id,
+                    "Operator": op_label,
+                    "Werte": op_label,
+                    "Ebene": _coerce_int(connector.get("level"), default=1),
+                }
+            )
+
+    converted_rows.sort(
+        key=lambda row: (
+            str(row.get("Pauschale") or ""),
+            _coerce_int(row.get("GruppeSortIndex"), default=0),
+            _coerce_int(row.get("BedingungSortIndex"), default=0),
+            _coerce_int(row.get("BedingungsID"), default=0),
+        )
+    )
+    return converted_rows
+
+
+def _load_pauschale_bedingungen_data() -> List[Dict[str, Any]]:
+    """Load condition rows, preferring canonical logic export with legacy fallback."""
+    if PAUSCHALEN_LOGIC_PATH.is_file():
+        try:
+            with PAUSCHALEN_LOGIC_PATH.open("r", encoding="utf-8") as f:
+                canonical_payload = json.load(f)
+            converted = _convert_canonical_logic_to_legacy_conditions(canonical_payload)
+            logger.info(
+                "  ✓ PauschaleBedingungen aus %s geladen (kanonisch konvertiert, %s Zeilen).",
+                PAUSCHALEN_LOGIC_PATH,
+                len(converted),
+            )
+            return converted
+        except Exception as exc:
+            logger.error(
+                "  FEHLER: Kanonische Pauschalen-Logik konnte nicht geladen/konvertiert werden (%s). Fallback auf Legacy-Datei.",
+                exc,
+            )
+            traceback.print_exc()
+
+    if not PAUSCHALE_BED_PATH.is_file():
+        raise FileNotFoundError(f"Datei nicht gefunden: {PAUSCHALE_BED_PATH}")
+    with PAUSCHALE_BED_PATH.open("r", encoding="utf-8") as f:
+        legacy_payload = json.load(f)
+    if not isinstance(legacy_payload, list):
+        raise ValueError(f"Legacy-PauschaleBedingungen hat kein Listenformat: {PAUSCHALE_BED_PATH}")
+    logger.info(
+        "  ✓ PauschaleBedingungen aus %s geladen (Legacy, %s Zeilen).",
+        PAUSCHALE_BED_PATH,
+        len(legacy_payload),
+    )
+    return legacy_payload
+
+
 def _load_catalogs() -> bool:
     """Lädt Kern-JSONs (Kataloge, Tabellen etc.) und baut Grund-Lookups."""
     all_ok = True
     _load_precomputed_pauschalen_indices()
+    has_precomputed_lp_indices = _has_precomputed_lp_index_maps()
+    has_precomputed_lkn_table_splits = bool(
+        precomputed_lkn_tables_precise or precomputed_lkn_tables_broad
+    )
+    try:
+        logger.info(
+            "  Versuche PauschaleBedingungen aus %s zu laden (Fallback: %s)...",
+            PAUSCHALEN_LOGIC_PATH,
+            PAUSCHALE_BED_PATH,
+        )
+        pauschale_bedingungen_data.clear()
+        pauschale_bedingungen_data.extend(_load_pauschale_bedingungen_data())
+    except Exception as exc:
+        logger.error("  FEHLER beim Laden von PauschaleBedingungen: %s", exc)
+        all_ok = False
+
     files_to_load = {
         "Leistungskatalog": (LEISTUNGSKATALOG_PATH, leistungskatalog_data, 'LKN', leistungskatalog_dict),
-        "PauschaleLP": (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None),
         "Pauschalen": (PAUSCHALEN_PATH, pauschalen_data, 'Pauschale', pauschalen_dict),
-        "PauschaleBedingungen": (PAUSCHALE_BED_PATH, pauschale_bedingungen_data, None, None),
         "TARDOC_TARIF": (TARDOC_TARIF_PATH, [], 'LKN', tardoc_tarif_dict),
         "TARDOC_INTERP": (TARDOC_INTERP_PATH, [], 'LKN', tardoc_interp_dict),
         "Tabellen": (TABELLEN_PATH, tabellen_data, None, None),
         "CHOP": (CHOP_PATH, chop_data, None, None)
     }
+    if has_precomputed_lp_indices:
+        logger.info(
+            "  ✓ Vorberechnete LP-Indizes vorhanden; Laden von %s wird übersprungen.",
+            PAUSCHALE_LP_PATH.name,
+        )
+    else:
+        files_to_load["PauschaleLP"] = (PAUSCHALE_LP_PATH, pauschale_lp_data, None, None)
 
     for name, (path, target_list_ref, key_field, target_dict_ref) in files_to_load.items():
         try:
@@ -2536,7 +2909,11 @@ def _load_catalogs() -> bool:
                                 tabellen_dict_by_table[normalized_key].append(item)
                             
                             code_val = item.get("Code")
-                            if code_val and table_name:
+                            if (
+                                not has_precomputed_lkn_table_splits
+                                and code_val
+                                and table_name
+                            ):
                                 code_key = str(code_val).strip().upper()
                                 table_key = str(table_name).strip().lower()
                                 if code_key and table_key and table_key not in lkn_to_tables_index[code_key]:
@@ -2553,7 +2930,7 @@ def _load_catalogs() -> bool:
                     _populate_lkn_table_splits()
             else:
                 logger.error("  FEHLER: %s-Datei nicht gefunden: %s", name, path)
-                if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "PauschaleBedingungen", "Tabellen"]:
+                if name in ["Leistungskatalog", "Pauschalen", "TARDOC_TARIF", "TARDOC_INTERP", "Tabellen"]:
                     all_ok = False
         except (json.JSONDecodeError, IOError, Exception) as e:
             logger.error("  FEHLER beim Laden/Verarbeiten von %s (%s): %s", name, path, e)
@@ -2612,6 +2989,280 @@ def _load_optional_datasets() -> None:
     except Exception as e:
         logger.warning("  WARNUNG: Taxpunktwerte konnten nicht geladen werden: %s", e)
         tpw_data = {}
+
+
+def _normalize_analogie_entry(entry: Dict[str, Any], idx: int) -> Optional[Dict[str, Any]]:
+    if not isinstance(entry, dict):
+        return None
+    analogie_code = str(entry.get("analogie_code") or entry.get("analogie") or "").strip().upper()
+    reserve_code = str(entry.get("reserve_code") or entry.get("reserve") or "").strip().upper()
+    beschreibung = entry.get("beschreibung") or entry.get("beschreibung_de") or entry.get("text")
+    if not analogie_code or not reserve_code or not isinstance(beschreibung, str) or not beschreibung.strip():
+        return None
+    entry_id = str(entry.get("id") or f"{analogie_code}|{reserve_code}|{idx}")
+    normalized = dict(entry)
+    normalized["id"] = entry_id
+    normalized["analogie_code"] = analogie_code
+    normalized["reserve_code"] = reserve_code
+    if "beschreibung" not in normalized and beschreibung:
+        normalized["beschreibung"] = beschreibung
+    return normalized
+
+
+def _collect_analogie_texts(entry: Dict[str, Any]) -> List[str]:
+    texts: List[str] = []
+    for key in ("beschreibung", "beschreibung_de", "beschreibung_fr", "beschreibung_it"):
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            texts.append(value.strip())
+    variants = entry.get("beschreibung_varianten")
+    if isinstance(variants, list):
+        for value in variants:
+            if isinstance(value, str) and value.strip():
+                texts.append(value.strip())
+    # Deduplicate while preserving order
+    seen: Set[str] = set()
+    deduped: List[str] = []
+    for value in texts:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
+
+
+def _load_analogie_dataset() -> None:
+    """Lädt OAAT-Analogie-/Reservecodes und baut einen kleinen Suchindex."""
+    analogie_entries.clear()
+    analogie_entries_by_id.clear()
+    analogie_index.clear()
+    analogie_token_doc_freq.clear()
+    analogie_tokens_by_id.clear()
+
+    if not ANALOGIE_ENABLED:
+        return
+    if not ANALOGIE_DATA_PATH.is_file():
+        logger.info("  Analogie-Daten nicht gefunden (%s).", ANALOGIE_DATA_PATH)
+        return
+    try:
+        with open(ANALOGIE_DATA_PATH, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if not isinstance(raw, list):
+            logger.warning("  WARNUNG: Analogie-Daten sind keine Liste (%s).", ANALOGIE_DATA_PATH)
+            return
+        for idx, entry in enumerate(raw):
+            normalized = _normalize_analogie_entry(entry, idx)
+            if not normalized:
+                continue
+            entry_id = str(normalized.get("id"))
+            texts = _collect_analogie_texts(normalized)
+            if not texts:
+                continue
+            analogie_entries.append(normalized)
+            analogie_entries_by_id[entry_id] = normalized
+            combined_text = " ".join(texts)
+            analogie_index[entry_id] = {
+                "Beschreibung": combined_text,
+                "Beschreibung_f": normalized.get("beschreibung_fr"),
+                "Beschreibung_i": normalized.get("beschreibung_it"),
+            }
+            token_set: Set[str] = set()
+            for text in texts:
+                token_set.update(extract_keywords(text))
+            analogie_tokens_by_id[entry_id] = token_set
+        if analogie_index:
+            compute_token_doc_freq(analogie_index, analogie_token_doc_freq)
+        logger.info("  Analogie-/Reservecode-Daten geladen (%s Einträge).", len(analogie_entries))
+    except Exception as e:
+        logger.warning("  WARNUNG: Analogie-Daten konnten nicht geladen werden: %s", e)
+
+
+def _parse_iso_date(value: Any) -> Optional[dt.date]:
+    if isinstance(value, dt.date):
+        return value
+    if value is None:
+        return None
+    try:
+        return dt.datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _is_analogie_entry_current(entry: Dict[str, Any], reference_date: dt.date) -> bool:
+    if not ANALOGIE_STRICT_VALIDITY:
+        return True
+    start_date = _parse_iso_date(entry.get("gueltig_ab"))
+    end_date = _parse_iso_date(entry.get("gueltig_bis"))
+    if start_date and reference_date < start_date:
+        return False
+    if end_date and reference_date > end_date:
+        return False
+    return True
+
+
+def _find_analogie_match(user_input: str, lang: str) -> Optional[Dict[str, Any]]:
+    if not ANALOGIE_ENABLED or not analogie_index:
+        return None
+    if not isinstance(user_input, str) or not user_input.strip():
+        return None
+    tokens = extract_keywords(user_input)
+    if not tokens:
+        return None
+    catalog_size = len(leistungskatalog_dict) or 1
+
+    def _weighted_ratio(entry_tokens: Set[str], overlap_tokens: Set[str]) -> float:
+        """IDF-gewichtete Tokenabdeckung für robustere Analogie-Matches."""
+        if not entry_tokens:
+            return 0.0
+        # Fallback: wenn keine Token-DFs vorhanden sind, einfache Abdeckung nutzen.
+        if not token_doc_freq or not leistungskatalog_dict:
+            return len(overlap_tokens) / len(entry_tokens)
+        total_weight = 0.0
+        overlap_weight = 0.0
+        for tok in entry_tokens:
+            df = token_doc_freq.get(tok, catalog_size)
+            if not df:
+                continue
+            weight = 1.0 / df
+            total_weight += weight
+            if tok in overlap_tokens:
+                overlap_weight += weight
+        if total_weight <= 0:
+            return len(overlap_tokens) / len(entry_tokens)
+        return overlap_weight / total_weight
+    best_lkaat_code: Optional[str] = None
+    best_lkaat_match_ratio = 0.0
+    try:
+        lkaat_ranked = cast(
+            List[Tuple[float, str]],
+            rank_leistungskatalog_entries(
+                tokens,
+                leistungskatalog_dict,
+                token_doc_freq,
+                limit=1,
+                return_scores=True,
+                include_medical_interpretation=False,
+            ),
+        )
+        if lkaat_ranked:
+            best_lkaat_code = str(lkaat_ranked[0][1]).strip().upper()
+            if best_lkaat_code:
+                details = leistungskatalog_dict.get(best_lkaat_code, {})
+                desc_texts = []
+                for base in ("Beschreibung", "Beschreibung_f", "Beschreibung_i"):
+                    val = details.get(base)
+                    if val:
+                        desc_texts.append(str(val))
+                lkaat_tokens = extract_keywords(" ".join(desc_texts))
+                if lkaat_tokens:
+                    lkaat_overlap = tokens.intersection(lkaat_tokens)
+                    best_lkaat_match_ratio = _weighted_ratio(lkaat_tokens, lkaat_overlap)
+    except Exception:
+        best_lkaat_code = None
+        best_lkaat_match_ratio = 0.0
+    ranked = cast(
+        List[Tuple[float, str]],
+        rank_leistungskatalog_entries(
+            tokens,
+            analogie_index,
+            analogie_token_doc_freq,
+            limit=5,
+            return_scores=True,
+            include_medical_interpretation=False,
+        ),
+    )
+    if not ranked:
+        return None
+    today = dt.date.today()
+    for score, entry_id in ranked:
+        entry = analogie_entries_by_id.get(str(entry_id))
+        if not entry:
+            continue
+        if not _is_analogie_entry_current(entry, today):
+            continue
+        entry_tokens_all = analogie_tokens_by_id.get(str(entry_id), set())
+        entry_tokens_for_match = entry_tokens_all
+        lang_text = _get_analogie_entry_text(entry, "beschreibung", lang)
+        if isinstance(lang_text, str) and lang_text.strip():
+            lang_tokens = extract_keywords(lang_text)
+            if lang_tokens:
+                entry_tokens_for_match = lang_tokens
+        overlap = tokens.intersection(entry_tokens_for_match)
+        match_ratio = _weighted_ratio(entry_tokens_for_match, overlap)
+        distinctive_overlap: Set[str] = set()
+        if ANALOGIE_DISTINCTIVE_TOKENS > 0 and token_doc_freq and entry_tokens_for_match:
+            lang_tokens = entry_tokens_for_match
+            sorted_tokens = sorted(
+                lang_tokens,
+                key=lambda t: token_doc_freq.get(t, catalog_size),
+            )
+            distinctive_tokens = set(sorted_tokens[:ANALOGIE_DISTINCTIVE_TOKENS])
+            distinctive_overlap = overlap.intersection(distinctive_tokens)
+            if ANALOGIE_MIN_DISTINCTIVE_OVERLAP > 0 and len(distinctive_overlap) < ANALOGIE_MIN_DISTINCTIVE_OVERLAP:
+                continue
+        if score < ANALOGIE_MIN_SCORE:
+            continue
+        if len(overlap) < ANALOGIE_MIN_MATCH_TOKENS:
+            continue
+        min_ratio_required = ANALOGIE_MIN_MATCH_RATIO
+        if (
+            ANALOGIE_MIN_DISTINCTIVE_OVERLAP > 0
+            and len(distinctive_overlap) >= ANALOGIE_MIN_DISTINCTIVE_OVERLAP
+        ):
+            min_ratio_required = ANALOGIE_MIN_MATCH_RATIO_DISTINCTIVE
+        if match_ratio < min_ratio_required:
+            continue
+        if best_lkaat_code and best_lkaat_code != str(entry.get("analogie_code", "")).strip().upper():
+            if best_lkaat_match_ratio and match_ratio < (best_lkaat_match_ratio * ANALOGIE_MIN_SCORE_RATIO):
+                continue
+        matched = dict(entry)
+        matched["_match"] = {
+            "score": score,
+            "ratio": match_ratio,
+            "tokens": sorted(overlap),
+            "distinctive_tokens": sorted(distinctive_overlap),
+        }
+        return matched
+    return None
+
+
+def _get_analogie_entry_text(entry: Dict[str, Any], base_key: str, lang: str) -> Optional[str]:
+    if not isinstance(entry, dict):
+        return None
+    key_lang = f"{base_key}_{lang}" if lang in {"fr", "it"} else base_key
+    for key in (key_lang, base_key, f"{base_key}_de"):
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _build_analogie_abrechnung(entry: Dict[str, Any], lang: str) -> Dict[str, Any]:
+    analogie_code = str(entry.get("analogie_code", "")).strip().upper()
+    reserve_code = str(entry.get("reserve_code", "")).strip().upper()
+    analogie_beschreibung = _get_analogie_entry_text(entry, "beschreibung", lang)
+    analogie_hint = _get_analogie_entry_text(entry, "hinweis", lang)
+    lkaat_analogie_desc = get_localized_text(leistungskatalog_dict.get(analogie_code, {}), "Beschreibung", lang)
+    lkaat_reserve_desc = get_localized_text(leistungskatalog_dict.get(reserve_code, {}), "Beschreibung", lang)
+    details = {
+        "analogie_code": analogie_code,
+        "reserve_code": reserve_code,
+        "analogie_beschreibung": analogie_beschreibung,
+        "reserve_beschreibung": lkaat_reserve_desc,
+        "lkaat_beschreibung": lkaat_analogie_desc,
+        "gueltig_ab": entry.get("gueltig_ab"),
+        "gueltig_bis": entry.get("gueltig_bis"),
+        "quelle": entry.get("quelle"),
+        "quelle_datum": entry.get("quelle_datum"),
+        "regelpruefung_uebersprungen": True,
+    }
+    if entry.get("_match"):
+        details["match_info"] = entry.get("_match")
+    return {
+        "type": "Analogie",
+        "details": details,
+        "hinweis": analogie_hint or "Reservecode dient ausschliesslich der Dokumentation und hat keinen Leistungsbezug.",
+    }
 
 
 def _load_rules() -> bool:
@@ -2724,22 +3375,44 @@ def _build_indices(all_loaded_successfully: bool) -> bool:
 
     pauschale_lp_index.clear()
     pauschale_lp_index_by_lkn.clear()
-    if pauschale_lp_data and pauschalen_dict:
-        for entry in pauschale_lp_data:
-            lkn_val = entry.get("Leistungsposition")
-            pc_val = entry.get("Pauschale")
-            if not (lkn_val and pc_val):
-                continue
-            lkn_key = str(lkn_val).strip().upper()
-            pc_key = str(pc_val).strip()
-            if lkn_key and pc_key in pauschalen_dict:
-                pauschale_lp_index[pc_key].add(lkn_key)
-                pauschale_lp_index_by_lkn[lkn_key].add(pc_key)
-        logger.info(
-            "  Pauschale-LP-Index aufgebaut (%s Pauschalen, %s direkte LKN-Zuordnungen).",
-            len(pauschale_lp_index),
-            sum(len(v) for v in pauschale_lp_index.values()),
-        )
+    if pauschalen_dict:
+        def _add_lp_link(pauschale_code: Any, lkn_code: Any) -> None:
+            pc_key = str(pauschale_code).strip()
+            lkn_key = str(lkn_code).strip().upper()
+            if not pc_key or not lkn_key or pc_key not in pauschalen_dict:
+                return
+            pauschale_lp_index[pc_key].add(lkn_key)
+            pauschale_lp_index_by_lkn[lkn_key].add(pc_key)
+
+        used_precomputed_lp = False
+        if _has_precomputed_lp_index_maps():
+            used_precomputed_lp = True
+            for map_in in (precomputed_pauschale_lkn_precise, precomputed_pauschale_lkn_broad):
+                for pauschale_code, lkn_list in map_in.items():
+                    if not isinstance(lkn_list, list):
+                        continue
+                    for lkn in lkn_list:
+                        _add_lp_link(pauschale_code, lkn)
+            for map_in in (precomputed_lkn_pauschalen_precise, precomputed_lkn_pauschalen_broad):
+                for lkn_code, pauschale_list in map_in.items():
+                    if not isinstance(pauschale_list, list):
+                        continue
+                    for pauschale_code in pauschale_list:
+                        _add_lp_link(pauschale_code, lkn_code)
+
+        if not used_precomputed_lp and pauschale_lp_data:
+            for entry in pauschale_lp_data:
+                if not isinstance(entry, dict):
+                    continue
+                _add_lp_link(entry.get("Pauschale"), entry.get("Leistungsposition"))
+
+        if pauschale_lp_index:
+            logger.info(
+                "  Pauschale-LP-Index aufgebaut (%s Pauschalen, %s direkte LKN-Zuordnungen%s).",
+                len(pauschale_lp_index),
+                sum(len(v) for v in pauschale_lp_index.values()),
+                " aus precomputed Maps" if used_precomputed_lp else "",
+            )
 
     pauschale_cond_lkn_index.clear()
     pauschale_cond_lkn_index_by_lkn.clear()
@@ -2789,6 +3462,7 @@ def load_data() -> bool:
 
     all_loaded_successfully = _load_catalogs()
     _load_optional_datasets()
+    _load_analogie_dataset()
     all_loaded_successfully = _load_rules() and all_loaded_successfully
     all_loaded_successfully = _build_indices(all_loaded_successfully) and all_loaded_successfully
 
@@ -3031,15 +3705,146 @@ def parse_llm_json_response(raw_text_response: str) -> Union[Dict[str, Any], Lis
     raise json.JSONDecodeError("Could not parse LLM JSON response", raw_text_response or "", 0)
 
 
+_STAGE1_CODE_TOKEN_RE = re.compile(r"\b[A-Z]{1,3}\.[A-Z0-9]{2}\.[A-Z0-9]{2,5}\b")
+
+
+def _extract_stage1_code_candidates(value: Any) -> List[str]:
+    """Extrahiert mögliche LKN-Codes aus Strings/Skalaren (robuster Fallback)."""
+    if value is None:
+        return []
+    text = str(value).strip()
+    if not text:
+        return []
+
+    normalized = text.upper()
+    matches = _STAGE1_CODE_TOKEN_RE.findall(normalized)
+    if matches:
+        return list(dict.fromkeys(matches))
+
+    # Letzter Fallback für Antworten wie "AA.00.0010, CA.00.0020" ohne saubere JSON-Struktur.
+    if isinstance(value, str):
+        fallback_tokens: List[str] = []
+        for token in re.split(r"[,\n;]+", normalized):
+            candidate = token.strip().strip('"').strip("'")
+            if 6 <= len(candidate) <= 24 and "." in candidate and " " not in candidate:
+                fallback_tokens.append(candidate)
+        return list(dict.fromkeys(fallback_tokens))
+    return []
+
+
+def _coerce_stage1_identified_items(item: Any) -> List[Dict[str, Any]]:
+    """Normalisiert ein Listenelement in ``identified_leistungen``-Einträge."""
+    if isinstance(item, dict):
+        raw_lkn = (
+            item.get("lkn")
+            or item.get("LKN")
+            or item.get("code")
+            or item.get("Code")
+            or item.get("leistungscode")
+        )
+        codes = _extract_stage1_code_candidates(raw_lkn)
+        if not codes:
+            return []
+
+        menge_raw = (
+            item.get("menge")
+            if item.get("menge") is not None
+            else item.get("qty")
+            if item.get("qty") is not None
+            else item.get("quantity")
+            if item.get("quantity") is not None
+            else item.get("anzahl")
+        )
+        typ_raw = item.get("typ") if item.get("typ") is not None else item.get("type")
+        desc_raw = item.get("beschreibung")
+        results: List[Dict[str, Any]] = []
+        for code in codes:
+            entry: Dict[str, Any] = {
+                "lkn": code,
+                "menge": menge_raw if menge_raw is not None else 1,
+            }
+            if typ_raw is not None:
+                entry["typ"] = typ_raw
+            if isinstance(desc_raw, str) and desc_raw.strip():
+                entry["beschreibung"] = desc_raw
+            results.append(entry)
+        return results
+
+    if isinstance(item, (list, tuple)) and item:
+        codes = _extract_stage1_code_candidates(item[0])
+        if not codes:
+            return []
+        menge_raw = item[1] if len(item) > 1 else 1
+        return [{"lkn": code, "menge": menge_raw} for code in codes]
+
+    codes = _extract_stage1_code_candidates(item)
+    return [{"lkn": code, "menge": 1} for code in codes]
+
+
+def _normalize_stage1_list_response(raw_response: List[Any], provider_label: str) -> Dict[str, Any]:
+    """Wandelt Listen-Antworten aus Stage 1 in das erwartete Objekt-Format um."""
+    wrapper_dict = next(
+        (
+            item
+            for item in raw_response
+            if isinstance(item, dict)
+            and any(key in item for key in ("identified_leistungen", "extracted_info", "begruendung_llm"))
+        ),
+        None,
+    )
+    if wrapper_dict is not None:
+        if len(raw_response) > 1:
+            logger.warning(
+                "%s_WARN: JSON-Antwort war eine Liste mit mehreren Elementen; erstes Stage-1-Objekt wird verwendet.",
+                provider_label,
+            )
+        else:
+            logger.info(
+                "%s_INFO: JSON-Antwort war eine Liste, Stage-1-Objekt wurde extrahiert.",
+                provider_label,
+            )
+        return cast(Dict[str, Any], wrapper_dict)
+
+    identified_items: List[Dict[str, Any]] = []
+    for item in raw_response:
+        identified_items.extend(_coerce_stage1_identified_items(item))
+    if identified_items:
+        logger.warning(
+            "%s_WARN: Stage-1-Antwort kam als Liste (%s Elemente) und wurde als identified_leistungen normalisiert (%s Einträge).",
+            provider_label,
+            len(raw_response),
+            len(identified_items),
+        )
+        return {
+            "identified_leistungen": identified_items,
+            "extracted_info": {},
+            "begruendung_llm": "Fallback: Listenantwort in identified_leistungen normalisiert.",
+        }
+
+    first_dict = next((item for item in raw_response if isinstance(item, dict)), None)
+    if first_dict is not None:
+        logger.warning(
+            "%s_WARN: Stage-1-Liste ohne verwertbares Schema; erstes Objekt wird als Basis verwendet.",
+            provider_label,
+        )
+        return cast(Dict[str, Any], first_dict)
+
+    logger.warning(
+        "%s_WARN: Antwort ist eine Liste ohne verwertbare Codes/Objekte (%s Elemente). Verwende leere Stage-1-Struktur.",
+        provider_label,
+        len(raw_response),
+    )
+    return {
+        "identified_leistungen": [],
+        "extracted_info": {},
+        "begruendung_llm": "Fallback: Liste ohne verwertbares Stage-1-Format.",
+    }
+
+
 def validate_stage1_result(raw_response: Any, provider_label: str = "LLM_S1") -> Dict[str, Any]:
     """Validiert und normalisiert das Ergebnis der LLM-Stufe 1 für alle Provider."""
     if isinstance(raw_response, list):
-        if len(raw_response) == 1 and isinstance(raw_response[0], dict):
-            llm_response_json = cast(Dict[str, Any], raw_response[0])
-            logger.info("%s_INFO: JSON-Antwort war eine Liste, erstes Element wurde extrahiert.", provider_label)
-        else:
-            logger.error("%s_ERROR: Antwort ist eine Liste, aber nicht im erwarteten Format (einelementige Liste mit Objekt): %s", provider_label, type(raw_response))
-            raise ValueError("Antwort ist eine Liste, aber nicht im erwarteten Format.")
+        llm_response_json = _normalize_stage1_list_response(raw_response, provider_label)
     elif isinstance(raw_response, dict):
         llm_response_json = raw_response
     else:
@@ -6429,6 +7234,8 @@ def analyze_billing():
         logger.error("Daten nicht geladen. App-Start fehlgeschlagen?")
         return jsonify({"error": "Server data not loaded."}), 503
 
+    analogie_candidate = _find_analogie_match(user_input, lang)
+
     try:
         katalog_context_str, top_ranking_results, query_variants = _build_context_for_llm(user_input, lang)
         llm_stage1_result, s1_tokens = call_llm_stage1(user_input, katalog_context_str, lang, query_variants=query_variants)
@@ -6513,6 +7320,47 @@ def analyze_billing():
                     logger.info("Anästhesie-Hinweis erkannt; füge %s als Kontext-Hinweis hinzu.", candidate)
                     break
 
+    pauschale_context_used: Optional[Dict[str, Any]] = None
+    finale_abrechnung_obj: Optional[Dict[str, Any]] = None
+    llm_stage2_mapping_results: Dict[str, Any] = {}
+    analogie_active = False
+    analogie_reason = None
+    analogie_payload: Optional[Dict[str, Any]] = None
+    if analogie_candidate:
+        analogie_code = str(analogie_candidate.get("analogie_code", "")).strip().upper()
+        analogie_active = True
+        if analogie_code and analogie_code in stage1_validated_code_list:
+            analogie_reason = "lkn_match"
+        elif not rule_checked_leistungen_list:
+            analogie_reason = "no_valid_lkn"
+        else:
+            analogie_reason = "keyword_match"
+        if analogie_active:
+            analogie_payload = _build_analogie_abrechnung(analogie_candidate, lang)
+            if analogie_code and analogie_code not in stage1_validated_code_list:
+                stage1_validated_code_list.append(analogie_code)
+            if analogie_code:
+                existing_codes = {
+                    item.get("lkn", "").strip().upper()
+                    for item in final_validated_llm_leistungen
+                    if isinstance(item, dict) and isinstance(item.get("lkn"), str)
+                }
+                if analogie_code not in existing_codes:
+                    katalog_entry = leistungskatalog_dict.get(analogie_code, {})
+                    final_validated_llm_leistungen.append(
+                        {
+                            "lkn": analogie_code,
+                            "typ": katalog_entry.get("Typ", "N/A"),
+                            "beschreibung": katalog_entry.get("Beschreibung", "N/A"),
+                            "menge": 1,
+                        }
+                    )
+            logger.info(
+                "Analogie-Info aktiv (%s): %s + %s",
+                analogie_reason,
+                analogie_payload.get("details", {}).get("analogie_code"),
+                analogie_payload.get("details", {}).get("reserve_code"),
+            )
     strict_stage1_code_list = list(stage1_validated_code_list)
 
     candidate_codes = [code for _, code in top_ranking_results if (len(top_ranking_results) <= 1 or not final_validated_llm_leistungen or (top_ranking_results[0][0] / (top_ranking_results[1][0] or 1)) <= 1.5)]
@@ -6644,7 +7492,6 @@ def analyze_billing():
                 "Ranking-Hinweise in LLM-Identifikation übernommen: %s",
                 added_hints,
             )
-    pauschale_context_used: Optional[Dict[str, Any]] = None
     if fallback_pauschale_search:
         llm_stage2_mapping_results = {}
         finale_abrechnung_obj = None
@@ -6788,6 +7635,19 @@ def analyze_billing():
         }
         finale_abrechnung_obj, llm_stage2_mapping_results = _determine_final_billing(rule_checked_leistungen_list, regel_ergebnisse_details_list, user_input, lang, billing_context, token_usage)
         pauschale_context_used = billing_context.get("pauschale_haupt_pruef_kontext")
+
+    if analogie_payload:
+        if finale_abrechnung_obj and finale_abrechnung_obj.get("type") == "Pauschale":
+            details = finale_abrechnung_obj.setdefault("details", {})
+            if isinstance(details, dict):
+                analogie_details = analogie_payload.get("details", {})
+                if isinstance(analogie_details, dict):
+                    analogie_details = dict(analogie_details)
+                    if analogie_payload.get("hinweis") and not analogie_details.get("hinweis"):
+                        analogie_details["hinweis"] = analogie_payload.get("hinweis")
+                    details["analogie"] = analogie_details
+        else:
+            finale_abrechnung_obj = analogie_payload
 
     rule_time = time.time()
     logger.info(f"[{request_id}] Zeit nach Regelprüfung: {rule_time - llm1_time:.2f}s")
@@ -7090,7 +7950,7 @@ def test_example():
     def simplify(result_dict: dict) -> dict:
         """Mappe die komplexe Analyseantwort auf das einfache Baseline-Schema."""
         if not isinstance(result_dict, dict):
-            return {'pauschale': None, 'einzelleistungen': []}
+            return {'pauschale': None, 'einzelleistungen': [], 'analogie': None}
         abrechnung = result_dict.get('abrechnung') or {}
         if not isinstance(abrechnung, dict):
             abrechnung = {}
@@ -7100,7 +7960,27 @@ def test_example():
                 details = {}
             pc = details.get('Pauschale')
             pauschale = {'code': pc, 'qty': 1} if pc else None
-            return {'pauschale': pauschale, 'einzelleistungen': []}
+            analogie_info = details.get('analogie')
+            analogie = None
+            if isinstance(analogie_info, dict):
+                analogie_code = analogie_info.get('analogie_code')
+                reserve_code = analogie_info.get('reserve_code')
+                if analogie_code or reserve_code:
+                    analogie = {'analogie_code': analogie_code, 'reserve_code': reserve_code}
+            return {'pauschale': pauschale, 'einzelleistungen': [], 'analogie': analogie}
+        if abrechnung.get('type') == 'Analogie':
+            details = abrechnung.get('details') or {}
+            if not isinstance(details, dict):
+                details = {}
+            analogie = None
+            analogie_code = details.get('analogie_code')
+            reserve_code = details.get('reserve_code')
+            if analogie_code or reserve_code:
+                analogie = {
+                    'analogie_code': analogie_code,
+                    'reserve_code': reserve_code,
+                }
+            return {'pauschale': None, 'einzelleistungen': [], 'analogie': analogie}
         if abrechnung.get('type') == 'TARDOC':
             leistungen = abrechnung.get('leistungen') or []
             eins = [
@@ -7108,8 +7988,8 @@ def test_example():
                 for l in leistungen
                 if isinstance(l, dict) and l.get('lkn')
             ]
-            return {'pauschale': None, 'einzelleistungen': eins}
-        return {'pauschale': None, 'einzelleistungen': []}
+            return {'pauschale': None, 'einzelleistungen': eins, 'analogie': None}
+        return {'pauschale': None, 'einzelleistungen': [], 'analogie': None}
 
     result = simplify(analysis_full)
 
@@ -7120,6 +8000,8 @@ def test_example():
         parts = []
         if expected.get('pauschale') != actual.get('pauschale'):
             parts.append(f"pauschale {expected.get('pauschale')} != {actual.get('pauschale')}")
+        if expected.get('analogie') != actual.get('analogie'):
+            parts.append(f"analogie {expected.get('analogie')} != {actual.get('analogie')}")
         exp_map = {i['code']: i.get('qty', 1) for i in expected.get('einzelleistungen', []) if isinstance(i, dict) and i.get('code')}
         act_map = {i['code']: i.get('qty', 1) for i in actual.get('einzelleistungen', []) if isinstance(i, dict) and i.get('code')}
         for code, qty in exp_map.items():

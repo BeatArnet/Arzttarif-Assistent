@@ -23,3 +23,7 @@ Hinweise
 - Skripte sind optional und verändern lokale Repositories/Dateien. Vor Ausführung Pfade/Parameter prüfen.
 - Erfordern Git und passende Rechte. Ausführung z. B.: `powershell -ExecutionPolicy Bypass -File scripts/<skript>.ps1`.
 - Für Python‑Hilfen: aktivierte venv verwenden, z. B. `venv\Scripts\python scripts\clean_json.py data\file.json`.
+- Qualitätsrunner im Projekt-Root:
+  - `python run_quality_tests.py` (Baseline-/Beispieltests)
+  - `python run_pauschalen_quality_control.py` (harte Datenchecks + HTML/JSON-Report)
+- Vollständige Übersicht inkl. Betriebsablauf: `doku/HILFSSKRIPTE.md`.
