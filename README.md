@@ -118,6 +118,22 @@ Die Anwendung kann auf Plattformen wie Render.com deployed werden. Hierfür sind
 
 Im Render-Dashboard kann man die Server-Logs einsehen. Rufe den entsprechenden Service auf und wähle den Reiter **Logs**. Oben rechts lässt sich ein Zeitraum festlegen. Über das Suchfeld kann dann nach `inputText` gesucht werden, um die Anfragen in diesem Zeitraum zu filtern.
 
+## Deployment auf Ubuntu-Server (`/opt/apps/Arzttarif`)
+
+Für den Zielbetrieb auf Ubuntu mit `systemd` + `nginx` (Hostname `arnet.internet-box.ch`) steht ein Migrationspaket bereit:
+
+- Skript: `deploy/ubuntu/migrate_Arzttarif_to_ubuntu.sh`
+- Service-Template: `deploy/ubuntu/arzttarif.service.template`
+- Nginx-Template: `deploy/ubuntu/nginx-arzttarif.conf.template`
+- Detaillierte Schritt-für-Schritt-Anleitung: `doku/MIGRATION_UBUNTU_SERVER.md`
+
+Kurzstart auf dem Server:
+```bash
+sudo bash deploy/ubuntu/migrate_Arzttarif_to_ubuntu.sh \
+  --app-dir /opt/apps/Arzttarif \
+  --domain arnet.internet-box.ch
+```
+
 ## Qualitätstests
 
 Die Datei `data/beispiele.json` enthält Testfälle. Mit `run_quality_tests.py` können diese gegen die erwarteten Ergebnisse in `data/baseline_results.json` geprüft werden (inkl. Pauschale, Einzelleistungen und optional Analogie/Reservecode):
