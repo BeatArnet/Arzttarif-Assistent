@@ -1,8 +1,0 @@
-{
-  "python.testing.pytestArgs": ["."],
-  "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true,
-  "python.analysis.diagnosticMode": "workspace",
-  "files.autoSave": "onFocusChange",
-  "git.saveBeforeCommit": "always",
-  "explorer.openEditors.visible": 15}
