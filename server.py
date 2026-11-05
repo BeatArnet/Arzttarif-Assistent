@@ -1954,13 +1954,15 @@ def create_app() -> FlaskType:
     """
     if USING_FLASK_STUB and not os.getenv("ALLOW_FLASK_STUBS"):
         raise RuntimeError("Flask ist nicht installiert. Bitte 'pip install flask flask-compress' ausführen oder ALLOW_FLASK_STUBS=1 setzen (nur für Tests).")
-    app = FlaskType(__name__, static_folder='.', static_url_path='')
+    # Flask's automatic static route would bypass serve_static's access checks.
+    app = FlaskType(__name__, static_folder=None)
     # Stelle sicher, dass alle JSON-Antworten UTF-8 liefern und nicht auf ASCII
     # zurückfallen. Ohne dieses Flag werden Umlaute in Kombination mit bestimmten
     # Browsern als "Prüflogik" dargestellt.
     app.config.update(
         JSON_AS_ASCII=False,
         JSONIFY_MIMETYPE="application/json; charset=utf-8",
+        MAX_CONTENT_LENGTH=1024 * 1024,
     )
 
     @app.before_request
@@ -5668,11 +5670,14 @@ def _parse_billing_request(request: "Request") -> Dict[str, Any]:
     if not request.is_json:
         raise ValueError("Request must be JSON")
 
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError("Request must be a JSON object")
     user_input = data.get('inputText', "")
-    if isinstance(user_input, str):
-        # Vereinheitliche typografische Apostrophe und Gravis, damit Suche/Synonyme greifen.
-        user_input = user_input.replace("'", "'").replace("'", "'").replace("`", "'")
+    if not isinstance(user_input, str):
+        raise ValueError("'inputText' muss eine Zeichenkette sein")
+    # Vereinheitliche typografische Apostrophe und Gravis.
+    user_input = user_input.replace("’", "'").replace("‘", "'").replace("`", "'")
     if not user_input.strip():
         raise ValueError("'inputText' darf nicht leer sein")
     heuristic_demo: PatientDemographics = extract_patient_demographics(user_input)
@@ -5682,6 +5687,8 @@ def _parse_billing_request(request: "Request") -> Dict[str, Any]:
         lang = 'de'
 
     icd_input_raw = data.get('icd', [])
+    if not isinstance(icd_input_raw, list):
+        raise ValueError("'icd' muss eine Liste sein")
     medications_raw = data.get('medications')
     if medications_raw is None:
         medications_raw = data.get('medikamente')
@@ -8199,7 +8206,13 @@ _STATIC_ALLOWED_FILES: Set[str] = {
     "favicon-512.png",
     "robots.txt",
 }
-_STATIC_ALLOWED_DIRS: Set[str] = {"data"}
+_STATIC_ALLOWED_DATA_FILES: Set[str] = {
+    "data/beispiele.json", "data/LKAAT_Leistungskatalog.json",
+    "data/PAUSCHALEN_Leistungspositionen.json", "data/PAUSCHALEN_Pauschalen.json",
+    "data/PAUSCHALEN_Bedingungen.json", "data/TARDOC_Tarifpositionen.json",
+    "data/PAUSCHALEN_Tabellen.json", "data/TARDOC_Interpretationen.json",
+    "data/DIGNITAETEN.json",
+}
 _STATIC_ALLOWED_TEXT_FILES: Set[str] = {"robots.txt"}
 _STATIC_BLOCKED_SUFFIXES: Set[str] = {".py", ".env"}
 _STATIC_SUFFIX_MIME_TYPES: Dict[str, str] = {
@@ -8226,7 +8239,7 @@ def _is_static_request_allowed(filename: str, file_path: Path) -> bool:
     """Return True if the static path is explicitly allowed."""
     if filename in _STATIC_ALLOWED_FILES:
         return True
-    if file_path.parts and file_path.parts[0] in _STATIC_ALLOWED_DIRS:
+    if filename in _STATIC_ALLOWED_DATA_FILES:
         return True
     return False
 
@@ -8344,7 +8357,7 @@ def _run_local() -> None:
     # log level is set to WARNING. This ensures users always see where to open
     # the HTML interface.
     logger.warning("🚀 Lokal verfügbar auf http://127.0.0.1:%s", port)
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="127.0.0.1", port=port, debug=False)
 
 
 if __name__ == "__main__" and os.getenv("RENDER_SERVICE_TYPE") is None:
